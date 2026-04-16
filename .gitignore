@@ -1,0 +1,12 @@
+# Lean 4 build artifacts
+/.lake/
+/build/
+
+# Lean 3 (if applicable)
+/_target/
+/*.olean
+/*.extra
+
+# Editor & OS temporary files
+.DS_Store
+.lake/
