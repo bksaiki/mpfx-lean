@@ -52,15 +52,21 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 ## Phase 6 — Double rounding (`Mpfx/DoubleRounding.lean`)
 
-Each: state per Fig. 9, prove using Phase 4–5 infrastructure.
+Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → RoundsXX F₁ x w`
+(matches paper's reasoning style; sidesteps constructive `rnd` definition).
 
-- [ ] `rndRTZ_RTZ`.
-- [ ] `rndRAZ_RAZ`.
+- [x] `rndRTZ_RTZ` (general `x ∈ ℝ`).
+- [x] `rndRAZ_RAZ` (general `x ∈ ℝ`; combines `_pos` case + `RoundsRAZ.neg` for `x < 0` + `neg_mem`-based handling of `x = 0`).
 - [ ] `rndRTO_RTO_O` (case `b₁` odd in `𝒜(p₁, exp₁, b₁)`).
 - [ ] `rndRTO_RTO_E` (case `b₁` even).
 - [ ] `rndRTO_RTZ`.
 - [ ] `rndRTO_RAZ`.
 - [ ] `rndRTO_RNE`.
+
+**Infrastructure added along the way:**
+- [x] `RoundsDown`, `RoundsUp`, `RoundsRTZ`, `RoundsRAZ` predicates (`Mpfx/Rounding.lean`).
+- [x] `RoundsDown.compose`, `RoundsUp.compose` (parametric building blocks).
+- [x] `AbstractFormat.neg_mem`: every format is closed under negation (`Mpfx/Format.lean`).
 
 ## Phase 7 — Smoke tests / sanity (`Mpfx/Tests.lean`)
 

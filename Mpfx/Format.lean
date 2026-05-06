@@ -40,6 +40,43 @@ theorem mem_iff (F : AbstractFormat) (x : Dyadic) :
             Dyadic.quantumAtLeast F.exp x ∧
             boundOK F.b x := Iff.rfl
 
+/-- Every abstract format is closed under negation: `precisionAtMost`,
+`quantumAtLeast`, and the bound `|·| ≤ b` are all sign-invariant. -/
+theorem neg_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F) : -x ∈ F := by
+  obtain ⟨hp, hq, hb⟩ := hx
+  refine ⟨?_, ?_, ?_⟩
+  · -- precisionAtMost is sign-invariant
+    revert hp
+    cases F.p with
+    | top => intro _; trivial
+    | coe n =>
+      rintro ⟨c, e, hxeq, hc⟩
+      refine ⟨-c, e, ?_, ?_⟩
+      · change ((-x : Dyadic) : ℝ) = _
+        push_cast
+        rw [hxeq]; ring
+      · simpa using hc
+  · -- quantumAtLeast is sign-invariant
+    revert hq
+    cases F.exp with
+    | bot => intro _; trivial
+    | coe n =>
+      rintro ⟨c, hxeq⟩
+      refine ⟨-c, ?_⟩
+      change ((-x : Dyadic) : ℝ) = _
+      push_cast
+      rw [hxeq]; ring
+  · -- bound is sign-invariant
+    revert hb
+    cases F.b with
+    | top => intro _; trivial
+    | coe d =>
+      intro hb
+      change |((-x : Dyadic) : ℝ)| ≤ (d : ℝ)
+      push_cast
+      rw [abs_neg]
+      exact hb
+
 end AbstractFormat
 
 end Mpfx
