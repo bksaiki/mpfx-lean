@@ -58,9 +58,8 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [x] `rndRTZ_RTZ` (general `x ∈ ℝ`).
 - [x] `rndRAZ_RAZ` (general `x ∈ ℝ`; combines `_pos` case + `RoundsRAZ.neg` for `x < 0` + `neg_mem`-based handling of `x = 0`).
 - [~] `rndRTO_RTO_of_mem` proved (trivial case `x ∈ F₁`); full `rndRTO_RTO_O` / `rndRTO_RTO_E` blocked on Lemma 5.3.
-- [x] `rndRTO_RTZ_pos`: positive case `0 < x` (uses Lemma 5.3 + `0 ∈ F₁`); full theorem follows by symmetry + `x = 0`.
-- [ ] `rndRTO_RTZ`.
-- [ ] `rndRTO_RAZ`.
+- [x] `rndRTO_RTZ_pos`, `rndRTO_RAZ_pos`: positive case `0 < x`.
+- [x] **`rndRTO_RTZ`, `rndRTO_RAZ` (general, all `x ∈ ℝ`)**: combine `_pos` + `RoundsRTO.neg` / `RoundsRTZ.neg` / `RoundsRAZ.neg` symmetry; `x = 0` case is vacuous from `hwk` + `hk : 1 ≤ k`.
 - [ ] `rndRTO_RNE`.
 
 **Infrastructure added along the way:**

@@ -74,6 +74,16 @@ theorem numDigits_shift (p : ℕ∞) (exp : WithBot ℤ) (k : ℕ) (x : ℝ) (hx
     rw [h1]
     omega
 
+/-- `numDigits` is invariant under negation of `x`: `|x| = |-x|`. -/
+theorem numDigits_neg (p : ℕ∞) (exp : WithBot ℤ) (x : ℝ) :
+    numDigits p exp (-x) = numDigits p exp x := by
+  unfold numDigits
+  by_cases hx : x = 0
+  · subst hx; simp
+  · have hxne' : -x ≠ 0 := neg_ne_zero.mpr hx
+    have habs : |(-x)| = |x| := abs_neg x
+    simp only [hx, hxne', ↓reduceIte, habs]
+
 end AbstractFormat
 
 end Mpfx

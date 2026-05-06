@@ -171,6 +171,27 @@ def IsEvenAtP (p : ℕ) (y : Dyadic) : Prop :=
 
 @[simp] theorem isEvenAtP_zero (p : ℕ) : IsEvenAtP p 0 := Or.inl rfl
 
+/-- `IsOddAtP` is invariant under negation: parity of `c` is preserved by `-c`. -/
+theorem isOddAtP_neg (p : ℕ) (y : Dyadic) : IsOddAtP p (-y) ↔ IsOddAtP p y := by
+  constructor
+  · rintro ⟨c, e, hyeq, hlow, hhigh, hodd⟩
+    refine ⟨-c, e, ?_, ?_, ?_, ?_⟩
+    · have : ((-y : Dyadic) : ℝ) = -(y : ℝ) := by push_cast; rfl
+      rw [this] at hyeq
+      have : (y : ℝ) = -((c : ℝ)) * (2 : ℝ) ^ e := by linarith [hyeq]
+      rw [this]; push_cast; ring
+    · simpa using hlow
+    · simpa using hhigh
+    · exact Odd.neg hodd
+  · rintro ⟨c, e, hyeq, hlow, hhigh, hodd⟩
+    refine ⟨-c, e, ?_, ?_, ?_, ?_⟩
+    · change ((-y : Dyadic) : ℝ) = (((-c : ℤ)) : ℝ) * (2 : ℝ) ^ e
+      push_cast
+      rw [hyeq]; ring
+    · simpa using hlow
+    · simpa using hhigh
+    · exact Odd.neg hodd
+
 /-- **Lemma 5.3 core**: If `y` is representable at precision `w`, then at any
 strictly higher precision `w + k` (`k ≥ 1`), `y` cannot have an odd `(w+k)`-bit
 significand. Equivalently: precision-`w`-representable values are "even at

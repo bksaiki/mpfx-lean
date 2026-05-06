@@ -97,6 +97,72 @@ theorem rndRTZ_RTZ {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
         exact mul_nonneg hy_ge hzgt.le
     exact hwmax y hyF₁ hyz_le hyz_sign
 
+/-- Sign-flip symmetry for RTZ rounding. -/
+theorem RoundsRTZ.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
+    (h : RoundsRTZ F x y) : RoundsRTZ F (-x) (-y) := by
+  obtain ⟨hyF, hbnd, hsign, hmax⟩ := h
+  refine ⟨neg_mem hyF, ?_, ?_, ?_⟩
+  · change |((-y : Dyadic) : ℝ)| ≤ |(-x)|
+    push_cast
+    rw [abs_neg, abs_neg]
+    exact hbnd
+  · change ((-y : Dyadic) : ℝ) * (-x) ≥ 0
+    push_cast
+    have : -(y : ℝ) * -x = (y : ℝ) * x := by ring
+    rw [this]
+    exact hsign
+  · intro z hzF hzbnd hzsign
+    rw [abs_neg] at hzbnd
+    have hnz : (-z) ∈ F := neg_mem hzF
+    have h1 : |((-z : Dyadic) : ℝ)| ≤ |x| := by push_cast; rw [abs_neg]; exact hzbnd
+    have h2 : 0 ≤ ((-z : Dyadic) : ℝ) * x := by
+      push_cast
+      have hzs : 0 ≤ (z : ℝ) * (-x) := hzsign
+      linarith
+    have key := hmax (-z) hnz h1 h2
+    have habs1 : |((-z : Dyadic) : ℝ)| = |(z : ℝ)| := by push_cast; rw [abs_neg]
+    have habs2 : |((-y : Dyadic) : ℝ)| = |(y : ℝ)| := by push_cast; rw [abs_neg]
+    rw [habs1] at key
+    rw [habs2]
+    exact key
+
+/-- Sign-flip symmetry for RTO rounding. -/
+theorem RoundsRTO.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
+    (h : RoundsRTO F x y) : RoundsRTO F (-x) (-y) := by
+  obtain ⟨hyF, hadj, hodd_imp⟩ := h
+  refine ⟨neg_mem hyF, ?_, ?_⟩
+  · -- RoundsDown ↔ RoundsUp under negation
+    rcases hadj with hRD | hRU
+    · right
+      obtain ⟨_, hyx, hmax⟩ := hRD
+      refine ⟨neg_mem hyF, ?_, ?_⟩
+      · push_cast; linarith
+      · intro z hzF hxz
+        push_cast
+        have hnzF : (-z) ∈ F := neg_mem hzF
+        have h1 : ((-z : Dyadic) : ℝ) ≤ x := by push_cast; linarith
+        have key := hmax (-z) hnzF h1
+        push_cast at key; linarith
+    · left
+      obtain ⟨_, hxy, hmin⟩ := hRU
+      refine ⟨neg_mem hyF, ?_, ?_⟩
+      · push_cast; linarith
+      · intro z hzF hzx
+        push_cast
+        have hnzF : (-z) ∈ F := neg_mem hzF
+        have h1 : x ≤ ((-z : Dyadic) : ℝ) := by push_cast; linarith
+        have key := hmin (-z) hnzF h1
+        push_cast at key; linarith
+  · intro hxne
+    have hxne' : x ≠ (y : ℝ) := by
+      intro h_eq
+      apply hxne
+      rw [h_eq]; push_cast; rfl
+    obtain ⟨w_val, hwx, hw_pos, hodd⟩ := hodd_imp hxne'
+    refine ⟨w_val, ?_, hw_pos, ?_⟩
+    · rw [numDigits_neg]; exact hwx
+    · exact (Dyadic.isOddAtP_neg _ _).mpr hodd
+
 /-- Sign-flip symmetry for RAZ rounding: rounding `x` to `y` under RAZ in `F`
 is equivalent to rounding `-x` to `-y`. Uses `neg_mem` (every format is closed
 under negation). -/
@@ -324,6 +390,44 @@ theorem rndRTO_RTZ_pos {F₁ F₂ : AbstractFormat} {w k : ℕ}
     have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
     exact hw'_max v hvF₁ hv_bnd_z hv_z_sign
 
+/-- **rnd-RTO-RTZ** (Fig. 9), general version over all `x ∈ ℝ`. Combines the
+positive case (`rndRTO_RTZ_pos`), the negative case (via `RoundsRTO.neg` and
+`RoundsRTZ.neg`), and the trivial `x = 0` case (which is vacuous: the precision
+hypothesis `hwk` with `hk : 1 ≤ k` is contradictory at `x = 0`). -/
+theorem rndRTO_RTZ {F₁ F₂ : AbstractFormat} {w k : ℕ}
+    (hsub : F₁ ⊆ F₂)
+    (hp_F₁ : F₁.p = (w : ℕ∞))
+    (h0_F₁ : (0 : Dyadic) ∈ F₁)
+    (hk : 1 ≤ k)
+    {x : ℝ}
+    (hwk : numDigits F₂.p F₂.exp x = ((w + k : ℕ) : ℤ))
+    {z w' : Dyadic}
+    (hz : RoundsRTO F₂ x z)
+    (hw : RoundsRTZ F₁ (z : ℝ) w') :
+    RoundsRTZ F₁ x w' := by
+  rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
+  · -- x < 0: negate, apply _pos, negate back
+    have hx_pos' : 0 < (-x) := by linarith
+    have hwk' : numDigits F₂.p F₂.exp (-x) = ((w + k : ℕ) : ℤ) := by
+      rw [numDigits_neg]; exact hwk
+    have hz' : RoundsRTO F₂ (-x) (-z) := RoundsRTO.neg hz
+    have hw' : RoundsRTZ F₁ ((-z : Dyadic) : ℝ) (-w') := by
+      have h := RoundsRTZ.neg hw
+      have hcoe : ((-z : Dyadic) : ℝ) = -(z : ℝ) := by push_cast; rfl
+      rw [hcoe]; exact h
+    have h_result := rndRTO_RTZ_pos hsub hp_F₁ h0_F₁ hk hx_pos' hwk' hz' hw'
+    have hfinal := RoundsRTZ.neg h_result
+    rwa [neg_neg, neg_neg] at hfinal
+  · -- x = 0: hwk + hk gives contradiction
+    exfalso
+    subst hx_zero
+    have h0 : numDigits F₂.p F₂.exp (0 : ℝ) = 0 := by simp [numDigits]
+    rw [h0] at hwk
+    have : (w + k : ℕ) = 0 := by exact_mod_cast hwk.symm
+    omega
+  · -- x > 0
+    exact rndRTO_RTZ_pos hsub hp_F₁ h0_F₁ hk hx_pos hwk hz hw
+
 /-- **rnd-RTO-RAZ** (Fig. 9), positive case `0 < x`. Symmetric to `rndRTO_RTZ_pos`
 but for round-away-from-zero instead of round-toward-zero. The key Lemma 5.3
 application happens in the *RoundsDown* case of `z` (rather than RoundsUp). -/
@@ -435,6 +539,41 @@ theorem rndRTO_RAZ_pos {F₁ F₂ : AbstractFormat} {w k : ℕ}
     have hv_bnd_z : |(z : ℝ)| ≤ |(v : ℝ)| := by rw [hz_abs, hv_abs]; exact hz_le_v
     have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
     exact hw'_min v hvF₁ hv_bnd_z hv_z_sign
+
+/-- **rnd-RTO-RAZ** (Fig. 9), general version over all `x ∈ ℝ`. -/
+theorem rndRTO_RAZ {F₁ F₂ : AbstractFormat} {w k : ℕ}
+    (hsub : F₁ ⊆ F₂)
+    (hp_F₁ : F₁.p = (w : ℕ∞))
+    (h0_F₁ : (0 : Dyadic) ∈ F₁)
+    (hk : 1 ≤ k)
+    {x : ℝ}
+    (hwk : numDigits F₂.p F₂.exp x = ((w + k : ℕ) : ℤ))
+    {z w' : Dyadic}
+    (hz : RoundsRTO F₂ x z)
+    (hw : RoundsRAZ F₁ (z : ℝ) w') :
+    RoundsRAZ F₁ x w' := by
+  rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
+  · -- x < 0: negate, apply _pos, negate back
+    have hx_pos' : 0 < (-x) := by linarith
+    have hwk' : numDigits F₂.p F₂.exp (-x) = ((w + k : ℕ) : ℤ) := by
+      rw [numDigits_neg]; exact hwk
+    have hz' : RoundsRTO F₂ (-x) (-z) := RoundsRTO.neg hz
+    have hw' : RoundsRAZ F₁ ((-z : Dyadic) : ℝ) (-w') := by
+      have h := RoundsRAZ.neg hw
+      have hcoe : ((-z : Dyadic) : ℝ) = -(z : ℝ) := by push_cast; rfl
+      rw [hcoe]; exact h
+    have h_result := rndRTO_RAZ_pos hsub hp_F₁ h0_F₁ hk hx_pos' hwk' hz' hw'
+    have hfinal := RoundsRAZ.neg h_result
+    rwa [neg_neg, neg_neg] at hfinal
+  · -- x = 0: hwk + hk gives contradiction
+    exfalso
+    subst hx_zero
+    have h0 : numDigits F₂.p F₂.exp (0 : ℝ) = 0 := by simp [numDigits]
+    rw [h0] at hwk
+    have : (w + k : ℕ) = 0 := by exact_mod_cast hwk.symm
+    omega
+  · -- x > 0
+    exact rndRTO_RAZ_pos hsub hp_F₁ h0_F₁ hk hx_pos hwk hz hw
 
 end AbstractFormat
 
