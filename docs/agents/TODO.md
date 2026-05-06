@@ -79,6 +79,11 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [x] **Lemma 5.3 core (`Dyadic.precisionAtMost_not_isOddAtP`)**: precision-`w`-representable values cannot be odd at `w + k` bits (`k ≥ 1`).
 - [x] **Lemma 5.3 spec form (`RoundsRTO.ne_of_precisionAtMost`)**: when `x` is unrepresentable in an `(w + k)`-bit format, the RTO-rounded `x'` cannot equal any precision-`w`-representable dyadic. (Refined to use `numDigits F.p F.exp x = w + k` instead of `F.p = w + k`, for subnormal correctness.)
 - [x] **`RoundsRTO` refined**: parity check now uses `IsOddAtP (numDigits F.p F.exp x)` instead of `IsOddAtP F.p`, correctly handling subnormal regime.
+- [x] **`AbstractFormat.IsOdd / IsEven` (format-parameterized parity)**: Replaces `IsOddAtP w y` / `IsEvenAtP w y` in `RoundsRTO` / `RoundsRNE`. Parity is now intrinsic to `(F, y)` — precision is `numDigits F.p F.exp y` (the dyadic's natural F-precision), discriminator is `F.p` (oddness of significand for `F.p ≥ 2`, oddness of exponent for `F.p = 1`).
+  - `IsOdd.neg`, `IsOdd.ne_zero`, `precisionAtMost_not_IsOdd` (Lemma 5.3 corollary in new form).
+  - `RoundsRTO.ne_of_precisionAtMost` now takes `hgt : (w : ℤ) < numDigits F.p F.exp x'` (precision at the rounded value, not at x).
+  - `rndRTO_RTO`, `rndRTO_RTZ_pos`, `rndRTO_RAZ_pos`, `rndRTO_RNE` and their general counterparts now take `hzgt : x ≠ z → (w : ℤ) < numDigits F₂.p F₂.exp z` instead of `hwk` at x. Caller is responsible for providing the F₂-precision-at-z bound.
+  - `rndRTO_RTO` no longer needs `h_prec` — parity transfer is automatic since `IsOdd F₁ w'` is intrinsic to `(F₁, w')`.
 
 ## Phase 7 — Smoke tests / sanity (`Mpfx/Tests.lean`)
 

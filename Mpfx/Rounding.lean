@@ -78,24 +78,18 @@ theorem RoundsUp.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
 
 /-- `y = RTO-rounding of x in F` — round to odd. The result `y ∈ F` is either
 the round-down (`RoundsDown`) or round-up (`RoundsUp`) of `x`, and when `x` is
-not exactly equal to `y`, the significand `c` of `y` is odd at the precision
-where the rounding operates: `numDigits F.p F.exp x` (Lemma 5.1).
-
-This refinement over a naive `IsOddAtP F.p` correctly handles subnormal
-values: in the subnormal regime the rounding operates at fewer than `F.p`
-bits (because the quantum constraint dominates), and `numDigits` captures
-this. The spec is unsatisfiable when `numDigits ≤ 0` (deep underflow); the
-caller is responsible for ensuring the rounding lands somewhere meaningful. -/
+not exactly equal to `y`, the parity of `y` (in the `IsOdd F` sense) is odd:
+parity is at precision `numDigits F.p F.exp y` and discriminated by `F.p` (odd
+significand for `F.p ≥ 2`, odd exponent for `F.p = 1`). -/
 def RoundsRTO (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
   y ∈ F ∧
   (RoundsDown F x y ∨ RoundsUp F x y) ∧
-  (x ≠ (y : ℝ) → ∃ w : ℕ,
-    numDigits F.p F.exp x = (w : ℤ) ∧ 1 ≤ w ∧ Dyadic.IsOddAtP w y)
+  (x ≠ (y : ℝ) → IsOdd F y)
 
 /-- `y = RNE-rounding of x in F` — round to nearest, ties to even. The result
 `y ∈ F` is one of the two adjacents bracketing `x`, chosen as the closer one;
 ties (when `x` is exactly halfway between the two adjacents) are broken by
-picking the value with even parity at `numDigits F.p F.exp x`. -/
+picking the value with `IsEven F` parity. -/
 def RoundsRNE (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
   y ∈ F ∧
   (RoundsDown F x y ∨ RoundsUp F x y) ∧
@@ -105,7 +99,7 @@ def RoundsRNE (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
   -- Tie-break: if `x` is equidistant from `y` and another adjacent, `y` is even
   ((∃ z : Dyadic, z ∈ F ∧ (RoundsDown F x z ∨ RoundsUp F x z) ∧
       z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
-    ∃ p : ℕ, numDigits F.p F.exp x = (p : ℤ) ∧ 1 ≤ p ∧ Dyadic.IsEvenAtP p y)
+    IsEven F y)
 
 /-- For `x ∈ F`, the RTO rounding is `x` itself. -/
 theorem RoundsRTO.of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F) :
@@ -133,29 +127,25 @@ theorem RoundsRTO.unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
 
 /-- **Lemma 5.3 (spec-form corollary)**: when `x` is unrepresentable in `F`
 (`x ≠ x'`), the RTO-rounded `x'` cannot coincide with *any* dyadic `y` that is
-representable at strictly lower precision than the rounding operates at.
+representable at strictly lower precision than the rounding precision at `x'`.
 
-This is the directly useful form of the paper's Lemma 5.3 in our spec
-framework. It says: "RTO at `w + k` bits dodges every precision-`w` value" —
-so in particular, `x'` lies strictly between the precision-`w` adjacents of
-`x`. The required precision relationship is expressed via `numDigits`
-(Lemma 5.1) rather than `F.p` directly, so this is correct even at subnormal
-magnitudes. -/
-theorem RoundsRTO.ne_of_precisionAtMost {F : AbstractFormat} {w k : ℕ}
-    (hk : 1 ≤ k)
+The hypothesis `hgt : (w : ℤ) < numDigits F.p F.exp x'` captures "the rounding
+precision (at `x'`) exceeds `w`". In typical applications, this follows from
+the rounding precision at `x` (Lemma 5.1) plus a magnitude-bin invariant. -/
+theorem RoundsRTO.ne_of_precisionAtMost {F : AbstractFormat} {w : ℕ}
     {x : ℝ} {x' : Dyadic} (hround : RoundsRTO F x x')
     (hxne : x ≠ (x' : ℝ))
-    (hwk : numDigits F.p F.exp x = ((w + k : ℕ) : ℤ))
+    (hgt : (w : ℤ) < numDigits F.p F.exp (x' : ℝ))
     {y : Dyadic} (hy : Dyadic.precisionAtMost (w : ℕ∞) y) :
     (x' : ℝ) ≠ (y : ℝ) := by
   intro hxy
   have hxy_eq : x' = y := Subtype.ext hxy
   obtain ⟨_, _, hodd_imp⟩ := hround
-  obtain ⟨w', hwx, _, hodd⟩ := hodd_imp hxne
-  rw [hwk] at hwx
-  have hw'_eq : w' = w + k := by exact_mod_cast hwx.symm
-  rw [hw'_eq, hxy_eq] at hodd
-  exact (Dyadic.precisionAtMost_not_isOddAtP hk hy) hodd
+  have h_odd : IsOdd F x' := hodd_imp hxne
+  -- Transport hgt and h_odd along x' = y
+  have hgt_y : (w : ℤ) < numDigits F.p F.exp (y : ℝ) := by rw [← hxy]; exact hgt
+  have h_odd_y : IsOdd F y := by rw [← hxy_eq]; exact h_odd
+  exact (precisionAtMost_not_IsOdd hgt_y hy) h_odd_y
 
 end AbstractFormat
 
