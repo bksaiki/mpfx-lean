@@ -71,19 +71,16 @@ theorem containsSub {p₁ : ℕ∞} {p₂ : ℕ} {exp₁ : ℤ} {exp₂ : WithBo
   obtain ⟨_, hex, hbx⟩ := hx
   obtain ⟨c, hx_eq⟩ := hex
   have hbx' : |(x : ℝ)| ≤ (β₁ : ℝ) := hbx
-  have h2ne : (2 : ℝ) ≠ 0 := two_ne_zero
-  have h2pow_pos : (0 : ℝ) < (2 : ℝ) ^ exp₁ := zpow_pos (by norm_num) _
   have hc_le_real : |(c : ℝ)| ≤ (2 : ℝ) ^ (p₂ : ℤ) := by
     have h1 : |(c : ℝ)| * (2 : ℝ) ^ exp₁ ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)) := by
       calc |(c : ℝ)| * (2 : ℝ) ^ exp₁
-          = |(x : ℝ)| := by
-            rw [hx_eq, abs_mul, abs_zpow, abs_of_pos (by norm_num : (0:ℝ) < 2)]
+          = |(x : ℝ)| := by rw [hx_eq, abs_mul_two_zpow]
         _ ≤ (β₁ : ℝ) := hbx'
         _ ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)) := hbprec
     have h2 : (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)) = (2 : ℝ) ^ (p₂ : ℤ) * (2 : ℝ) ^ exp₁ := by
-      rw [zpow_add₀ h2ne]; ring
+      rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; ring
     rw [h2] at h1
-    exact le_of_mul_le_mul_right h1 h2pow_pos
+    exact le_of_mul_le_mul_right h1 (two_zpow_pos exp₁)
   have hc_le : |c| ≤ (2 : ℤ) ^ p₂ := by
     have : ((|c| : ℤ) : ℝ) ≤ (((2 : ℤ) ^ p₂ : ℤ) : ℝ) := by
       rw [Int.cast_abs]

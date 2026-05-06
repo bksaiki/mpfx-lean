@@ -284,7 +284,7 @@ theorem rndRTO_RTO {F₁ F₂ : AbstractFormat}
             have h2real_pos : (0 : ℝ) < 2 := by norm_num
             have h2real_ne : (2 : ℝ) ≠ 0 := by norm_num
             have habs_z_eq : |((z : Dyadic) : ℝ)| = (2 : ℝ) ^ e := by
-              rw [h_z_eq, abs_mul, abs_zpow, abs_of_pos h2real_pos]
+              rw [h_z_eq, abs_mul_two_zpow]
               have hc_real : (|c| : ℝ) = 1 := by exact_mod_cast hc_abs_eq
               rw [hc_real]; ring
             have h_log_z_eq : Int.log 2 |((z : Dyadic) : ℝ)| = e := by

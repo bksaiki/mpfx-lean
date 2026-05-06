@@ -1,7 +1,7 @@
 import Mathlib.Data.Real.Basic
 import Mathlib.Algebra.Ring.Subring.Basic
 import Mathlib.Data.Int.Log
-import Mathlib.Tactic
+import Mpfx.Utils
 
 namespace Mpfx
 
@@ -34,13 +34,7 @@ theorem mul {x y : ℝ} (hx : IsDyadic x) (hy : IsDyadic y) : IsDyadic (x * y) :
 private theorem add_aux (c₁ c₂ e₁ e₂ : ℤ) (h : e₁ ≤ e₂) :
     (c₁ : ℝ) * (2 : ℝ) ^ e₁ + (c₂ : ℝ) * (2 : ℝ) ^ e₂
       = ((c₁ + c₂ * 2 ^ (e₂ - e₁).toNat : ℤ) : ℝ) * (2 : ℝ) ^ e₁ := by
-  have h2 : (2 : ℝ) ≠ 0 := two_ne_zero
-  have hsub : ((e₂ - e₁).toNat : ℤ) = e₂ - e₁ := Int.toNat_of_nonneg (by omega)
-  have key : (2 : ℝ) ^ e₂ = (2 : ℝ) ^ (e₂ - e₁).toNat * (2 : ℝ) ^ e₁ := by
-    rw [show ((2:ℝ) ^ (e₂ - e₁).toNat : ℝ) = (2 : ℝ) ^ ((e₂ - e₁).toNat : ℤ) from
-        (zpow_natCast _ _).symm, ← zpow_add₀ h2, hsub]
-    congr 1; ring
-  rw [key]
+  rw [two_zpow_split_toNat h]
   push_cast
   ring
 
@@ -189,13 +183,7 @@ theorem quantumAtLeast_anti {e₁ e₂ : WithBot ℤ} (h : e₂ ≤ e₁) {x : D
     intro ⟨c, hx⟩
     have hn : n₂ ≤ n₁ := WithBot.coe_le_coe.mp h
     refine ⟨c * 2 ^ (n₁ - n₂).toNat, ?_⟩
-    have h2 : (2 : ℝ) ≠ 0 := two_ne_zero
-    have hsub : ((n₁ - n₂).toNat : ℤ) = n₁ - n₂ := Int.toNat_of_nonneg (by omega)
-    have key : (2 : ℝ) ^ n₁ = (2 : ℝ) ^ (n₁ - n₂).toNat * (2 : ℝ) ^ n₂ := by
-      rw [show ((2:ℝ) ^ (n₁ - n₂).toNat : ℝ) = (2 : ℝ) ^ ((n₁ - n₂).toNat : ℤ) from
-          (zpow_natCast _ _).symm, ← zpow_add₀ h2, hsub]
-      congr 1; ring
-    rw [hx, key]
+    rw [hx, two_zpow_split_toNat hn]
     push_cast
     ring
 

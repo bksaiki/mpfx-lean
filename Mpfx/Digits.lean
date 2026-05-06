@@ -204,18 +204,16 @@ theorem mem_imp_precisionAtMost_numDigits {F : AbstractFormat} {y : Dyadic}
       Dyadic.precisionAtMost (((e_y - e' + 1).toNat : ℕ) : ℕ∞) y := by
     intro e' hQ' he_y_ge
     obtain ⟨c, hyeq⟩ := hQ'
-    have h2pos : (0 : ℝ) < 2 := by norm_num
-    have h2e'_pos : (0 : ℝ) < (2 : ℝ) ^ e' := zpow_pos h2pos _
     have h_real : (|c| : ℝ) < (2 : ℝ) ^ (e_y - e' + 1) := by
       have h_y_eq : |(y : ℝ)| = |(c : ℝ)| * (2 : ℝ) ^ e' := by
-        rw [hyeq, abs_mul, abs_zpow, abs_of_pos h2pos]
+        rw [hyeq, abs_mul_two_zpow]
       have hsplit : (2 : ℝ) ^ (e_y + 1) =
           (2 : ℝ) ^ (e_y - e' + 1) * (2 : ℝ) ^ e' := by
         rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
         congr 1; ring
       have key : |(c : ℝ)| * (2 : ℝ) ^ e' < (2 : ℝ) ^ (e_y - e' + 1) * (2 : ℝ) ^ e' := by
         rw [← hsplit, ← h_y_eq]; exact he_y_hi
-      exact lt_of_mul_lt_mul_right key (le_of_lt h2e'_pos)
+      exact lt_of_mul_lt_mul_right key (le_of_lt (two_zpow_pos e'))
     have h_nat : ((e_y - e' + 1).toNat : ℤ) = e_y - e' + 1 :=
       Int.toNat_of_nonneg (by omega)
     rw [Dyadic.precisionAtMost_coe]
@@ -233,14 +231,12 @@ theorem mem_imp_precisionAtMost_numDigits {F : AbstractFormat} {y : Dyadic}
       intro hc0; rw [hc0] at hyeq; push_cast at hyeq
       rw [zero_mul] at hyeq; exact hy0 hyeq
     have hc_abs_ge : (1 : ℤ) ≤ |c| := Int.one_le_abs hc_ne
-    have h2pos : (0 : ℝ) < 2 := by norm_num
-    have h2e'_pos : (0 : ℝ) < (2 : ℝ) ^ e' := zpow_pos h2pos _
     have habs_lo : (2 : ℝ) ^ e' ≤ |(y : ℝ)| := by
-      rw [hyeq, abs_mul, abs_zpow, abs_of_pos h2pos]
+      rw [hyeq, abs_mul_two_zpow]
       calc (2 : ℝ) ^ e'
           = 1 * (2 : ℝ) ^ e' := (one_mul _).symm
         _ ≤ |(c : ℝ)| * (2 : ℝ) ^ e' := by
-            apply mul_le_mul_of_nonneg_right _ (le_of_lt h2e'_pos)
+            apply mul_le_mul_of_nonneg_right _ (le_of_lt (two_zpow_pos e'))
             rw [show ((1 : ℝ) : ℝ) = ((1 : ℤ) : ℝ) from by norm_num,
                 ← Int.cast_abs]
             exact_mod_cast hc_abs_ge
@@ -654,16 +650,11 @@ theorem numDigits_eq_of_subset_of_isOdd {F₁ F₂ : AbstractFormat}
       have hc_pos : c > 0 := h
       have h1 : 2 * c - 1 > 0 := by linarith
       rw [abs_of_pos h1, abs_of_pos hc_pos]
-  have h2pow_succ : ∀ k : ℕ, k ≥ 1 → (2 : ℤ) ^ k = 2 * (2 : ℤ) ^ (k - 1) := by
-    intro k hk
-    have hk_eq : k = (k - 1) + 1 := by omega
-    conv_lhs => rw [hk_eq]
-    rw [pow_succ]; ring
   have hc''_low : (2 : ℤ) ^ p₂ - 1 ≤ |c''| := by
-    rw [hc''_abs, h2pow_succ p₂ hp₂_pos]
+    rw [hc''_abs, Int.two_pow_succ_pred hp₂_pos]
     linarith
   have hc''_high : |c''| < (2 : ℤ) ^ (p₂ + 1) := by
-    rw [hc''_abs, h2pow_succ (p₂ + 1) (by omega)]
+    rw [hc''_abs, Int.two_pow_succ_pred (by omega : 1 ≤ p₂ + 1)]
     have : (p₂ + 1 - 1 : ℕ) = p₂ := by omega
     rw [this]
     linarith
@@ -672,9 +663,9 @@ theorem numDigits_eq_of_subset_of_isOdd {F₁ F₂ : AbstractFormat}
   have h2real_pos : (0 : ℝ) < 2 := by norm_num
   have h2real_ne : (2 : ℝ) ≠ 0 := by norm_num
   have habs_y_eq : |((y : Dyadic) : ℝ)| = (|c| : ℝ) * (2 : ℝ) ^ e := by
-    rw [hy_eq, abs_mul, abs_zpow, abs_of_pos h2real_pos]
+    rw [hy_eq, abs_mul_two_zpow]
   have habs_y''_eq : |((y'' : Dyadic) : ℝ)| = (|c''| : ℝ) * (2 : ℝ) ^ (e - 1) := by
-    rw [hy''_real, abs_mul, abs_zpow, abs_of_pos h2real_pos]
+    rw [hy''_real, abs_mul_two_zpow]
   have habs_y''_lt_y : |((y'' : Dyadic) : ℝ)| < |((y : Dyadic) : ℝ)| := by
     rw [habs_y_eq, habs_y''_eq]
     have h2e_pos : (0 : ℝ) < (2 : ℝ) ^ (e - 1) := zpow_pos h2real_pos _
@@ -807,13 +798,7 @@ theorem numDigits_eq_of_subset_of_isOdd {F₁ F₂ : AbstractFormat}
       have hp_sub_pos : p₂ - 1 ≥ 1 := by omega
       refine ⟨(2 : ℤ) ^ (p₂ - 2), ?_⟩
       rw [show (p₂ - 1 : ℕ) = (p₂ - 2) + 1 from by omega, pow_succ]; ring
-    have h_abs_odd : Odd |c| := by
-      rcases hc_odd with ⟨k, hk⟩
-      rcases lt_or_gt_of_ne hc_ne with h | h
-      · rw [abs_of_neg h]
-        exact ⟨-k - 1, by linarith⟩
-      · rw [abs_of_pos h]
-        exact ⟨k, hk⟩
+    have h_abs_odd : Odd |c| := Odd.abs_int hc_odd
     by_contra h_le
     push Not at h_le
     have h_eq : |c| = (2 : ℤ) ^ (p₂ - 1) := by linarith
@@ -850,7 +835,7 @@ theorem numDigits_eq_of_subset_of_isOdd {F₁ F₂ : AbstractFormat}
       have : ((e''' - (e - 1)).toNat : ℤ) ≥ 1 := by rw [h_diff_nat]; omega
       exact_mod_cast this
     have h_pow_split : (2 : ℤ) ^ (e''' - (e - 1)).toNat =
-        2 * (2 : ℤ) ^ ((e''' - (e - 1)).toNat - 1) := h2pow_succ _ h_pow_ge
+        2 * (2 : ℤ) ^ ((e''' - (e - 1)).toNat - 1) := Int.two_pow_succ_pred h_pow_ge
     have hc''_even : Even c'' := by
       rw [h_c''_int, h_pow_split]
       exact ⟨c''' * (2 : ℤ) ^ ((e''' - (e - 1)).toNat - 1), by ring⟩
@@ -909,7 +894,7 @@ theorem numDigits_eq_of_subset_of_isOdd {F₁ F₂ : AbstractFormat}
             rw [hc''_abs]
             have hcs := hc_low_strict hp₂_ge_2
             have h_double : 2 * ((2 : ℤ) ^ (p₂ - 1) + 1) - 1 = (2 : ℤ) ^ p₂ + 1 := by
-              rw [h2pow_succ p₂ hp₂_pos]; ring
+              rw [Int.two_pow_succ_pred hp₂_pos]; ring
             linarith
           rw [hp2, Dyadic.precisionAtMost_coe] at h_pre
           obtain ⟨c''', e''', hy''_rep, hc'''_low⟩ := h_pre
@@ -950,7 +935,7 @@ theorem numDigits_eq_of_subset_of_isOdd {F₁ F₂ : AbstractFormat}
             rw [hc''_abs]
             have hcs := hc_low_strict hp₂_ge_2
             have h_double : 2 * ((2 : ℤ) ^ (p₂ - 1) + 1) - 1 = (2 : ℤ) ^ p₂ + 1 := by
-              rw [h2pow_succ p₂ hp₂_pos]; ring
+              rw [Int.two_pow_succ_pred hp₂_pos]; ring
             linarith
           rw [hp2, Dyadic.precisionAtMost_coe] at h_pre
           obtain ⟨c''', e''', hy''_rep, hc'''_low⟩ := h_pre
