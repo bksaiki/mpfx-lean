@@ -58,6 +58,7 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [x] `rndRTZ_RTZ` (general `x ∈ ℝ`).
 - [x] `rndRAZ_RAZ` (general `x ∈ ℝ`; combines `_pos` case + `RoundsRAZ.neg` for `x < 0` + `neg_mem`-based handling of `x = 0`).
 - [~] `rndRTO_RTO_of_mem` proved (trivial case `x ∈ F₁`); full `rndRTO_RTO_O` / `rndRTO_RTO_E` blocked on Lemma 5.3.
+- [x] `rndRTO_RTZ_pos`: positive case `0 < x` (uses Lemma 5.3 + `0 ∈ F₁`); full theorem follows by symmetry + `x = 0`.
 - [ ] `rndRTO_RTZ`.
 - [ ] `rndRTO_RAZ`.
 - [ ] `rndRTO_RNE`.
@@ -71,7 +72,8 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [x] **Lemma 5.1 (`AbstractFormat.numDigits`)**: defines the digit count `w` as a function of `(p, exp, x)` only — the type signature `ℕ∞ → WithBot ℤ → ℝ → ℤ` *is* the lemma's content.
 - [x] **Lemma 5.2 (`AbstractFormat.numDigits_shift`)**: `numDigits (p+k) (exp-k) x = numDigits p exp x + k` for non-degenerate formats and `x ≠ 0`.
 - [x] **Lemma 5.3 core (`Dyadic.precisionAtMost_not_isOddAtP`)**: precision-`w`-representable values cannot be odd at `w + k` bits (`k ≥ 1`).
-- [x] **Lemma 5.3 spec form (`RoundsRTO.ne_of_precisionAtMost`)**: when `x` is unrepresentable in an `(w + k)`-bit format, the RTO-rounded `x'` cannot equal any precision-`w`-representable dyadic.
+- [x] **Lemma 5.3 spec form (`RoundsRTO.ne_of_precisionAtMost`)**: when `x` is unrepresentable in an `(w + k)`-bit format, the RTO-rounded `x'` cannot equal any precision-`w`-representable dyadic. (Refined to use `numDigits F.p F.exp x = w + k` instead of `F.p = w + k`, for subnormal correctness.)
+- [x] **`RoundsRTO` refined**: parity check now uses `IsOddAtP (numDigits F.p F.exp x)` instead of `IsOddAtP F.p`, correctly handling subnormal regime.
 
 ## Phase 6.5 — Conventions
 

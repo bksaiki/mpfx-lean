@@ -1,4 +1,5 @@
 import Mpfx.Containment
+import Mpfx.Digits
 
 /-!
 # Rounding modes and the rounding function
@@ -77,15 +78,19 @@ theorem RoundsUp.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
 
 /-- `y = RTO-rounding of x in F` — round to odd. The result `y ∈ F` is either
 the round-down (`RoundsDown`) or round-up (`RoundsUp`) of `x`, and when `x` is
-not exactly equal to `y`, the significand `c` of `y` at `F.p` bits is odd
-(see `Dyadic.IsOddAtP`).
+not exactly equal to `y`, the significand `c` of `y` is odd at the precision
+where the rounding operates: `numDigits F.p F.exp x` (Lemma 5.1).
 
-For unrepresentable `x`, this picks the adjacent representable value with odd
-`p`-bit significand; for representable `x`, it returns `x` itself. -/
+This refinement over a naive `IsOddAtP F.p` correctly handles subnormal
+values: in the subnormal regime the rounding operates at fewer than `F.p`
+bits (because the quantum constraint dominates), and `numDigits` captures
+this. The spec is unsatisfiable when `numDigits ≤ 0` (deep underflow); the
+caller is responsible for ensuring the rounding lands somewhere meaningful. -/
 def RoundsRTO (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
   y ∈ F ∧
   (RoundsDown F x y ∨ RoundsUp F x y) ∧
-  (x ≠ (y : ℝ) → ∃ p : ℕ, F.p = (p : ℕ∞) ∧ Dyadic.IsOddAtP p y)
+  (x ≠ (y : ℝ) → ∃ w : ℕ,
+    numDigits F.p F.exp x = (w : ℤ) ∧ 1 ≤ w ∧ Dyadic.IsOddAtP w y)
 
 /-- For `x ∈ F`, the RTO rounding is `x` itself. -/
 theorem RoundsRTO.of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F) :
@@ -112,25 +117,29 @@ theorem RoundsRTO.unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
     exact Subtype.ext heq
 
 /-- **Lemma 5.3 (spec-form corollary)**: when `x` is unrepresentable in `F`
-(`x ≠ x'`), the RTO-rounded `x'` (at format precision `w + k`) cannot coincide
-with *any* dyadic `y` representable at the strictly lower precision `w`.
+(`x ≠ x'`), the RTO-rounded `x'` cannot coincide with *any* dyadic `y` that is
+representable at strictly lower precision than the rounding operates at.
 
 This is the directly useful form of the paper's Lemma 5.3 in our spec
-framework. It says: "RTO at `w + k` bits dodges every precision-`w` value" — so
-in particular, `x'` lies strictly between the precision-`w` adjacents of `x`. -/
+framework. It says: "RTO at `w + k` bits dodges every precision-`w` value" —
+so in particular, `x'` lies strictly between the precision-`w` adjacents of
+`x`. The required precision relationship is expressed via `numDigits`
+(Lemma 5.1) rather than `F.p` directly, so this is correct even at subnormal
+magnitudes. -/
 theorem RoundsRTO.ne_of_precisionAtMost {F : AbstractFormat} {w k : ℕ}
-    (hp : F.p = ((w + k) : ℕ∞)) (hk : 1 ≤ k)
+    (hk : 1 ≤ k)
     {x : ℝ} {x' : Dyadic} (hround : RoundsRTO F x x')
     (hxne : x ≠ (x' : ℝ))
+    (hwk : numDigits F.p F.exp x = ((w + k : ℕ) : ℤ))
     {y : Dyadic} (hy : Dyadic.precisionAtMost (w : ℕ∞) y) :
     (x' : ℝ) ≠ (y : ℝ) := by
   intro hxy
   have hxy_eq : x' = y := Subtype.ext hxy
   obtain ⟨_, _, hodd_imp⟩ := hround
-  obtain ⟨p, hpx, hodd⟩ := hodd_imp hxne
-  rw [hp] at hpx
-  have hp_eq : p = w + k := by exact_mod_cast hpx.symm
-  rw [hp_eq, hxy_eq] at hodd
+  obtain ⟨w', hwx, _, hodd⟩ := hodd_imp hxne
+  rw [hwk] at hwx
+  have hw'_eq : w' = w + k := by exact_mod_cast hwx.symm
+  rw [hw'_eq, hxy_eq] at hodd
   exact (Dyadic.precisionAtMost_not_isOddAtP hk hy) hodd
 
 end AbstractFormat

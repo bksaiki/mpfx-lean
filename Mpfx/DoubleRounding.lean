@@ -233,6 +233,209 @@ theorem rndRTO_RTO_of_mem {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
   rw [hw_eq]
   exact RoundsRTO.of_mem hx
 
+/-- **rnd-RTO-RTZ** (Fig. 9), positive case `0 < x`. The general theorem (over
+all `x ∈ ℝ`) follows by `RoundsRTO.neg`-style symmetry plus the trivial `x = 0`
+case (deferred).
+
+Uses Lemma 5.3 (`RoundsRTO.ne_of_precisionAtMost`) to rule out the case where
+RTO in `F₂` lands on an `F₁`-representable value when `x ∉ F₁`. Requires
+`F₁.p = w`, `numDigits F₂.p F₂.exp x = w + k`, `k ≥ 1`, and `0 ∈ F₁`. -/
+theorem rndRTO_RTZ_pos {F₁ F₂ : AbstractFormat} {w k : ℕ}
+    (hsub : F₁ ⊆ F₂)
+    (hp_F₁ : F₁.p = (w : ℕ∞))
+    (h0_F₁ : (0 : Dyadic) ∈ F₁)
+    (hk : 1 ≤ k)
+    {x : ℝ} (hx_pos : 0 < x)
+    (hwk : numDigits F₂.p F₂.exp x = ((w + k : ℕ) : ℤ))
+    {z w' : Dyadic}
+    (hz : RoundsRTO F₂ x z)
+    (hw : RoundsRTZ F₁ (z : ℝ) w') :
+    RoundsRTZ F₁ x w' := by
+  have h0_F₂ : (0 : Dyadic) ∈ F₂ := hsub _ h0_F₁
+  obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
+  obtain ⟨hw'F₁, hw'_bnd_z, hw'_sign_z, hw'_max⟩ := hw
+  have hx_abs : |x| = x := abs_of_pos hx_pos
+  -- z ≥ 0
+  have hz_nn : 0 ≤ (z : ℝ) := by
+    rcases hz_adj with hRD | hRU
+    · obtain ⟨_, _, hz_max⟩ := hRD
+      have h := hz_max 0 h0_F₂ hx_pos.le
+      simpa using h
+    · obtain ⟨_, hxz, _⟩ := hRU
+      linarith
+  have hz_abs : |(z : ℝ)| = (z : ℝ) := abs_of_nonneg hz_nn
+  rw [hz_abs] at hw'_bnd_z
+  -- w' ≥ 0
+  have hw'_nn : 0 ≤ (w' : ℝ) := by
+    rcases lt_or_eq_of_le hz_nn with hzpos | hzeq
+    · nlinarith [hw'_sign_z]
+    · have h1 : |(w' : ℝ)| ≤ 0 := hzeq.symm ▸ hw'_bnd_z
+      have hw'0 : (w' : ℝ) = 0 := abs_nonpos_iff.mp h1
+      linarith
+  have hw'_abs : |(w' : ℝ)| = (w' : ℝ) := abs_of_nonneg hw'_nn
+  -- w' ≤ x (key step using Lemma 5.3 in the RoundsUp case)
+  have hw'_le_x : (w' : ℝ) ≤ x := by
+    rcases hz_adj with hRD | hRU
+    · -- RoundsDown z ≤ x: w' ≤ z ≤ x
+      obtain ⟨_, hzx_le, _⟩ := hRD
+      have : (w' : ℝ) ≤ (z : ℝ) := by rw [← hw'_abs]; exact hw'_bnd_z
+      linarith
+    · -- RoundsUp z ≥ x: by contradiction, suppose w' > x
+      by_contra h_w_gt
+      push Not at h_w_gt
+      have hz_min := hRU.2.2
+      have hw'F₂ : w' ∈ F₂ := hsub _ hw'F₁
+      have hw'_ge_z : (z : ℝ) ≤ (w' : ℝ) := hz_min w' hw'F₂ h_w_gt.le
+      have hw'_le_z : (w' : ℝ) ≤ (z : ℝ) := by rw [← hw'_abs]; exact hw'_bnd_z
+      have hw'_eq_z : (w' : ℝ) = (z : ℝ) := le_antisymm hw'_le_z hw'_ge_z
+      have hxne : x ≠ (z : ℝ) := by
+        intro hxz_eq
+        rw [← hxz_eq] at hw'_eq_z
+        linarith
+      have hw'_prec : Dyadic.precisionAtMost (w : ℕ∞) w' := by
+        have ⟨hyP, _, _⟩ := hw'F₁
+        rwa [hp_F₁] at hyP
+      -- Reconstruct hz from the RoundsUp witness hRU
+      have hz_full : RoundsRTO F₂ x z := ⟨hzF₂, Or.inr hRU, hz_odd_imp⟩
+      have h_ne := RoundsRTO.ne_of_precisionAtMost (w := w) (k := k) hk
+                     hz_full hxne hwk hw'_prec
+      exact h_ne hw'_eq_z.symm
+  refine ⟨hw'F₁, ?_, ?_, ?_⟩
+  · -- |w'| ≤ |x|
+    rw [hw'_abs, hx_abs]; exact hw'_le_x
+  · -- w' * x ≥ 0
+    exact mul_nonneg hw'_nn hx_pos.le
+  · -- maximality
+    intro v hvF₁ hv_bnd_x hv_sign_x
+    rw [hx_abs] at hv_bnd_x
+    have hv_nn : 0 ≤ (v : ℝ) := by nlinarith [hv_sign_x]
+    have hv_abs : |(v : ℝ)| = (v : ℝ) := abs_of_nonneg hv_nn
+    -- v ≤ z (by RoundsDown of z's max-in-F₂, or by v ≤ x ≤ z in RoundsUp)
+    have hv_le_z : (v : ℝ) ≤ (z : ℝ) := by
+      rcases hz_adj with hRD | hRU
+      · obtain ⟨_, _, hz_F₂_max⟩ := hRD
+        have hvF₂ : v ∈ F₂ := hsub _ hvF₁
+        have h1 : (v : ℝ) ≤ x := by rw [← hv_abs]; exact hv_bnd_x
+        exact hz_F₂_max v hvF₂ h1
+      · obtain ⟨_, hxz, _⟩ := hRU
+        have h1 : (v : ℝ) ≤ x := by rw [← hv_abs]; exact hv_bnd_x
+        linarith
+    have hv_bnd_z : |(v : ℝ)| ≤ |(z : ℝ)| := by rw [hv_abs, hz_abs]; exact hv_le_z
+    have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
+    exact hw'_max v hvF₁ hv_bnd_z hv_z_sign
+
+/-- **rnd-RTO-RAZ** (Fig. 9), positive case `0 < x`. Symmetric to `rndRTO_RTZ_pos`
+but for round-away-from-zero instead of round-toward-zero. The key Lemma 5.3
+application happens in the *RoundsDown* case of `z` (rather than RoundsUp). -/
+theorem rndRTO_RAZ_pos {F₁ F₂ : AbstractFormat} {w k : ℕ}
+    (hsub : F₁ ⊆ F₂)
+    (hp_F₁ : F₁.p = (w : ℕ∞))
+    (h0_F₁ : (0 : Dyadic) ∈ F₁)
+    (hk : 1 ≤ k)
+    {x : ℝ} (hx_pos : 0 < x)
+    (hwk : numDigits F₂.p F₂.exp x = ((w + k : ℕ) : ℤ))
+    {z w' : Dyadic}
+    (hz : RoundsRTO F₂ x z)
+    (hw : RoundsRAZ F₁ (z : ℝ) w') :
+    RoundsRAZ F₁ x w' := by
+  have h0_F₂ : (0 : Dyadic) ∈ F₂ := hsub _ h0_F₁
+  obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
+  obtain ⟨hw'F₁, hw'_bnd_z, hw'_sign_z, hw'_min⟩ := hw
+  have hx_abs : |x| = x := abs_of_pos hx_pos
+  -- z ≥ 0
+  have hz_nn : 0 ≤ (z : ℝ) := by
+    rcases hz_adj with hRD | hRU
+    · obtain ⟨_, _, hz_max⟩ := hRD
+      have h := hz_max 0 h0_F₂ hx_pos.le
+      simpa using h
+    · obtain ⟨_, hxz, _⟩ := hRU
+      linarith
+  have hz_abs : |(z : ℝ)| = (z : ℝ) := abs_of_nonneg hz_nn
+  rw [hz_abs] at hw'_bnd_z
+  -- z > 0 (RTO of positive x cannot be 0: IsOddAtP forces c ≠ 0)
+  have hz_pos : 0 < (z : ℝ) := by
+    rcases eq_or_ne ((z : ℝ)) x with hzx | hzx
+    · rw [hzx]; exact hx_pos
+    · have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
+      obtain ⟨_, _, _, hodd⟩ := hz_odd_imp hxne
+      obtain ⟨c, e, hzeq, _, _, hc_odd⟩ := hodd
+      have hz_ne : (z : ℝ) ≠ 0 := by
+        intro hz0
+        rw [hz0] at hzeq
+        have h2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
+        have hc_zero_real : (c : ℝ) = 0 := by
+          rcases mul_eq_zero.mp hzeq.symm with h | h
+          · exact h
+          · linarith
+        have hc_zero : c = 0 := by exact_mod_cast hc_zero_real
+        obtain ⟨k, hk⟩ := hc_odd
+        omega
+      exact lt_of_le_of_ne hz_nn (Ne.symm hz_ne)
+  -- w' ≥ z > 0 (so w' > 0)
+  have hw'_pos : 0 < (w' : ℝ) := by
+    -- |w'| ≥ z > 0 (from hw'_bnd_z : z ≤ |w'|).
+    -- w' * z ≥ 0 with z > 0 → w' ≥ 0.
+    -- |w'| ≥ z and w' ≥ 0 → w' = |w'| ≥ z > 0
+    have h1 : (z : ℝ) ≤ |(w' : ℝ)| := hw'_bnd_z
+    have hw'_nn : 0 ≤ (w' : ℝ) := by nlinarith [hw'_sign_z]
+    have hw'_abs : |(w' : ℝ)| = (w' : ℝ) := abs_of_nonneg hw'_nn
+    rw [hw'_abs] at h1
+    linarith
+  have hw'_nn : 0 ≤ (w' : ℝ) := le_of_lt hw'_pos
+  have hw'_abs : |(w' : ℝ)| = (w' : ℝ) := abs_of_nonneg hw'_nn
+  -- |w'| ≥ |x| (key step: in the RoundsDown case, use Lemma 5.3 to rule out w' < x → w' = z ∈ F₁)
+  have hx_le_w' : x ≤ (w' : ℝ) := by
+    rcases hz_adj with hRD | hRU
+    · -- RoundsDown z ≤ x: by contradiction, suppose w' < x
+      by_contra h_w_lt
+      push Not at h_w_lt
+      -- w' < x. w' ∈ F₁ ⊆ F₂. By RoundsDown max of z: w' ≤ z.
+      have hz_max := hRD.2.2
+      have hw'F₂ : w' ∈ F₂ := hsub _ hw'F₁
+      have hw'_le_z : (w' : ℝ) ≤ (z : ℝ) := hz_max w' hw'F₂ h_w_lt.le
+      have hz_le_w' : (z : ℝ) ≤ (w' : ℝ) := by
+        have := hw'_bnd_z; rw [hw'_abs] at this; exact this
+      have hw'_eq_z : (w' : ℝ) = (z : ℝ) := le_antisymm hw'_le_z hz_le_w'
+      have hxne : x ≠ (z : ℝ) := by
+        intro hxz_eq
+        rw [← hxz_eq] at hw'_eq_z
+        linarith
+      have hw'_prec : Dyadic.precisionAtMost (w : ℕ∞) w' := by
+        have ⟨hyP, _, _⟩ := hw'F₁
+        rwa [hp_F₁] at hyP
+      have hz_full : RoundsRTO F₂ x z := ⟨hzF₂, Or.inl hRD, hz_odd_imp⟩
+      have h_ne := RoundsRTO.ne_of_precisionAtMost (w := w) (k := k) hk
+                     hz_full hxne hwk hw'_prec
+      exact h_ne hw'_eq_z.symm
+    · -- RoundsUp z ≥ x: z ≤ w' (from RAZ), so w' ≥ z ≥ x
+      have hxz := hRU.2.1
+      have hz_le_w' : (z : ℝ) ≤ (w' : ℝ) := by
+        have := hw'_bnd_z; rw [hw'_abs] at this; exact this
+      linarith
+  refine ⟨hw'F₁, ?_, ?_, ?_⟩
+  · -- |x| ≤ |w'|
+    rw [hx_abs, hw'_abs]; exact hx_le_w'
+  · -- w' * x ≥ 0
+    exact mul_nonneg hw'_nn hx_pos.le
+  · -- minimality
+    intro v hvF₁ hv_bnd_x hv_sign_x
+    rw [hx_abs] at hv_bnd_x
+    have hv_nn : 0 ≤ (v : ℝ) := by nlinarith [hv_sign_x]
+    have hv_abs : |(v : ℝ)| = (v : ℝ) := abs_of_nonneg hv_nn
+    have hx_le_v : x ≤ (v : ℝ) := by rw [← hv_abs]; exact hv_bnd_x
+    -- Show v ≥ z, then apply hw'_min
+    have hz_le_v : (z : ℝ) ≤ (v : ℝ) := by
+      rcases hz_adj with hRD | hRU
+      · have hzx := hRD.2.1
+        linarith
+      · -- RoundsUp z is min in F₂ ≥ x; v ∈ F₁ ⊆ F₂, v ≥ x → v ≥ z
+        have hz_min := hRU.2.2
+        have hvF₂ : v ∈ F₂ := hsub _ hvF₁
+        exact hz_min v hvF₂ hx_le_v
+    have hv_bnd_z : |(z : ℝ)| ≤ |(v : ℝ)| := by rw [hz_abs, hv_abs]; exact hz_le_v
+    have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
+    exact hw'_min v hvF₁ hv_bnd_z hv_z_sign
+
 end AbstractFormat
 
 end Mpfx
