@@ -235,6 +235,31 @@ theorem RoundsRTO.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
       rw [h_eq]; push_cast; rfl
     exact (hodd_imp hxne').neg
 
+/-- `RoundsDown ∨ RoundsUp` is preserved (with the disjuncts flipped) under
+joint negation of `x` and `y`. Used by `RoundsRTO.neg` and `RoundsRNE.neg`. -/
+theorem roundsAdj_neg {F : AbstractFormat} {a : ℝ} {b : Dyadic}
+    (h : RoundsDown F a b ∨ RoundsUp F a b) :
+    RoundsDown F (-a) (-b) ∨ RoundsUp F (-a) (-b) := by
+  rcases h with hRD | hRU
+  · right
+    obtain ⟨hbF, hba, hmax⟩ := hRD
+    refine ⟨neg_mem hbF, ?_, ?_⟩
+    · push_cast; linarith
+    · intro w hwF haw
+      have hnwF : (-w) ∈ F := neg_mem hwF
+      have h1 : ((-w : Dyadic) : ℝ) ≤ a := by push_cast; linarith
+      have key := hmax (-w) hnwF h1
+      push_cast at key ⊢; linarith
+  · left
+    obtain ⟨hbF, hab, hmin⟩ := hRU
+    refine ⟨neg_mem hbF, ?_, ?_⟩
+    · push_cast; linarith
+    · intro w hwF hwa
+      have hnwF : (-w) ∈ F := neg_mem hwF
+      have h1 : a ≤ ((-w : Dyadic) : ℝ) := by push_cast; linarith
+      have key := hmin (-w) hnwF h1
+      push_cast at key ⊢; linarith
+
 /-- Sign-flip symmetry for RAZ rounding: rounding `x` to `y` under RAZ in `F`
 is equivalent to rounding `-x` to `-y`. Uses `neg_mem` (every format is closed
 under negation). -/
@@ -266,6 +291,45 @@ theorem RoundsRAZ.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
     rw [abs_neg]
     have hyz : |(y : ℝ)| ≤ |((-z : Dyadic) : ℝ)| := key
     rwa [show |((-z : Dyadic) : ℝ)| = |(z : ℝ)| from by push_cast; rw [abs_neg]] at hyz
+
+/-- Sign-flip symmetry for RNE rounding. -/
+theorem RoundsRNE.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
+    (h : RoundsRNE F x y) : RoundsRNE F (-x) (-y) := by
+  obtain ⟨hyF, hadj, hclose, htie⟩ := h
+  -- Distance identities used several times.
+  have eq1 : ∀ (w : Dyadic),
+      |x - ((-w : Dyadic) : ℝ)| = |(-x) - (w : ℝ)| := by
+    intro w
+    push_cast
+    rw [show x - -(w : ℝ) = -((-x) - (w : ℝ)) from by ring, abs_neg]
+  have eq2 : |x - (y : ℝ)| = |(-x) - ((-y : Dyadic) : ℝ)| := by
+    push_cast
+    rw [show x - (y : ℝ) = -((-x) - -(y : ℝ)) from by ring, abs_neg]
+  refine ⟨neg_mem hyF, roundsAdj_neg hadj, ?_, ?_⟩
+  · -- closeness: every adjacent of (-x) corresponds to its negation as adjacent of x
+    intro z hzF hzadj
+    have hnzF : (-z) ∈ F := neg_mem hzF
+    have hnzadj : RoundsDown F x (-z) ∨ RoundsUp F x (-z) := by
+      have := roundsAdj_neg hzadj
+      simpa using this
+    have key := hclose (-z) hnzF hnzadj
+    rw [eq1 z] at key
+    rw [← eq2]
+    exact key
+  · -- tie-break: a tie at (-x, -y) yields a tie at (x, y); apply IsEven.neg
+    rintro ⟨z, hzF, hzadj, hzne, hzdist⟩
+    have hnzF : (-z) ∈ F := neg_mem hzF
+    have hnzadj : RoundsDown F x (-z) ∨ RoundsUp F x (-z) := by
+      have := roundsAdj_neg hzadj
+      simpa using this
+    have hnzne : (-z) ≠ y := by
+      intro h_eq
+      apply hzne
+      have h2 : -(-z) = -y := by rw [h_eq]
+      rwa [neg_neg] at h2
+    have hnzdist : |x - (y : ℝ)| = |x - ((-z : Dyadic) : ℝ)| := by
+      rw [eq2, eq1 z]; exact hzdist
+    exact (htie ⟨-z, hnzF, hnzadj, hnzne, hnzdist⟩).neg
 
 end AbstractFormat
 

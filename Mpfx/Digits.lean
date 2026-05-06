@@ -331,6 +331,30 @@ theorem isOdd_neg_iff (F : AbstractFormat) (y : Dyadic) :
     IsOdd F (-y) ↔ IsOdd F y :=
   ⟨fun h => by simpa using h.neg, IsOdd.neg⟩
 
+/-- `IsEven` is invariant under negation. -/
+theorem IsEven.neg {F : AbstractFormat} {y : Dyadic} (h : IsEven F y) :
+    IsEven F (-y) := by
+  rcases h with hy0 | ⟨c, e, ⟨hyeq, hlow, hhigh⟩, hp⟩
+  · left; rw [hy0]; simp
+  · right
+    have h_nd : numDigits F.p F.exp ((-y : Dyadic) : ℝ) =
+        numDigits F.p F.exp (y : ℝ) := by
+      change numDigits F.p F.exp (-(y : ℝ)) = _
+      exact numDigits_neg F.p F.exp (y : ℝ)
+    refine ⟨-c, e, ⟨?_, ?_, ?_⟩, ?_⟩
+    · change ((-y : Dyadic) : ℝ) = _
+      push_cast
+      rw [hyeq]; ring
+    · rw [h_nd]; simpa using hlow
+    · rw [h_nd]; simpa using hhigh
+    · by_cases hp1 : F.p = 1
+      · rw [if_pos hp1]; rw [if_pos hp1] at hp; exact hp
+      · rw [if_neg hp1]; rw [if_neg hp1] at hp; exact Even.neg hp
+
+theorem isEven_neg_iff (F : AbstractFormat) (y : Dyadic) :
+    IsEven F (-y) ↔ IsEven F y :=
+  ⟨fun h => by simpa using h.neg, IsEven.neg⟩
+
 /-- `IsOdd F y` implies `numDigits F.p F.exp y ≥ 1`. If `numDigits` were ≤ 0, the
 `IsRepresentableAtP` witness would force `1 ≤ |c| < 1`, a contradiction. -/
 theorem IsOdd.numDigits_pos {F : AbstractFormat} {y : Dyadic} (h : IsOdd F y) :
