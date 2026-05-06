@@ -92,6 +92,21 @@ def RoundsRTO (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
   (x ≠ (y : ℝ) → ∃ w : ℕ,
     numDigits F.p F.exp x = (w : ℤ) ∧ 1 ≤ w ∧ Dyadic.IsOddAtP w y)
 
+/-- `y = RNE-rounding of x in F` — round to nearest, ties to even. The result
+`y ∈ F` is one of the two adjacents bracketing `x`, chosen as the closer one;
+ties (when `x` is exactly halfway between the two adjacents) are broken by
+picking the value with even parity at `numDigits F.p F.exp x`. -/
+def RoundsRNE (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
+  y ∈ F ∧
+  (RoundsDown F x y ∨ RoundsUp F x y) ∧
+  -- `y` is at least as close to `x` as any other adjacent
+  (∀ z : Dyadic, z ∈ F → (RoundsDown F x z ∨ RoundsUp F x z) →
+    |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
+  -- Tie-break: if `x` is equidistant from `y` and another adjacent, `y` is even
+  ((∃ z : Dyadic, z ∈ F ∧ (RoundsDown F x z ∨ RoundsUp F x z) ∧
+      z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
+    ∃ p : ℕ, numDigits F.p F.exp x = (p : ℤ) ∧ 1 ≤ p ∧ Dyadic.IsEvenAtP p y)
+
 /-- For `x ∈ F`, the RTO rounding is `x` itself. -/
 theorem RoundsRTO.of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F) :
     RoundsRTO F (x : ℝ) x := by

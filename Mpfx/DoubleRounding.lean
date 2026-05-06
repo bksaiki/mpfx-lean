@@ -284,9 +284,96 @@ theorem rndRAZ_RAZ {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
   · -- x > 0
     exact rndRAZ_RAZ_pos hsub hx_pos hz hw
 
-/-- **rnd-RTO-RTO** (Fig. 9), trivial case `x ∈ F₁`. The full theorem (for
-`x ∉ F₁`) requires Lemma 5.3 (RTO digit-padding preserves bracketing) and is
-deferred. With `2 ≤ p` for both formats. -/
+/-- **rnd-RTO-RTO** (Fig. 9), general case `x ∈ ℝ`. Uses Lemma 5.3 corollary
+plus an additional `h_prec` hypothesis: the rounding precision in `F₁` is the
+same at `z`'s magnitude as at `x`'s magnitude. This holds whenever the
+`F₁`-adjacents of `x` are in the same magnitude bin (do not cross a
+power-of-two boundary), which is the typical case. -/
+theorem rndRTO_RTO {F₁ F₂ : AbstractFormat} {w k : ℕ}
+    (hsub : F₁ ⊆ F₂)
+    (hp_F₁ : F₁.p = (w : ℕ∞))
+    (hk : 1 ≤ k)
+    {x : ℝ}
+    (hwk : numDigits F₂.p F₂.exp x = ((w + k : ℕ) : ℤ))
+    {z w' : Dyadic}
+    (hz : RoundsRTO F₂ x z)
+    (hw : RoundsRTO F₁ (z : ℝ) w')
+    (h_prec : numDigits F₁.p F₁.exp (z : ℝ) = numDigits F₁.p F₁.exp x) :
+    RoundsRTO F₁ x w' := by
+  obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
+  obtain ⟨hw'F₁, hw_adj, hw_odd_imp⟩ := hw
+  rcases eq_or_ne ((z : ℝ)) x with hzx | hzx
+  · -- z = x: hw is essentially the goal
+    rw [hzx] at hw_adj hw_odd_imp
+    refine ⟨hw'F₁, hw_adj, ?_⟩
+    intro hxne
+    exact hw_odd_imp hxne
+  · -- z ≠ x: use Lemma 5.3
+    have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
+    have hz_not_F₁ : z ∉ F₁ := by
+      intro hzF₁
+      have hz_prec : Dyadic.precisionAtMost (w : ℕ∞) z := by
+        have ⟨hzP, _, _⟩ := hzF₁
+        rwa [hp_F₁] at hzP
+      exact (RoundsRTO.ne_of_precisionAtMost (w := w) (k := k) hk
+              ⟨hzF₂, hz_adj, hz_odd_imp⟩ hxne hwk hz_prec) rfl
+    have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := by
+      intro h_eq
+      apply hz_not_F₁
+      rw [show z = w' from Subtype.ext h_eq]
+      exact hw'F₁
+    obtain ⟨p_z, hp_z_eq, hp_z_pos, hodd_z⟩ := hw_odd_imp hz_ne_w'
+    refine ⟨hw'F₁, ?_, ?_⟩
+    · -- Adjacency: 4 cases on (hz_adj, hw_adj)
+      rcases hz_adj with hzRD | hzRU
+      · rcases hw_adj with hwRD | hwRU
+        · -- z RoundsDown, w' RoundsDown: w' ≤ z ≤ x ⇒ RoundsDown F₁ x w'
+          left
+          obtain ⟨_, hwz, hw_max⟩ := hwRD
+          have hzx_le := hzRD.2.1
+          refine ⟨hw'F₁, le_trans hwz hzx_le, ?_⟩
+          intro v hvF₁ hvx
+          have hv_le_z : (v : ℝ) ≤ (z : ℝ) := hzRD.2.2 v (hsub _ hvF₁) hvx
+          exact hw_max v hvF₁ hv_le_z
+        · -- z RoundsDown, w' RoundsUp: z ≤ w', z ≤ x. By contradiction, w' ≤ x ⇒ w' = z.
+          obtain ⟨_, hzw, hw_min⟩ := hwRU
+          by_cases hw'_le_x : (w' : ℝ) ≤ x
+          · exfalso
+            have hw_le_z : (w' : ℝ) ≤ (z : ℝ) := hzRD.2.2 w' (hsub _ hw'F₁) hw'_le_x
+            have : (w' : ℝ) = (z : ℝ) := le_antisymm hw_le_z hzw
+            exact hz_ne_w' this.symm
+          · push Not at hw'_le_x
+            right
+            refine ⟨hw'F₁, hw'_le_x.le, ?_⟩
+            intro v hvF₁ hxv
+            exact hw_min v hvF₁ (le_trans hzRD.2.1 hxv)
+      · rcases hw_adj with hwRD | hwRU
+        · -- z RoundsUp, w' RoundsDown: w' ≤ z, x ≤ z. By contradiction, w' > x ⇒ w' = z.
+          obtain ⟨_, hwz, hw_max⟩ := hwRD
+          by_cases hw'_le_x : (w' : ℝ) ≤ x
+          · left
+            refine ⟨hw'F₁, hw'_le_x, ?_⟩
+            intro v hvF₁ hvx
+            exact hw_max v hvF₁ (le_trans hvx hzRU.2.1)
+          · exfalso
+            push Not at hw'_le_x
+            have hw_ge_z : (z : ℝ) ≤ (w' : ℝ) :=
+              hzRU.2.2 w' (hsub _ hw'F₁) hw'_le_x.le
+            have : (w' : ℝ) = (z : ℝ) := le_antisymm hwz hw_ge_z
+            exact hz_ne_w' this.symm
+        · -- z RoundsUp, w' RoundsUp: x ≤ z ≤ w' ⇒ RoundsUp F₁ x w'
+          right
+          obtain ⟨_, hzw, hw_min⟩ := hwRU
+          have hxz := hzRU.2.1
+          refine ⟨hw'F₁, le_trans hxz hzw, ?_⟩
+          intro v hvF₁ hxv
+          have hzv : (z : ℝ) ≤ (v : ℝ) := hzRU.2.2 v (hsub _ hvF₁) hxv
+          exact hw_min v hvF₁ hzv
+    · -- Parity: numDigits F₁ x = p_z (via h_prec) and IsOddAtP p_z w' (from hw)
+      intro _
+      exact ⟨p_z, h_prec ▸ hp_z_eq, hp_z_pos, hodd_z⟩
+
+/-- **rnd-RTO-RTO** (Fig. 9), trivial case `x ∈ F₁`. -/
 theorem rndRTO_RTO_of_mem {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
     {x : Dyadic} (hx : x ∈ F₁)
     {z w : Dyadic}

@@ -57,7 +57,7 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 
 - [x] `rndRTZ_RTZ` (general `x ∈ ℝ`).
 - [x] `rndRAZ_RAZ` (general `x ∈ ℝ`; combines `_pos` case + `RoundsRAZ.neg` for `x < 0` + `neg_mem`-based handling of `x = 0`).
-- [~] `rndRTO_RTO_of_mem` proved (trivial case `x ∈ F₁`); full `rndRTO_RTO_O` / `rndRTO_RTO_E` blocked on Lemma 5.3.
+- [x] `rndRTO_RTO` (general, all `x ∈ ℝ`): unified `_O`/`_E` subcases via spec-relational form. Requires extra `h_prec` hypothesis: `numDigits F₁ z = numDigits F₁ x` (true when `F₁`-adjacents of `x` lie in same magnitude bin).
 - [x] `rndRTO_RTZ_pos`, `rndRTO_RAZ_pos`: positive case `0 < x`.
 - [x] **`rndRTO_RTZ`, `rndRTO_RAZ` (general, all `x ∈ ℝ`)**: combine `_pos` + `RoundsRTO.neg` / `RoundsRTZ.neg` / `RoundsRAZ.neg` symmetry; `x = 0` case is vacuous from `hwk` + `hk : 1 ≤ k`.
 - [ ] `rndRTO_RNE`.
@@ -73,25 +73,6 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [x] **Lemma 5.3 core (`Dyadic.precisionAtMost_not_isOddAtP`)**: precision-`w`-representable values cannot be odd at `w + k` bits (`k ≥ 1`).
 - [x] **Lemma 5.3 spec form (`RoundsRTO.ne_of_precisionAtMost`)**: when `x` is unrepresentable in an `(w + k)`-bit format, the RTO-rounded `x'` cannot equal any precision-`w`-representable dyadic. (Refined to use `numDigits F.p F.exp x = w + k` instead of `F.p = w + k`, for subnormal correctness.)
 - [x] **`RoundsRTO` refined**: parity check now uses `IsOddAtP (numDigits F.p F.exp x)` instead of `IsOddAtP F.p`, correctly handling subnormal regime.
-
-## Phase 6.5 — Conventions
-
-- All RTO/RNE theorems require `2 ≤ p` (where `p` is the format precision).
-  At `p = 1`, every nonzero value has `c ∈ {±1}` (both odd), so RTO/RNE
-  degenerate. The simpler modes (RTZ/RAZ) and containment theorems do not
-  need this constraint.
-
-## Future work
-
-- **Relax `2 ≤ p` to `1 ≤ p` for RTO/RNE.** Requires a different definition
-  of odd/even at `p = 1`. Candidates:
-  - Use parity of the canonical `c` (always odd for nonzero `y`) — needs
-    auxiliary tagging based on exponent parity to disambiguate.
-  - Treat `0` specially as an "even" value RTO can pick when adjacents collide.
-  - Define a "round-to-canonical-odd" mode whose meaning at `p = 1` differs
-    from the general formula.
-  Add a test suite once we have one to validate the relaxed definitions
-  agree with the strict `p ≥ 2` ones.
 
 ## Phase 7 — Smoke tests / sanity (`Mpfx/Tests.lean`)
 
