@@ -21,17 +21,17 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 ## Phase 2 — Abstract format (`Mpfx/Format.lean`)
 
-- [ ] `structure AbstractFormat` with `p : ℕ∞`, `exp : WithBot ℤ`, `b : WithTop Dyadic`.
-- [ ] `AbstractFormat.Mem` predicate per the plan.
-- [ ] `Membership Dyadic AbstractFormat` instance.
+- [x] `structure AbstractFormat` with `p : ℕ∞`, `exp : WithBot ℤ`, `b : WithTop Dyadic`.
+- [x] `AbstractFormat.Mem` predicate per the plan.
+- [x] `Membership Dyadic AbstractFormat` instance.
 - [ ] `AbstractFormat.next : AbstractFormat → Dyadic → Option Dyadic` (next representable above).
 - [ ] Smoke-test: instantiate `binary64`, `binary32`, `E5M2`, `E4M3`, `int8`, `fixed<-4,8>` from Fig. 7.
 - [ ] Concrete `decide` / `native_decide` membership examples for each instance.
 
 ## Phase 3 — Format containment (`Mpfx/Containment.lean`)
 
-- [ ] Theorem `containsPrec` (Fig. 8, `𝒜-Contains-Prec`) — pure algebraic rewrite using `exp₁ ≥ exp₂`.
-- [ ] Theorem `containsSub` (Fig. 8, `𝒜-Contains-Sub`) — case split on `exp₁ = exp₂` vs `exp₁ > exp₂`, bound argument.
+- [x] Theorem `containsPrec` (Fig. 8, `𝒜-Contains-Prec`) — direct via monotonicity lemmas.
+- [x] Theorem `containsSub` (Fig. 8, `𝒜-Contains-Sub`) — bound argument with `precisionAtMost_of_abs_le` helper.
 - [ ] Cross-check: `binary32 ⊆ binary64`, `E5M2 ⊆ binary64` via either rule.
 
 ## Phase 4 — Rounding (`Mpfx/Rounding.lean`)

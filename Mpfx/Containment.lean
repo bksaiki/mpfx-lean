@@ -43,6 +43,46 @@ theorem containsPrec {F₁ F₂ : AbstractFormat}
   · exact Dyadic.quantumAtLeast_anti he hex
   · exact boundOK_mono hb hbx
 
+/-- **𝒜-Contains-Sub** (Fig. 8). If `b₁ ≤ 2^(exp₁ + p₂)`, `exp₂ ≤ exp₁`, and
+`b₁ ≤ b₂`, then `𝒜(p₁, exp₁, b₁) ⊆ 𝒜(p₂, exp₂, b₂)`. Requires `p₂ ≥ 1` and a
+finite `exp₁ : ℤ` and finite `β₁ : Dyadic`. -/
+theorem containsSub {p₁ : ℕ∞} {p₂ : ℕ} {exp₁ : ℤ} {exp₂ : WithBot ℤ}
+    {β₁ : Dyadic} {b₂ : WithTop Dyadic}
+    (hp₂ : 1 ≤ p₂)
+    (hbprec : (β₁ : ℝ) ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)))
+    (he : exp₂ ≤ (exp₁ : WithBot ℤ))
+    (hb : (β₁ : WithTop Dyadic) ≤ b₂) :
+    ({ p := p₁, exp := (exp₁ : WithBot ℤ), b := (β₁ : WithTop Dyadic) } : AbstractFormat)
+      ⊆ { p := (p₂ : ℕ∞), exp := exp₂, b := b₂ } := by
+  intro x hx
+  obtain ⟨_, hex, hbx⟩ := hx
+  obtain ⟨c, hx_eq⟩ := hex
+  have hbx' : |(x : ℝ)| ≤ (β₁ : ℝ) := hbx
+  have h2ne : (2 : ℝ) ≠ 0 := two_ne_zero
+  have h2pow_pos : (0 : ℝ) < (2 : ℝ) ^ exp₁ := zpow_pos (by norm_num) _
+  have hc_le_real : |(c : ℝ)| ≤ (2 : ℝ) ^ (p₂ : ℤ) := by
+    have h1 : |(c : ℝ)| * (2 : ℝ) ^ exp₁ ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)) := by
+      calc |(c : ℝ)| * (2 : ℝ) ^ exp₁
+          = |(x : ℝ)| := by
+            rw [hx_eq, abs_mul, abs_zpow, abs_of_pos (by norm_num : (0:ℝ) < 2)]
+        _ ≤ (β₁ : ℝ) := hbx'
+        _ ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)) := hbprec
+    have h2 : (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)) = (2 : ℝ) ^ (p₂ : ℤ) * (2 : ℝ) ^ exp₁ := by
+      rw [zpow_add₀ h2ne]; ring
+    rw [h2] at h1
+    exact le_of_mul_le_mul_right h1 h2pow_pos
+  have hc_le : |c| ≤ (2 : ℤ) ^ p₂ := by
+    have : ((|c| : ℤ) : ℝ) ≤ (((2 : ℤ) ^ p₂ : ℤ) : ℝ) := by
+      rw [Int.cast_abs]
+      push_cast
+      simp only [← zpow_natCast (2 : ℝ) p₂]
+      exact hc_le_real
+    exact_mod_cast this
+  refine ⟨?_, ?_, ?_⟩
+  · exact Dyadic.precisionAtMost_of_abs_le hp₂ c exp₁ hx_eq hc_le
+  · exact Dyadic.quantumAtLeast_anti he ⟨c, hx_eq⟩
+  · exact boundOK_mono hb hbx
+
 end AbstractFormat
 
 end Mpfx

@@ -119,6 +119,37 @@ theorem precisionAtMost_mono {p₁ p₂ : ℕ∞} (h : p₁ ≤ p₂) {x : Dyadi
     have hn : n₁ ≤ n₂ := WithTop.coe_le_coe.mp h
     exact pow_le_pow_right₀ (by norm_num) hn
 
+/-- If `x = c · 2^e` with `|c| ≤ 2^p`, then `precisionAtMost p x` (for `p ≥ 1`).
+The boundary case `|c| = 2^p` forces `c = ±2^p`, and we can rewrite
+`x = ±1 · 2^(e+p)` to recover a representation with `|c'| = 1 < 2^p`. -/
+theorem precisionAtMost_of_abs_le {p : ℕ} (hp : 1 ≤ p) {x : Dyadic} (c e : ℤ)
+    (hx : (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e) (hc : |c| ≤ (2 : ℤ) ^ p) :
+    precisionAtMost (p : ℕ∞) x := by
+  rw [precisionAtMost_coe]
+  rcases lt_or_eq_of_le hc with hlt | heq
+  · exact ⟨c, e, hx, hlt⟩
+  · -- |c| = 2^p so c = ±2^p
+    have h2p_nonneg : (0 : ℤ) ≤ (2 : ℤ) ^ p := by positivity
+    have hsign : c = (2 : ℤ) ^ p ∨ c = -((2 : ℤ) ^ p) := (abs_eq h2p_nonneg).mp heq
+    have hone_lt : (1 : ℤ) < (2 : ℤ) ^ p := by
+      have : (2 : ℤ) ^ 0 < (2 : ℤ) ^ p := pow_lt_pow_right₀ (by norm_num) hp
+      simpa using this
+    have h2ne : (2 : ℝ) ≠ 0 := two_ne_zero
+    rcases hsign with hpos | hneg
+    · refine ⟨1, e + (p : ℤ), ?_, ?_⟩
+      · rw [hx, hpos, zpow_add₀ h2ne]
+        push_cast
+        simp only [← zpow_natCast (2 : ℝ) p]
+        ring
+      · simpa using hone_lt
+    · refine ⟨-1, e + (p : ℤ), ?_, ?_⟩
+      · rw [hx, hneg, zpow_add₀ h2ne]
+        push_cast
+        simp only [← zpow_natCast (2 : ℝ) p]
+        ring
+      · have : |(-1 : ℤ)| = 1 := by decide
+        rw [this]; exact hone_lt
+
 /-- Antitonicity of `quantumAtLeast` in `e` (smaller `e` is a weaker constraint). -/
 theorem quantumAtLeast_anti {e₁ e₂ : WithBot ℤ} (h : e₂ ≤ e₁) {x : Dyadic} :
     quantumAtLeast e₁ x → quantumAtLeast e₂ x := by
