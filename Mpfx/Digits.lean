@@ -87,6 +87,104 @@ theorem numDigits_neg (p : ℕ∞) (exp : WithBot ℤ) (x : ℝ) :
 @[simp] theorem numDigits_zero (p : ℕ∞) (exp : WithBot ℤ) :
     numDigits p exp 0 = 0 := by unfold numDigits; simp
 
+/-- Monotonicity of `numDigits` under format inclusion (containsPrec direction):
+if `F₁` is "stricter" than `F₂` (`F₁.p ≤ F₂.p` and `F₂.exp ≤ F₁.exp`), then
+`numDigits F₁ x ≤ numDigits F₂ x` at every `x`. The non-degeneracy invariant
+on both formats rules out the `(⊤, ⊥)` corner where this would fail. -/
+theorem numDigits_le_of_subformat {F₁ F₂ : AbstractFormat}
+    (hp_le : F₁.p ≤ F₂.p) (hexp_le : F₂.exp ≤ F₁.exp) (x : ℝ) :
+    numDigits F₁.p F₁.exp x ≤ numDigits F₂.p F₂.exp x := by
+  by_cases hx : x = 0
+  · simp [hx]
+  set ex : ℤ := Int.log 2 |x| with hex_def
+  have h1_nd : F₁.p ≠ ⊤ ∨ F₁.exp ≠ ⊥ := F₁.not_doubly_unbounded
+  have h2_nd : F₂.p ≠ ⊤ ∨ F₂.exp ≠ ⊥ := F₂.not_doubly_unbounded
+  cases hp1 : F₁.p with
+  | top =>
+    have hp2 : F₂.p = ⊤ := top_le_iff.mp (hp1 ▸ hp_le)
+    cases hexp1 : F₁.exp with
+    | bot =>
+      exfalso
+      rw [hp1, hexp1] at h1_nd
+      simp at h1_nd
+    | coe e₁' =>
+      cases hexp2 : F₂.exp with
+      | bot =>
+        exfalso
+        rw [hp2, hexp2] at h2_nd
+        simp at h2_nd
+      | coe e₂' =>
+        have hexp_le' : e₂' ≤ e₁' := by
+          rw [hexp1, hexp2] at hexp_le
+          exact_mod_cast hexp_le
+        unfold numDigits
+        rw [hp1, hexp1, hp2, hexp2]
+        simp only [hx, ↓reduceIte]
+        change ex - e₁' + 1 ≤ ex - e₂' + 1
+        omega
+  | coe n₁ =>
+    cases hexp1 : F₁.exp with
+    | bot =>
+      have hexp2 : F₂.exp = ⊥ := le_bot_iff.mp (hexp1 ▸ hexp_le)
+      cases hp2 : F₂.p with
+      | top =>
+        exfalso
+        rw [hp2, hexp2] at h2_nd
+        simp at h2_nd
+      | coe n₂ =>
+        have hp_le' : n₁ ≤ n₂ := by
+          rw [hp1, hp2] at hp_le
+          exact_mod_cast hp_le
+        unfold numDigits
+        rw [hp1, hexp1, hp2, hexp2]
+        simp only [hx, ↓reduceIte]
+        change ((n₁ : ℕ) : ℤ) ≤ ((n₂ : ℕ) : ℤ)
+        exact_mod_cast hp_le'
+    | coe e₁' =>
+      cases hp2 : F₂.p with
+      | top =>
+        cases hexp2 : F₂.exp with
+        | bot =>
+          exfalso
+          rw [hp2, hexp2] at h2_nd
+          simp at h2_nd
+        | coe e₂' =>
+          have hexp_le' : e₂' ≤ e₁' := by
+            rw [hexp1, hexp2] at hexp_le
+            exact_mod_cast hexp_le
+          unfold numDigits
+          rw [hp1, hexp1, hp2, hexp2]
+        simp only [hx, ↓reduceIte]
+          change min ((n₁ : ℕ) : ℤ) (ex - e₁' + 1) ≤ ex - e₂' + 1
+          calc min ((n₁ : ℕ) : ℤ) (ex - e₁' + 1)
+              ≤ ex - e₁' + 1 := min_le_right _ _
+            _ ≤ ex - e₂' + 1 := by omega
+      | coe n₂ =>
+        have hp_le' : n₁ ≤ n₂ := by
+          rw [hp1, hp2] at hp_le
+          exact_mod_cast hp_le
+        cases hexp2 : F₂.exp with
+        | bot =>
+          unfold numDigits
+          rw [hp1, hexp1, hp2, hexp2]
+        simp only [hx, ↓reduceIte]
+          change min ((n₁ : ℕ) : ℤ) (ex - e₁' + 1) ≤ ((n₂ : ℕ) : ℤ)
+          calc min ((n₁ : ℕ) : ℤ) (ex - e₁' + 1)
+              ≤ ((n₁ : ℕ) : ℤ) := min_le_left _ _
+            _ ≤ ((n₂ : ℕ) : ℤ) := by exact_mod_cast hp_le'
+        | coe e₂' =>
+          have hexp_le' : e₂' ≤ e₁' := by
+            rw [hexp1, hexp2] at hexp_le
+            exact_mod_cast hexp_le
+          unfold numDigits
+          rw [hp1, hexp1, hp2, hexp2]
+        simp only [hx, ↓reduceIte]
+          change min ((n₁ : ℕ) : ℤ) (ex - e₁' + 1)
+              ≤ min ((n₂ : ℕ) : ℤ) (ex - e₂' + 1)
+          apply min_le_min
+          · exact_mod_cast hp_le'
+          · omega
+
 /-- If `y ∈ F`, then `y` has a representation with at most `numDigits F.p F.exp y`
 binary digits. This bridges format membership to the Lemma 5.1 effective
 precision: even in subnormal regimes (where `F.p > numDigits F y`), `y`'s
@@ -169,9 +267,9 @@ theorem mem_imp_precisionAtMost_numDigits {F : AbstractFormat} {y : Dyadic}
   simp only [hy0, ↓reduceIte]
   match hp : F.p, hexp : F.exp with
   | ⊤, ⊥ =>
-    exfalso; rcases F.not_degenerate with h | h
-    · exact h hp
-    · exact h hexp
+    exfalso; rcases F.not_degenerate with ⟨hp_top, _⟩ | hexp_ne
+    · exact hp_top hp
+    · exact hexp_ne hexp
   | ⊤, ((e' : ℤ) : WithBot ℤ) =>
     change Dyadic.precisionAtMost (((Int.log 2 |(y : ℝ)| - e' + 1).toNat : ℕ) : ℕ∞) y
     rw [hexp] at hQ
@@ -200,8 +298,9 @@ theorem mem_imp_precisionAtMost_numDigits {F : AbstractFormat} {y : Dyadic}
 /-- Parity of `y` in format `F`. The precision used is `numDigits F.p F.exp y`
 (intrinsic to `y` in `F`); the *type* of parity test depends on `F.p`:
 
-- If `F.p = 1`: every nonzero value's significand is `±1` (always odd by integer
-  convention), so parity is determined by the *exponent*.
+- If `F.p = 1`: parity is determined by *index counting from 0*. The structural
+  invariant guarantees `F.exp ≠ ⊥`, so values are `0, ±2^F.exp, ±2^(F.exp+1), …`
+  with index `e − F.exp + 1`. Odd-index values (1st, 3rd, 5th, …) are "odd".
 - Otherwise (including `F.p = ⊤`): parity is determined by the *significand*.
 
 For `y = 0`: `IsOdd F y = False` (zero is conventionally even). For `y` whose
@@ -210,13 +309,13 @@ representation at the right precision). -/
 def IsOdd (F : AbstractFormat) (y : Dyadic) : Prop :=
   ∃ c e : ℤ,
     Dyadic.IsRepresentableAtP (numDigits F.p F.exp (y : ℝ)).toNat c e y ∧
-    (if F.p = (1 : ℕ∞) then Odd e else Odd c)
+    (if F.p = (1 : ℕ∞) then Odd (e - WithBot.unbotD 0 F.exp + 1) else Odd c)
 
 /-- Even-parity dual of `IsOdd`. Convention: `0` is even at every format. -/
 def IsEven (F : AbstractFormat) (y : Dyadic) : Prop :=
   y = 0 ∨ ∃ c e : ℤ,
     Dyadic.IsRepresentableAtP (numDigits F.p F.exp (y : ℝ)).toNat c e y ∧
-    (if F.p = (1 : ℕ∞) then Even e else Even c)
+    (if F.p = (1 : ℕ∞) then Even (e - WithBot.unbotD 0 F.exp + 1) else Even c)
 
 @[simp] theorem isEven_zero (F : AbstractFormat) : IsEven F 0 := Or.inl rfl
 

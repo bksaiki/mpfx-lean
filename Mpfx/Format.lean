@@ -14,17 +14,33 @@ structure AbstractFormat where
   p : ℕ∞
   exp : WithBot ℤ
   b : WithTop Dyadic
-  /-- The format is *not* degenerate: it is either precision-limited
-  (`p < ∞`) or quantum-limited (`exp > -∞`). The doubly-unbounded case is
-  excluded — `𝒜(∞, -∞, b)` would be the entire dyadic line below `b`, which
-  is not a meaningful number format in our setting. -/
-  not_degenerate : p ≠ ⊤ ∨ exp ≠ ⊥
+  /-- The format is *not* degenerate: either precision is finite *and ≠ 1*
+  (`p ∈ {2, 3, …}`) or there is a quantum (`exp > -∞`).
+
+  This rules out two pathological cases:
+  * `𝒜(∞, -∞, b)`: doubly-unbounded — the entire dyadic line below `b`.
+  * `𝒜(1, -∞, b)`: only powers of 2 with no scale — the parity discriminator
+    for `IsOdd` (Odd e in the canonical 1-bit representation) is meaningful
+    only with a quantum to anchor the index counting from. -/
+  not_degenerate : (p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥
   /-- The bound is non-negative when finite. This rules out degenerate formats
   with negative bounds (which would have no representable values), and
   guarantees that `0` is always representable in any `AbstractFormat`. -/
   b_nn : ∀ d : Dyadic, b = ↑d → 0 ≤ (d : ℝ)
 
 namespace AbstractFormat
+
+/-- When `F.p = 1`, the structural invariant forces `F.exp ≠ ⊥`. -/
+theorem exp_finite_of_p_one (F : AbstractFormat) (h : F.p = 1) : F.exp ≠ ⊥ := by
+  rcases F.not_degenerate with ⟨_, hp1⟩ | hexp
+  · exact absurd h hp1
+  · exact hexp
+
+/-- The original `not_degenerate` weakening (`p ≠ ⊤ ∨ exp ≠ ⊥`) is implied. -/
+theorem not_doubly_unbounded (F : AbstractFormat) : F.p ≠ ⊤ ∨ F.exp ≠ ⊥ := by
+  rcases F.not_degenerate with ⟨hp, _⟩ | hexp
+  · exact Or.inl hp
+  · exact Or.inr hexp
 
 /-- Bound check: `|x| ≤ b`, with `⊤` interpreted as no constraint. -/
 def boundOK : WithTop Dyadic → Dyadic → Prop
