@@ -218,6 +218,21 @@ theorem rndRAZ_RAZ {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
   · -- x > 0
     exact rndRAZ_RAZ_pos hsub hx_pos hz hw
 
+/-- **rnd-RTO-RTO** (Fig. 9), trivial case `x ∈ F₁`. The full theorem (for
+`x ∉ F₁`) requires Lemma 5.3 (RTO digit-padding preserves bracketing) and is
+deferred. With `2 ≤ p` for both formats. -/
+theorem rndRTO_RTO_of_mem {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
+    {x : Dyadic} (hx : x ∈ F₁)
+    {z w : Dyadic}
+    (hz : RoundsRTO F₂ (x : ℝ) z) (hw : RoundsRTO F₁ (z : ℝ) w) :
+    RoundsRTO F₁ (x : ℝ) w := by
+  have hxF₂ : x ∈ F₂ := hsub x hx
+  have hz_eq : z = x := RoundsRTO.unique_of_mem hxF₂ hz
+  rw [hz_eq] at hw
+  have hw_eq : w = x := RoundsRTO.unique_of_mem hx hw
+  rw [hw_eq]
+  exact RoundsRTO.of_mem hx
+
 end AbstractFormat
 
 end Mpfx

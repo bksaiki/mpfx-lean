@@ -97,6 +97,42 @@ theorem RoundsRTO.of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F) :
   · intro hne
     exact absurd rfl hne
 
+/-- If `x ∈ F` and `y` is the RTO-rounding of `x` in `F`, then `y = x`. -/
+theorem RoundsRTO.unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
+    {y : Dyadic} (h : RoundsRTO F (x : ℝ) y) : y = x := by
+  obtain ⟨_, hadj, _⟩ := h
+  rcases hadj with ⟨_, hyx, hmax⟩ | ⟨_, hxy, hmin⟩
+  · -- RoundsDown: (y:ℝ) ≤ (x:ℝ) and y is largest such
+    have hxy : (x : ℝ) ≤ (y : ℝ) := hmax x hx (le_refl _)
+    have heq : (y : ℝ) = (x : ℝ) := le_antisymm hyx hxy
+    exact Subtype.ext heq
+  · -- RoundsUp: (x:ℝ) ≤ (y:ℝ) and y is smallest such
+    have hyx : (y : ℝ) ≤ (x : ℝ) := hmin x hx (le_refl _)
+    have heq : (y : ℝ) = (x : ℝ) := le_antisymm hyx hxy
+    exact Subtype.ext heq
+
+/-- **Lemma 5.3 (spec-form corollary)**: when `x` is unrepresentable in `F`
+(`x ≠ x'`), the RTO-rounded `x'` (at format precision `w + k`) cannot coincide
+with *any* dyadic `y` representable at the strictly lower precision `w`.
+
+This is the directly useful form of the paper's Lemma 5.3 in our spec
+framework. It says: "RTO at `w + k` bits dodges every precision-`w` value" — so
+in particular, `x'` lies strictly between the precision-`w` adjacents of `x`. -/
+theorem RoundsRTO.ne_of_precisionAtMost {F : AbstractFormat} {w k : ℕ}
+    (hp : F.p = ((w + k) : ℕ∞)) (hk : 1 ≤ k)
+    {x : ℝ} {x' : Dyadic} (hround : RoundsRTO F x x')
+    (hxne : x ≠ (x' : ℝ))
+    {y : Dyadic} (hy : Dyadic.precisionAtMost (w : ℕ∞) y) :
+    (x' : ℝ) ≠ (y : ℝ) := by
+  intro hxy
+  have hxy_eq : x' = y := Subtype.ext hxy
+  obtain ⟨_, _, hodd_imp⟩ := hround
+  obtain ⟨p, hpx, hodd⟩ := hodd_imp hxne
+  rw [hp] at hpx
+  have hp_eq : p = w + k := by exact_mod_cast hpx.symm
+  rw [hp_eq, hxy_eq] at hodd
+  exact (Dyadic.precisionAtMost_not_isOddAtP hk hy) hodd
+
 end AbstractFormat
 
 end Mpfx

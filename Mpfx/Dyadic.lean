@@ -171,6 +171,71 @@ def IsEvenAtP (p : ℕ) (y : Dyadic) : Prop :=
 
 @[simp] theorem isEvenAtP_zero (p : ℕ) : IsEvenAtP p 0 := Or.inl rfl
 
+/-- **Lemma 5.3 core**: If `y` is representable at precision `w`, then at any
+strictly higher precision `w + k` (`k ≥ 1`), `y` cannot have an odd `(w+k)`-bit
+significand. Equivalently: precision-`w`-representable values are "even at
+`w + k` bits" (their canonical `c` gets multiplied by at least `2^k`).
+
+This is the key technical fact behind Lemma 5.3 (RTO digit-padding preserves
+bracketing): the precision-`w` adjacents `y₁, y₂` of `x` are even at `w + k`
+bits, so RTO at `w + k` (which picks the *odd* significand) cannot land on
+either of them. -/
+theorem precisionAtMost_not_isOddAtP {w k : ℕ} (hk : 1 ≤ k) {y : Dyadic}
+    (hprec : precisionAtMost (w : ℕ∞) y) : ¬ IsOddAtP (w + k) y := by
+  intro hodd
+  obtain ⟨c₁, e₁, hy_eq₁, hlow, _hhigh, hc₁_odd⟩ := hodd
+  rw [precisionAtMost_coe] at hprec
+  obtain ⟨c₂, e₂, hy_eq₂, hc₂_low⟩ := hprec
+  have heq_real : (c₁ : ℝ) * (2 : ℝ) ^ e₁ = (c₂ : ℝ) * (2 : ℝ) ^ e₂ := by
+    rw [← hy_eq₁]; exact hy_eq₂
+  have h2ne : (2 : ℝ) ≠ 0 := two_ne_zero
+  have h2pos : (0 : ℝ) < 2 := by norm_num
+  rcases lt_or_ge e₁ e₂ with he | he
+  · -- e₁ < e₂: c₁ = c₂ * 2^(e₂-e₁) in ℤ. Since e₂-e₁ ≥ 1, c₁ is even.
+    have h_nat : ((e₂ - e₁).toNat : ℤ) = e₂ - e₁ := Int.toNat_of_nonneg (by omega)
+    have hd_pos : 1 ≤ (e₂ - e₁).toNat := by omega
+    have heq_int : c₁ = c₂ * 2 ^ (e₂ - e₁).toNat := by
+      have h_real : (c₁ : ℝ) = (c₂ : ℝ) * (2 : ℝ) ^ (e₂ - e₁).toNat := by
+        rw [show ((2 : ℝ) ^ (e₂ - e₁).toNat : ℝ) = (2 : ℝ) ^ ((e₂ - e₁).toNat : ℤ) from
+            (zpow_natCast _ _).symm, h_nat]
+        have h_step : (c₂ : ℝ) * (2 : ℝ) ^ (e₂ - e₁) * (2 : ℝ) ^ e₁
+            = (c₁ : ℝ) * (2 : ℝ) ^ e₁ := by
+          rw [mul_assoc, ← zpow_add₀ h2ne, show e₂ - e₁ + e₁ = e₂ from by ring]
+          exact heq_real.symm
+        have h2e₁_pos : (0 : ℝ) < (2 : ℝ) ^ e₁ := zpow_pos h2pos _
+        exact (mul_right_cancel₀ (ne_of_gt h2e₁_pos) h_step).symm
+      exact_mod_cast h_real
+    have h_even : Even c₁ := by
+      rw [heq_int, show (e₂ - e₁).toNat = ((e₂ - e₁).toNat - 1) + 1 from by omega, pow_succ]
+      exact ⟨c₂ * 2 ^ ((e₂ - e₁).toNat - 1), by ring⟩
+    exact (Int.not_even_iff_odd.mpr hc₁_odd) h_even
+  · -- e₁ ≥ e₂: c₂ = c₁ * 2^(e₁-e₂) in ℤ; |c₂| ≥ |c₁| ≥ 2^(w+k-1) ≥ 2^w, contradicting |c₂| < 2^w
+    have h_nat : ((e₁ - e₂).toNat : ℤ) = e₁ - e₂ := Int.toNat_of_nonneg (by omega)
+    have heq_int : c₂ = c₁ * 2 ^ (e₁ - e₂).toNat := by
+      have h_real : (c₂ : ℝ) = (c₁ : ℝ) * (2 : ℝ) ^ (e₁ - e₂).toNat := by
+        rw [show ((2 : ℝ) ^ (e₁ - e₂).toNat : ℝ) = (2 : ℝ) ^ ((e₁ - e₂).toNat : ℤ) from
+            (zpow_natCast _ _).symm, h_nat]
+        have h_step : (c₁ : ℝ) * (2 : ℝ) ^ (e₁ - e₂) * (2 : ℝ) ^ e₂
+            = (c₂ : ℝ) * (2 : ℝ) ^ e₂ := by
+          rw [mul_assoc, ← zpow_add₀ h2ne, show e₁ - e₂ + e₂ = e₁ from by ring]
+          exact heq_real
+        have h2e₂_pos : (0 : ℝ) < (2 : ℝ) ^ e₂ := zpow_pos h2pos _
+        exact (mul_right_cancel₀ (ne_of_gt h2e₂_pos) h_step).symm
+      exact_mod_cast h_real
+    have h_abs : |c₂| = |c₁| * 2 ^ (e₁ - e₂).toNat := by
+      rw [heq_int, abs_mul, abs_pow]; simp
+    have h_pow_ge_one : (1 : ℤ) ≤ 2 ^ (e₁ - e₂).toNat := one_le_pow₀ (by norm_num)
+    have h_c₁_le_c₂ : |c₁| ≤ |c₂| := by
+      rw [h_abs]
+      have : 0 ≤ |c₁| := abs_nonneg _
+      nlinarith
+    have h_c₁_ge : (2 : ℤ) ^ w ≤ |c₁| := by
+      calc (2 : ℤ) ^ w
+          ≤ (2 : ℤ) ^ (w + k - 1) := by
+            apply pow_le_pow_right₀ (by norm_num); omega
+        _ ≤ |c₁| := hlow
+    linarith
+
 /-- Antitonicity of `quantumAtLeast` in `e` (smaller `e` is a weaker constraint). -/
 theorem quantumAtLeast_anti {e₁ e₂ : WithBot ℤ} (h : e₂ ≤ e₁) {x : Dyadic} :
     quantumAtLeast e₁ x → quantumAtLeast e₂ x := by
