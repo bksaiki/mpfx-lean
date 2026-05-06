@@ -21,7 +21,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 ## Phase 2 — Abstract format (`Mpfx/Format.lean`)
 
-- [x] `structure AbstractFormat` with `p : ℕ∞`, `exp : WithBot ℤ`, `b : WithTop Dyadic`.
+- [x] `structure AbstractFormat` with `p : ℕ∞`, `exp : WithBot ℤ`, `b : WithTop Dyadic`, structural invariants `not_degenerate : p ≠ ⊤ ∨ exp ≠ ⊥` (paper §4.2: format must be precision- or quantum-limited) and `b_nn` (bound non-negative when finite).
 - [x] `AbstractFormat.Mem` predicate per the plan.
 - [x] `Membership Dyadic AbstractFormat` instance.
 - [ ] `AbstractFormat.next : AbstractFormat → Dyadic → Option Dyadic` (next representable above).
@@ -60,11 +60,13 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [x] `rndRTO_RTO` (general, all `x ∈ ℝ`): unified `_O`/`_E` subcases via spec-relational form. Requires extra `h_prec` hypothesis: `numDigits F₁ z = numDigits F₁ x` (true when `F₁`-adjacents of `x` lie in same magnitude bin).
 - [x] `rndRTO_RTZ_pos`, `rndRTO_RAZ_pos`: positive case `0 < x`.
 - [x] **`rndRTO_RTZ`, `rndRTO_RAZ` (general, all `x ∈ ℝ`)**: combine `_pos` + `RoundsRTO.neg` / `RoundsRTZ.neg` / `RoundsRAZ.neg` symmetry; `x = 0` case is vacuous from `hwk` + `hk : 1 ≤ k`.
-- [~] `rndRTO_RNE`: substantial wrapper in place.
+- [~] `rndRTO_RNE`: progressively-stronger wrappers in place.
   - `rndRTO_RNE_of_eq` proven (trivial case `z = x`).
   - `rndRTO_RNE_via_transfers` packages the structural transfers as hypotheses.
-  - **`rndRTO_RNE` wrapper proven**: derives the adjacency transfer fully via Lemma 5.3 + `RoundsDown`/`RoundsUp` 4-way case-split (same as `rndRTO_RTO`). Takes `h_close` (closeness) and `h_no_tie` (tie-break vacuity for `z ≠ x`) as hypotheses.
-  - Remaining work: prove `h_close` and `h_no_tie` from `hz`, `hw`, `hk : 2 ≤ k`. Requires showing the midpoint of any `F₁`-adjacent pair is in `F₂` (precision OK from `k ≥ 1`, but quantum and bound need analysis), and that `z = x` whenever `x` is at midpoint (forcing `h_no_tie`'s "unless `z = x`" condition to fail in `z ≠ x` case).
+  - **`rndRTO_RNE`**: derives the adjacency transfer fully via Lemma 5.3 + `RoundsDown`/`RoundsUp` 4-way case-split (same as `rndRTO_RTO`). Takes `h_close` and `h_no_tie` as hypotheses.
+  - **`rndRTO_RNE_with_mid`**: further derives `h_no_tie` from a structural hypothesis `h_mid_in_F₂` (midpoints of `F₁`-pairs are in `F₂`). Uses `RoundsRTO.unique_of_mem` to show: a tie at `x` means `x = midpoint`, which forces `z = midpoint = x`, contradicting `z ≠ x`. Helper `RoundsRNE.midpoint_of_tie` extracts `x = (w' + z')/2` from `|x - w'| = |x - z'| ∧ w' ≠ z'`.
+  - **`Dyadic.half`, `Dyadic.midpoint`, `Dyadic.coe_midpoint`**: concrete midpoint construction added (so `(midpoint y₁ y₂ : ℝ) = ((y₁ : ℝ) + (y₂ : ℝ)) / 2` definitionally).
+  - Remaining work: (1) prove `h_close` from `hk : 2 ≤ k` (needs F₂-adjacency analysis showing `x` and `z` are on the same side of any `F₁`-midpoint); (2) prove `h_mid_in_F₂` from `F₁ ⊆ F₂` plus a "F₂ has finer quantum and ≥ `w + 1` precision" hypothesis (using `Dyadic.midpoint` as the explicit `m`).
 
 **Infrastructure added along the way:**
 - [x] `RoundsDown`, `RoundsUp`, `RoundsRTZ`, `RoundsRAZ` predicates (`Mpfx/Rounding.lean`).

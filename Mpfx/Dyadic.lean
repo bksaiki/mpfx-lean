@@ -84,6 +84,25 @@ noncomputable def ofIntZpow (c e : ℤ) : Dyadic :=
 @[simp] theorem coe_ofIntZpow (c e : ℤ) :
     ((ofIntZpow c e : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := rfl
 
+/-- The half-dyadic, `1/2 = 1·2^(-1)`. -/
+noncomputable def half : Dyadic := ofIntZpow 1 (-1)
+
+@[simp] theorem coe_half : (half : ℝ) = 1/2 := by
+  change ((1 : ℤ) : ℝ) * (2 : ℝ) ^ (-1 : ℤ) = 1/2
+  rw [zpow_neg_one]
+  push_cast
+  ring
+
+/-- Midpoint of two dyadics: `(y₁ + y₂)/2`. -/
+noncomputable def midpoint (y₁ y₂ : Dyadic) : Dyadic := (y₁ + y₂) * half
+
+theorem coe_midpoint (y₁ y₂ : Dyadic) :
+    ((midpoint y₁ y₂ : Dyadic) : ℝ) = ((y₁ : ℝ) + (y₂ : ℝ)) / 2 := by
+  change (((y₁ + y₂) * half : Dyadic) : ℝ) = _
+  push_cast
+  rw [coe_half]
+  ring
+
 /-- `x` has precision at most `p` (`⊤` = no constraint): there exist `c, e : ℤ`
 with `x = c · 2^e` and `|c| < 2^p`. Matches the paper's `precisionAtMost`. -/
 def precisionAtMost : ℕ∞ → Dyadic → Prop

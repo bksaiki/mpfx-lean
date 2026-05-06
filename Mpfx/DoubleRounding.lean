@@ -670,6 +670,18 @@ theorem rndRTO_RNE_via_transfers {F₁ : AbstractFormat}
     RoundsRNE F₁ x w' :=
   ⟨hw'F₁, h_adj_transfer, h_close_transfer, h_tie_transfer⟩
 
+/-- Helper for tie-break: from `|x - w'| = |x - z'|` with `w' ≠ z'`, derive
+`x = (w' + z') / 2`. -/
+private theorem RoundsRNE.midpoint_of_tie {x : ℝ} {w' z' : Dyadic}
+    (h_ne : z' ≠ w') (h_tie : |x - (w' : ℝ)| = |x - (z' : ℝ)|) :
+    x = ((w' : ℝ) + (z' : ℝ)) / 2 := by
+  rcases abs_eq_abs.mp h_tie with h1 | h1
+  · -- x - w' = x - z' ⇒ w' = z', contradicting h_ne
+    have : (w' : ℝ) = (z' : ℝ) := by linarith
+    exact absurd (Subtype.ext this).symm h_ne
+  · -- x - w' = -(x - z') ⇒ 2x = w' + z'
+    linarith
+
 /-- **rnd-RTO-RNE** wrapper: derives the adjacency transfer fully (same
 case-split as `rndRTO_RTO`), and takes the closeness and tie-break transfers
 as hypotheses (these require F₂-adjacency analysis specific to RNE).
@@ -760,6 +772,43 @@ theorem rndRTO_RNE {F₁ F₂ : AbstractFormat} {w k : ℕ}
     refine ⟨hw'F₁, h_adj_x, h_close, ?_⟩
     rintro ⟨z', hz'F₁, hz'_adj_x, hz'_ne_w', hz'_eq_dist⟩
     exact absurd hz'_eq_dist (h_no_tie hzx z' hz'F₁ hz'_adj_x hz'_ne_w')
+
+/-- **rnd-RTO-RNE** with `h_mid_in_F₂`: derives `h_no_tie` from the structural
+assumption that midpoints of `F₁`-pairs are in `F₂`. The closeness transfer
+`h_close` is still a hypothesis. -/
+theorem rndRTO_RNE_with_mid {F₁ F₂ : AbstractFormat} {w k : ℕ}
+    (hsub : F₁ ⊆ F₂)
+    (hp_F₁ : F₁.p = (w : ℕ∞))
+    (hk : 1 ≤ k)
+    {x : ℝ}
+    (hwk : numDigits F₂.p F₂.exp x = ((w + k : ℕ) : ℤ))
+    {z w' : Dyadic}
+    (hz : RoundsRTO F₂ x z)
+    (hw : RoundsRNE F₁ (z : ℝ) w')
+    (h_close : ∀ z' : Dyadic, z' ∈ F₁ →
+      (RoundsDown F₁ x z' ∨ RoundsUp F₁ x z') →
+      |x - (w' : ℝ)| ≤ |x - (z' : ℝ)|)
+    -- Midpoints of `F₁`-pairs lie in `F₂` (provable when `k ≥ 2` and the
+    -- containment relation provides the precision and quantum slack)
+    (h_mid_in_F₂ : ∀ y₁ y₂ : Dyadic, y₁ ∈ F₁ → y₂ ∈ F₁ →
+      ∃ m : Dyadic, m ∈ F₂ ∧ (m : ℝ) = ((y₁ : ℝ) + (y₂ : ℝ)) / 2) :
+    RoundsRNE F₁ x w' := by
+  apply rndRTO_RNE hsub hp_F₁ hk hwk hz hw h_close
+  -- Derive `h_no_tie` from `h_mid_in_F₂`: a tie at x means x = midpoint = some m ∈ F₂,
+  -- which by `RoundsRTO.unique_of_mem` forces z = m, contradicting z ≠ x.
+  intro hzx_ne z' hz'F₁ _ hz'_ne_w' hz'_eq_dist
+  obtain ⟨hw'F₁, _, _, _⟩ := hw
+  have hx_mid : x = ((w' : ℝ) + (z' : ℝ)) / 2 :=
+    RoundsRNE.midpoint_of_tie hz'_ne_w' hz'_eq_dist
+  obtain ⟨m, hmF₂, hm_eq⟩ := h_mid_in_F₂ w' z' hw'F₁ hz'F₁
+  have hm_x : (m : ℝ) = x := by rw [hm_eq, ← hx_mid]
+  -- RoundsRTO F₂ x z forces z = m via unique_of_mem (after rewriting x = m)
+  have hz_eq : z = m := by
+    have hz' : RoundsRTO F₂ ((m : ℝ)) z := by rw [hm_x]; exact hz
+    exact RoundsRTO.unique_of_mem hmF₂ hz'
+  -- (z : ℝ) = (m : ℝ) = x, contradicting hzx_ne
+  apply hzx_ne
+  rw [hz_eq]; exact hm_x
 
 end AbstractFormat
 

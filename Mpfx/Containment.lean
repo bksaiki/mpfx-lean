@@ -56,10 +56,13 @@ theorem containsSub {p₁ : ℕ∞} {p₂ : ℕ} {exp₁ : ℤ} {exp₂ : WithBo
     (he : exp₂ ≤ (exp₁ : WithBot ℤ))
     (hb : (β₁ : WithTop Dyadic) ≤ b₂) :
     ({ p := p₁, exp := (exp₁ : WithBot ℤ), b := (β₁ : WithTop Dyadic),
+       not_degenerate := Or.inr (by simp),
        b_nn := fun d hd => by
          have : d = β₁ := by exact_mod_cast hd.symm
          rw [this]; exact hβ } : AbstractFormat)
-      ⊆ { p := (p₂ : ℕ∞), exp := exp₂, b := b₂, b_nn := hb_nn } := by
+      ⊆ { p := (p₂ : ℕ∞), exp := exp₂, b := b₂,
+          not_degenerate := Or.inl (by simp),
+          b_nn := hb_nn } := by
   intro x hx
   obtain ⟨_, hex, hbx⟩ := hx
   obtain ⟨c, hx_eq⟩ := hex

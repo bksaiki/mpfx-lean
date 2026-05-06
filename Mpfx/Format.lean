@@ -14,6 +14,11 @@ structure AbstractFormat where
   p : ℕ∞
   exp : WithBot ℤ
   b : WithTop Dyadic
+  /-- The format is *not* degenerate: it is either precision-limited
+  (`p < ∞`) or quantum-limited (`exp > -∞`). The doubly-unbounded case is
+  excluded — `𝒜(∞, -∞, b)` would be the entire dyadic line below `b`, which
+  is not a meaningful number format in our setting. -/
+  not_degenerate : p ≠ ⊤ ∨ exp ≠ ⊥
   /-- The bound is non-negative when finite. This rules out degenerate formats
   with negative bounds (which would have no representable values), and
   guarantees that `0` is always representable in any `AbstractFormat`. -/
