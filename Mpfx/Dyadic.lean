@@ -150,6 +150,27 @@ theorem precisionAtMost_of_abs_le {p : ℕ} (hp : 1 ≤ p) {x : Dyadic} (c e : �
       · have : |(-1 : ℤ)| = 1 := by decide
         rw [this]; exact hone_lt
 
+/-- `y` is *odd at p bits*: `y` admits a representation `c · 2^e` where the
+significand `c` has *exactly* `p` binary digits (`2^(p-1) ≤ |c| < 2^p`) and `c`
+is odd. This is the parity used by RTO and RNE rounding to a `p`-bit format.
+
+For nonzero `y` representable at `p` bits, the `(c, e)` pair with `|c| ∈ [2^(p-1), 2^p)`
+is unique, so this predicate is well-defined. For `y = 0`, the predicate is false
+(0 is conventionally even). For `y` whose minimum precision exceeds `p`, the
+predicate is also false (no such representation exists). -/
+def IsOddAtP (p : ℕ) (y : Dyadic) : Prop :=
+  ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧
+             (2 : ℤ) ^ (p - 1) ≤ |c| ∧ |c| < (2 : ℤ) ^ p ∧ Odd c
+
+/-- `y` is *even at p bits*: dual of `IsOddAtP`. Either `y = 0` (conventionally
+even at any precision) or `y` admits a representation `c · 2^e` with `c` having
+exactly `p` bits and `c` even. -/
+def IsEvenAtP (p : ℕ) (y : Dyadic) : Prop :=
+  y = 0 ∨ ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧
+                     (2 : ℤ) ^ (p - 1) ≤ |c| ∧ |c| < (2 : ℤ) ^ p ∧ Even c
+
+@[simp] theorem isEvenAtP_zero (p : ℕ) : IsEvenAtP p 0 := Or.inl rfl
+
 /-- Antitonicity of `quantumAtLeast` in `e` (smaller `e` is a weaker constraint). -/
 theorem quantumAtLeast_anti {e₁ e₂ : WithBot ℤ} (h : e₂ ≤ e₁) {x : Dyadic} :
     quantumAtLeast e₁ x → quantumAtLeast e₂ x := by

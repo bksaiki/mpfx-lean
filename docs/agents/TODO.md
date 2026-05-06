@@ -67,6 +67,27 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [x] `RoundsDown`, `RoundsUp`, `RoundsRTZ`, `RoundsRAZ` predicates (`Mpfx/Rounding.lean`).
 - [x] `RoundsDown.compose`, `RoundsUp.compose` (parametric building blocks).
 - [x] `AbstractFormat.neg_mem`: every format is closed under negation (`Mpfx/Format.lean`).
+- [x] `Dyadic.IsOddAtP`, `Dyadic.IsEvenAtP`: parity at exactly `p` bits (`Mpfx/Dyadic.lean`).
+- [x] `RoundsRTO` predicate; `RoundsRTO.of_mem` (trivial case `x ∈ F`).
+
+## Phase 6.5 — Conventions
+
+- All RTO/RNE theorems require `2 ≤ p` (where `p` is the format precision).
+  At `p = 1`, every nonzero value has `c ∈ {±1}` (both odd), so RTO/RNE
+  degenerate. The simpler modes (RTZ/RAZ) and containment theorems do not
+  need this constraint.
+
+## Future work
+
+- **Relax `2 ≤ p` to `1 ≤ p` for RTO/RNE.** Requires a different definition
+  of odd/even at `p = 1`. Candidates:
+  - Use parity of the canonical `c` (always odd for nonzero `y`) — needs
+    auxiliary tagging based on exponent parity to disambiguate.
+  - Treat `0` specially as an "even" value RTO can pick when adjacents collide.
+  - Define a "round-to-canonical-odd" mode whose meaning at `p = 1` differs
+    from the general formula.
+  Add a test suite once we have one to validate the relaxed definitions
+  agree with the strict `p ≥ 2` ones.
 
 ## Phase 7 — Smoke tests / sanity (`Mpfx/Tests.lean`)
 

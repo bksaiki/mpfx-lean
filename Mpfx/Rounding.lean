@@ -75,6 +75,28 @@ theorem RoundsUp.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
   have hzy : (z : ℝ) ≤ (y : ℝ) := hz_min y hyF₂ hxy
   exact hw_min y hyF₁ hzy
 
+/-- `y = RTO-rounding of x in F` — round to odd. The result `y ∈ F` is either
+the round-down (`RoundsDown`) or round-up (`RoundsUp`) of `x`, and when `x` is
+not exactly equal to `y`, the significand `c` of `y` at `F.p` bits is odd
+(see `Dyadic.IsOddAtP`).
+
+For unrepresentable `x`, this picks the adjacent representable value with odd
+`p`-bit significand; for representable `x`, it returns `x` itself. -/
+def RoundsRTO (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
+  y ∈ F ∧
+  (RoundsDown F x y ∨ RoundsUp F x y) ∧
+  (x ≠ (y : ℝ) → ∃ p : ℕ, F.p = (p : ℕ∞) ∧ Dyadic.IsOddAtP p y)
+
+/-- For `x ∈ F`, the RTO rounding is `x` itself. -/
+theorem RoundsRTO.of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F) :
+    RoundsRTO F (x : ℝ) x := by
+  refine ⟨hx, Or.inl ?_, ?_⟩
+  · refine ⟨hx, le_refl _, ?_⟩
+    intro z _ hzx
+    exact hzx
+  · intro hne
+    exact absurd rfl hne
+
 end AbstractFormat
 
 end Mpfx
