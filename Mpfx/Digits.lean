@@ -84,6 +84,119 @@ theorem numDigits_neg (p : ℕ∞) (exp : WithBot ℤ) (x : ℝ) :
     have habs : |(-x)| = |x| := abs_neg x
     simp only [hx, hxne', ↓reduceIte, habs]
 
+@[simp] theorem numDigits_zero (p : ℕ∞) (exp : WithBot ℤ) :
+    numDigits p exp 0 = 0 := by unfold numDigits; simp
+
+/-- If `y ∈ F`, then `y` has a representation with at most `numDigits F.p F.exp y`
+binary digits. This bridges format membership to the Lemma 5.1 effective
+precision: even in subnormal regimes (where `F.p > numDigits F y`), `y`'s
+significand is bounded by `2^(numDigits F y)`. -/
+theorem mem_imp_precisionAtMost_numDigits {F : AbstractFormat} {y : Dyadic}
+    (hy : y ∈ F) :
+    Dyadic.precisionAtMost ((numDigits F.p F.exp (y : ℝ)).toNat : ℕ∞) y := by
+  obtain ⟨hP, hQ, _⟩ := hy
+  by_cases hy0 : (y : ℝ) = 0
+  · -- y = 0: numDigits = 0, precisionAtMost 0 y holds via c = 0, e = 0
+    have h_nd : numDigits F.p F.exp (y : ℝ) = 0 := by unfold numDigits; simp [hy0]
+    rw [h_nd]
+    change Dyadic.precisionAtMost ((0 : ℕ) : ℕ∞) y
+    rw [Dyadic.precisionAtMost_coe]
+    refine ⟨0, 0, ?_, by norm_num⟩
+    rw [hy0]; push_cast; ring
+  -- y ≠ 0
+  set e_y : ℤ := Int.log 2 |(y : ℝ)| with he_y_def
+  have habs_pos : 0 < |(y : ℝ)| := abs_pos.mpr hy0
+  have hlogN : (1 : ℕ) < 2 := by norm_num
+  have hlogR : (1 : ℝ) < 2 := by norm_num
+  have he_y_hi : |(y : ℝ)| < (2 : ℝ) ^ (e_y + 1) := Int.lt_zpow_succ_log_self hlogN _
+  -- "Quantum" subproof: from y = c·2^e' (and e' ≤ e_y), derive precisionAtMost (e_y - e' + 1).
+  have quantum_case : ∀ e' : ℤ,
+      (∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') →
+      e' ≤ e_y →
+      Dyadic.precisionAtMost (((e_y - e' + 1).toNat : ℕ) : ℕ∞) y := by
+    intro e' hQ' he_y_ge
+    obtain ⟨c, hyeq⟩ := hQ'
+    have h2pos : (0 : ℝ) < 2 := by norm_num
+    have h2e'_pos : (0 : ℝ) < (2 : ℝ) ^ e' := zpow_pos h2pos _
+    have h_real : (|c| : ℝ) < (2 : ℝ) ^ (e_y - e' + 1) := by
+      have h_y_eq : |(y : ℝ)| = |(c : ℝ)| * (2 : ℝ) ^ e' := by
+        rw [hyeq, abs_mul, abs_zpow, abs_of_pos h2pos]
+      have hsplit : (2 : ℝ) ^ (e_y + 1) =
+          (2 : ℝ) ^ (e_y - e' + 1) * (2 : ℝ) ^ e' := by
+        rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+        congr 1; ring
+      have key : |(c : ℝ)| * (2 : ℝ) ^ e' < (2 : ℝ) ^ (e_y - e' + 1) * (2 : ℝ) ^ e' := by
+        rw [← hsplit, ← h_y_eq]; exact he_y_hi
+      exact lt_of_mul_lt_mul_right key (le_of_lt h2e'_pos)
+    have h_nat : ((e_y - e' + 1).toNat : ℤ) = e_y - e' + 1 :=
+      Int.toNat_of_nonneg (by omega)
+    rw [Dyadic.precisionAtMost_coe]
+    refine ⟨c, e', hyeq, ?_⟩
+    have : (|c| : ℝ) < ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) := by
+      rw [show ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) =
+          (2 : ℝ) ^ ((e_y - e' + 1).toNat : ℤ) by push_cast; rfl, h_nat]
+      exact h_real
+    exact_mod_cast this
+  -- e' ≤ e_y from quantum constraint when y ≠ 0
+  have e'_le_e_y : ∀ e' : ℤ,
+      (∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') → e' ≤ e_y := by
+    intro e' ⟨c, hyeq⟩
+    have hc_ne : c ≠ 0 := by
+      intro hc0; rw [hc0] at hyeq; push_cast at hyeq
+      rw [zero_mul] at hyeq; exact hy0 hyeq
+    have hc_abs_ge : (1 : ℤ) ≤ |c| := Int.one_le_abs hc_ne
+    have h2pos : (0 : ℝ) < 2 := by norm_num
+    have h2e'_pos : (0 : ℝ) < (2 : ℝ) ^ e' := zpow_pos h2pos _
+    have habs_lo : (2 : ℝ) ^ e' ≤ |(y : ℝ)| := by
+      rw [hyeq, abs_mul, abs_zpow, abs_of_pos h2pos]
+      calc (2 : ℝ) ^ e'
+          = 1 * (2 : ℝ) ^ e' := (one_mul _).symm
+        _ ≤ |(c : ℝ)| * (2 : ℝ) ^ e' := by
+            apply mul_le_mul_of_nonneg_right _ (le_of_lt h2e'_pos)
+            rw [show ((1 : ℝ) : ℝ) = ((1 : ℤ) : ℝ) from by norm_num,
+                ← Int.cast_abs]
+            exact_mod_cast hc_abs_ge
+    -- e' ≤ e_y: suppose e_y < e', then 2^(e_y+1) ≤ 2^e' ≤ |y| < 2^(e_y+1) — contradiction
+    by_contra h_lt
+    push Not at h_lt
+    have h_step : e_y + 1 ≤ e' := by omega
+    have h_pow_le : (2 : ℝ) ^ (e_y + 1) ≤ (2 : ℝ) ^ e' :=
+      zpow_le_zpow_right₀ (by norm_num) h_step
+    linarith [habs_lo, he_y_hi]
+  -- Main case analysis on (F.p, F.exp). Use `change` per arm to materialize
+  -- the unfolded numDigits value (style mirrors `numDigits_shift`).
+  unfold numDigits
+  simp only [hy0, ↓reduceIte]
+  match hp : F.p, hexp : F.exp with
+  | ⊤, ⊥ =>
+    exfalso; rcases F.not_degenerate with h | h
+    · exact h hp
+    · exact h hexp
+  | ⊤, ((e' : ℤ) : WithBot ℤ) =>
+    change Dyadic.precisionAtMost (((Int.log 2 |(y : ℝ)| - e' + 1).toNat : ℕ) : ℕ∞) y
+    rw [hexp] at hQ
+    exact quantum_case e' hQ (e'_le_e_y e' hQ)
+  | ((n : ℕ) : ℕ∞), ⊥ =>
+    change Dyadic.precisionAtMost ((((n : ℤ).toNat : ℕ) : ℕ∞)) y
+    have hcast : (((n : ℤ).toNat : ℕ) : ℕ∞) = ((n : ℕ∞)) := by simp
+    rw [hcast]
+    rw [hp] at hP
+    exact hP
+  | ((n : ℕ) : ℕ∞), ((e' : ℤ) : WithBot ℤ) =>
+    change Dyadic.precisionAtMost
+      (((min ((n : ℤ)) (Int.log 2 |(y : ℝ)| - e' + 1)).toNat : ℕ) : ℕ∞) y
+    rcases le_or_gt ((n : ℤ)) (e_y - e' + 1) with hcase | hcase
+    · rw [show min ((n : ℕ) : ℤ) (Int.log 2 |(y : ℝ)| - e' + 1) = (n : ℤ) from
+          min_eq_left hcase]
+      have hcast : (((n : ℤ).toNat : ℕ) : ℕ∞) = ((n : ℕ∞)) := by simp
+      rw [hcast]
+      rw [hp] at hP
+      exact hP
+    · rw [show min ((n : ℕ) : ℤ) (Int.log 2 |(y : ℝ)| - e' + 1)
+          = e_y - e' + 1 from min_eq_right (le_of_lt hcase)]
+      rw [hexp] at hQ
+      exact quantum_case e' hQ (e'_le_e_y e' hQ)
+
 /-- Parity of `y` in format `F`. The precision used is `numDigits F.p F.exp y`
 (intrinsic to `y` in `F`); the *type* of parity test depends on `F.p`:
 
@@ -128,6 +241,21 @@ theorem IsOdd.neg {F : AbstractFormat} {y : Dyadic} (h : IsOdd F y) :
 theorem isOdd_neg_iff (F : AbstractFormat) (y : Dyadic) :
     IsOdd F (-y) ↔ IsOdd F y :=
   ⟨fun h => by simpa using h.neg, IsOdd.neg⟩
+
+/-- `IsOdd F y` implies `numDigits F.p F.exp y ≥ 1`. If `numDigits` were ≤ 0, the
+`IsRepresentableAtP` witness would force `1 ≤ |c| < 1`, a contradiction. -/
+theorem IsOdd.numDigits_pos {F : AbstractFormat} {y : Dyadic} (h : IsOdd F y) :
+    0 < numDigits F.p F.exp (y : ℝ) := by
+  obtain ⟨c, _, ⟨_, hlow, hhigh⟩, _⟩ := h
+  by_contra h_le
+  push Not at h_le
+  have h_toNat : (numDigits F.p F.exp ((y : Dyadic) : ℝ)).toNat = 0 :=
+    Int.toNat_of_nonpos h_le
+  rw [h_toNat] at hlow hhigh
+  -- hlow : 2^(0 - 1) ≤ |c| reduces to 1 ≤ |c|; hhigh : |c| < 2^0 = 1
+  have h1 : (1 : ℤ) ≤ |c| := by simpa using hlow
+  have h2 : |c| < (1 : ℤ) := by simpa using hhigh
+  omega
 
 /-- An `IsOdd F y` value is nonzero. -/
 theorem IsOdd.ne_zero {F : AbstractFormat} {y : Dyadic} (h : IsOdd F y) :

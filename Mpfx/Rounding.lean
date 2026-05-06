@@ -147,6 +147,31 @@ theorem RoundsRTO.ne_of_precisionAtMost {F : AbstractFormat} {w : ℕ}
   have h_odd_y : IsOdd F y := by rw [← hxy_eq]; exact h_odd
   exact (precisionAtMost_not_IsOdd hgt_y hy) h_odd_y
 
+/-- **Lemma 5.3, applied form**: if `RoundsRTO F₂ x z` (with `x ≠ z`), then `z`
+cannot be representable in any format `F₁` whose effective precision at `z`
+(per Lemma 5.1) is strictly less than `F₂`'s. This is the form used by every
+double-rounding theorem to rule out the case "F₂'s rounded value lands on an
+`F₁`-representable point". -/
+theorem RoundsRTO.notMem_of_lower_numDigits {F₁ F₂ : AbstractFormat}
+    {x : ℝ} {z : Dyadic} (hz : RoundsRTO F₂ x z)
+    (hxne : x ≠ (z : ℝ))
+    (hlt : numDigits F₁.p F₁.exp (z : ℝ) < numDigits F₂.p F₂.exp (z : ℝ)) :
+    z ∉ F₁ := by
+  intro hzF₁
+  have h_prec : Dyadic.precisionAtMost
+      (((numDigits F₁.p F₁.exp ((z : Dyadic) : ℝ)).toNat : ℕ) : ℕ∞) z :=
+    mem_imp_precisionAtMost_numDigits hzF₁
+  have h_iod : IsOdd F₂ z := hz.2.2 hxne
+  have h_nd_F₂_pos : 0 < numDigits F₂.p F₂.exp ((z : Dyadic) : ℝ) :=
+    h_iod.numDigits_pos
+  have hcast : ((numDigits F₁.p F₁.exp ((z : Dyadic) : ℝ)).toNat : ℤ)
+      < numDigits F₂.p F₂.exp ((z : Dyadic) : ℝ) := by
+    rcases le_or_gt 0 (numDigits F₁.p F₁.exp ((z : Dyadic) : ℝ)) with h | h
+    · rw [Int.toNat_of_nonneg h]; exact hlt
+    · rw [Int.toNat_of_nonpos (le_of_lt h)]
+      push_cast; exact h_nd_F₂_pos
+  exact (RoundsRTO.ne_of_precisionAtMost hz hxne hcast h_prec) rfl
+
 end AbstractFormat
 
 end Mpfx
