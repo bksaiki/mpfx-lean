@@ -60,7 +60,11 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [x] `rndRTO_RTO` (general, all `x ∈ ℝ`): unified `_O`/`_E` subcases via spec-relational form. Requires extra `h_prec` hypothesis: `numDigits F₁ z = numDigits F₁ x` (true when `F₁`-adjacents of `x` lie in same magnitude bin).
 - [x] `rndRTO_RTZ_pos`, `rndRTO_RAZ_pos`: positive case `0 < x`.
 - [x] **`rndRTO_RTZ`, `rndRTO_RAZ` (general, all `x ∈ ℝ`)**: combine `_pos` + `RoundsRTO.neg` / `RoundsRTZ.neg` / `RoundsRAZ.neg` symmetry; `x = 0` case is vacuous from `hwk` + `hk : 1 ≤ k`.
-- [~] `rndRTO_RNE`: skeleton in place. `rndRTO_RNE_of_eq` (trivial case `z = x`) is proven; `rndRTO_RNE_via_transfers` packages the structural transfers (adjacency, closeness, tie-break) as hypotheses. Full theorem (deriving the transfers from `hz`, `hw`, Lemma 5.3, and `hk : 2 ≤ k`) is the remaining work — needs F₂-adjacency analysis showing `x` and `z` are on the same side of each `F₁`-midpoint.
+- [~] `rndRTO_RNE`: substantial wrapper in place.
+  - `rndRTO_RNE_of_eq` proven (trivial case `z = x`).
+  - `rndRTO_RNE_via_transfers` packages the structural transfers as hypotheses.
+  - **`rndRTO_RNE` wrapper proven**: derives the adjacency transfer fully via Lemma 5.3 + `RoundsDown`/`RoundsUp` 4-way case-split (same as `rndRTO_RTO`). Takes `h_close` (closeness) and `h_no_tie` (tie-break vacuity for `z ≠ x`) as hypotheses.
+  - Remaining work: prove `h_close` and `h_no_tie` from `hz`, `hw`, `hk : 2 ≤ k`. Requires showing the midpoint of any `F₁`-adjacent pair is in `F₂` (precision OK from `k ≥ 1`, but quantum and bound need analysis), and that `z = x` whenever `x` is at midpoint (forcing `h_no_tie`'s "unless `z = x`" condition to fail in `z ≠ x` case).
 
 **Infrastructure added along the way:**
 - [x] `RoundsDown`, `RoundsUp`, `RoundsRTZ`, `RoundsRAZ` predicates (`Mpfx/Rounding.lean`).
