@@ -172,6 +172,101 @@ theorem RoundsRTO.notMem_of_lower_numDigits {F₁ F₂ : AbstractFormat}
       push_cast; exact h_nd_F₂_pos
   exact (RoundsRTO.ne_of_precisionAtMost hz hxne hcast h_prec) rfl
 
+/-- Sign-flip symmetry for RTZ rounding. -/
+theorem RoundsRTZ.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
+    (h : RoundsRTZ F x y) : RoundsRTZ F (-x) (-y) := by
+  obtain ⟨hyF, hbnd, hsign, hmax⟩ := h
+  refine ⟨neg_mem hyF, ?_, ?_, ?_⟩
+  · change |((-y : Dyadic) : ℝ)| ≤ |(-x)|
+    push_cast
+    rw [abs_neg, abs_neg]
+    exact hbnd
+  · change ((-y : Dyadic) : ℝ) * (-x) ≥ 0
+    push_cast
+    have : -(y : ℝ) * -x = (y : ℝ) * x := by ring
+    rw [this]
+    exact hsign
+  · intro z hzF hzbnd hzsign
+    rw [abs_neg] at hzbnd
+    have hnz : (-z) ∈ F := neg_mem hzF
+    have h1 : |((-z : Dyadic) : ℝ)| ≤ |x| := by push_cast; rw [abs_neg]; exact hzbnd
+    have h2 : 0 ≤ ((-z : Dyadic) : ℝ) * x := by
+      push_cast
+      have hzs : 0 ≤ (z : ℝ) * (-x) := hzsign
+      linarith
+    have key := hmax (-z) hnz h1 h2
+    have habs1 : |((-z : Dyadic) : ℝ)| = |(z : ℝ)| := by push_cast; rw [abs_neg]
+    have habs2 : |((-y : Dyadic) : ℝ)| = |(y : ℝ)| := by push_cast; rw [abs_neg]
+    rw [habs1] at key
+    rw [habs2]
+    exact key
+
+/-- Sign-flip symmetry for RTO rounding. -/
+theorem RoundsRTO.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
+    (h : RoundsRTO F x y) : RoundsRTO F (-x) (-y) := by
+  obtain ⟨hyF, hadj, hodd_imp⟩ := h
+  refine ⟨neg_mem hyF, ?_, ?_⟩
+  · -- RoundsDown ↔ RoundsUp under negation
+    rcases hadj with hRD | hRU
+    · right
+      obtain ⟨_, hyx, hmax⟩ := hRD
+      refine ⟨neg_mem hyF, ?_, ?_⟩
+      · push_cast; linarith
+      · intro z hzF hxz
+        push_cast
+        have hnzF : (-z) ∈ F := neg_mem hzF
+        have h1 : ((-z : Dyadic) : ℝ) ≤ x := by push_cast; linarith
+        have key := hmax (-z) hnzF h1
+        push_cast at key; linarith
+    · left
+      obtain ⟨_, hxy, hmin⟩ := hRU
+      refine ⟨neg_mem hyF, ?_, ?_⟩
+      · push_cast; linarith
+      · intro z hzF hzx
+        push_cast
+        have hnzF : (-z) ∈ F := neg_mem hzF
+        have h1 : x ≤ ((-z : Dyadic) : ℝ) := by push_cast; linarith
+        have key := hmin (-z) hnzF h1
+        push_cast at key; linarith
+  · intro hxne
+    have hxne' : x ≠ (y : ℝ) := by
+      intro h_eq
+      apply hxne
+      rw [h_eq]; push_cast; rfl
+    exact (hodd_imp hxne').neg
+
+/-- Sign-flip symmetry for RAZ rounding: rounding `x` to `y` under RAZ in `F`
+is equivalent to rounding `-x` to `-y`. Uses `neg_mem` (every format is closed
+under negation). -/
+theorem RoundsRAZ.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
+    (h : RoundsRAZ F x y) : RoundsRAZ F (-x) (-y) := by
+  obtain ⟨hyF, hbnd, hsign, hmin⟩ := h
+  refine ⟨neg_mem hyF, ?_, ?_, ?_⟩
+  · change |(-x)| ≤ |((-y : Dyadic) : ℝ)|
+    push_cast
+    rw [abs_neg, abs_neg]
+    exact hbnd
+  · change ((-y : Dyadic) : ℝ) * (-x) ≥ 0
+    push_cast
+    have : -(y : ℝ) * -x = (y : ℝ) * x := by ring
+    rw [this]
+    exact hsign
+  · intro z hzF hzbnd hzsign
+    rw [abs_neg] at hzbnd
+    have hnz : (-z) ∈ F := neg_mem hzF
+    have h1 : |x| ≤ |((-z : Dyadic) : ℝ)| := by
+      push_cast; rw [abs_neg]; exact hzbnd
+    have h2 : 0 ≤ ((-z : Dyadic) : ℝ) * x := by
+      push_cast
+      have hzs : 0 ≤ (z : ℝ) * (-x) := hzsign
+      linarith
+    have key := hmin (-z) hnz h1 h2
+    change |((-y : Dyadic) : ℝ)| ≤ |(z : ℝ)|
+    push_cast
+    rw [abs_neg]
+    have hyz : |(y : ℝ)| ≤ |((-z : Dyadic) : ℝ)| := key
+    rwa [show |((-z : Dyadic) : ℝ)| = |(z : ℝ)| from by push_cast; rw [abs_neg]] at hyz
+
 end AbstractFormat
 
 end Mpfx
