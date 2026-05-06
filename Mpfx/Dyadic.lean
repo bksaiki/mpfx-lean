@@ -150,47 +150,62 @@ theorem precisionAtMost_of_abs_le {p : ℕ} (hp : 1 ≤ p) {x : Dyadic} (c e : �
       · have : |(-1 : ℤ)| = 1 := by decide
         rw [this]; exact hone_lt
 
-/-- `y` is *odd at p bits*: `y` admits a representation `c · 2^e` where the
-significand `c` has *exactly* `p` binary digits (`2^(p-1) ≤ |c| < 2^p`) and `c`
-is odd. This is the parity used by RTO and RNE rounding to a `p`-bit format.
+/-- `(c, e)` is a representation of `y` at *exactly* `p` binary digits:
+`y = c · 2^e` with `2^(p-1) ≤ |c| < 2^p` (so the significand `c` has exactly
+`p` bits when `y ≠ 0`).
 
-For nonzero `y` representable at `p` bits, the `(c, e)` pair with `|c| ∈ [2^(p-1), 2^p)`
-is unique, so this predicate is well-defined. For `y = 0`, the predicate is false
-(0 is conventionally even). For `y` whose minimum precision exceeds `p`, the
-predicate is also false (no such representation exists). -/
+For nonzero `y` representable at `p` bits, the `(c, e)` pair satisfying this
+predicate is unique. -/
+def IsRepresentableAtP (p : ℕ) (c e : ℤ) (y : Dyadic) : Prop :=
+  (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧
+  (2 : ℤ) ^ (p - 1) ≤ |c| ∧ |c| < (2 : ℤ) ^ p
+
+/-- `y` is *odd at p bits*: `y` has a representation at exactly `p` bits with
+odd parity. For `p ≥ 2`, parity is determined by `c` (`Odd c`). For `p = 1`,
+every nonzero value has `c ∈ {±1}` (both odd by integer convention), so
+`c`-parity fails to disambiguate adjacents — instead, parity is determined by
+the exponent `e` (`Odd e`). This is the parity used by RTO and RNE rounding to
+a `p`-bit format.
+
+For `y = 0`, the predicate is false (0 is conventionally even). For `y` whose
+minimum precision exceeds `p`, the predicate is also false. -/
 def IsOddAtP (p : ℕ) (y : Dyadic) : Prop :=
-  ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧
-             (2 : ℤ) ^ (p - 1) ≤ |c| ∧ |c| < (2 : ℤ) ^ p ∧ Odd c
+  ∃ c e : ℤ, IsRepresentableAtP p c e y ∧ (if p = 1 then Odd e else Odd c)
 
 /-- `y` is *even at p bits*: dual of `IsOddAtP`. Either `y = 0` (conventionally
-even at any precision) or `y` admits a representation `c · 2^e` with `c` having
-exactly `p` bits and `c` even. -/
+even at any precision) or `y` has a representation at exactly `p` bits with
+even parity (by `c` for `p ≥ 2`, by `e` for `p = 1`). -/
 def IsEvenAtP (p : ℕ) (y : Dyadic) : Prop :=
-  y = 0 ∨ ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧
-                     (2 : ℤ) ^ (p - 1) ≤ |c| ∧ |c| < (2 : ℤ) ^ p ∧ Even c
+  y = 0 ∨ ∃ c e : ℤ, IsRepresentableAtP p c e y ∧ (if p = 1 then Even e else Even c)
 
 @[simp] theorem isEvenAtP_zero (p : ℕ) : IsEvenAtP p 0 := Or.inl rfl
 
-/-- `IsOddAtP` is invariant under negation: parity of `c` is preserved by `-c`. -/
+/-- `IsOddAtP` is invariant under negation. For `p = 1`, the exponent `e` is
+unchanged by negating `y`, so `Odd e` is preserved. For `p ≥ 2`, parity flips
+on `c` but `Odd (-c) ↔ Odd c`. -/
 theorem isOddAtP_neg (p : ℕ) (y : Dyadic) : IsOddAtP p (-y) ↔ IsOddAtP p y := by
   constructor
-  · rintro ⟨c, e, hyeq, hlow, hhigh, hodd⟩
-    refine ⟨-c, e, ?_, ?_, ?_, ?_⟩
+  · rintro ⟨c, e, ⟨hyeq, hlow, hhigh⟩, hodd⟩
+    refine ⟨-c, e, ⟨?_, ?_, ?_⟩, ?_⟩
     · have : ((-y : Dyadic) : ℝ) = -(y : ℝ) := by push_cast; rfl
       rw [this] at hyeq
       have : (y : ℝ) = -((c : ℝ)) * (2 : ℝ) ^ e := by linarith [hyeq]
       rw [this]; push_cast; ring
     · simpa using hlow
     · simpa using hhigh
-    · exact Odd.neg hodd
-  · rintro ⟨c, e, hyeq, hlow, hhigh, hodd⟩
-    refine ⟨-c, e, ?_, ?_, ?_, ?_⟩
+    · split_ifs with hp1
+      · rw [if_pos hp1] at hodd; exact hodd
+      · rw [if_neg hp1] at hodd; exact Odd.neg hodd
+  · rintro ⟨c, e, ⟨hyeq, hlow, hhigh⟩, hodd⟩
+    refine ⟨-c, e, ⟨?_, ?_, ?_⟩, ?_⟩
     · change ((-y : Dyadic) : ℝ) = (((-c : ℤ)) : ℝ) * (2 : ℝ) ^ e
       push_cast
       rw [hyeq]; ring
     · simpa using hlow
     · simpa using hhigh
-    · exact Odd.neg hodd
+    · split_ifs with hp1
+      · rw [if_pos hp1] at hodd; exact hodd
+      · rw [if_neg hp1] at hodd; exact Odd.neg hodd
 
 /-- **Lemma 5.3 core**: If `y` is representable at precision `w`, then at any
 strictly higher precision `w + k` (`k ≥ 1`), `y` cannot have an odd `(w+k)`-bit
@@ -204,7 +219,24 @@ either of them. -/
 theorem precisionAtMost_not_isOddAtP {w k : ℕ} (hk : 1 ≤ k) {y : Dyadic}
     (hprec : precisionAtMost (w : ℕ∞) y) : ¬ IsOddAtP (w + k) y := by
   intro hodd
-  obtain ⟨c₁, e₁, hy_eq₁, hlow, _hhigh, hc₁_odd⟩ := hodd
+  obtain ⟨c₁, e₁, ⟨hy_eq₁, hlow, _hhigh⟩, h_parity⟩ := hodd
+  -- Derive `Odd c₁` regardless of the `p = 1` vs `p ≥ 2` branch:
+  -- for `p = 1` (so `w + k = 1` ⇒ `w = 0, k = 1`), `|c₁| = 1` forces `c₁ = ±1`,
+  -- both of which are odd. For `p ≥ 2`, the predicate gives `Odd c₁` directly.
+  have hc₁_odd : Odd c₁ := by
+    by_cases hwk1 : w + k = 1
+    · -- p = 1: |c₁| = 1
+      have hlow' : (1 : ℤ) ≤ |c₁| := by
+        rw [hwk1] at hlow; simpa using hlow
+      have hhigh' : |c₁| < 2 := by
+        rw [hwk1] at _hhigh; simpa using _hhigh
+      have habs : |c₁| = 1 := by omega
+      rcases (abs_eq (by norm_num : (0:ℤ) ≤ 1)).mp habs with h | h
+      · rw [h]; decide
+      · rw [h]; decide
+    · -- p ≥ 2
+      rw [if_neg hwk1] at h_parity
+      exact h_parity
   rw [precisionAtMost_coe] at hprec
   obtain ⟨c₂, e₂, hy_eq₂, hc₂_low⟩ := hprec
   have heq_real : (c₁ : ℝ) * (2 : ℝ) ^ e₁ = (c₂ : ℝ) * (2 : ℝ) ^ e₂ := by

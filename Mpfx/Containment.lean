@@ -45,15 +45,21 @@ theorem containsPrec {F₁ F₂ : AbstractFormat}
 
 /-- **𝒜-Contains-Sub** (Fig. 8). If `b₁ ≤ 2^(exp₁ + p₂)`, `exp₂ ≤ exp₁`, and
 `b₁ ≤ b₂`, then `𝒜(p₁, exp₁, b₁) ⊆ 𝒜(p₂, exp₂, b₂)`. Requires `p₂ ≥ 1` and a
-finite `exp₁ : ℤ` and finite `β₁ : Dyadic`. -/
+finite `exp₁ : ℤ` and finite `β₁ : Dyadic`. The non-negative-bound invariants
+`hβ` and `hb_nn` are required to construct the underlying `AbstractFormat`s. -/
 theorem containsSub {p₁ : ℕ∞} {p₂ : ℕ} {exp₁ : ℤ} {exp₂ : WithBot ℤ}
     {β₁ : Dyadic} {b₂ : WithTop Dyadic}
     (hp₂ : 1 ≤ p₂)
+    (hβ : 0 ≤ (β₁ : ℝ))
+    (hb_nn : ∀ d : Dyadic, b₂ = ↑d → 0 ≤ (d : ℝ))
     (hbprec : (β₁ : ℝ) ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)))
     (he : exp₂ ≤ (exp₁ : WithBot ℤ))
     (hb : (β₁ : WithTop Dyadic) ≤ b₂) :
-    ({ p := p₁, exp := (exp₁ : WithBot ℤ), b := (β₁ : WithTop Dyadic) } : AbstractFormat)
-      ⊆ { p := (p₂ : ℕ∞), exp := exp₂, b := b₂ } := by
+    ({ p := p₁, exp := (exp₁ : WithBot ℤ), b := (β₁ : WithTop Dyadic),
+       b_nn := fun d hd => by
+         have : d = β₁ := by exact_mod_cast hd.symm
+         rw [this]; exact hβ } : AbstractFormat)
+      ⊆ { p := (p₂ : ℕ∞), exp := exp₂, b := b₂, b_nn := hb_nn } := by
   intro x hx
   obtain ⟨_, hex, hbx⟩ := hx
   obtain ⟨c, hx_eq⟩ := hex

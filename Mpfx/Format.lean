@@ -14,6 +14,10 @@ structure AbstractFormat where
   p : ℕ∞
   exp : WithBot ℤ
   b : WithTop Dyadic
+  /-- The bound is non-negative when finite. This rules out degenerate formats
+  with negative bounds (which would have no representable values), and
+  guarantees that `0` is always representable in any `AbstractFormat`. -/
+  b_nn : ∀ d : Dyadic, b = ↑d → 0 ≤ (d : ℝ)
 
 namespace AbstractFormat
 
@@ -39,6 +43,25 @@ theorem mem_iff (F : AbstractFormat) (x : Dyadic) :
     x ∈ F ↔ Dyadic.precisionAtMost F.p x ∧
             Dyadic.quantumAtLeast F.exp x ∧
             boundOK F.b x := Iff.rfl
+
+/-- `0` is always representable. Uses the structural `b_nn` invariant. -/
+theorem zero_mem (F : AbstractFormat) : (0 : Dyadic) ∈ F := by
+  refine ⟨?_, ?_, ?_⟩
+  · -- precisionAtMost: take c = 0, e = 0
+    cases F.p with
+    | top => trivial
+    | coe n => exact ⟨0, 0, by push_cast; ring, by positivity⟩
+  · -- quantumAtLeast: take c = 0
+    cases F.exp with
+    | bot => trivial
+    | coe e => exact ⟨0, by push_cast; simp⟩
+  · -- boundOK: |0| = 0 ≤ b (using b_nn for finite bound)
+    cases hb : F.b with
+    | top => trivial
+    | coe d =>
+      change |((0 : Dyadic) : ℝ)| ≤ (d : ℝ)
+      push_cast
+      simpa using F.b_nn d hb
 
 /-- Every abstract format is closed under negation: `precisionAtMost`,
 `quantumAtLeast`, and the bound `|·| ≤ b` are all sign-invariant. -/
