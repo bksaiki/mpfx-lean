@@ -60,7 +60,7 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [x] `rndRTO_RTO` (general, all `x ∈ ℝ`): unified `_O`/`_E` subcases via spec-relational form. Requires extra `h_prec` hypothesis: `numDigits F₁ z = numDigits F₁ x` (true when `F₁`-adjacents of `x` lie in same magnitude bin).
 - [x] `rndRTO_RTZ_pos`, `rndRTO_RAZ_pos`: positive case `0 < x`.
 - [x] **`rndRTO_RTZ`, `rndRTO_RAZ` (general, all `x ∈ ℝ`)**: combine `_pos` + `RoundsRTO.neg` / `RoundsRTZ.neg` / `RoundsRAZ.neg` symmetry; `x = 0` case is vacuous from `hwk` + `hk : 1 ≤ k`.
-- [ ] `rndRTO_RNE`.
+- [~] `rndRTO_RNE`: skeleton in place. `rndRTO_RNE_of_eq` (trivial case `z = x`) is proven; `rndRTO_RNE_via_transfers` packages the structural transfers (adjacency, closeness, tie-break) as hypotheses. Full theorem (deriving the transfers from `hz`, `hw`, Lemma 5.3, and `hk : 2 ≤ k`) is the remaining work — needs F₂-adjacency analysis showing `x` and `z` are on the same side of each `F₁`-midpoint.
 
 **Infrastructure added along the way:**
 - [x] `RoundsDown`, `RoundsUp`, `RoundsRTZ`, `RoundsRAZ` predicates (`Mpfx/Rounding.lean`).
@@ -85,3 +85,19 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [ ] Remove `def hello := "world"` from `Mpfx/Basic.lean` (or repurpose).
 - [ ] `Mpfx.lean` re-exports each module.
 - [ ] `lake build` is clean, `git grep -n sorry Mpfx/` is empty.
+
+## Future work
+
+- **Drop `h_prec` hypothesis from `rndRTO_RTO`** (and possibly `rndRTO_RNE`).
+  Currently `rndRTO_RTO` requires
+  `h_prec : numDigits F₁.p F₁.exp z = numDigits F₁.p F₁.exp x`
+  to transfer parity of `w'` from `z`'s view to `x`'s view (since
+  `IsOddAtP p w'` depends on `p`). This holds automatically when `x` is in
+  `F₁`'s normal range (both `numDigits` equal `F₁.p = w`) but can fail when
+  `z` and `x` straddle a power-of-two boundary in the subnormal regime.
+  Three options to drop it:
+  1. Restrict to `x` in `F₁`'s normal range (`numDigits F₁ x = F₁.p`).
+  2. Strengthen Lemma 5.3 to also assert `numDigits F₁ z = numDigits F₁ x`
+     (needs adjacency-bin machinery).
+  3. Reformulate `RoundsRTO`'s parity clause with a precision-invariant
+     property (e.g. parity at `y`'s own canonical precision).

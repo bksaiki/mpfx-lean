@@ -373,19 +373,6 @@ theorem rndRTO_RTO {F₁ F₂ : AbstractFormat} {w k : ℕ}
       intro _
       exact ⟨p_z, h_prec ▸ hp_z_eq, hp_z_pos, hodd_z⟩
 
-/-- **rnd-RTO-RTO** (Fig. 9), trivial case `x ∈ F₁`. -/
-theorem rndRTO_RTO_of_mem {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
-    {x : Dyadic} (hx : x ∈ F₁)
-    {z w : Dyadic}
-    (hz : RoundsRTO F₂ (x : ℝ) z) (hw : RoundsRTO F₁ (z : ℝ) w) :
-    RoundsRTO F₁ (x : ℝ) w := by
-  have hxF₂ : x ∈ F₂ := hsub x hx
-  have hz_eq : z = x := RoundsRTO.unique_of_mem hxF₂ hz
-  rw [hz_eq] at hw
-  have hw_eq : w = x := RoundsRTO.unique_of_mem hx hw
-  rw [hw_eq]
-  exact RoundsRTO.of_mem hx
-
 /-- **rnd-RTO-RTZ** (Fig. 9), positive case `0 < x`. The general theorem (over
 all `x ∈ ℝ`) follows by `RoundsRTO.neg`-style symmetry plus the trivial `x = 0`
 case (deferred).
@@ -660,6 +647,45 @@ theorem rndRTO_RAZ {F₁ F₂ : AbstractFormat} {w k : ℕ}
     omega
   · -- x > 0
     exact rndRTO_RAZ_pos hsub hp_F₁ hk hx_pos hwk hz hw
+
+/-- **rnd-RTO-RNE** (Fig. 9), structural form: assumes the F₂-to-F₁ transfer
+of adjacency, closeness, and tie-break has been done externally.
+
+The structural transfers (`h_adj_transfer`, `h_close_transfer`,
+`h_tie_transfer`) capture the content of Lemma 5.3 plus an F₂-adjacency
+analysis specific to RNE. Proving them from `hz` and `hw` directly is
+substantial future work; this theorem packages the remaining bookkeeping. -/
+theorem rndRTO_RNE_via_transfers {F₁ : AbstractFormat}
+    {x : ℝ} {w' : Dyadic}
+    (hw'F₁ : w' ∈ F₁)
+    (h_adj_transfer : RoundsDown F₁ x w' ∨ RoundsUp F₁ x w')
+    (h_close_transfer : ∀ z' : Dyadic, z' ∈ F₁ →
+      (RoundsDown F₁ x z' ∨ RoundsUp F₁ x z') →
+      |x - (w' : ℝ)| ≤ |x - (z' : ℝ)|)
+    (h_tie_transfer : (∃ z' : Dyadic, z' ∈ F₁ ∧
+        (RoundsDown F₁ x z' ∨ RoundsUp F₁ x z') ∧
+        z' ≠ w' ∧ |x - (w' : ℝ)| = |x - (z' : ℝ)|) →
+      ∃ p : ℕ, numDigits F₁.p F₁.exp x = (p : ℤ) ∧ 1 ≤ p ∧
+        Dyadic.IsEvenAtP p w') :
+    RoundsRNE F₁ x w' :=
+  ⟨hw'F₁, h_adj_transfer, h_close_transfer, h_tie_transfer⟩
+
+/-- **rnd-RTO-RNE** (Fig. 9), trivial case `(z : ℝ) = x`.
+
+Includes the case `x ∈ F₂` (where RTO returns `x` itself) and the case where
+`x` is itself the midpoint of two `F₁`-adjacents (representable in `F₂` since
+midpoints are at precision `w + 1 ≤ F₂.p`). The full theorem (for `z ≠ x`)
+requires proving that `x` and `z` agree on which `F₁`-adjacent is closer
+(equivalently, which side of the midpoint they fall on), which is established
+by Lemma 5.3 + a case analysis on the F₂-adjacency structure. -/
+theorem rndRTO_RNE_of_eq {F₁ : AbstractFormat}
+    {x : ℝ} {z w' : Dyadic}
+    (hzx : (z : ℝ) = x)
+    (hw : RoundsRNE F₁ (z : ℝ) w') :
+    RoundsRNE F₁ x w' := by
+  obtain ⟨hw'F₁, hw_adj, hw_close, hw_tie⟩ := hw
+  rw [hzx] at hw_adj hw_close hw_tie
+  exact ⟨hw'F₁, hw_adj, hw_close, hw_tie⟩
 
 end AbstractFormat
 
