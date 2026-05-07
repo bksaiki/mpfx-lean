@@ -137,13 +137,12 @@ step depends on `b`'s magnitude:
 - **Normal regime**: step = `2^(⌊log₂ b⌋ − F.p + 1)` (binade-dependent).
 - Unified: step exponent = `max(F.exp, ⌊log₂ b⌋ − F.p + 1)`.
 
-For `b = 0`: returns `2^F.exp` (smallest positive grid value).
+For `F.p = ⊤` and `F.exp = (e : ℤ)`: `A(⊤, e, ∞)` is all dyadics with quantum
+≥ e, so the smallest value strictly above `b` is `b + 2^e`.
 
-For `b < 0`: not used by the paper's RTO rules (`F.b ≥ 0` from `b_nn`); we
-return `0` as a placeholder.
-
-For `F.exp = ⊥` or `F.p = ⊤` (degenerate corners): returns `b + 1` as a
-placeholder; not used by the paper's RTO rules. -/
+For `F.exp = ⊥` (degenerate corner: any precision allowed but no quantum bound,
+so no smallest value > b exists): returns `b + 1` as a placeholder; not used
+by the paper's RTO rules. -/
 noncomputable def next (F : AbstractFormat) (b : Dyadic) : Dyadic :=
   match F.exp, F.p with
   | (e : ℤ), ((p : ℕ) : ℕ∞) =>
@@ -153,7 +152,8 @@ noncomputable def next (F : AbstractFormat) (b : Dyadic) : Dyadic :=
       let logB : ℤ := Int.log 2 ((b : Dyadic) : ℝ)
       let stepExp : ℤ := max e (logB - (p : ℤ) + 1)
       b + Dyadic.ofIntZpow 1 stepExp
-  | _, _ => b + 1
+  | (e : ℤ), ⊤ => b + Dyadic.ofIntZpow 1 e
+  | ⊥, _ => b + 1
 
 /-- `F.next b > b` for finite `(F.p, F.exp)` and `b ≥ 0`. -/
 theorem lt_next_of_finite (F : AbstractFormat) {e : ℤ} {p : ℕ}
@@ -180,6 +180,93 @@ theorem lt_next_of_finite (F : AbstractFormat) {e : ℤ} {p : ℕ}
     push_cast
     have := h_step_pos (max e (Int.log 2 ((b : Dyadic) : ℝ) - (p : ℤ) + 1))
     linarith
+
+/-- `F.next b > b` for `F.p = ⊤` and `F.exp = (e : ℤ)`. -/
+theorem lt_next_of_p_top (F : AbstractFormat) {e : ℤ}
+    (he : F.exp = (e : WithBot ℤ)) (hp : F.p = ⊤) (b : Dyadic) :
+    (b : ℝ) < (F.next b : ℝ) := by
+  have h_step_pos : (0 : ℝ) < ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) := by
+    rw [Dyadic.coe_ofIntZpow]
+    have h2 : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
+    push_cast; linarith
+  have h_next_eq : F.next b = b + Dyadic.ofIntZpow 1 e := by
+    -- After unfolding `next` and rewriting via `he, hp`, the goal contains
+    -- `match (some e), ⊤ with ...`. The match doesn't auto-reduce because
+    -- `⊤ : ℕ∞` doesn't syntactically match the `none` constructor. We rewrite
+    -- `⊤` to `none` explicitly via the `Top` instance.
+    have hp' : F.p = (none : WithTop ℕ) := hp
+    unfold next
+    rw [he, hp']
+  rw [h_next_eq]; push_cast; linarith
+
+/-- `F.next b ≥ 0` for `b ≥ 0`. Combines all four `(F.p, F.exp)` shapes:
+finite-finite via `lt_next_of_finite`; `F.p = ⊤` finite-exp via
+`lt_next_of_p_top`; `F.exp = ⊥` corner uses fallback `b + 1`. -/
+theorem next_nonneg (F : AbstractFormat) (b : Dyadic) (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
+    0 ≤ ((F.next b : Dyadic) : ℝ) := by
+  rcases hF_exp : F.exp with _ | e
+  · -- F.exp = ⊥. next = b + 1.
+    have : F.next b = b + 1 := by unfold next; rw [hF_exp]
+    rw [this]; push_cast; linarith
+  · rcases hF_p : F.p with _ | p
+    · -- F.p = ⊤, F.exp finite. Use lt_next_of_p_top.
+      have hlt := lt_next_of_p_top F hF_exp hF_p b
+      linarith
+    · -- Both finite. Use lt_next_of_finite.
+      have hlt := lt_next_of_finite F hF_exp hF_p b hb
+      linarith
+
+/-- Computed form of `next` for `F.exp = (e : ℤ), F.p = (p : ℕ), b > 0`. -/
+theorem next_eq_finite_pos (F : AbstractFormat) {e : ℤ} {p : ℕ}
+    (he : F.exp = (e : WithBot ℤ)) (hp : F.p = ((p : ℕ) : ℕ∞))
+    {b : Dyadic} (hb_pos : 0 < ((b : Dyadic) : ℝ)) :
+    F.next b =
+      b + Dyadic.ofIntZpow 1
+        (max e (Int.log 2 ((b : Dyadic) : ℝ) - (p : ℤ) + 1)) := by
+  have h_eq : F.next b =
+      if ((b : Dyadic) : ℝ) ≤ 0 then Dyadic.ofIntZpow 1 e
+      else b + Dyadic.ofIntZpow 1
+        (max e (Int.log 2 ((b : Dyadic) : ℝ) - (p : ℤ) + 1)) := by
+    unfold next; rw [he, hp]
+  rw [h_eq, if_neg (not_le.mpr hb_pos)]
+
+/-- Computed form of `next` for `F.exp = (e : ℤ), F.p = ⊤`. -/
+theorem next_eq_p_top (F : AbstractFormat) {e : ℤ}
+    (he : F.exp = (e : WithBot ℤ)) (hp : F.p = ⊤) (b : Dyadic) :
+    F.next b = b + Dyadic.ofIntZpow 1 e := by
+  have hp' : F.p = (none : WithTop ℕ) := hp
+  unfold next
+  rw [he, hp']
+
+/-- The bound for the paper's `F⁺` containment: `next(F.b)` lifted to
+`WithTop Dyadic`. Returns `⊤` when `F.b = ⊤`, otherwise `(F.next b : Dyadic)`. -/
+noncomputable def boundAfterNext (F : AbstractFormat) : WithTop Dyadic :=
+  match F.b with
+  | ⊤ => ⊤
+  | (b : Dyadic) => ((F.next b : Dyadic) : WithTop Dyadic)
+
+/-- `b_nn` invariant for `F.boundAfterNext`: when finite, the bound is
+non-negative, derived from `next_nonneg` and `F.b_nn`. -/
+theorem boundAfterNext_nn (F : AbstractFormat) :
+    ∀ d : Dyadic, F.boundAfterNext = ↑d → 0 ≤ ((d : Dyadic) : ℝ) := by
+  intro d hd
+  cases hF_b : F.b with
+  | top =>
+    -- F.b = ⊤ ⇒ boundAfterNext = ⊤. But hd says boundAfterNext = ↑d (finite).
+    -- Contradiction.
+    have : F.boundAfterNext = ⊤ := by unfold boundAfterNext; rw [hF_b]
+    rw [this] at hd
+    exact absurd hd (by simp)
+  | coe b =>
+    -- F.b = ↑b. boundAfterNext = ↑(F.next b). hd: ↑(F.next b) = ↑d ⇒ d = F.next b.
+    have h_eq : F.boundAfterNext = ((F.next b : Dyadic) : WithTop Dyadic) := by
+      unfold boundAfterNext; rw [hF_b]
+    rw [h_eq] at hd
+    have hd_eq : d = F.next b := by exact_mod_cast hd.symm
+    rw [hd_eq]
+    -- Need 0 ≤ F.next b. Use next_nonneg with hb : 0 ≤ b from F.b_nn.
+    have hb : 0 ≤ ((b : Dyadic) : ℝ) := F.b_nn b hF_b
+    exact next_nonneg F b hb
 
 /-- When `F.p = 1`, the structural invariant forces `F.exp ≠ ⊥`. -/
 theorem exp_finite_of_p_one (F : AbstractFormat) (h : F.p = 1) : F.exp ≠ ⊥ := by
