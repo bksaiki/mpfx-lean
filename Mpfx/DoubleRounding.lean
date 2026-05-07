@@ -668,6 +668,15 @@ theorem rndRTO_RTZ {F₁ F₂ : AbstractFormat}
   · -- x > 0
     exact rndRTO_RTZ_pos hsub hx_pos hz hw hgt
 
+-- theorem rndRTO_RTZ' {F₁ F₂ : AbstractFormat}
+--     (hsub : (AbstractFormat.extend F₁ 1) ⊆ F₂)
+--     {x : ℝ}
+--     {z w' : Dyadic}
+--     (hz : RoundsRTO F₂ x z)
+--     (hw : RoundsRTZ F₁ (z : ℝ) w'):
+--     RoundsRTZ F₁ x w' := by
+--   sorry
+
 /-- **rnd-RTO-RAZ** (Fig. 9), positive case `0 < x`. Symmetric to `rndRTO_RTZ_pos`
 but for round-away-from-zero instead of round-toward-zero. The key Lemma 5.3
 application happens in the *RoundsDown* case of `z` (rather than RoundsUp). -/

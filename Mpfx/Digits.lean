@@ -74,6 +74,13 @@ theorem numDigits_shift (p : ℕ∞) (exp : WithBot ℤ) (k : ℕ) (x : ℝ) (hx
     rw [h1]
     omega
 
+/-- Specialization of `numDigits_shift` to `AbstractFormat.extend`: extending
+`F` by `k` extends the digit count at every nonzero `x` by exactly `k`. -/
+theorem numDigits_extend (F : AbstractFormat) (k : ℕ) {x : ℝ} (hx : x ≠ 0) :
+    numDigits (F.extend k).p (F.extend k).exp x = numDigits F.p F.exp x + k := by
+  change numDigits (F.p + k) (expSub F.exp k) x = numDigits F.p F.exp x + k
+  exact numDigits_shift F.p F.exp k x hx F.not_doubly_unbounded
+
 /-- `numDigits` is invariant under negation of `x`: `|x| = |-x|`. -/
 theorem numDigits_neg (p : ℕ∞) (exp : WithBot ℤ) (x : ℝ) :
     numDigits p exp (-x) = numDigits p exp x := by

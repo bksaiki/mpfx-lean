@@ -21,9 +21,14 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 ## Phase 2 — Abstract format (`Mpfx/Format.lean`)
 
-- [x] `structure AbstractFormat` with `p : ℕ∞`, `exp : WithBot ℤ`, `b : WithTop Dyadic`, structural invariants `not_degenerate : p ≠ ⊤ ∨ exp ≠ ⊥` (paper §4.2: format must be precision- or quantum-limited) and `b_nn` (bound non-negative when finite).
+- [x] `structure AbstractFormat` with `p : ℕ∞`, `exp : WithBot ℤ`, `b : WithTop Dyadic`, and structural invariants:
+  - `p_pos : 1 ≤ p` (paper §4.2: `p ∈ ℤ≥1 ∪ {∞}`),
+  - `not_degenerate : (p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥` (rules out doubly-unbounded `(⊤, ⊥)` and parity-ambiguous `(1, ⊥)` corners),
+  - `b_nn` (bound non-negative when finite — guarantees `0` is representable).
+  - *(Future cleanup option: encode `p` directly as `WithTop ℕ+` to drop `p_pos`. Deferred — see "Future work".)*
 - [x] `AbstractFormat.Mem` predicate per the plan.
 - [x] `Membership Dyadic AbstractFormat` instance.
+- [x] `AbstractFormat.extend (F : AbstractFormat) (k : ℕ) : AbstractFormat` — produces `A(p+k, exp-k, b)`. Used to express the paper's "`F⁺ ⊆ F₂`" hypotheses for the RTO double-rounding rules.
 - [ ] `AbstractFormat.next : AbstractFormat → Dyadic → Option Dyadic` (next representable above).
 - [ ] Smoke-test: instantiate `binary64`, `binary32`, `E5M2`, `E4M3`, `int8`, `fixed<-4,8>` from Fig. 7.
 - [ ] Concrete `decide` / `native_decide` membership examples for each instance.
@@ -57,34 +62,37 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 
 - [x] `rndRTZ_RTZ` (general `x ∈ ℝ`).
 - [x] `rndRAZ_RAZ` (general `x ∈ ℝ`; combines `_pos` case + `RoundsRAZ.neg` for `x < 0` + `neg_mem`-based handling of `x = 0`).
-- [x] `rndRTO_RTO` (general, all `x ∈ ℝ`): unified `_O`/`_E` subcases via spec-relational form. Requires extra `h_prec` hypothesis: `numDigits F₁ z = numDigits F₁ x` (true when `F₁`-adjacents of `x` lie in same magnitude bin).
+- [x] **`rndRTO_RTO` (general, all `x ∈ ℝ`)**: dropped `h_prec` and `hp_F₁`. Single hypothesis `hp_F₂ : 2 ≤ F₂.p` (needed because the F₁.p = 1 corner uses index-counting parity). Internally derives the strict numDigits shift via `numDigits_eq_of_subset_of_isOdd` (Lemma 5.3 corollary, fully proven in `Digits.lean` via the y'' construction). The F₁.p = 1 corner additionally derives `F₁.exp = F₂.exp = e_z` to fix the parity bit.
 - [x] `rndRTO_RTZ_pos`, `rndRTO_RAZ_pos`: positive case `0 < x`.
-- [x] **`rndRTO_RTZ`, `rndRTO_RAZ` (general, all `x ∈ ℝ`)**: combine `_pos` + `RoundsRTO.neg` / `RoundsRTZ.neg` / `RoundsRAZ.neg` symmetry; `x = 0` case is vacuous from `hwk` + `hk : 1 ≤ k`.
+- [x] **`rndRTO_RTZ`, `rndRTO_RAZ` (general, all `x ∈ ℝ`)**: currently take an `hgt : x ≠ z → numDigits F₁ z < numDigits F₂ z` hypothesis. **Pending refactor:** replace with the paper-aligned `(hsub : F₁.extend 1 ⊆ F₂)` form (the `extend` helper is already defined). Internally derive the `numDigits` shift via `numDigits_succ_le_of_subformat_succ` (already proven in `Digits.lean`).
 - [~] `rndRTO_RNE`: progressively-stronger wrappers in place.
   - `rndRTO_RNE_of_eq` proven (trivial case `z = x`).
   - `rndRTO_RNE_via_transfers` packages the structural transfers as hypotheses.
   - **`rndRTO_RNE`**: derives the adjacency transfer fully via Lemma 5.3 + `RoundsDown`/`RoundsUp` 4-way case-split (same as `rndRTO_RTO`). Takes `h_close` and `h_no_tie` as hypotheses.
   - **`rndRTO_RNE_with_mid`**: further derives `h_no_tie` from a structural hypothesis `h_mid_in_F₂` (midpoints of `F₁`-pairs are in `F₂`). Uses `RoundsRTO.unique_of_mem` to show: a tie at `x` means `x = midpoint`, which forces `z = midpoint = x`, contradicting `z ≠ x`. Helper `RoundsRNE.midpoint_of_tie` extracts `x = (w' + z')/2` from `|x - w'| = |x - z'| ∧ w' ≠ z'`.
   - **`Dyadic.half`, `Dyadic.midpoint`, `Dyadic.coe_midpoint`**: concrete midpoint construction added (so `(midpoint y₁ y₂ : ℝ) = ((y₁ : ℝ) + (y₂ : ℝ)) / 2` definitionally).
-  - Remaining work: (1) prove `h_close` from `hk : 2 ≤ k` (needs F₂-adjacency analysis showing `x` and `z` are on the same side of any `F₁`-midpoint); (2) prove `h_mid_in_F₂` from `F₁ ⊆ F₂` plus a "F₂ has finer quantum and ≥ `w + 1` precision" hypothesis (using `Dyadic.midpoint` as the explicit `m`).
+  - Remaining work: (1) prove `h_close` from `hk : 2 ≤ k` (needs F₂-adjacency analysis showing `x` and `z` are on the same side of any `F₁`-midpoint); (2) prove `h_mid_in_F₂` from `F₁.extend 2 ⊆ F₂` (using `Dyadic.midpoint` as the explicit `m`); (3) align the public `rndRTO_RNE` hypotheses with the paper's `F₁.extend 2 ⊆ F₂` form (parallel to the RTZ/RAZ refactor).
 
 **Infrastructure added along the way:**
-- [x] `RoundsDown`, `RoundsUp`, `RoundsRTZ`, `RoundsRAZ` predicates (`Mpfx/Rounding.lean`).
+- [x] `RoundsDown`, `RoundsUp`, `RoundsRTZ`, `RoundsRAZ`, `RoundsRTO`, `RoundsRNE` predicates (`Mpfx/Rounding.lean`).
 - [x] `RoundsDown.compose`, `RoundsUp.compose` (parametric building blocks).
+- [x] `RoundsRTZ.neg`, `RoundsRAZ.neg`, `RoundsRTO.neg`, `RoundsRNE.neg` symmetry lemmas + shared `roundsAdj_neg` helper.
 - [x] `AbstractFormat.neg_mem`: every format is closed under negation (`Mpfx/Format.lean`).
 - [x] `Dyadic.IsOddAtP`, `Dyadic.IsEvenAtP`: parity at exactly `p` bits (`Mpfx/Dyadic.lean`).
-- [x] `RoundsRTO` predicate; `RoundsRTO.of_mem`, `RoundsRTO.unique_of_mem` (trivial case `x ∈ F`).
+- [x] `RoundsRTO.of_mem`, `RoundsRTO.unique_of_mem` (trivial case `x ∈ F`).
 - [x] **Lemma 5.1 (`AbstractFormat.numDigits`)**: defines the digit count `w` as a function of `(p, exp, x)` only — the type signature `ℕ∞ → WithBot ℤ → ℝ → ℤ` *is* the lemma's content.
 - [x] **Lemma 5.2 (`AbstractFormat.numDigits_shift`)**: `numDigits (p+k) (exp-k) x = numDigits p exp x + k` for non-degenerate formats and `x ≠ 0`.
+- [x] **`numDigits_le_of_subformat`** (loose Lemma 5.2): `F₁.p ≤ F₂.p ∧ F₂.exp ≤ F₁.exp ⇒ numDigits F₁ x ≤ numDigits F₂ x`.
+- [x] **`numDigits_succ_le_of_subformat_succ`** (strict Lemma 5.2): `F₁.p + 1 ≤ F₂.p ∧ F₂.exp + 1 ≤ F₁.exp ⇒ numDigits F₁ x + 1 ≤ numDigits F₂ x` for `x ≠ 0`. Encodes the paper's `F⁺ ⊆ F₂` shift in numDigits-form.
 - [x] **Lemma 5.3 core (`Dyadic.precisionAtMost_not_isOddAtP`)**: precision-`w`-representable values cannot be odd at `w + k` bits (`k ≥ 1`).
-- [x] **Lemma 5.3 spec form (`RoundsRTO.ne_of_precisionAtMost`)**: when `x` is unrepresentable in an `(w + k)`-bit format, the RTO-rounded `x'` cannot equal any precision-`w`-representable dyadic. (Refined to use `numDigits F.p F.exp x = w + k` instead of `F.p = w + k`, for subnormal correctness.)
-- [x] **`RoundsRTO` refined**: parity check now uses `IsOddAtP (numDigits F.p F.exp x)` instead of `IsOddAtP F.p`, correctly handling subnormal regime.
-- [x] **`AbstractFormat.IsOdd / IsEven` (format-parameterized parity)**: Replaces `IsOddAtP w y` / `IsEvenAtP w y` in `RoundsRTO` / `RoundsRNE`. Parity is now intrinsic to `(F, y)` — precision is `numDigits F.p F.exp y` (the dyadic's natural F-precision), discriminator is `F.p` (oddness of significand for `F.p ≥ 2`, oddness of exponent for `F.p = 1`).
-  - `IsOdd.neg`, `IsOdd.ne_zero`, `IsOdd.numDigits_pos`, `precisionAtMost_not_IsOdd` (Lemma 5.3 corollary in new form).
-  - **`mem_imp_precisionAtMost_numDigits`**: bridge from format membership to effective precision — `y ∈ F → precisionAtMost (numDigits F.p F.exp y).toNat y`. Handles all four `(F.p, F.exp)` shapes.
-  - **`RoundsRTO.notMem_of_lower_numDigits`**: applied form of Lemma 5.3 — `RoundsRTO F₂ x z`, `x ≠ z`, and `numDigits F₁ z < numDigits F₂ z` ⇒ `z ∉ F₁`. This is the canonical hook used by every double-rounding theorem.
-  - **`rndRTO_RTO`** dropped `h_prec` AND `hp_F₁`/`w` — parity transfer is automatic since `IsOdd F₁ w'` is intrinsic to `(F₁, w')`. Single hypothesis `hgt : x ≠ z → numDigits F₁ z < numDigits F₂ z`.
-  - **`rndRTO_RTZ_pos/_RTZ`, `rndRTO_RAZ_pos/_RAZ`, `rndRTO_RNE/_with_mid`** all dropped `hp_F₁` and the explicit `w`. The hypothesis is the natural digit-count comparison `numDigits F₁ z < numDigits F₂ z` (correct in subnormal regimes too, where raw `F₁.p = w` would be wrong).
+- [x] **Lemma 5.3 spec form (`RoundsRTO.ne_of_precisionAtMost`)**: when `x` is unrepresentable in an `(w + k)`-bit format, the RTO-rounded `x'` cannot equal any precision-`w`-representable dyadic. (Refined to use `numDigits F.p F.exp x = w + k` for subnormal correctness.)
+- [x] **`RoundsRTO` refined**: parity check uses `IsOdd F y` (format-parameterized) instead of `IsOddAtP F.p`.
+- [x] **`AbstractFormat.IsOdd / IsEven` (format-parameterized parity)**: parity is intrinsic to `(F, y)` — precision is `numDigits F.p F.exp y`, discriminator is `F.p` (oddness of significand for `F.p ≥ 2`, *index-counting* oddness `Odd (e − F.exp + 1)` for `F.p = 1`).
+  - `IsOdd.neg`, `isOdd_neg_iff`, `IsEven.neg`, `isEven_neg_iff`, `IsOdd.ne_zero`, `IsOdd.numDigits_pos`, `precisionAtMost_not_IsOdd` (Lemma 5.3 corollary).
+  - **`mem_imp_precisionAtMost_numDigits`**: `y ∈ F → precisionAtMost (numDigits F.p F.exp y).toNat y`. Handles all four `(F.p, F.exp)` shapes.
+  - **`numDigits_eq_of_subset_of_isOdd`** (in `Digits.lean`): from `F₁ ⊆ F₂`, `2 ≤ F₂.p`, `y ∈ F₁`, `IsOdd F₂ y`, derive `numDigits F₁ y = numDigits F₂ y`. Proof uses the y'' = (2c − sign c)·2^(e−1) "finer-grid" construction to contradict the strict-greater case (full ~280-line proof).
+  - **`RoundsRTO.notMem_of_lower_numDigits`**: applied form of Lemma 5.3 — `RoundsRTO F₂ x z`, `x ≠ z`, `numDigits F₁ z < numDigits F₂ z` ⇒ `z ∉ F₁`. The canonical hook used by every double-rounding theorem.
+- [x] **`Mpfx/Utils.lean`**: project-agnostic helpers (`abs_mul_two_zpow`, `two_zpow_split_toNat`, `Int.two_pow_succ_pred`, `Odd.abs_int`, `mul_two_zpow_cancel_right`, `two_zpow_pos`, `two_zpow_ne_zero`).
 
 ## Phase 7 — Smoke tests / sanity (`Mpfx/Tests.lean`)
 
@@ -94,22 +102,14 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 
 ## Cleanup
 
+- [x] `Mpfx.lean` re-exports each module.
+- [x] `lake build` is clean, `git grep -n sorry Mpfx/` is empty.
 - [ ] Remove `def hello := "world"` from `Mpfx/Basic.lean` (or repurpose).
-- [ ] `Mpfx.lean` re-exports each module.
-- [ ] `lake build` is clean, `git grep -n sorry Mpfx/` is empty.
 
 ## Future work
 
-- **Drop `h_prec` hypothesis from `rndRTO_RTO`** (and possibly `rndRTO_RNE`).
-  Currently `rndRTO_RTO` requires
-  `h_prec : numDigits F₁.p F₁.exp z = numDigits F₁.p F₁.exp x`
-  to transfer parity of `w'` from `z`'s view to `x`'s view (since
-  `IsOddAtP p w'` depends on `p`). This holds automatically when `x` is in
-  `F₁`'s normal range (both `numDigits` equal `F₁.p = w`) but can fail when
-  `z` and `x` straddle a power-of-two boundary in the subnormal regime.
-  Three options to drop it:
-  1. Restrict to `x` in `F₁`'s normal range (`numDigits F₁ x = F₁.p`).
-  2. Strengthen Lemma 5.3 to also assert `numDigits F₁ z = numDigits F₁ x`
-     (needs adjacency-bin machinery).
-  3. Reformulate `RoundsRTO`'s parity clause with a precision-invariant
-     property (e.g. parity at `y`'s own canonical precision).
+- **Refactor `rndRTO_RTZ` / `rndRTO_RAZ` / `rndRTO_RNE` hypotheses to use `F₁.extend k ⊆ F₂`.** The `extend` helper is in place (`Mpfx/Format.lean`) and the strict-shift Lemma 5.2 (`numDigits_succ_le_of_subformat_succ`) is proven. Remaining work: change the public hypotheses from the raw structural shifts/`hgt` form to the paper's `F₁.extend 1 ⊆ F₂` (RTZ/RAZ) and `F₁.extend 2 ⊆ F₂` (RNE), and derive the structural facts internally.
+
+- **Encode `1 ≤ p` at the type level** by changing `p : ℕ∞` to `p : WithTop ℕ+` (positive naturals + ∞). Would drop the `p_pos` field. Significant refactor: numeric literals (`(2 : ℕ∞)`), `F.p + k`, and many `exact_mod_cast`s would need to be threaded through `ℕ+ → ℕ → ℕ∞` coercions. Deferred — `p_pos` is fine in practice.
+
+- **`rndRTO_RTO`'s old `h_prec` hypothesis dropped** (resolved via format-parameterized `IsOdd`).

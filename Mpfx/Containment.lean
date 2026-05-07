@@ -49,6 +49,7 @@ finite `exp₁ : ℤ` and finite `β₁ : Dyadic`. The non-negative-bound invari
 `hβ` and `hb_nn` are required to construct the underlying `AbstractFormat`s. -/
 theorem containsSub {p₁ : ℕ∞} {p₂ : ℕ} {exp₁ : ℤ} {exp₂ : WithBot ℤ}
     {β₁ : Dyadic} {b₂ : WithTop Dyadic}
+    (hp₁ : 1 ≤ p₁)
     (hp₂ : 2 ≤ p₂)
     (hβ : 0 ≤ (β₁ : ℝ))
     (hb_nn : ∀ d : Dyadic, b₂ = ↑d → 0 ≤ (d : ℝ))
@@ -56,11 +57,13 @@ theorem containsSub {p₁ : ℕ∞} {p₂ : ℕ} {exp₁ : ℤ} {exp₂ : WithBo
     (he : exp₂ ≤ (exp₁ : WithBot ℤ))
     (hb : (β₁ : WithTop Dyadic) ≤ b₂) :
     ({ p := p₁, exp := (exp₁ : WithBot ℤ), b := (β₁ : WithTop Dyadic),
+       p_pos := hp₁,
        not_degenerate := Or.inr (by simp),
        b_nn := fun d hd => by
          have : d = β₁ := by exact_mod_cast hd.symm
          rw [this]; exact hβ } : AbstractFormat)
       ⊆ { p := (p₂ : ℕ∞), exp := exp₂, b := b₂,
+          p_pos := by exact_mod_cast (by omega : 1 ≤ p₂),
           not_degenerate := Or.inl ⟨by simp, by
             -- p₂ ≠ 1 from 2 ≤ p₂
             intro h

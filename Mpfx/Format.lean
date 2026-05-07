@@ -14,9 +14,11 @@ structure AbstractFormat where
   p : ℕ∞
   exp : WithBot ℤ
   b : WithTop Dyadic
+  /-- Precision is at least one bit (paper: `p ∈ ℤ≥1 ∪ {∞}`). `p = 0` would
+  force the format to contain only `0`, which is not a useful number format. -/
+  p_pos : 1 ≤ p
   /-- The format is *not* degenerate: either precision is finite *and ≠ 1*
   (`p ∈ {2, 3, …}`) or there is a quantum (`exp > -∞`).
-
   This rules out two pathological cases:
   * `𝒜(∞, -∞, b)`: doubly-unbounded — the entire dyadic line below `b`.
   * `𝒜(1, -∞, b)`: only powers of 2 with no scale — the parity discriminator
@@ -29,6 +31,72 @@ structure AbstractFormat where
   b_nn : ∀ d : Dyadic, b = ↑d → 0 ≤ (d : ℝ)
 
 namespace AbstractFormat
+
+/-- Extend `F` by increasing precision by `k` and decreasing the exponent of
+the quantum by `k`. The bound is preserved.
+
+Used by §5.2 / Fig. 9 to express the paper's "`A(p₁ + k, exp₁ − k, b₁) ⊆ F₂`"
+hypotheses for the RTO-double-rounding rules (`k = 1` for `rnd-RTO-RTZ` /
+`rnd-RTO-RAZ`, `k = 2` for `rnd-RTO-RNE`). -/
+def extend (F : AbstractFormat) (k : ℕ) : AbstractFormat where
+  p := F.p + k
+  exp := F.exp.map (· - (k : ℤ))
+  b := F.b
+  p_pos := by
+    -- F.p + k ≥ F.p ≥ 1.
+    cases hp : F.p with
+    | top => simp
+    | coe n =>
+      rw [← Nat.cast_add]
+      have hn : 1 ≤ n := by
+        have := F.p_pos; rw [hp] at this; exact_mod_cast this
+      exact_mod_cast (by omega : 1 ≤ n + k)
+  not_degenerate := by
+    -- We need (p+k ≠ ⊤ ∧ p+k ≠ 1) ∨ exp.map ≠ ⊥.
+    -- F.p ≥ 1 (from p_pos), so F.p + k ≥ 1.
+    -- F.p + k = 1 iff F.p = 1 ∧ k = 0. In that case, F's `not_degenerate`
+    -- (with F.p = 1) forces F.exp ≠ ⊥, which transfers to F.exp.map.
+    cases hp : F.p with
+    | top =>
+      -- F.p = ⊤ ⇒ F.exp ≠ ⊥ (from F.not_degenerate, since (⊤ ≠ ⊤) is false).
+      right
+      have hexp_ne : F.exp ≠ ⊥ := by
+        rcases F.not_degenerate with ⟨hpne, _⟩ | hexpne
+        · exact absurd hp hpne
+        · exact hexpne
+      cases hF : F.exp with
+      | bot => exact absurd hF hexp_ne
+      | coe e => simp
+    | coe n =>
+      have hn : 1 ≤ n := by
+        have := F.p_pos; rw [hp] at this; exact_mod_cast this
+      by_cases hnk : n + k = 1
+      · -- n + k = 1 with n ≥ 1 forces n = 1, k = 0. Then F.p = 1 ⇒ F.exp ≠ ⊥
+        -- via F's not_degenerate (first disjunct fails since F.p = 1).
+        have hn_eq : n = 1 := by omega
+        right
+        have hF_p_eq_1 : F.p = 1 := by rw [hp, hn_eq]; rfl
+        have hexp_ne : F.exp ≠ ⊥ := by
+          rcases F.not_degenerate with ⟨_, hp1⟩ | hexpne
+          · exact absurd hF_p_eq_1 hp1
+          · exact hexpne
+        cases hF : F.exp with
+        | bot => exact absurd hF hexp_ne
+        | coe e => simp
+      · left
+        refine ⟨?_, ?_⟩
+        · rw [← Nat.cast_add]; exact WithTop.coe_ne_top
+        · rw [← Nat.cast_add]; exact_mod_cast hnk
+  b_nn := F.b_nn
+
+@[simp] theorem extend_p (F : AbstractFormat) (k : ℕ) :
+    (F.extend k).p = F.p + k := rfl
+
+@[simp] theorem extend_exp (F : AbstractFormat) (k : ℕ) :
+    (F.extend k).exp = F.exp.map (· - (k : ℤ)) := rfl
+
+@[simp] theorem extend_b (F : AbstractFormat) (k : ℕ) :
+    (F.extend k).b = F.b := rfl
 
 /-- When `F.p = 1`, the structural invariant forces `F.exp ≠ ⊥`. -/
 theorem exp_finite_of_p_one (F : AbstractFormat) (h : F.p = 1) : F.exp ≠ ⊥ := by
