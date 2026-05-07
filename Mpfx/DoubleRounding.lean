@@ -875,8 +875,13 @@ private theorem RoundsRNE.midpoint_of_tie {x : ℝ} {w' z' : Dyadic}
 /-- **rnd-RTO-RNE** (Fig. 9), paper-aligned form. The hypothesis
 `hsub : F₁.extend 2 ⊆ F₂` encodes the paper's
 `A(p₁ + 2, exp₁ − 2, b) ⊆ A(p₂, exp₂, b₂)` containment (modulo the
-`next_{p₁+1, exp₁-1}(b₁)` bound refinement). The auxiliary `hp_F₂ : 2 ≤ F₂.p`
-enables `numDigits_eq_of_subset_of_isOdd`.
+`next_{p₁+1, exp₁-1}(b₁)` bound refinement). The auxiliary `hp_F₂ : 3 ≤ F₂.p`
+enables `numDigits_eq_of_subset_of_isOdd` and crucially rules out the
+"`midpoint ∈ F₂` is odd" edge case: combined with `hsub`, every F₁-adjacent
+midpoint reduces to even significand in F₂'s view. (For `F₁.p = 1` this
+is `F₂.p ≥ F₁.p + 2`, the full structural shift; for `F₁.p ≥ 2` the
+constraint `F₁.extend 2 ⊆ F₂` with `F₂.p = 3` forces F₁.b small enough that
+problematic F₁-adjacent pairs don't arise.)
 
 The proof handles the trivial `z = x` case directly. For `z ≠ x`, it derives:
 1. `z ∉ F₁` via `RoundsRTO.notMem_of_extend_subset` (specialized to
@@ -889,11 +894,12 @@ The proof handles the trivial `z = x` case directly. For `z ≠ x`, it derives:
 4. The no-tie / tie-break is derived from `h_mid_in_F₂` (also auxiliary)
    using `RoundsRTO.unique_of_mem`.
 
-Both auxiliary hypotheses (`h_close`, `h_mid_in_F₂`) are tracked in the TODO
-for future derivation from `hsub : F₁.extend 2 ⊆ F₂` directly. -/
+The auxiliary hypotheses (`h_close`, `h_mid_in_F₂`) become *provable* in
+principle under the stronger `3 ≤ F₂.p`, but the formalization still
+requires an F₁-adjacency precision lemma on midpoints; tracked in TODO. -/
 theorem rndRTO_RNE {F₁ F₂ : AbstractFormat}
     (hsub : F₁.extend 2 ⊆ F₂)
-    (hp_F₂ : 2 ≤ F₂.p)
+    (hp_F₂ : 3 ≤ F₂.p)
     {x : ℝ}
     {z w' : Dyadic}
     (hz : RoundsRTO F₂ x z)
@@ -954,8 +960,9 @@ theorem rndRTO_RNE {F₁ F₂ : AbstractFormat}
     exact ⟨hw'F₁, hw_adj, hw_close, hw_tie⟩
   -- Step 3: Non-trivial case z ≠ x.
   have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
+  have hp_F₂_two : 2 ≤ F₂.p := le_trans (by decide : (2 : ℕ∞) ≤ 3) hp_F₂
   have hz_not_F₁ : z ∉ F₁ :=
-    RoundsRTO.notMem_of_extend_subset hsub_ext1 hp_F₂ hz hxne
+    RoundsRTO.notMem_of_extend_subset hsub_ext1 hp_F₂_two hz hxne
   have hz_adj : RoundsDown F₂ x z ∨ RoundsUp F₂ x z := hz.2.1
   obtain ⟨hw'F₁, hw_adj, _, _⟩ := hw
   have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := by

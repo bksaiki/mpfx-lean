@@ -106,7 +106,17 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 
 ## Future work
 
-- **Drop `h_close` and `h_mid_in_F₂` auxiliary hypotheses on `rndRTO_RNE`.** Both should be derivable from `hsub : F₁.extend 2 ⊆ F₂`. Remaining work: (1) prove that midpoints of F₁-adjacent pairs have precision ≤ F₁.p + 1 (subnormal regime: trivially; normal regime: across binade boundaries needs a `Dyadic` integer-rep analysis); (2) prove the same-side-of-midpoint lemma (if `m ∈ F₂` and `m` is between `x` and `z`, then `m = z` via RoundsRTO's max/min property). With both, `h_close` and `h_mid_in_F₂` follow.
+- **Drop `h_close` and `h_mid_in_F₂` auxiliary hypotheses on `rndRTO_RNE`.** **Status: semantically resolved, formalization tracked.** With `hp_F₂ : 3 ≤ F₂.p` (now in place) plus `hsub : F₁.extend 2 ⊆ F₂`, the edge cases really are ruled out: for `F₁.p = 1` we get the full structural shift `F₂.p ≥ F₁.p + 2`, and for `F₁.p ≥ 2` the constraint `F₁.extend 2 ⊆ F₂` forces `F₁.b` small enough that the problematic F₁-adjacent pairs (binade-crossing with odd-significand midpoints) don't exist. To turn this into a complete Lean proof:
+  - **Prerequisite — `Dyadic.toCanonical : Dyadic → ℤ × ℤ`** returning the canonical `(c, e)` pair with `c` odd or `c = 0` (~50 lines via `Int.log 2 |c|`-style reasoning to strip even factors).
+  - **Main lemma — `Dyadic.midpoint_mem_extend_one_of_F_adjacent`**: for F-adjacent `y₁ < y₂ ∈ F`, `Dyadic.midpoint y₁ y₂ ∈ F.extend 1`. Proof structure:
+    1. Extract canonical reps `(c₁, e₁), (c₂, e₂)` for `y₁, y₂`.
+    2. WLOG `e₁ ≤ e₂`. Case-split on `δ := e₂ − e₁`:
+       - **Same-quantum `(δ = 0)`**: F-adjacency forces `c₂ = c₁ + 2`; both odd. Midpoint at quantum `e₁` has coefficient `c₁ + 1`, with `|c₁ + 1| ≤ 2^{F.p}`.
+       - **Binade-crossing `(δ = F.p)`**: `c₁ = ±(2^{F.p} − 1)` (max canonical), `c₂ = ±1` (min canonical at next binade). Midpoint coefficient at quantum `e₁ − 1` is `2^{F.p+1} − 1`.
+       - **Intermediate `(1 ≤ δ < F.p)`**: ruled out by F-adjacency — construct an explicit Dyadic witness in `F` strictly between `y₁` and `y₂`, contradicting `h_adj`.
+    3. Apply `Dyadic.precisionAtMost_of_abs_le` with `p = F.p + 1`.
+  - **Total scope**: ~250–300 lines. Once proven, `h_close` and `h_mid_in_F₂` follow via the same-side-of-midpoint argument and the `F₁.extend 1 ⊆ F₁.extend 2 ⊆ F₂` chain.
+  - Best done as a focused multi-day effort, with `toCanonical` and per-case lemmas split out for testability.
 
 - **Drop the `hp_F₂ : 2 ≤ F₂.p` auxiliary on `rndRTO_RTZ` (and the upcoming RAZ / RNE).** The hypothesis is an artifact of going through `numDigits_eq_of_subset_of_isOdd`, whose `y''` construction is significand-parity-based and only matches `IsOdd F₂` when `F₂.p ≥ 2`. The theorem itself holds without `hp_F₂`: when `F₂.p = 1` and `F₁.extend 1 ⊆ F₂`, `F₂` admits only powers of two (plus 0), `RoundsRTO F₂` picks an index-odd power of two, and the chain still composes correctly (verified by hand on `F₁ = A(1, 0, 1)`, `F₁.extend 1 = F₂ = A(1, -1, 1)`). Two ways to drop it: (1) strengthen `numDigits_eq_of_subset_of_isOdd` to also handle the index-counting parity case for `F₂.p = 1` (~50–100 extra lines); (2) case-split in `rndRTO_RTZ` on `F₂.p = 1` vs `F₂.p ≥ 2` and handle the former with a direct index-counting argument. In practice `F₂.p ≫ 2` for real chained roundings, so this is a theoretical edge case.
 
