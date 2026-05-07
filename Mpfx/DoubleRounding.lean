@@ -872,126 +872,148 @@ private theorem RoundsRNE.midpoint_of_tie {x : ℝ} {w' z' : Dyadic}
   · -- x - w' = -(x - z') ⇒ 2x = w' + z'
     linarith
 
-/-- **rnd-RTO-RNE** wrapper: derives the adjacency transfer fully (same
-case-split as `rndRTO_RTO`), and takes the closeness and tie-break transfers
-as hypotheses (these require F₂-adjacency analysis specific to RNE).
+/-- **rnd-RTO-RNE** (Fig. 9), paper-aligned form. The hypothesis
+`hsub : F₁.extend 2 ⊆ F₂` encodes the paper's
+`A(p₁ + 2, exp₁ − 2, b) ⊆ A(p₂, exp₂, b₂)` containment (modulo the
+`next_{p₁+1, exp₁-1}(b₁)` bound refinement). The auxiliary `hp_F₂ : 2 ≤ F₂.p`
+enables `numDigits_eq_of_subset_of_isOdd`.
 
-The adjacency transfer uses Lemma 5.3 to show `z ∉ F₁`, then case-analyzes
-the four direction combinations. The closeness and tie-break hypotheses
-should follow when `k ≥ 2` and the midpoint of `F₁`-adjacents is in `F₂` —
-proving this is the next step. -/
+The proof handles the trivial `z = x` case directly. For `z ≠ x`, it derives:
+1. `z ∉ F₁` via `RoundsRTO.notMem_of_extend_subset` (specialized to
+   `F₁.extend 1 ⊆ F₂`, derived transitively from `hsub`).
+2. The four-way adjacency transfer (same case-split as `rndRTO_RTO`).
+3. The closeness transfer is taken as an auxiliary hypothesis `h_close` for
+   now — it follows from a same-side-of-midpoint argument that requires
+   midpoint membership in F₂ (which in turn requires F₁-adjacency precision
+   analysis on the midpoint, deferred to future work).
+4. The no-tie / tie-break is derived from `h_mid_in_F₂` (also auxiliary)
+   using `RoundsRTO.unique_of_mem`.
+
+Both auxiliary hypotheses (`h_close`, `h_mid_in_F₂`) are tracked in the TODO
+for future derivation from `hsub : F₁.extend 2 ⊆ F₂` directly. -/
 theorem rndRTO_RNE {F₁ F₂ : AbstractFormat}
-    (hsub : F₁ ⊆ F₂)
+    (hsub : F₁.extend 2 ⊆ F₂)
+    (hp_F₂ : 2 ≤ F₂.p)
     {x : ℝ}
     {z w' : Dyadic}
     (hz : RoundsRTO F₂ x z)
     (hw : RoundsRNE F₁ (z : ℝ) w')
-    (hgt : x ≠ (z : ℝ) →
-      numDigits F₁.p F₁.exp (z : ℝ) < numDigits F₂.p F₂.exp (z : ℝ))
-    -- Closeness transfer (provable when k ≥ 2 with F₂-adjacency analysis)
     (h_close : ∀ z' : Dyadic, z' ∈ F₁ →
       (RoundsDown F₁ x z' ∨ RoundsUp F₁ x z') →
       |x - (w' : ℝ)| ≤ |x - (z' : ℝ)|)
-    -- "No tie at x unless z = x" (provable when k ≥ 2 with midpoint ∈ F₂)
-    (h_no_tie : (z : ℝ) ≠ x →
-      ∀ z' : Dyadic, z' ∈ F₁ →
-        (RoundsDown F₁ x z' ∨ RoundsUp F₁ x z') →
-        z' ≠ w' → |x - (w' : ℝ)| ≠ |x - (z' : ℝ)|) :
-    RoundsRNE F₁ x w' := by
-  rcases eq_or_ne ((z : ℝ)) x with hzx | hzx
-  · -- z = x: hw is essentially the goal (inline `rndRTO_RNE_of_eq`)
-    obtain ⟨hw'F₁, hw_adj, hw_close, hw_tie⟩ := hw
-    rw [hzx] at hw_adj hw_close hw_tie
-    exact ⟨hw'F₁, hw_adj, hw_close, hw_tie⟩
-  · -- z ≠ x: use Lemma 5.3 to derive adjacency, h_close + h_no_tie for the rest
-    have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
-    have hz_adj : RoundsDown F₂ x z ∨ RoundsUp F₂ x z := hz.2.1
-    obtain ⟨hw'F₁, hw_adj, _, _⟩ := hw
-    -- z ∉ F₁ via Lemma 5.3
-    have hz_not_F₁ : z ∉ F₁ :=
-      RoundsRTO.notMem_of_lower_numDigits hz hxne (hgt hxne)
-    have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := by
-      intro h_eq
-      apply hz_not_F₁
-      rw [show z = w' from Subtype.ext h_eq]
-      exact hw'F₁
-    -- Adjacency: copy of rndRTO_RTO's case analysis
-    have h_adj_x : RoundsDown F₁ x w' ∨ RoundsUp F₁ x w' := by
-      rcases hz_adj with hzRD | hzRU
-      · rcases hw_adj with hwRD | hwRU
-        · left
-          obtain ⟨_, hwz, hw_max⟩ := hwRD
-          have hzx_le := hzRD.2.1
-          refine ⟨hw'F₁, le_trans hwz hzx_le, ?_⟩
-          intro v hvF₁ hvx
-          exact hw_max v hvF₁ (hzRD.2.2 v (hsub _ hvF₁) hvx)
-        · obtain ⟨_, hzw, hw_min⟩ := hwRU
-          by_cases hw'_le_x : (w' : ℝ) ≤ x
-          · exfalso
-            have hw_le_z : (w' : ℝ) ≤ (z : ℝ) := hzRD.2.2 w' (hsub _ hw'F₁) hw'_le_x
-            exact hz_ne_w' (le_antisymm hw_le_z hzw).symm
-          · push Not at hw'_le_x
-            right
-            refine ⟨hw'F₁, hw'_le_x.le, ?_⟩
-            intro v hvF₁ hxv
-            exact hw_min v hvF₁ (le_trans hzRD.2.1 hxv)
-      · rcases hw_adj with hwRD | hwRU
-        · obtain ⟨_, hwz, hw_max⟩ := hwRD
-          by_cases hw'_le_x : (w' : ℝ) ≤ x
-          · left
-            refine ⟨hw'F₁, hw'_le_x, ?_⟩
-            intro v hvF₁ hvx
-            exact hw_max v hvF₁ (le_trans hvx hzRU.2.1)
-          · exfalso
-            push Not at hw'_le_x
-            have hw_ge_z : (z : ℝ) ≤ (w' : ℝ) :=
-              hzRU.2.2 w' (hsub _ hw'F₁) hw'_le_x.le
-            exact hz_ne_w' (le_antisymm hwz hw_ge_z).symm
-        · right
-          obtain ⟨_, hzw, hw_min⟩ := hwRU
-          have hxz := hzRU.2.1
-          refine ⟨hw'F₁, le_trans hxz hzw, ?_⟩
-          intro v hvF₁ hxv
-          exact hw_min v hvF₁ (hzRU.2.2 v (hsub _ hvF₁) hxv)
-    refine ⟨hw'F₁, h_adj_x, h_close, ?_⟩
-    rintro ⟨z', hz'F₁, hz'_adj_x, hz'_ne_w', hz'_eq_dist⟩
-    exact absurd hz'_eq_dist (h_no_tie hzx z' hz'F₁ hz'_adj_x hz'_ne_w')
-
-/-- **rnd-RTO-RNE** with `h_mid_in_F₂`: derives `h_no_tie` from the structural
-assumption that midpoints of `F₁`-pairs are in `F₂`. The closeness transfer
-`h_close` is still a hypothesis. -/
-theorem rndRTO_RNE_with_mid {F₁ F₂ : AbstractFormat}
-    (hsub : F₁ ⊆ F₂)
-    {x : ℝ}
-    {z w' : Dyadic}
-    (hz : RoundsRTO F₂ x z)
-    (hw : RoundsRNE F₁ (z : ℝ) w')
-    (hgt : x ≠ (z : ℝ) →
-      numDigits F₁.p F₁.exp (z : ℝ) < numDigits F₂.p F₂.exp (z : ℝ))
-    (h_close : ∀ z' : Dyadic, z' ∈ F₁ →
-      (RoundsDown F₁ x z' ∨ RoundsUp F₁ x z') →
-      |x - (w' : ℝ)| ≤ |x - (z' : ℝ)|)
-    -- Midpoints of `F₁`-pairs lie in `F₂` (provable when `k ≥ 2` and the
-    -- containment relation provides the precision and quantum slack)
     (h_mid_in_F₂ : ∀ y₁ y₂ : Dyadic, y₁ ∈ F₁ → y₂ ∈ F₁ →
       ∃ m : Dyadic, m ∈ F₂ ∧ (m : ℝ) = ((y₁ : ℝ) + (y₂ : ℝ)) / 2) :
     RoundsRNE F₁ x w' := by
-  apply rndRTO_RNE hsub hz hw hgt h_close
-  -- Derive `h_no_tie` from `h_mid_in_F₂`: a tie at x means x = midpoint = some m ∈ F₂,
-  -- which by `RoundsRTO.unique_of_mem` forces z = m, contradicting z ≠ x.
-  intro hzx_ne z' hz'F₁ _ hz'_ne_w' hz'_eq_dist
-  obtain ⟨hw'F₁, _, _, _⟩ := hw
+  -- Step 1: Derive subset chain F₁ ⊆ F₁.extend 1 ⊆ F₁.extend 2 ⊆ F₂.
+  have hF₁_sub_ext1 : F₁ ⊆ F₁.extend 1 := by
+    intro y hy
+    obtain ⟨hp, hq, hb⟩ := hy
+    refine ⟨?_, ?_, ?_⟩
+    · have h_p_le : F₁.p ≤ F₁.p + 1 := by
+        cases F₁.p with
+        | top => simp
+        | coe n => exact WithTop.coe_le_coe.mpr (Nat.le_succ n)
+      change Dyadic.precisionAtMost _ y
+      exact Dyadic.precisionAtMost_mono h_p_le hp
+    · change Dyadic.quantumAtLeast _ y
+      have h_exp_ge : (F₁.exp.map (· - (1 : ℤ))) ≤ F₁.exp := by
+        cases F₁.exp with
+        | bot => simp
+        | coe e =>
+          change ((e - 1 : ℤ) : WithBot ℤ) ≤ ((e : ℤ) : WithBot ℤ)
+          exact WithBot.coe_le_coe.mpr (by linarith)
+      exact Dyadic.quantumAtLeast_anti h_exp_ge hq
+    · exact hb
+  have h_ext1_sub_ext2 : F₁.extend 1 ⊆ F₁.extend 2 := by
+    intro y hy
+    obtain ⟨hp, hq, hb⟩ := hy
+    refine ⟨?_, ?_, ?_⟩
+    · have h_p_le : F₁.p + 1 ≤ F₁.p + 2 := by
+        cases F₁.p with
+        | top => simp
+        | coe n =>
+          change ((n + 1 : ℕ) : ℕ∞) ≤ ((n + 2 : ℕ) : ℕ∞)
+          exact_mod_cast (by omega : n + 1 ≤ n + 2)
+      change Dyadic.precisionAtMost _ y
+      exact Dyadic.precisionAtMost_mono h_p_le hp
+    · change Dyadic.quantumAtLeast _ y
+      have h_exp_ge : (F₁.exp.map (· - (2 : ℤ))) ≤ (F₁.exp.map (· - (1 : ℤ))) := by
+        cases F₁.exp with
+        | bot => simp
+        | coe e =>
+          change ((e - 2 : ℤ) : WithBot ℤ) ≤ ((e - 1 : ℤ) : WithBot ℤ)
+          exact WithBot.coe_le_coe.mpr (by linarith)
+      exact Dyadic.quantumAtLeast_anti h_exp_ge hq
+    · exact hb
+  have hsub_ext1 : F₁.extend 1 ⊆ F₂ := fun y hy => hsub _ (h_ext1_sub_ext2 _ hy)
+  have hsub' : F₁ ⊆ F₂ := fun y hy => hsub_ext1 _ (hF₁_sub_ext1 _ hy)
+  -- Step 2: Trivial case z = x.
+  rcases eq_or_ne ((z : ℝ)) x with hzx | hzx
+  · obtain ⟨hw'F₁, hw_adj, hw_close, hw_tie⟩ := hw
+    rw [hzx] at hw_adj hw_close hw_tie
+    exact ⟨hw'F₁, hw_adj, hw_close, hw_tie⟩
+  -- Step 3: Non-trivial case z ≠ x.
+  have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
+  have hz_not_F₁ : z ∉ F₁ :=
+    RoundsRTO.notMem_of_extend_subset hsub_ext1 hp_F₂ hz hxne
+  have hz_adj : RoundsDown F₂ x z ∨ RoundsUp F₂ x z := hz.2.1
+  obtain ⟨hw'F₁, hw_adj, _, _⟩ := hw
+  have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := by
+    intro h_eq
+    apply hz_not_F₁
+    rw [show z = w' from Subtype.ext h_eq]
+    exact hw'F₁
+  -- Step 4: Adjacency transfer (4-way case split).
+  have h_adj_x : RoundsDown F₁ x w' ∨ RoundsUp F₁ x w' := by
+    rcases hz_adj with hzRD | hzRU
+    · rcases hw_adj with hwRD | hwRU
+      · left
+        obtain ⟨_, hwz, hw_max⟩ := hwRD
+        have hzx_le := hzRD.2.1
+        refine ⟨hw'F₁, le_trans hwz hzx_le, ?_⟩
+        intro v hvF₁ hvx
+        exact hw_max v hvF₁ (hzRD.2.2 v (hsub' _ hvF₁) hvx)
+      · obtain ⟨_, hzw, hw_min⟩ := hwRU
+        by_cases hw'_le_x : (w' : ℝ) ≤ x
+        · exfalso
+          have hw_le_z : (w' : ℝ) ≤ (z : ℝ) := hzRD.2.2 w' (hsub' _ hw'F₁) hw'_le_x
+          exact hz_ne_w' (le_antisymm hw_le_z hzw).symm
+        · push Not at hw'_le_x
+          right
+          refine ⟨hw'F₁, hw'_le_x.le, ?_⟩
+          intro v hvF₁ hxv
+          exact hw_min v hvF₁ (le_trans hzRD.2.1 hxv)
+    · rcases hw_adj with hwRD | hwRU
+      · obtain ⟨_, hwz, hw_max⟩ := hwRD
+        by_cases hw'_le_x : (w' : ℝ) ≤ x
+        · left
+          refine ⟨hw'F₁, hw'_le_x, ?_⟩
+          intro v hvF₁ hvx
+          exact hw_max v hvF₁ (le_trans hvx hzRU.2.1)
+        · exfalso
+          push Not at hw'_le_x
+          have hw_ge_z : (z : ℝ) ≤ (w' : ℝ) :=
+            hzRU.2.2 w' (hsub' _ hw'F₁) hw'_le_x.le
+          exact hz_ne_w' (le_antisymm hwz hw_ge_z).symm
+      · right
+        obtain ⟨_, hzw, hw_min⟩ := hwRU
+        have hxz := hzRU.2.1
+        refine ⟨hw'F₁, le_trans hxz hzw, ?_⟩
+        intro v hvF₁ hxv
+        exact hw_min v hvF₁ (hzRU.2.2 v (hsub' _ hvF₁) hxv)
+  -- Step 5: Assemble the RoundsRNE witness.
+  refine ⟨hw'F₁, h_adj_x, h_close, ?_⟩
+  -- Step 6: No-tie via midpoint + RoundsRTO.unique_of_mem.
+  rintro ⟨z', hz'F₁, _, hz'_ne_w', hz'_eq_dist⟩
   have hx_mid : x = ((w' : ℝ) + (z' : ℝ)) / 2 :=
     RoundsRNE.midpoint_of_tie hz'_ne_w' hz'_eq_dist
   obtain ⟨m, hmF₂, hm_eq⟩ := h_mid_in_F₂ w' z' hw'F₁ hz'F₁
   have hm_x : (m : ℝ) = x := by rw [hm_eq, ← hx_mid]
-  -- RoundsRTO F₂ x z forces z = m via unique_of_mem (after rewriting x = m)
   have hz_eq : z = m := by
     have hz' : RoundsRTO F₂ ((m : ℝ)) z := by rw [hm_x]; exact hz
     exact RoundsRTO.unique_of_mem hmF₂ hz'
-  -- (z : ℝ) = (m : ℝ) = x, contradicting hzx_ne
-  apply hzx_ne
-  rw [hz_eq]; exact hm_x
+  -- z = m and m = x as reals, so z = x as reals — contradicts hxne.
+  exact (hxne (by rw [hz_eq]; exact hm_x.symm)).elim
 
 end AbstractFormat
 

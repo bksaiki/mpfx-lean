@@ -65,13 +65,17 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [x] **`rndRTO_RTO` (general, all `x ∈ ℝ`)**: dropped `h_prec` and `hp_F₁`. Single hypothesis `hp_F₂ : 2 ≤ F₂.p` (needed because the F₁.p = 1 corner uses index-counting parity). Internally derives the strict numDigits shift via `numDigits_eq_of_subset_of_isOdd` (Lemma 5.3 corollary, fully proven in `Digits.lean` via the y'' construction). The F₁.p = 1 corner additionally derives `F₁.exp = F₂.exp = e_z` to fix the parity bit.
 - [x] `rndRTO_RTZ_pos`, `rndRTO_RAZ_pos`: positive case `0 < x` (private; used by the public theorems).
 - [x] **`rndRTO_RTZ`, `rndRTO_RAZ` (general, all `x ∈ ℝ`), paper-aligned**: take `(hsub : F₁.extend 1 ⊆ F₂)` matching the paper's Fig. 9 directly, plus auxiliary `hp_F₂ : 2 ≤ F₂.p` (tracked in Future Work for removal). Use `RoundsRTO.notMem_of_extend_subset` (in `Rounding.lean`) to discharge the contradiction step in the RoundsUp (RTZ) / RoundsDown (RAZ) branch.
-- [~] `rndRTO_RNE`: progressively-stronger wrappers in place.
-  - `rndRTO_RNE_of_eq` proven (trivial case `z = x`).
-  - `rndRTO_RNE_via_transfers` packages the structural transfers as hypotheses.
-  - **`rndRTO_RNE`**: derives the adjacency transfer fully via Lemma 5.3 + `RoundsDown`/`RoundsUp` 4-way case-split (same as `rndRTO_RTO`). Takes `h_close` and `h_no_tie` as hypotheses.
-  - **`rndRTO_RNE_with_mid`**: further derives `h_no_tie` from a structural hypothesis `h_mid_in_F₂` (midpoints of `F₁`-pairs are in `F₂`). Uses `RoundsRTO.unique_of_mem` to show: a tie at `x` means `x = midpoint`, which forces `z = midpoint = x`, contradicting `z ≠ x`. Helper `RoundsRNE.midpoint_of_tie` extracts `x = (w' + z')/2` from `|x - w'| = |x - z'| ∧ w' ≠ z'`.
-  - **`Dyadic.half`, `Dyadic.midpoint`, `Dyadic.coe_midpoint`**: concrete midpoint construction added (so `(midpoint y₁ y₂ : ℝ) = ((y₁ : ℝ) + (y₂ : ℝ)) / 2` definitionally).
-  - Remaining work: (1) prove `h_close` from `hk : 2 ≤ k` (needs F₂-adjacency analysis showing `x` and `z` are on the same side of any `F₁`-midpoint); (2) prove `h_mid_in_F₂` from `F₁.extend 2 ⊆ F₂` (using `Dyadic.midpoint` as the explicit `m`); (3) align the public `rndRTO_RNE` hypotheses with the paper's `F₁.extend 2 ⊆ F₂` form (parallel to the RTZ/RAZ refactor).
+- [~] **`rndRTO_RNE` (paper-aligned)**: takes `(hsub : F₁.extend 2 ⊆ F₂) (hp_F₂ : 2 ≤ F₂.p)` matching the paper's Fig. 9 structural part. The proof internally derives:
+  - `F₁ ⊆ F₁.extend 1 ⊆ F₁.extend 2 ⊆ F₂` chain.
+  - `z ∉ F₁` via `RoundsRTO.notMem_of_extend_subset` (using `F₁.extend 1 ⊆ F₂`, derived transitively).
+  - The four-way adjacency transfer (same as `rndRTO_RTO`).
+  - The no-tie via `RoundsRTO.unique_of_mem` applied to a midpoint that lies in F₂.
+  - Helper `RoundsRNE.midpoint_of_tie` (`x = (w' + z')/2` from `|x - w'| = |x - z'| ∧ w' ≠ z'`).
+  - Auxiliary helpers `Dyadic.half`, `Dyadic.midpoint`, `Dyadic.coe_midpoint`.
+  - Auxiliary `rndRTO_RNE_via_transfers` (low-level wrapper taking pre-built transfers) is kept for callers that supply transfers directly.
+- **Remaining auxiliary hypotheses on `rndRTO_RNE`** (still inputs, to be derived from `hsub` in future work):
+  - `h_close`: closeness transfer `∀ z' ∈ F₁ adjacent to x, |x - w'| ≤ |x - z'|`. Provable via a same-side-of-midpoint argument when the midpoint lies in F₂; needs F₁-adjacency precision analysis on the midpoint.
+  - `h_mid_in_F₂`: midpoints of F₁-pairs lie in F₂. Provable from `F₁.extend 2 ⊆ F₂` for F₁-adjacent pairs (midpoint precision ≤ F₁.p + 1 in that case), but the precision bound needs a delicate analysis across binade boundaries.
 
 **Infrastructure added along the way:**
 - [x] `RoundsDown`, `RoundsUp`, `RoundsRTZ`, `RoundsRAZ`, `RoundsRTO`, `RoundsRNE` predicates (`Mpfx/Rounding.lean`).
@@ -102,7 +106,7 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 
 ## Future work
 
-- **Refactor `rndRTO_RNE` hypotheses to use `F₁.extend 2 ⊆ F₂`** (parallel to `rndRTO_RTZ` and `rndRTO_RAZ`, which are now paper-aligned). Remaining work: change the public hypotheses from the raw `hgt`/structural form to the paper's `F₁.extend 2 ⊆ F₂`, and derive the contradiction internally via `RoundsRTO.notMem_of_extend_subset` (already in `Rounding.lean`).
+- **Drop `h_close` and `h_mid_in_F₂` auxiliary hypotheses on `rndRTO_RNE`.** Both should be derivable from `hsub : F₁.extend 2 ⊆ F₂`. Remaining work: (1) prove that midpoints of F₁-adjacent pairs have precision ≤ F₁.p + 1 (subnormal regime: trivially; normal regime: across binade boundaries needs a `Dyadic` integer-rep analysis); (2) prove the same-side-of-midpoint lemma (if `m ∈ F₂` and `m` is between `x` and `z`, then `m = z` via RoundsRTO's max/min property). With both, `h_close` and `h_mid_in_F₂` follow.
 
 - **Drop the `hp_F₂ : 2 ≤ F₂.p` auxiliary on `rndRTO_RTZ` (and the upcoming RAZ / RNE).** The hypothesis is an artifact of going through `numDigits_eq_of_subset_of_isOdd`, whose `y''` construction is significand-parity-based and only matches `IsOdd F₂` when `F₂.p ≥ 2`. The theorem itself holds without `hp_F₂`: when `F₂.p = 1` and `F₁.extend 1 ⊆ F₂`, `F₂` admits only powers of two (plus 0), `RoundsRTO F₂` picks an index-odd power of two, and the chain still composes correctly (verified by hand on `F₁ = A(1, 0, 1)`, `F₁.extend 1 = F₂ = A(1, -1, 1)`). Two ways to drop it: (1) strengthen `numDigits_eq_of_subset_of_isOdd` to also handle the index-counting parity case for `F₂.p = 1` (~50–100 extra lines); (2) case-split in `rndRTO_RTZ` on `F₂.p = 1` vs `F₂.p ≥ 2` and handle the former with a direct index-counting argument. In practice `F₂.p ≫ 2` for real chained roundings, so this is a theoretical edge case.
 
