@@ -14,15 +14,6 @@ namespace Mpfx
 lemma two_zpow_pos (e : ℤ) : (0 : ℝ) < (2 : ℝ) ^ e :=
   zpow_pos (by norm_num) _
 
-/-- `(2 : ℝ) ^ e` is nonzero. -/
-lemma two_zpow_ne_zero (e : ℤ) : (2 : ℝ) ^ e ≠ 0 :=
-  ne_of_gt (two_zpow_pos e)
-
-/-- Cancel a positive `(2 : ℝ) ^ e` factor on the right. -/
-lemma mul_two_zpow_cancel_right {a b : ℝ} {e : ℤ}
-    (h : a * (2 : ℝ) ^ e = b * (2 : ℝ) ^ e) : a = b :=
-  mul_right_cancel₀ (two_zpow_ne_zero e) h
-
 /-- `|c · 2^e|` simplifies to `|c| · 2^e` (for `c : ℝ, e : ℤ`). -/
 lemma abs_mul_two_zpow (c : ℝ) (e : ℤ) :
     |c * (2 : ℝ) ^ e| = |c| * (2 : ℝ) ^ e := by

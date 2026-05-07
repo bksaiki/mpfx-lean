@@ -18,9 +18,6 @@ def Subset (F₁ F₂ : AbstractFormat) : Prop := ∀ x : Dyadic, x ∈ F₁ →
 
 instance : HasSubset AbstractFormat := ⟨Subset⟩
 
-theorem subset_def (F₁ F₂ : AbstractFormat) :
-    F₁ ⊆ F₂ ↔ ∀ x : Dyadic, x ∈ F₁ → x ∈ F₂ := Iff.rfl
-
 theorem boundOK_mono {b₁ b₂ : WithTop Dyadic} (h : b₁ ≤ b₂) {x : Dyadic} :
     boundOK b₁ x → boundOK b₂ x := by
   match b₁, b₂ with

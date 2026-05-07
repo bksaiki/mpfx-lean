@@ -747,9 +747,6 @@ def boundOK : WithTop Dyadic → Dyadic → Prop
 
 @[simp] theorem boundOK_top (x : Dyadic) : boundOK ⊤ x := trivial
 
-theorem boundOK_coe (b : Dyadic) (x : Dyadic) :
-    boundOK (b : WithTop Dyadic) x ↔ |(x : ℝ)| ≤ (b : ℝ) := Iff.rfl
-
 /-- Membership in `𝒜(p, exp, b)`: precision ≤ p, quantum ≥ exp, |x| ≤ b. -/
 def Mem (F : AbstractFormat) (x : Dyadic) : Prop :=
   Dyadic.precisionAtMost F.p x ∧
@@ -757,11 +754,6 @@ def Mem (F : AbstractFormat) (x : Dyadic) : Prop :=
   boundOK F.b x
 
 instance : Membership Dyadic AbstractFormat := ⟨fun F x => F.Mem x⟩
-
-theorem mem_iff (F : AbstractFormat) (x : Dyadic) :
-    x ∈ F ↔ Dyadic.precisionAtMost F.p x ∧
-            Dyadic.quantumAtLeast F.exp x ∧
-            boundOK F.b x := Iff.rfl
 
 /-- `0` is always representable. Uses the structural `b_nn` invariant. -/
 theorem zero_mem (F : AbstractFormat) : (0 : Dyadic) ∈ F := by

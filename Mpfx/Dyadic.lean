@@ -15,10 +15,6 @@ namespace IsDyadic
 
 @[simp] theorem one : IsDyadic 1 := ⟨1, 0, by simp⟩
 
-theorem of_int (n : ℤ) : IsDyadic (n : ℝ) := ⟨n, 0, by simp⟩
-
-theorem of_nat (n : ℕ) : IsDyadic (n : ℝ) := ⟨n, 0, by simp⟩
-
 theorem neg {x : ℝ} (h : IsDyadic x) : IsDyadic (-x) := by
   obtain ⟨c, e, rfl⟩ := h
   exact ⟨-c, e, by push_cast; ring⟩
@@ -46,12 +42,6 @@ theorem add {x y : ℝ} (hx : IsDyadic x) (hy : IsDyadic y) : IsDyadic (x + y) :
   · refine ⟨c₂ + c₁ * 2 ^ (e₁ - e₂).toNat, e₂, ?_⟩
     rw [add_comm]
     exact add_aux c₂ c₁ e₂ e₁ h
-
-theorem sub {x y : ℝ} (hx : IsDyadic x) (hy : IsDyadic y) : IsDyadic (x - y) := by
-  rw [sub_eq_add_neg]
-  exact add hx (neg hy)
-
-theorem zpow_two (e : ℤ) : IsDyadic ((2 : ℝ) ^ e) := ⟨1, e, by simp⟩
 
 end IsDyadic
 
@@ -300,49 +290,6 @@ theorem exists_odd_canonical_of_precisionAtMost {p : ℕ} {y : Dyadic}
       rw [Int.abs_eq_natAbs, Int.abs_eq_natAbs]
       exact_mod_cast h_natAbs
     linarith
-
-/-- Uniqueness of the odd canonical form: if `c₁·2^e₁ = c₂·2^e₂` (over ℝ) with
-both `c₁`, `c₂` odd integers, then `c₁ = c₂` and `e₁ = e₂`. -/
-theorem odd_canonical_unique {c₁ c₂ : ℤ} {e₁ e₂ : ℤ}
-    (h_eq : (c₁ : ℝ) * (2 : ℝ) ^ e₁ = (c₂ : ℝ) * (2 : ℝ) ^ e₂)
-    (h_odd₁ : Odd c₁) (h_odd₂ : Odd c₂) :
-    c₁ = c₂ ∧ e₁ = e₂ := by
-  have h2_ne : (2 : ℝ) ≠ 0 := by norm_num
-  -- Helper: f < g ⟹ a is even.
-  have h_aux : ∀ {a b : ℤ} {f g : ℤ},
-      (a : ℝ) * (2 : ℝ)^f = (b : ℝ) * (2 : ℝ)^g → f < g → Even a := by
-    intro a b f g h h_lt
-    have h_diff_pos : 0 < g - f := by omega
-    have h_2f_ne : (2 : ℝ)^f ≠ 0 := zpow_ne_zero _ h2_ne
-    have h_eq2 : (a : ℝ) * (2 : ℝ)^f = ((b : ℝ) * (2 : ℝ)^(g - f)) * (2 : ℝ)^f := by
-      have h_pow_split :
-          (b : ℝ) * (2 : ℝ)^(g - f) * (2 : ℝ)^f = (b : ℝ) * (2 : ℝ)^g := by
-        rw [mul_assoc, ← zpow_add₀ h2_ne]
-        congr 2; omega
-      rw [h_pow_split]; exact h
-    have h_div : (a : ℝ) = (b : ℝ) * (2 : ℝ)^(g - f) :=
-      mul_right_cancel₀ h_2f_ne h_eq2
-    lift (g - f) to ℕ using (le_of_lt h_diff_pos) with d hd
-    rw [zpow_natCast] at h_div
-    have hd_pos : 0 < d := by exact_mod_cast h_diff_pos
-    have h_int : a = b * (2 : ℤ)^d := by
-      have : ((a : ℝ)) = ((b * (2 : ℤ)^d : ℤ) : ℝ) := by
-        rw [h_div]; push_cast; ring
-      exact_mod_cast this
-    have h2_dvd : (2 : ℤ) ∣ a := by
-      rw [h_int]
-      exact dvd_mul_of_dvd_right (dvd_pow_self 2 (Nat.pos_iff_ne_zero.mp hd_pos)) _
-    exact even_iff_two_dvd.mpr h2_dvd
-  have h_e_eq : e₁ = e₂ := by
-    rcases lt_trichotomy e₁ e₂ with h_lt | hee | h_gt
-    · exact absurd (h_aux h_eq h_lt) (Int.not_even_iff_odd.mpr h_odd₁)
-    · exact hee
-    · exact absurd (h_aux h_eq.symm h_gt) (Int.not_even_iff_odd.mpr h_odd₂)
-  refine ⟨?_, h_e_eq⟩
-  rw [h_e_eq] at h_eq
-  have h_2e_ne : (2 : ℝ)^e₂ ≠ 0 := zpow_ne_zero _ h2_ne
-  have hcc : (c₁ : ℝ) = c₂ := mul_right_cancel₀ h_2e_ne h_eq
-  exact_mod_cast hcc
 
 /-- A nonzero dyadic with `quantumAtLeast e` has absolute value at least `2^e`.
 The smallest nonzero significand `c` is `±1`, giving `|c·2^e| = 2^e`. -/

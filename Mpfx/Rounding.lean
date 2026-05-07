@@ -101,16 +101,6 @@ def RoundsRNE (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
       z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
     IsEven F y)
 
-/-- For `x ∈ F`, the RTO rounding is `x` itself. -/
-theorem RoundsRTO.of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F) :
-    RoundsRTO F (x : ℝ) x := by
-  refine ⟨hx, Or.inl ?_, ?_⟩
-  · refine ⟨hx, le_refl _, ?_⟩
-    intro z _ hzx
-    exact hzx
-  · intro hne
-    exact absurd rfl hne
-
 /-- If `x ∈ F` and `y` is the RTO-rounding of `x` in `F`, then `y = x`. -/
 theorem RoundsRTO.unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
     {y : Dyadic} (h : RoundsRTO F (x : ℝ) y) : y = x := by
