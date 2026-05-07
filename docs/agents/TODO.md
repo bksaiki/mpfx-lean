@@ -63,8 +63,8 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [x] `rndRTZ_RTZ` (general `x ∈ ℝ`).
 - [x] `rndRAZ_RAZ` (general `x ∈ ℝ`; combines `_pos` case + `RoundsRAZ.neg` for `x < 0` + `neg_mem`-based handling of `x = 0`).
 - [x] **`rndRTO_RTO` (general, all `x ∈ ℝ`)**: dropped `h_prec` and `hp_F₁`. Single hypothesis `hp_F₂ : 2 ≤ F₂.p` (needed because the F₁.p = 1 corner uses index-counting parity). Internally derives the strict numDigits shift via `numDigits_eq_of_subset_of_isOdd` (Lemma 5.3 corollary, fully proven in `Digits.lean` via the y'' construction). The F₁.p = 1 corner additionally derives `F₁.exp = F₂.exp = e_z` to fix the parity bit.
-- [x] `rndRTO_RTZ_pos`, `rndRTO_RAZ_pos`: positive case `0 < x`.
-- [x] **`rndRTO_RTZ`, `rndRTO_RAZ` (general, all `x ∈ ℝ`)**: currently take an `hgt : x ≠ z → numDigits F₁ z < numDigits F₂ z` hypothesis. **Pending refactor:** replace with the paper-aligned `(hsub : F₁.extend 1 ⊆ F₂)` form (the `extend` helper is already defined). Internally derive the `numDigits` shift via `numDigits_succ_le_of_subformat_succ` (already proven in `Digits.lean`).
+- [x] `rndRTO_RTZ_pos`, `rndRTO_RAZ_pos`: positive case `0 < x` (private; used by the public theorems).
+- [x] **`rndRTO_RTZ`, `rndRTO_RAZ` (general, all `x ∈ ℝ`), paper-aligned**: take `(hsub : F₁.extend 1 ⊆ F₂)` matching the paper's Fig. 9 directly, plus auxiliary `hp_F₂ : 2 ≤ F₂.p` (tracked in Future Work for removal). Use `RoundsRTO.notMem_of_extend_subset` (in `Rounding.lean`) to discharge the contradiction step in the RoundsUp (RTZ) / RoundsDown (RAZ) branch.
 - [~] `rndRTO_RNE`: progressively-stronger wrappers in place.
   - `rndRTO_RNE_of_eq` proven (trivial case `z = x`).
   - `rndRTO_RNE_via_transfers` packages the structural transfers as hypotheses.
@@ -100,16 +100,10 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [ ] Concrete numeric example: `rnd_{E5M2,RNE}(1.26)` from §3.5 evaluates correctly.
 - [ ] Counterexample: composing E2M1 and E4M3 RNE roundings of 1.26 ≠ direct E2M1 rounding.
 
-## Cleanup
-
-- [x] `Mpfx.lean` re-exports each module.
-- [x] `lake build` is clean, `git grep -n sorry Mpfx/` is empty.
-- [ ] Remove `def hello := "world"` from `Mpfx/Basic.lean` (or repurpose).
-
 ## Future work
 
-- **Refactor `rndRTO_RTZ` / `rndRTO_RAZ` / `rndRTO_RNE` hypotheses to use `F₁.extend k ⊆ F₂`.** The `extend` helper is in place (`Mpfx/Format.lean`) and the strict-shift Lemma 5.2 (`numDigits_succ_le_of_subformat_succ`) is proven. Remaining work: change the public hypotheses from the raw structural shifts/`hgt` form to the paper's `F₁.extend 1 ⊆ F₂` (RTZ/RAZ) and `F₁.extend 2 ⊆ F₂` (RNE), and derive the structural facts internally.
+- **Refactor `rndRTO_RNE` hypotheses to use `F₁.extend 2 ⊆ F₂`** (parallel to `rndRTO_RTZ` and `rndRTO_RAZ`, which are now paper-aligned). Remaining work: change the public hypotheses from the raw `hgt`/structural form to the paper's `F₁.extend 2 ⊆ F₂`, and derive the contradiction internally via `RoundsRTO.notMem_of_extend_subset` (already in `Rounding.lean`).
+
+- **Drop the `hp_F₂ : 2 ≤ F₂.p` auxiliary on `rndRTO_RTZ` (and the upcoming RAZ / RNE).** The hypothesis is an artifact of going through `numDigits_eq_of_subset_of_isOdd`, whose `y''` construction is significand-parity-based and only matches `IsOdd F₂` when `F₂.p ≥ 2`. The theorem itself holds without `hp_F₂`: when `F₂.p = 1` and `F₁.extend 1 ⊆ F₂`, `F₂` admits only powers of two (plus 0), `RoundsRTO F₂` picks an index-odd power of two, and the chain still composes correctly (verified by hand on `F₁ = A(1, 0, 1)`, `F₁.extend 1 = F₂ = A(1, -1, 1)`). Two ways to drop it: (1) strengthen `numDigits_eq_of_subset_of_isOdd` to also handle the index-counting parity case for `F₂.p = 1` (~50–100 extra lines); (2) case-split in `rndRTO_RTZ` on `F₂.p = 1` vs `F₂.p ≥ 2` and handle the former with a direct index-counting argument. In practice `F₂.p ≫ 2` for real chained roundings, so this is a theoretical edge case.
 
 - **Encode `1 ≤ p` at the type level** by changing `p : ℕ∞` to `p : WithTop ℕ+` (positive naturals + ∞). Would drop the `p_pos` field. Significant refactor: numeric literals (`(2 : ℕ∞)`), `F.p + k`, and many `exact_mod_cast`s would need to be threaded through `ℕ+ → ℕ → ℕ∞` coercions. Deferred — `p_pos` is fine in practice.
-
-- **`rndRTO_RTO`'s old `h_prec` hypothesis dropped** (resolved via format-parameterized `IsOdd`).
