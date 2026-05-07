@@ -172,6 +172,57 @@ theorem RoundsRTO.notMem_of_lower_numDigits {F₁ F₂ : AbstractFormat}
       push_cast; exact h_nd_F₂_pos
   exact (RoundsRTO.ne_of_precisionAtMost hz hxne hcast h_prec) rfl
 
+/-- Paper-aligned form of Lemma 5.3. From `F₁.extend 1 ⊆ F₂` and an RTO
+rounding `z` with `x ≠ z` (so `IsOdd F₂ z`), conclude `z ∉ F₁`.
+
+Proof: `z ∈ F₁ ⊆ F₁.extend 1`. By `numDigits_eq_of_subset_of_isOdd`,
+`numDigits (F₁.extend 1) z = numDigits F₂ z`. By `numDigits_extend`, the LHS
+equals `numDigits F₁ z + 1`. So `numDigits F₁ z + 1 = numDigits F₂ z`, i.e.,
+`numDigits F₁ z < numDigits F₂ z`. Then apply `notMem_of_lower_numDigits`. -/
+theorem RoundsRTO.notMem_of_extend_subset {F₁ F₂ : AbstractFormat}
+    (hsub : F₁.extend 1 ⊆ F₂)
+    (hp_F₂ : 2 ≤ F₂.p)
+    {x : ℝ} {z : Dyadic} (hz : RoundsRTO F₂ x z)
+    (hxne : x ≠ (z : ℝ)) :
+    z ∉ F₁ := by
+  intro hzF₁
+  have h_iod : IsOdd F₂ z := hz.2.2 hxne
+  have hz_ne_zero : ((z : Dyadic) : ℝ) ≠ 0 := by
+    intro h
+    have hz_d : z = 0 := Subtype.ext (by rw [h]; rfl)
+    rw [hz_d] at h_iod
+    exact h_iod.ne_zero rfl
+  -- z ∈ F₁ ⇒ z ∈ F₁.extend 1 (precision/quantum constraints weaken).
+  have hzF₁_ext : z ∈ F₁.extend 1 := by
+    obtain ⟨hp, hq, hb⟩ := hzF₁
+    refine ⟨?_, ?_, ?_⟩
+    · have h_p_le : F₁.p ≤ F₁.p + 1 := by
+        cases F₁.p with
+        | top => simp
+        | coe n => exact WithTop.coe_le_coe.mpr (Nat.le_succ n)
+      change Dyadic.precisionAtMost _ z
+      exact Dyadic.precisionAtMost_mono h_p_le hp
+    · change Dyadic.quantumAtLeast _ z
+      have h_exp_ge : (F₁.exp.map (· - (1 : ℤ))) ≤ F₁.exp := by
+        cases F₁.exp with
+        | bot => simp
+        | coe e =>
+          change ((e - 1 : ℤ) : WithBot ℤ) ≤ ((e : ℤ) : WithBot ℤ)
+          exact WithBot.coe_le_coe.mpr (by linarith)
+      exact Dyadic.quantumAtLeast_anti h_exp_ge hq
+    · exact hb
+  -- Apply Lemma 5.3 corollary at F₁.extend 1 ⊆ F₂.
+  have h_eq : numDigits (F₁.extend 1).p (F₁.extend 1).exp (z : ℝ) =
+              numDigits F₂.p F₂.exp (z : ℝ) :=
+    numDigits_eq_of_subset_of_isOdd hsub hp_F₂ hzF₁_ext h_iod
+  rw [numDigits_extend F₁ 1 hz_ne_zero] at h_eq
+  -- h_eq : numDigits F₁ z + 1 = numDigits F₂ z
+  -- Convert to the strict shift and apply notMem_of_lower_numDigits.
+  have h_F₂_pos : 0 < numDigits F₂.p F₂.exp (z : ℝ) := h_iod.numDigits_pos
+  have h_lt : numDigits F₁.p F₁.exp (z : ℝ) < numDigits F₂.p F₂.exp (z : ℝ) := by
+    omega
+  exact (RoundsRTO.notMem_of_lower_numDigits hz hxne h_lt) hzF₁
+
 /-- Sign-flip symmetry for RTZ rounding. -/
 theorem RoundsRTZ.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
     (h : RoundsRTZ F x y) : RoundsRTZ F (-x) (-y) := by

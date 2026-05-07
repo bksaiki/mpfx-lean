@@ -509,26 +509,42 @@ theorem rndRTO_RTO {F₁ F₂ : AbstractFormat}
         intro _
         exact hw_odd_imp hz_ne_w'
 
-/-- **rnd-RTO-RTZ** (Fig. 9), positive case `0 < x`. The general theorem (over
-all `x ∈ ℝ`) follows by `RoundsRTO.neg`-style symmetry plus the trivial `x = 0`
-case.
-
-Uses Lemma 5.3 (`RoundsRTO.notMem_of_lower_numDigits`) to rule out the case
-where RTO in `F₂` lands on an `F₁`-representable value when `x ∉ F₁`. -/
-theorem rndRTO_RTZ_pos {F₁ F₂ : AbstractFormat}
-    (hsub : F₁ ⊆ F₂)
+/-- **rnd-RTO-RTZ** (Fig. 9), paper-aligned form, positive case `0 < x`. -/
+private theorem rndRTO_RTZ_pos {F₁ F₂ : AbstractFormat}
+    (hsub : F₁.extend 1 ⊆ F₂)
+    (hp_F₂ : 2 ≤ F₂.p)
     {x : ℝ} (hx_pos : 0 < x)
     {z w' : Dyadic}
     (hz : RoundsRTO F₂ x z)
-    (hw : RoundsRTZ F₁ (z : ℝ) w')
-    (hgt : x ≠ (z : ℝ) →
-      numDigits F₁.p F₁.exp (z : ℝ) < numDigits F₂.p F₂.exp (z : ℝ)) :
+    (hw : RoundsRTZ F₁ (z : ℝ) w') :
     RoundsRTZ F₁ x w' := by
+  -- F₁ ⊆ F₁.extend 1 ⊆ F₂.
+  have hF₁_sub_ext : F₁ ⊆ F₁.extend 1 := by
+    intro y hy
+    obtain ⟨hp, hq, hb⟩ := hy
+    refine ⟨?_, ?_, ?_⟩
+    · have h_p_le : F₁.p ≤ F₁.p + 1 := by
+        cases F₁.p with
+        | top => simp
+        | coe n => exact WithTop.coe_le_coe.mpr (Nat.le_succ n)
+      change Dyadic.precisionAtMost _ y
+      exact Dyadic.precisionAtMost_mono h_p_le hp
+    · change Dyadic.quantumAtLeast _ y
+      have h_exp_ge : (F₁.exp.map (· - (1 : ℤ))) ≤ F₁.exp := by
+        cases F₁.exp with
+        | bot => simp
+        | coe e =>
+          change ((e - 1 : ℤ) : WithBot ℤ) ≤ ((e : ℤ) : WithBot ℤ)
+          exact WithBot.coe_le_coe.mpr (by linarith)
+      exact Dyadic.quantumAtLeast_anti h_exp_ge hq
+    · exact hb
+  have hsub' : F₁ ⊆ F₂ := fun y hy => hsub _ (hF₁_sub_ext _ hy)
+  -- Body: copied from `rndRTO_RTZ_pos`, but replace the
+  -- `notMem_of_lower_numDigits` step with `notMem_of_extend_subset`.
   have h0_F₂ : (0 : Dyadic) ∈ F₂ := F₂.zero_mem
   obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
   obtain ⟨hw'F₁, hw'_bnd_z, hw'_sign_z, hw'_max⟩ := hw
   have hx_abs : |x| = x := abs_of_pos hx_pos
-  -- z ≥ 0
   have hz_nn : 0 ≤ (z : ℝ) := by
     rcases hz_adj with hRD | hRU
     · obtain ⟨_, _, hz_max⟩ := hRD
@@ -538,7 +554,6 @@ theorem rndRTO_RTZ_pos {F₁ F₂ : AbstractFormat}
       linarith
   have hz_abs : |(z : ℝ)| = (z : ℝ) := abs_of_nonneg hz_nn
   rw [hz_abs] at hw'_bnd_z
-  -- w' ≥ 0
   have hw'_nn : 0 ≤ (w' : ℝ) := by
     rcases lt_or_eq_of_le hz_nn with hzpos | hzeq
     · nlinarith [hw'_sign_z]
@@ -546,18 +561,15 @@ theorem rndRTO_RTZ_pos {F₁ F₂ : AbstractFormat}
       have hw'0 : (w' : ℝ) = 0 := abs_nonpos_iff.mp h1
       linarith
   have hw'_abs : |(w' : ℝ)| = (w' : ℝ) := abs_of_nonneg hw'_nn
-  -- w' ≤ x (key step using Lemma 5.3 in the RoundsUp case)
   have hw'_le_x : (w' : ℝ) ≤ x := by
     rcases hz_adj with hRD | hRU
-    · -- RoundsDown z ≤ x: w' ≤ z ≤ x
-      obtain ⟨_, hzx_le, _⟩ := hRD
+    · obtain ⟨_, hzx_le, _⟩ := hRD
       have : (w' : ℝ) ≤ (z : ℝ) := by rw [← hw'_abs]; exact hw'_bnd_z
       linarith
-    · -- RoundsUp z ≥ x: by contradiction, suppose w' > x
-      by_contra h_w_gt
+    · by_contra h_w_gt
       push Not at h_w_gt
       have hz_min := hRU.2.2
-      have hw'F₂ : w' ∈ F₂ := hsub _ hw'F₁
+      have hw'F₂ : w' ∈ F₂ := hsub' _ hw'F₁
       have hw'_ge_z : (z : ℝ) ≤ (w' : ℝ) := hz_min w' hw'F₂ h_w_gt.le
       have hw'_le_z : (w' : ℝ) ≤ (z : ℝ) := by rw [← hw'_abs]; exact hw'_bnd_z
       have hw'_eq_z : (w' : ℝ) = (z : ℝ) := le_antisymm hw'_le_z hw'_ge_z
@@ -568,22 +580,18 @@ theorem rndRTO_RTZ_pos {F₁ F₂ : AbstractFormat}
       have hz_full : RoundsRTO F₂ x z := ⟨hzF₂, Or.inr hRU, hz_odd_imp⟩
       have hzF₁ : z ∈ F₁ := by
         rw [show z = w' from Subtype.ext hw'_eq_z.symm]; exact hw'F₁
-      exact (RoundsRTO.notMem_of_lower_numDigits hz_full hxne (hgt hxne)) hzF₁
+      exact (RoundsRTO.notMem_of_extend_subset hsub hp_F₂ hz_full hxne) hzF₁
   refine ⟨hw'F₁, ?_, ?_, ?_⟩
-  · -- |w'| ≤ |x|
-    rw [hw'_abs, hx_abs]; exact hw'_le_x
-  · -- w' * x ≥ 0
-    exact mul_nonneg hw'_nn hx_pos.le
-  · -- maximality
-    intro v hvF₁ hv_bnd_x hv_sign_x
+  · rw [hw'_abs, hx_abs]; exact hw'_le_x
+  · exact mul_nonneg hw'_nn hx_pos.le
+  · intro v hvF₁ hv_bnd_x hv_sign_x
     rw [hx_abs] at hv_bnd_x
     have hv_nn : 0 ≤ (v : ℝ) := by nlinarith [hv_sign_x]
     have hv_abs : |(v : ℝ)| = (v : ℝ) := abs_of_nonneg hv_nn
-    -- v ≤ z (by RoundsDown of z's max-in-F₂, or by v ≤ x ≤ z in RoundsUp)
     have hv_le_z : (v : ℝ) ≤ (z : ℝ) := by
       rcases hz_adj with hRD | hRU
       · obtain ⟨_, _, hz_F₂_max⟩ := hRD
-        have hvF₂ : v ∈ F₂ := hsub _ hvF₁
+        have hvF₂ : v ∈ F₂ := hsub' _ hvF₁
         have h1 : (v : ℝ) ≤ x := by rw [← hv_abs]; exact hv_bnd_x
         exact hz_F₂_max v hvF₂ h1
       · obtain ⟨_, hxz, _⟩ := hRU
@@ -593,62 +601,66 @@ theorem rndRTO_RTZ_pos {F₁ F₂ : AbstractFormat}
     have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
     exact hw'_max v hvF₁ hv_bnd_z hv_z_sign
 
-/-- **rnd-RTO-RTZ** (Fig. 9), general version over all `x ∈ ℝ`. Combines the
-positive case, the negative case (via `RoundsRTO.neg` / `RoundsRTZ.neg`), and
-the trivial `x = 0` case (`z = w' = 0` is forced). -/
+/-- **rnd-RTO-RTZ** (Fig. 9), paper-aligned form. The hypothesis
+`hsub : F₁.extend 1 ⊆ F₂` encodes the paper's
+`A(p₁ + 1, exp₁ − 1, b₁) ⊆ A(p₂, exp₂, b₂)` containment (modulo the
+`next_{p₁,exp₁}(b₁)` bound refinement, sidestepped in the spec-relational
+form). The auxiliary `hp_F₂ : 2 ≤ F₂.p` mirrors `rndRTO_RTO`'s precondition
+and is needed for `numDigits_eq_of_subset_of_isOdd`. -/
 theorem rndRTO_RTZ {F₁ F₂ : AbstractFormat}
-    (hsub : F₁ ⊆ F₂)
+    (hsub : F₁.extend 1 ⊆ F₂)
+    (hp_F₂ : 2 ≤ F₂.p)
     {x : ℝ}
     {z w' : Dyadic}
     (hz : RoundsRTO F₂ x z)
-    (hw : RoundsRTZ F₁ (z : ℝ) w')
-    (hgt : x ≠ (z : ℝ) →
-      numDigits F₁.p F₁.exp (z : ℝ) < numDigits F₂.p F₂.exp (z : ℝ)) :
+    (hw : RoundsRTZ F₁ (z : ℝ) w') :
     RoundsRTZ F₁ x w' := by
+  -- F₁ ⊆ F₁.extend 1 ⊆ F₂.
+  have hF₁_sub_ext : F₁ ⊆ F₁.extend 1 := by
+    intro y hy
+    obtain ⟨hp, hq, hb⟩ := hy
+    refine ⟨?_, ?_, ?_⟩
+    · have h_p_le : F₁.p ≤ F₁.p + 1 := by
+        cases F₁.p with
+        | top => simp
+        | coe n => exact WithTop.coe_le_coe.mpr (Nat.le_succ n)
+      change Dyadic.precisionAtMost _ y
+      exact Dyadic.precisionAtMost_mono h_p_le hp
+    · change Dyadic.quantumAtLeast _ y
+      have h_exp_ge : (F₁.exp.map (· - (1 : ℤ))) ≤ F₁.exp := by
+        cases F₁.exp with
+        | bot => simp
+        | coe e =>
+          change ((e - 1 : ℤ) : WithBot ℤ) ≤ ((e : ℤ) : WithBot ℤ)
+          exact WithBot.coe_le_coe.mpr (by linarith)
+      exact Dyadic.quantumAtLeast_anti h_exp_ge hq
+    · exact hb
+  have hsub' : F₁ ⊆ F₂ := fun y hy => hsub _ (hF₁_sub_ext _ hy)
   rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
-  · -- x < 0: negate, apply _pos, negate back
+  · -- x < 0: negate, apply _pos', negate back.
     have hx_pos' : 0 < (-x) := by linarith
     have hz' : RoundsRTO F₂ (-x) (-z) := RoundsRTO.neg hz
     have hw' : RoundsRTZ F₁ ((-z : Dyadic) : ℝ) (-w') := by
       have h := RoundsRTZ.neg hw
       have hcoe : ((-z : Dyadic) : ℝ) = -(z : ℝ) := by push_cast; rfl
       rw [hcoe]; exact h
-    have hgt' : -x ≠ ((-z : Dyadic) : ℝ) →
-        numDigits F₁.p F₁.exp ((-z : Dyadic) : ℝ) <
-          numDigits F₂.p F₂.exp ((-z : Dyadic) : ℝ) := by
-      intro hne
-      have hxne : x ≠ (z : ℝ) := by
-        intro heq; apply hne; rw [heq]; push_cast; rfl
-      have h_nd₁ : numDigits F₁.p F₁.exp ((-z : Dyadic) : ℝ) =
-          numDigits F₁.p F₁.exp (z : ℝ) := by
-        change numDigits F₁.p F₁.exp (-(z : ℝ)) = _
-        exact numDigits_neg F₁.p F₁.exp (z : ℝ)
-      have h_nd₂ : numDigits F₂.p F₂.exp ((-z : Dyadic) : ℝ) =
-          numDigits F₂.p F₂.exp (z : ℝ) := by
-        change numDigits F₂.p F₂.exp (-(z : ℝ)) = _
-        exact numDigits_neg F₂.p F₂.exp (z : ℝ)
-      rw [h_nd₁, h_nd₂]; exact hgt hxne
-    have h_result := rndRTO_RTZ_pos hsub hx_pos' hz' hw' hgt'
+    have h_result := rndRTO_RTZ_pos hsub hp_F₂ hx_pos' hz' hw'
     have hfinal := RoundsRTZ.neg h_result
     rwa [neg_neg, neg_neg] at hfinal
-  · -- x = 0: 0 ∈ F₂ pins z = 0 via the RoundsDown/RoundsUp adjacency,
-    -- and then 0 ∈ F₁ similarly pins w' = 0.
+  · -- x = 0: forces z = 0 and w' = 0.
     subst hx_zero
     have h0_F₂ : (0 : Dyadic) ∈ F₂ := F₂.zero_mem
     obtain ⟨hzF₂, hz_adj, _⟩ := hz
     have hz_zero : z = 0 := by
       rcases hz_adj with ⟨_, hz_le, hz_max⟩ | ⟨_, hz_ge, hz_min⟩
-      · -- z ≤ 0 and z is max in F₂ ≤ 0; since 0 ∈ F₂ and 0 ≤ 0, z ≥ 0
-        have h1 : (0 : ℝ) ≤ (z : ℝ) := hz_max 0 h0_F₂ (le_refl _)
+      · have h1 : (0 : ℝ) ≤ (z : ℝ) := hz_max 0 h0_F₂ (le_refl _)
         have h2 : (z : ℝ) ≤ 0 := hz_le
         have : (z : ℝ) = 0 := le_antisymm h2 h1
         exact Subtype.ext this
-      · -- z ≥ 0 and z is min in F₂ ≥ 0; similar
-        have h1 : (z : ℝ) ≤ 0 := hz_min 0 h0_F₂ (le_refl _)
+      · have h1 : (z : ℝ) ≤ 0 := hz_min 0 h0_F₂ (le_refl _)
         have h2 : (0 : ℝ) ≤ (z : ℝ) := hz_ge
         have : (z : ℝ) = 0 := le_antisymm h1 h2
         exact Subtype.ext this
-    -- z = 0 and RoundsRTZ F₁ 0 w' forces w' = 0
     rw [hz_zero] at hw
     obtain ⟨hw'F₁, hw'_bnd, _, _⟩ := hw
     have hw'_zero : (w' : ℝ) = 0 := by
@@ -666,16 +678,7 @@ theorem rndRTO_RTZ {F₁ F₂ : AbstractFormat}
       rw [hw'_zero]
       exact hv_bnd
   · -- x > 0
-    exact rndRTO_RTZ_pos hsub hx_pos hz hw hgt
-
--- theorem rndRTO_RTZ' {F₁ F₂ : AbstractFormat}
---     (hsub : (AbstractFormat.extend F₁ 1) ⊆ F₂)
---     {x : ℝ}
---     {z w' : Dyadic}
---     (hz : RoundsRTO F₂ x z)
---     (hw : RoundsRTZ F₁ (z : ℝ) w'):
---     RoundsRTZ F₁ x w' := by
---   sorry
+    exact rndRTO_RTZ_pos hsub hp_F₂ hx_pos hz hw
 
 /-- **rnd-RTO-RAZ** (Fig. 9), positive case `0 < x`. Symmetric to `rndRTO_RTZ_pos`
 but for round-away-from-zero instead of round-toward-zero. The key Lemma 5.3
