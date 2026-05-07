@@ -1449,27 +1449,6 @@ theorem rndRTO_RAZ {F₁ F₂ : AbstractFormat}
   · -- x > 0
     exact rndRTO_RAZ_pos hsub_old hp_F₂ hx_pos hz hw
 
-/-- **rnd-RTO-RNE** (Fig. 9), structural form: assumes the F₂-to-F₁ transfer
-of adjacency, closeness, and tie-break has been done externally.
-
-The structural transfers (`h_adj_transfer`, `h_close_transfer`,
-`h_tie_transfer`) capture the content of Lemma 5.3 plus an F₂-adjacency
-analysis specific to RNE. Proving them from `hz` and `hw` directly is
-substantial future work; this theorem packages the remaining bookkeeping. -/
-theorem rndRTO_RNE_via_transfers {F₁ : AbstractFormat}
-    {x : ℝ} {w' : Dyadic}
-    (hw'F₁ : w' ∈ F₁)
-    (h_adj_transfer : RoundsDown F₁ x w' ∨ RoundsUp F₁ x w')
-    (h_close_transfer : ∀ z' : Dyadic, z' ∈ F₁ →
-      (RoundsDown F₁ x z' ∨ RoundsUp F₁ x z') →
-      |x - (w' : ℝ)| ≤ |x - (z' : ℝ)|)
-    (h_tie_transfer : (∃ z' : Dyadic, z' ∈ F₁ ∧
-        (RoundsDown F₁ x z' ∨ RoundsUp F₁ x z') ∧
-        z' ≠ w' ∧ |x - (w' : ℝ)| = |x - (z' : ℝ)|) →
-      IsEven F₁ w') :
-    RoundsRNE F₁ x w' :=
-  ⟨hw'F₁, h_adj_transfer, h_close_transfer, h_tie_transfer⟩
-
 /-- Helper for tie-break: from `|x - w'| = |x - z'|` with `w' ≠ z'`, derive
 `x = (w' + z') / 2`. -/
 private theorem RoundsRNE.midpoint_of_tie {x : ℝ} {w' z' : Dyadic}
