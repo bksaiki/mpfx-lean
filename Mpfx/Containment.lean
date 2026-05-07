@@ -44,13 +44,15 @@ theorem containsPrec {F₁ F₂ : AbstractFormat}
   · exact boundOK_mono hb hbx
 
 /-- **𝒜-Contains-Sub** (Fig. 8). If `b₁ ≤ 2^(exp₁ + p₂)`, `exp₂ ≤ exp₁`, and
-`b₁ ≤ b₂`, then `𝒜(p₁, exp₁, b₁) ⊆ 𝒜(p₂, exp₂, b₂)`. Requires `p₂ ≥ 1` and a
-finite `exp₁ : ℤ` and finite `β₁ : Dyadic`. The non-negative-bound invariants
-`hβ` and `hb_nn` are required to construct the underlying `AbstractFormat`s. -/
+`b₁ ≤ b₂`, then `𝒜(p₁, exp₁, b₁) ⊆ 𝒜(p₂, exp₂, b₂)`. Requires `p₂ ≥ 1`, a
+finite `exp₁ : ℤ`, a finite `β₁ : Dyadic`, and the non-degeneracy condition
+`p₂ ≠ 1 ∨ exp₂ ≠ ⊥`. The non-negative-bound invariants `hβ` and `hb_nn` are
+required to construct the underlying `AbstractFormat`s. -/
 theorem containsSub {p₁ : ℕ∞} {p₂ : ℕ} {exp₁ : ℤ} {exp₂ : WithBot ℤ}
     {β₁ : Dyadic} {b₂ : WithTop Dyadic}
     (hp₁ : 1 ≤ p₁)
-    (hp₂ : 2 ≤ p₂)
+    (hp₂ : 1 ≤ p₂)
+    (hnd₂ : p₂ ≠ 1 ∨ exp₂ ≠ ⊥)
     (hβ : 0 ≤ (β₁ : ℝ))
     (hb_nn : ∀ d : Dyadic, b₂ = ↑d → 0 ≤ (d : ℝ))
     (hbprec : (β₁ : ℝ) ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)))
@@ -63,12 +65,13 @@ theorem containsSub {p₁ : ℕ∞} {p₂ : ℕ} {exp₁ : ℤ} {exp₂ : WithBo
          have : d = β₁ := by exact_mod_cast hd.symm
          rw [this]; exact hβ } : AbstractFormat)
       ⊆ { p := (p₂ : ℕ∞), exp := exp₂, b := b₂,
-          p_pos := by exact_mod_cast (by omega : 1 ≤ p₂),
-          not_degenerate := Or.inl ⟨by simp, by
-            -- p₂ ≠ 1 from 2 ≤ p₂
-            intro h
-            have : p₂ = 1 := by exact_mod_cast h
-            omega⟩,
+          p_pos := by exact_mod_cast hp₂,
+          not_degenerate := by
+            rcases hnd₂ with hne1 | hexp_ne
+            · refine Or.inl ⟨by simp, ?_⟩
+              intro h
+              exact hne1 (by exact_mod_cast h)
+            · exact Or.inr hexp_ne,
           b_nn := hb_nn } := by
   intro x hx
   obtain ⟨_, hex, hbx⟩ := hx
