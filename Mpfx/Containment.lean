@@ -40,6 +40,42 @@ theorem containsPrec {F₁ F₂ : AbstractFormat}
   · exact Dyadic.quantumAtLeast_anti he hex
   · exact boundOK_mono hb hbx
 
+/-- `F ⊆ F.extend k`: every value of `F` is also a value of the format with
+`k` more bits of precision and `k` smaller minimum quantum. -/
+theorem self_subset_extend (F : AbstractFormat) (k : ℕ) : F ⊆ F.extend k := by
+  apply containsPrec
+  · change F.p ≤ F.p + k
+    cases F.p with
+    | top => simp
+    | coe n =>
+      change ((n : ℕ) : ℕ∞) ≤ ((n + k : ℕ) : ℕ∞)
+      exact_mod_cast Nat.le_add_right n k
+  · change F.exp.map (· - (k : ℤ)) ≤ F.exp
+    cases F.exp with
+    | bot => simp
+    | coe e =>
+      change ((e - k : ℤ) : WithBot ℤ) ≤ ((e : ℤ) : WithBot ℤ)
+      exact WithBot.coe_le_coe.mpr (by linarith)
+  · exact le_refl _
+
+/-- Monotonicity of `extend`: `F.extend j ⊆ F.extend k` whenever `j ≤ k`. -/
+theorem extend_mono (F : AbstractFormat) {j k : ℕ} (h : j ≤ k) :
+    F.extend j ⊆ F.extend k := by
+  apply containsPrec
+  · change F.p + j ≤ F.p + k
+    cases F.p with
+    | top => simp
+    | coe n =>
+      change ((n + j : ℕ) : ℕ∞) ≤ ((n + k : ℕ) : ℕ∞)
+      exact_mod_cast (by omega : n + j ≤ n + k)
+  · change F.exp.map (· - (k : ℤ)) ≤ F.exp.map (· - (j : ℤ))
+    cases F.exp with
+    | bot => simp
+    | coe e =>
+      change ((e - k : ℤ) : WithBot ℤ) ≤ ((e - j : ℤ) : WithBot ℤ)
+      exact WithBot.coe_le_coe.mpr (by linarith)
+  · exact le_refl _
+
 /-- **𝒜-Contains-Sub** (Fig. 8). If `b₁ ≤ 2^(exp₁ + p₂)`, `exp₂ ≤ exp₁`, and
 `b₁ ≤ b₂`, then `𝒜(p₁, exp₁, b₁) ⊆ 𝒜(p₂, exp₂, b₂)`. Requires `p₂ ≥ 1`, a
 finite `exp₁ : ℤ`, a finite `β₁ : Dyadic`, and the non-degeneracy condition
