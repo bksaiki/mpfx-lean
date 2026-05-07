@@ -1466,11 +1466,11 @@ encodes the paper's `A(p₁ + 2, exp₁ − 2, next_{p₁+1, exp₁-1}(b₁)) �
 A(p₂, exp₂, b₂)` containment from Fig. 9 — uniform with the `rndRTO_RTZ`
 and `rndRTO_RAZ` signatures.
 
-Both `h_close` and `h_mid_in_F₂` auxiliary hypotheses are dropped:
-- `h_mid_in_F₂` follows from `midpoint_F₁_in_F₂_of_F_adjacent`.
-- `h_close` follows from `notMem_of_extend_subset` at the `F₁.extend 1`
-  level (giving `z ∉ F₁.extend 1`, hence `z ≠ midpoint(w', z')`) plus a
-  same-side-of-midpoint argument over `z = RTO F₂ x`. -/
+Proof key steps:
+- midpoint membership in F₂ follows from `midpoint_F₁_in_F₂_of_F_adjacent`.
+- closeness transfer follows from `notMem_of_extend_subset` at the
+  `F₁.extend 1` level (giving `z ∉ F₁.extend 1`, hence `z ≠ midpoint(w', z')`)
+  plus a same-side-of-midpoint argument over `z = RTO F₂ x`. -/
 theorem rndRTO_RNE {F₁ F₂ : AbstractFormat}
     (hsub : ((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext
               (F₁.extend 1).boundAfterNext_nn) ⊆ F₂)

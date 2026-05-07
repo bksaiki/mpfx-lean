@@ -435,8 +435,9 @@ private theorem grid_rep_c_pos {y : Dyadic} (hy_pos : 0 < ((y : Dyadic) : ℝ))
     exact pos_of_mul_pos_left (by linarith) (le_of_lt h_2k_pos)
   exact_mod_cast h_c_real_pos
 
-/-- F-grid representation for `F.exp = ⊥`. Same as `exists_grid_rep` but
-`k = ⌊log₂ y⌋ - p + 1` (no `max` with exp). -/
+/-- F-grid representation in the precision-only form: `k = ⌊log₂ y⌋ - p + 1`
+(no `max` with `F.exp`). Useful when `F.exp = ⊥` (since the `k ≥ exp` clause
+of `exists_grid_rep` is then vacuous). -/
 theorem exists_grid_rep_exp_bot (F : AbstractFormat) {p : ℕ}
     (hp : F.p = (p : ℕ∞))
     {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.p y)
@@ -630,8 +631,8 @@ private theorem no_F_element_in_step_interval (F : AbstractFormat) {p : ℕ} {ex
   have h_c'_int_lt : c' < c + 1 := by exact_mod_cast h_c'_lt_c1
   omega
 
-/-- No F element lies strictly in `(c·2^k, (c+1)·2^k)` for the F.exp = ⊥ case.
-Same argument as the finite-exp version, but k = log(c·2^k) - p + 1 (no max). -/
+/-- No F element lies strictly in `(c·2^k, (c+1)·2^k)` when `k` is the
+precision-only step `log(c·2^k) - p + 1` (no `max` with `F.exp`). -/
 private theorem no_F_element_in_step_interval_exp_bot (F : AbstractFormat) {p : ℕ}
     (hp : F.p = (p : ℕ∞))
     {c : ℤ} (hc_pos : 0 < c) (hc_lt : c < (2 : ℤ) ^ p)

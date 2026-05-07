@@ -450,7 +450,6 @@ theorem precisionAtMost_not_IsOdd {F : AbstractFormat} {w : ℕ} {y : Dyadic}
     omega
   rw [if_neg hFp_ne_1] at hp_check
   have hc₁_odd : Odd c₁ := hp_check
-  -- Inline the contradiction (formerly Dyadic.precisionAtMost_not_isOddAtP)
   set k : ℕ := p_y - w with hk_def
   have hk_pos : 1 ≤ k := by omega
   have hpyw : p_y = w + k := by omega
