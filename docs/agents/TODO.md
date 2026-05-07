@@ -66,8 +66,8 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 - [x] `rndRTO_RTZ_pos`, `rndRTO_RAZ_pos`: positive case `0 < x` (private; used by the public theorems).
 - [x] **`rndRTO_RTZ` (general, all `x ∈ ℝ`), fully paper-aligned, no `hp_F₂`**: take `(hsub : ((F₁.extend 1).withBound F₁.boundAfterNext F₁.boundAfterNext_nn) ⊆ F₂)` exactly matching paper's `A(p₁+1, exp₁-1, next_{p₁,exp₁}(b₁)) ⊆ A(p₂, exp₂, b₂)` from Fig. 9. The proof internally derives `F₁.extend 1 ⊆ F₂` from this stronger hsub. Auxiliary `2 ≤ F₂.p` is now derived from `hsub` via `hp_F₂_or_F₁_trivial` (witness construction `v = 3·2^k`); the alternative branch (F₁ trivial) discharges the goal via `RoundsRTZ_of_trivial`.
 - [x] **`rndRTO_RAZ` (general, all `x ∈ ℝ`), paper-aligned, no `hp_F₂`**: take the same paper-aligned `(hsub : ((F₁.extend 1).withBound F₁.boundAfterNext F₁.boundAfterNext_nn) ⊆ F₂)` as `rndRTO_RTZ` — strictly stronger than RAZ's nominal `F₁.extend 1 ⊆ F₂` (which suffices structurally), but matching `rndRTO_RTZ`'s signature avoids signature divergence and lets us reuse `hp_F₂_or_F₁_trivial`. Internally derives `F₁.extend 1 ⊆ F₂` via `extend_one_subset_of_paper_subset`. The trivial-F₁ branch uses `RoundsRAZ_of_trivial`: when `F₁ = {0}`, `RoundsRAZ F₁ z w'` forces `z = w' = 0`, and `RoundsRTO F₂ x 0` then forces `x = 0` (since `IsOdd F₂ 0` is false), so the conclusion `RoundsRAZ F₁ 0 0` holds trivially.
-- [~] **`rndRTO_RNE` (paper-aligned)**: takes `(hsub : F₁.extend 2 ⊆ F₂) (hp_F₂ : 2 ≤ F₂.p)` matching the paper's Fig. 9 structural part. The proof internally derives:
-  - `F₁ ⊆ F₁.extend 1 ⊆ F₁.extend 2 ⊆ F₂` chain.
+- [x] **`rndRTO_RNE` (paper-aligned, no `hp_F₂`)**: takes the paper-aligned `(hsub : ((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext _) ⊆ F₂)` — uniform with `rndRTO_RTZ` / `rndRTO_RAZ` (different extend level but same shape). `hp_F₂` derived internally via `hp_F₂_or_F₁_trivial_RNE` (precision-2 witness `3·2^(F₁.exp - 1)` lies in `(F₁.extend 2).withBound (F₁.extend 1).boundAfterNext` — fits because the F₁⁺.next bound has step `≥ 2^(F₁.exp - 1)`, and F₁ non-trivial gives `b ≥ 2^F₁.exp`). Trivial-F₁ branch uses `RoundsRNE_of_trivial` (closeness/tie-break vacuous when F₁ = {0}). The proof body:
+  - `F₁ ⊆ F₁.extend 1 ⊆ F₁.extend 2 ⊆ F₂` chain (with `F₁.extend 2 ⊆ F₂` derived via `extend_two_subset_of_paper_RNE_subset`).
   - `z ∉ F₁` via `RoundsRTO.notMem_of_extend_subset` (using `F₁.extend 1 ⊆ F₂`, derived transitively).
   - The four-way adjacency transfer (same as `rndRTO_RTO`).
   - The no-tie via `RoundsRTO.unique_of_mem` applied to a midpoint that lies in F₂.
@@ -107,17 +107,25 @@ Spec-relational form: stated as `RoundsXX F₂ x z → RoundsXX F₁ z w → Rou
 
 ## Future work
 
-- **Drop `h_close` and `h_mid_in_F₂` auxiliary hypotheses on `rndRTO_RNE`.** **Status: semantically resolved, formalization tracked.** With `hp_F₂ : 3 ≤ F₂.p` (now in place) plus `hsub : F₁.extend 2 ⊆ F₂`, the edge cases really are ruled out: for `F₁.p = 1` we get the full structural shift `F₂.p ≥ F₁.p + 2`, and for `F₁.p ≥ 2` the constraint `F₁.extend 2 ⊆ F₂` forces `F₁.b` small enough that the problematic F₁-adjacent pairs (binade-crossing with odd-significand midpoints) don't exist. To turn this into a complete Lean proof:
-  - **Prerequisite — `Dyadic.toCanonical : Dyadic → ℤ × ℤ`** returning the canonical `(c, e)` pair with `c` odd or `c = 0` (~50 lines via `Int.log 2 |c|`-style reasoning to strip even factors).
-  - **Main lemma — `Dyadic.midpoint_mem_extend_one_of_F_adjacent`**: for F-adjacent `y₁ < y₂ ∈ F`, `Dyadic.midpoint y₁ y₂ ∈ F.extend 1`. Proof structure:
-    1. Extract canonical reps `(c₁, e₁), (c₂, e₂)` for `y₁, y₂`.
-    2. WLOG `e₁ ≤ e₂`. Case-split on `δ := e₂ − e₁`:
-       - **Same-quantum `(δ = 0)`**: F-adjacency forces `c₂ = c₁ + 2`; both odd. Midpoint at quantum `e₁` has coefficient `c₁ + 1`, with `|c₁ + 1| ≤ 2^{F.p}`.
-       - **Binade-crossing `(δ = F.p)`**: `c₁ = ±(2^{F.p} − 1)` (max canonical), `c₂ = ±1` (min canonical at next binade). Midpoint coefficient at quantum `e₁ − 1` is `2^{F.p+1} − 1`.
-       - **Intermediate `(1 ≤ δ < F.p)`**: ruled out by F-adjacency — construct an explicit Dyadic witness in `F` strictly between `y₁` and `y₂`, contradicting `h_adj`.
-    3. Apply `Dyadic.precisionAtMost_of_abs_le` with `p = F.p + 1`.
-  - **Total scope**: ~250–300 lines. Once proven, `h_close` and `h_mid_in_F₂` follow via the same-side-of-midpoint argument and the `F₁.extend 1 ⊆ F₁.extend 2 ⊆ F₂` chain.
-  - Best done as a focused multi-day effort, with `toCanonical` and per-case lemmas split out for testability.
+- **Drop `h_close` and `h_mid_in_F₂` auxiliary hypotheses on `rndRTO_RNE`.** **Status: `h_mid_in_F₂` dropped; `h_close` remains as input.**
+  - **Done — canonical form infrastructure** (`Mpfx/Dyadic.lean`):
+    - `Int.exists_odd_factor`: any nonzero integer factors as `c' * 2^k` with `c'` odd, `|c'| ≤ |c₀|`. (Strong induction on natAbs.)
+    - `Dyadic.exists_odd_canonical_of_precisionAtMost`: nonzero dyadic with `precisionAtMost p` has rep `c·2^e` with `c` odd, `|c| < 2^p`.
+    - `Dyadic.odd_canonical_unique`: uniqueness of odd-significand representation.
+  - **Done — F-grid representation and F-adjacency** (`Mpfx/Format.lean`):
+    - `AbstractFormat.exists_grid_rep`: positive `y ∈ F` (precision/quantum, F.p, F.exp finite) has rep `y = c·2^k` with `k = max(exp, ⌊log₂ y⌋ - p + 1)`, `|c| < 2^p`, `k ≥ exp`.
+    - `AbstractFormat.grid_rep_c_pos`: `c > 0` for positive `y`.
+    - `AbstractFormat.no_F_element_in_step_interval`: no F element strictly in `(c·2^k, (c+1)·2^k)`. Case analysis on F-grid regimes.
+    - `AbstractFormat.F_adjacent_step_form`: F-adjacent `y₁ < y₂ ∈ F` (positive) have `y₁ = c·2^k`, `y₂ = (c+1)·2^k` for `(c, k)` = `y₁`'s grid rep.
+  - **Done — Midpoint lemma** (`Mpfx/Format.lean`):
+    - `AbstractFormat.midpoint_mem_extend_one_of_F_adjacent_pos`: F-adjacent positive `y₁ < y₂` have `midpoint y₁ y₂ = (2c+1)·2^(k-1)` with precision `≤ p+1`, hence in `F.extend 1`.
+    - `AbstractFormat.half_mem_extend_one`: `y/2 ∈ F.extend 1` for any `y ∈ F`.
+    - `AbstractFormat.midpoint_mem_extend_one_of_F_adjacent`: general (signed) midpoint-in-`F.extend 1` lemma. Case-splits on sign of `y₁`: positive uses `_pos` variant; `y₁ = 0` uses `half_mem_extend_one`; both negative uses negation symmetry; `y₁ < 0 < y₂` ruled out by F-adjacency. **Restricts to `F.p` and `F.exp` finite.**
+  - **Done — `F.p = ⊤` corner case** of midpoint lemma (`midpoint_mem_extend_one_of_p_top` in Mpfx/Format.lean). Precision trivially OK, quantum/bound via direct sum reasoning.
+  - **Done — `h_mid_in_F₂` derivation** (`midpoint_F₁_in_F₂_of_F_adjacent_finite_exp` in Mpfx/DoubleRounding.lean). Dispatches on `F₁.p` shape, applies the midpoint lemma + chain to `F₂`. Requires `F₁.exp` finite.
+  - **Done — `rndRTO_RNE` refactored**: drops `h_mid_in_F₂` from the signature. Adds `F₁.exp` finite hypothesis (for the midpoint derivation). Internally derives `m ∈ F₂` for the F-adjacent pair `(w', z')` from the no-tie clause via the helper, with F-adjacency proved from `h_adj_x` + `hz'_adj`.
+  - **Pending — `F.exp = ⊥` corner case** of midpoint lemma. F-adjacent pairs exist (e.g., 1 and 1.5 in `A(2, ⊥)`), and need a separate `exists_grid_rep`-style proof without the `max(exp, ...)` step. ~100 lines.
+  - **Pending — `h_close` derivation**: same-side-of-midpoint argument. The argument needs `F₂.p ≥ F₁.p + 1` to rule out the degenerate case `z = m` exactly (where `m` = F-adjacent midpoint), which would put `x` on the wrong side of `m`. To get `F₂.p ≥ F₁.p + 1` from the paper-aligned `hsub`, need a precision-`(F₁.p+1)` witness in `F₁.extend 1`'s grid (analogous to the precision-2 witness in `hp_F₂_or_F₁_trivial`, but at higher precision). Then the same-side argument: `m ∈ F₂` (already done), RNE-closeness gives `z` on `w'`'s side of `m`, RTO + `m ∈ F₂` forces `x` on `z`'s side (with `z ≠ m` strictly, ensured by `F₂.p ≥ F₁.p + 1`). ~150–200 lines.
 
 - **`hp_F₂ : 2 ≤ F₂.p` is load-bearing under the weaker `F₁.extend k ⊆ F₂` form**, but **droppable under the paper's stronger `A(F.p + k, F.exp - k, F.next F.b) ⊆ F₂` form**. **(Status update: investigated; original TODO claim was wrong.)** The original claim that the theorem held without `hp_F₂` was based on a hand-check of `F₁ = A(1, 0, 1)`, `F₁.extend 1 = F₂ = A(1, -1, 1)` — a special case where `Odd(0 - (-1) + 1) = Odd(2) = false`, so `z` always lands on a non-`F₁` value and the contradiction step is vacuous. **Concrete counter-example with `F₁.extend 1 ⊆ F₂` but `F₂.p = 1`**: take `F₁ = A(2, 0, 1)`, `F₂ = A(1, -2, 1)`. Then `F₁ = {-1, 0, 1}`, `F₁.extend 1 = {0, ±1/2, ±1}` ⊆ `F₂ = {0, ±1/4, ±1/2, ±1}`. For `x = 0.7`: `IsOdd F₂ 1 = Odd(0 - (-2) + 1) = Odd(3) = true`, so `RoundsRTO F₂ 0.7 1` (z = 1). `z = 1 ∈ F₁` gives `RoundsRTZ F₁ 1 1`. Conclusion would require `RoundsRTZ F₁ 0.7 1`, but `|1| > 0.7` violates RTZ's bound clause — **theorem genuinely fails** under the weak hypothesis.
   - The paper's hypothesis `A(p₁+1, exp₁-1, next_{p₁,exp₁}(b₁)) ⊆ F₂` rules out this counter-example via the `next(b₁)` bound — for `F₁ = A(2, 0, 1)`, `next_{2,0}(1) = 2`, so paper requires `F₂` to contain values up to `2`, which forces `3/2 ∈ F₂` (precision 2), excluding `F₂.p = 1`.

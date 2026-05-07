@@ -240,6 +240,110 @@ theorem not_precisionAtMost_one_three_zpow (k : ℤ) :
             _ ≤ 2^n := Nat.pow_le_pow_right (by norm_num) h_ge
         omega
 
+/-- Auxiliary: any nonzero integer can be factored as `c' * 2^k` with `c'` odd
+and `|c'| ≤ |c|`. Strong induction on `c.natAbs`. -/
+private theorem Int.exists_odd_factor_aux : ∀ (n : ℕ) (c : ℤ),
+    c.natAbs ≤ n → c ≠ 0 →
+    ∃ k : ℕ, ∃ c' : ℤ, Odd c' ∧ c = c' * 2^k ∧ c'.natAbs ≤ c.natAbs := by
+  intro n
+  induction n with
+  | zero =>
+    intro c hle hne
+    have : c.natAbs = 0 := Nat.le_zero.mp hle
+    exact absurd (Int.natAbs_eq_zero.mp this) hne
+  | succ n ih =>
+    intro c hle hne
+    rcases Int.even_or_odd c with hev | hod
+    · -- c even: c = 2 * r, r has smaller natAbs.
+      obtain ⟨r, hr⟩ := hev
+      have hr_eq : c = 2 * r := by linarith
+      have hr_ne : r ≠ 0 := by
+        intro h; rw [h, mul_zero] at hr_eq; exact hne hr_eq
+      have h2r_natAbs : (2 * r).natAbs = 2 * r.natAbs := by
+        rw [Int.natAbs_mul]; rfl
+      have hr_natAbs_lt : r.natAbs < c.natAbs := by
+        rw [hr_eq, h2r_natAbs]
+        have : 0 < r.natAbs := Int.natAbs_pos.mpr hr_ne
+        omega
+      have hr_natAbs_le : r.natAbs ≤ n := by omega
+      obtain ⟨k, c', h_odd, h_eq, h_abs⟩ := ih r hr_natAbs_le hr_ne
+      refine ⟨k + 1, c', h_odd, ?_, ?_⟩
+      · rw [hr_eq, h_eq]; ring
+      · omega
+    · -- c odd: k = 0, c' = c.
+      refine ⟨0, c, hod, ?_, le_refl _⟩
+      simp
+
+/-- Any nonzero integer factors as `c' * 2^k` with `c'` odd. -/
+private theorem Int.exists_odd_factor {c₀ : ℤ} (hc : c₀ ≠ 0) :
+    ∃ k : ℕ, ∃ c : ℤ, Odd c ∧ c₀ = c * 2^k ∧ c.natAbs ≤ c₀.natAbs :=
+  Int.exists_odd_factor_aux c₀.natAbs c₀ (le_refl _) hc
+
+/-- For any nonzero dyadic with precision at most `p`, there's a representation
+`y = c·2^e` with `c` odd and `|c| < 2^p`. -/
+theorem exists_odd_canonical_of_precisionAtMost {p : ℕ} {y : Dyadic}
+    (hp : precisionAtMost (p : ℕ∞) y) (hy : (y : ℝ) ≠ 0) :
+    ∃ c e : ℤ, ((y : ℝ) = c * (2 : ℝ)^e) ∧ Odd c ∧ |c| < (2 : ℤ)^p := by
+  rw [precisionAtMost_coe] at hp
+  obtain ⟨c₀, e₀, hy_eq, hc₀_lt⟩ := hp
+  have hc₀_ne : c₀ ≠ 0 := by
+    intro h; rw [h] at hy_eq; push_cast at hy_eq
+    rw [zero_mul] at hy_eq; exact hy hy_eq
+  obtain ⟨k, c, h_odd, hc_eq, h_natAbs⟩ := Int.exists_odd_factor hc₀_ne
+  refine ⟨c, e₀ + k, ?_, h_odd, ?_⟩
+  · rw [hy_eq, hc_eq]
+    push_cast
+    rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_natCast]
+    ring
+  · -- |c| ≤ |c₀| < 2^p.
+    have hc_le : |c| ≤ |c₀| := by
+      rw [Int.abs_eq_natAbs, Int.abs_eq_natAbs]
+      exact_mod_cast h_natAbs
+    linarith
+
+/-- Uniqueness of the odd canonical form: if `c₁·2^e₁ = c₂·2^e₂` (over ℝ) with
+both `c₁`, `c₂` odd integers, then `c₁ = c₂` and `e₁ = e₂`. -/
+theorem odd_canonical_unique {c₁ c₂ : ℤ} {e₁ e₂ : ℤ}
+    (h_eq : (c₁ : ℝ) * (2 : ℝ) ^ e₁ = (c₂ : ℝ) * (2 : ℝ) ^ e₂)
+    (h_odd₁ : Odd c₁) (h_odd₂ : Odd c₂) :
+    c₁ = c₂ ∧ e₁ = e₂ := by
+  have h2_ne : (2 : ℝ) ≠ 0 := by norm_num
+  -- Helper: f < g ⟹ a is even.
+  have h_aux : ∀ {a b : ℤ} {f g : ℤ},
+      (a : ℝ) * (2 : ℝ)^f = (b : ℝ) * (2 : ℝ)^g → f < g → Even a := by
+    intro a b f g h h_lt
+    have h_diff_pos : 0 < g - f := by omega
+    have h_2f_ne : (2 : ℝ)^f ≠ 0 := zpow_ne_zero _ h2_ne
+    have h_eq2 : (a : ℝ) * (2 : ℝ)^f = ((b : ℝ) * (2 : ℝ)^(g - f)) * (2 : ℝ)^f := by
+      have h_pow_split :
+          (b : ℝ) * (2 : ℝ)^(g - f) * (2 : ℝ)^f = (b : ℝ) * (2 : ℝ)^g := by
+        rw [mul_assoc, ← zpow_add₀ h2_ne]
+        congr 2; omega
+      rw [h_pow_split]; exact h
+    have h_div : (a : ℝ) = (b : ℝ) * (2 : ℝ)^(g - f) :=
+      mul_right_cancel₀ h_2f_ne h_eq2
+    lift (g - f) to ℕ using (le_of_lt h_diff_pos) with d hd
+    rw [zpow_natCast] at h_div
+    have hd_pos : 0 < d := by exact_mod_cast h_diff_pos
+    have h_int : a = b * (2 : ℤ)^d := by
+      have : ((a : ℝ)) = ((b * (2 : ℤ)^d : ℤ) : ℝ) := by
+        rw [h_div]; push_cast; ring
+      exact_mod_cast this
+    have h2_dvd : (2 : ℤ) ∣ a := by
+      rw [h_int]
+      exact dvd_mul_of_dvd_right (dvd_pow_self 2 (Nat.pos_iff_ne_zero.mp hd_pos)) _
+    exact even_iff_two_dvd.mpr h2_dvd
+  have h_e_eq : e₁ = e₂ := by
+    rcases lt_trichotomy e₁ e₂ with h_lt | hee | h_gt
+    · exact absurd (h_aux h_eq h_lt) (Int.not_even_iff_odd.mpr h_odd₁)
+    · exact hee
+    · exact absurd (h_aux h_eq.symm h_gt) (Int.not_even_iff_odd.mpr h_odd₂)
+  refine ⟨?_, h_e_eq⟩
+  rw [h_e_eq] at h_eq
+  have h_2e_ne : (2 : ℝ)^e₂ ≠ 0 := zpow_ne_zero _ h2_ne
+  have hcc : (c₁ : ℝ) = c₂ := mul_right_cancel₀ h_2e_ne h_eq
+  exact_mod_cast hcc
+
 /-- A nonzero dyadic with `quantumAtLeast e` has absolute value at least `2^e`.
 The smallest nonzero significand `c` is `±1`, giving `|c·2^e| = 2^e`. -/
 theorem abs_ge_two_zpow_of_quantum {e : ℤ} {d : Dyadic}
