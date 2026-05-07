@@ -679,6 +679,71 @@ private theorem RoundsRTZ_of_trivial {F₁ : AbstractFormat}
     have hv_zero : (v : ℝ) = 0 := hF₁_triv v hvF₁
     rw [hv_zero, hw'_zero]
 
+/-- If `F₁` is trivial, the chained RAZ rounding forces `x = 0` (so the
+conclusion `RoundsRAZ F₁ x w'` reduces to the trivial RAZ at zero). The
+forcing comes from RTO's parity clause: with `z = 0` (the only F₁ image
+under RAZ), `x ≠ 0` would require `IsOdd F₂ 0`, which is false. -/
+private theorem RoundsRAZ_of_trivial {F₁ F₂ : AbstractFormat}
+    (hF₁_triv : ∀ d : Dyadic, d ∈ F₁ → (d : ℝ) = 0)
+    {x : ℝ} {z w' : Dyadic}
+    (hz : RoundsRTO F₂ x z) (hw : RoundsRAZ F₁ (z : ℝ) w') :
+    RoundsRAZ F₁ x w' := by
+  have hw'F₁ : w' ∈ F₁ := hw.1
+  have hw'_zero : (w' : ℝ) = 0 := hF₁_triv w' hw'F₁
+  have hzw : |(z : ℝ)| ≤ |(w' : ℝ)| := hw.2.1
+  rw [hw'_zero, abs_zero] at hzw
+  have hz_zero_real : (z : ℝ) = 0 := abs_nonpos_iff.mp hzw
+  have hz_zero : z = 0 := Subtype.ext (by rw [hz_zero_real]; rfl)
+  have hx_zero : x = 0 := by
+    obtain ⟨_, _, hz_odd_imp⟩ := hz
+    by_contra hxne
+    have hxne_z : x ≠ (z : ℝ) := by rw [hz_zero_real]; exact hxne
+    have h_iod : IsOdd F₂ z := hz_odd_imp hxne_z
+    rw [hz_zero] at h_iod
+    exact h_iod.ne_zero rfl
+  refine ⟨hw'F₁, ?_, ?_, ?_⟩
+  · rw [hx_zero, hw'_zero]
+  · rw [hx_zero, hw'_zero, mul_zero]
+  · intro v hvF₁ _ _
+    rw [hF₁_triv v hvF₁, hw'_zero]
+
+/-- Given the paper-aligned containment, derive the weaker
+`F₁.extend 1 ⊆ F₂` form (used by the `_pos` private theorems). The bound
+`F₁.boundAfterNext` is at least as large as `F₁.b`, so any `y ∈ F₁.extend 1`
+also satisfies the relaxed bound. -/
+private theorem extend_one_subset_of_paper_subset {F₁ F₂ : AbstractFormat}
+    (hsub : ((F₁.extend 1).withBound F₁.boundAfterNext F₁.boundAfterNext_nn) ⊆ F₂) :
+    F₁.extend 1 ⊆ F₂ := by
+  intro y hy
+  apply hsub
+  obtain ⟨hp_y, hq_y, hb_y⟩ := hy
+  refine ⟨hp_y, hq_y, ?_⟩
+  change AbstractFormat.boundOK F₁.boundAfterNext y
+  cases hF_b : F₁.b with
+  | top =>
+    have h_top : F₁.boundAfterNext = ⊤ := by
+      unfold AbstractFormat.boundAfterNext; rw [hF_b]
+    rw [h_top]; trivial
+  | coe b =>
+    have h_after : F₁.boundAfterNext = ((F₁.next b : Dyadic) : WithTop Dyadic) := by
+      unfold AbstractFormat.boundAfterNext; rw [hF_b]
+    rw [h_after]
+    change |((y : Dyadic) : ℝ)| ≤ ((F₁.next b : Dyadic) : ℝ)
+    change AbstractFormat.boundOK F₁.b y at hb_y
+    rw [hF_b] at hb_y
+    have h_y_le_b : |((y : Dyadic) : ℝ)| ≤ ((b : Dyadic) : ℝ) := hb_y
+    have hb_nn : 0 ≤ ((b : Dyadic) : ℝ) := F₁.b_nn b hF_b
+    have h_b_le_next : ((b : Dyadic) : ℝ) ≤ ((F₁.next b : Dyadic) : ℝ) := by
+      rcases hF_exp : F₁.exp with _ | e
+      · have : F₁.next b = b + 1 := by unfold AbstractFormat.next; rw [hF_exp]
+        rw [this]; push_cast; linarith
+      · rcases hF_p : F₁.p with _ | p
+        · have := AbstractFormat.lt_next_of_p_top F₁ hF_exp hF_p b
+          linarith
+        · have := AbstractFormat.lt_next_of_finite F₁ hF_exp hF_p b hb_nn
+          linarith
+    linarith
+
 /-- **rnd-RTO-RTZ** (Fig. 9), paper-aligned form, positive case `0 < x`. -/
 private theorem rndRTO_RTZ_pos {F₁ F₂ : AbstractFormat}
     (hsub : F₁.extend 1 ⊆ F₂)
@@ -794,48 +859,8 @@ theorem rndRTO_RTZ {F₁ F₂ : AbstractFormat}
   swap
   · -- F₁ trivial: conclusion holds directly from `w' ∈ F₁`.
     exact RoundsRTZ_of_trivial hF₁_triv hw.1
-  -- Step 1: derive `hsub_extend : F₁.extend 1 ⊆ F₂` from `hsub`.
-  -- Values in F₁.extend 1 fit in (F₁.extend 1).withBound F₁.boundAfterNext
-  -- because `boundAfterNext` is at least as large as `F₁.b`.
-  have hsub_old : F₁.extend 1 ⊆ F₂ := by
-    intro y hy
-    apply hsub
-    obtain ⟨hp_y, hq_y, hb_y⟩ := hy
-    refine ⟨hp_y, hq_y, ?_⟩
-    -- boundOK F₁.boundAfterNext y
-    change AbstractFormat.boundOK F₁.boundAfterNext y
-    cases hF_b : F₁.b with
-    | top =>
-      -- F₁.b = ⊤. boundAfterNext = ⊤. boundOK ⊤ y is trivial.
-      have h_top : F₁.boundAfterNext = ⊤ := by
-        unfold AbstractFormat.boundAfterNext; rw [hF_b]
-      rw [h_top]; trivial
-    | coe b =>
-      -- F₁.b = b. boundAfterNext = (F₁.next b : WithTop Dyadic).
-      -- |y| ≤ b ≤ F₁.next b (since F₁.next b > b ≥ 0 by next_nonneg).
-      have h_after : F₁.boundAfterNext = ((F₁.next b : Dyadic) : WithTop Dyadic) := by
-        unfold AbstractFormat.boundAfterNext; rw [hF_b]
-      rw [h_after]
-      change |((y : Dyadic) : ℝ)| ≤ ((F₁.next b : Dyadic) : ℝ)
-      -- |y| ≤ b from hb_y (boundOK F₁.b y with F₁.b = ↑b)
-      change AbstractFormat.boundOK F₁.b y at hb_y
-      rw [hF_b] at hb_y
-      have h_y_le_b : |((y : Dyadic) : ℝ)| ≤ ((b : Dyadic) : ℝ) := hb_y
-      -- b ≤ F₁.next b
-      have hb_nn : 0 ≤ ((b : Dyadic) : ℝ) := F₁.b_nn b hF_b
-      have h_b_le_next : ((b : Dyadic) : ℝ) ≤ ((F₁.next b : Dyadic) : ℝ) := by
-        rcases hF_exp : F₁.exp with _ | e
-        · -- F.exp = ⊥. next = b + 1.
-          have : F₁.next b = b + 1 := by unfold AbstractFormat.next; rw [hF_exp]
-          rw [this]; push_cast; linarith
-        · rcases hF_p : F₁.p with _ | p
-          · -- F.p = ⊤, F.exp finite. lt_next_of_p_top.
-            have := AbstractFormat.lt_next_of_p_top F₁ hF_exp hF_p b
-            linarith
-          · -- Both finite. Use lt_next_of_finite.
-            have := AbstractFormat.lt_next_of_finite F₁ hF_exp hF_p b hb_nn
-            linarith
-      linarith
+  -- Derive the weaker `F₁.extend 1 ⊆ F₂` form for the existing proof body.
+  have hsub_old : F₁.extend 1 ⊆ F₂ := extend_one_subset_of_paper_subset hsub
   -- F₁ ⊆ F₁.extend 1 ⊆ F₂.
   have hF₁_sub_ext : F₁ ⊆ F₁.extend 1 := by
     intro y hy
@@ -1008,18 +1033,25 @@ private theorem rndRTO_RAZ_pos {F₁ F₂ : AbstractFormat}
     have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
     exact hw'_min v hvF₁ hv_bnd_z hv_z_sign
 
-/-- **rnd-RTO-RAZ** (Fig. 9), paper-aligned form. The hypothesis
-`hsub : F₁.extend 1 ⊆ F₂` encodes the paper's
-`A(p₁ + 1, exp₁ − 1, b₁) ⊆ A(p₂, exp₂, b₂)` containment from Fig. 9. The
-auxiliary `hp_F₂ : 2 ≤ F₂.p` mirrors `rndRTO_RTZ`'s precondition. -/
+/-- **rnd-RTO-RAZ** (Fig. 9), paper-aligned form. The hypothesis `hsub`
+encodes the same paper containment used by `rndRTO_RTZ`
+(`A(p₁ + 1, exp₁ − 1, next_{p₁,exp₁}(b₁)) ⊆ A(p₂, exp₂, b₂)`); for RAZ the
+paper actually uses just `b₁` rather than `next(b₁)`, but accepting the
+stronger paper-RTZ form costs nothing and keeps the signature uniform.
+The auxiliary `2 ≤ F₂.p` is derived internally via `hp_F₂_or_F₁_trivial`. -/
 theorem rndRTO_RAZ {F₁ F₂ : AbstractFormat}
-    (hsub : F₁.extend 1 ⊆ F₂)
-    (hp_F₂ : 2 ≤ F₂.p)
+    (hsub : ((F₁.extend 1).withBound F₁.boundAfterNext F₁.boundAfterNext_nn) ⊆ F₂)
     {x : ℝ}
     {z w' : Dyadic}
     (hz : RoundsRTO F₂ x z)
     (hw : RoundsRAZ F₁ (z : ℝ) w') :
     RoundsRAZ F₁ x w' := by
+  rcases hp_F₂_or_F₁_trivial hsub with hp_F₂ | hF₁_triv
+  swap
+  · -- F₁ trivial: x = 0 is forced and conclusion is RoundsRAZ F₁ 0 0.
+    exact RoundsRAZ_of_trivial hF₁_triv hz hw
+  -- Derive the weaker `F₁.extend 1 ⊆ F₂` form for the existing _pos body.
+  have hsub_old : F₁.extend 1 ⊆ F₂ := extend_one_subset_of_paper_subset hsub
   rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
   · -- x < 0: negate, apply _pos, negate back
     have hx_pos' : 0 < (-x) := by linarith
@@ -1028,7 +1060,7 @@ theorem rndRTO_RAZ {F₁ F₂ : AbstractFormat}
       have h := RoundsRAZ.neg hw
       have hcoe : ((-z : Dyadic) : ℝ) = -(z : ℝ) := by push_cast; rfl
       rw [hcoe]; exact h
-    have h_result := rndRTO_RAZ_pos hsub hp_F₂ hx_pos' hz' hw'
+    have h_result := rndRTO_RAZ_pos hsub_old hp_F₂ hx_pos' hz' hw'
     have hfinal := RoundsRAZ.neg h_result
     rwa [neg_neg, neg_neg] at hfinal
   · -- x = 0: pin z = 0 = w'
@@ -1058,7 +1090,7 @@ theorem rndRTO_RAZ {F₁ F₂ : AbstractFormat}
     · intro v _ _ _
       simp [hw'_zero, abs_nonneg]
   · -- x > 0
-    exact rndRTO_RAZ_pos hsub hp_F₂ hx_pos hz hw
+    exact rndRTO_RAZ_pos hsub_old hp_F₂ hx_pos hz hw
 
 /-- **rnd-RTO-RNE** (Fig. 9), structural form: assumes the F₂-to-F₁ transfer
 of adjacency, closeness, and tie-break has been done externally.
