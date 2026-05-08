@@ -11,54 +11,19 @@ from Fig. 9 (`rndRTZ_RTZ`, `rndRAZ_RAZ`, `rndRTO_RTO`, `rndRTO_RTZ`,
 fully paper-aligned (no `hp_F₂`, no F.exp-finite, no auxiliary closeness or
 midpoint hypotheses).
 
-Beyond the paper, an extension to the additional IEEE 754 modes (RTP, RTN,
-RNA) is planned — see "Additional rounding modes" below.
+Beyond the paper, the IEEE 754 directed modes (RTP, RTN) and the alternative
+tie-break (RNA) are also covered. `RoundsRTP`/`RoundsRTN` are the renamed
+`RoundsUp`/`RoundsDown` predicates (same definitions); `RoundsRNA` is the
+larger-magnitude tie-break variant of `RoundsRNE`. The five double-rounding
+theorems `rndRTP_RTP`, `rndRTN_RTN`, `rndRTO_RTP`, `rndRTO_RTN`, and
+`rndRTO_RNA` are mechanized via sign-reduction (RTP/RTN) and a parallel
+proof reusing `rndRTO_RNE_close_transfer` (RNA).
+
+`rndRNA_RNA` is **not a theorem** — pen-and-paper analysis shows that
+RNA→RNA chains can fail (RNA→RNA differs from direct RNA at certain
+binade-boundary inputs).
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked.
-
-## Additional rounding modes (RTP, RTN, RNA)
-
-Extend coverage from the four paper-Fig. 9 modes to the IEEE 754 set. RTP and
-RTN are semantic aliases for the existing `RoundsUp` / `RoundsDown` predicates;
-RNA is the away-from-zero tie-break variant of RNE.
-
-### Definitions (`Mpfx/Rounding.lean`)
-- [ ] `RoundsRTP F x y := RoundsUp F x y` (round to +∞).
-- [ ] `RoundsRTN F x y := RoundsDown F x y` (round to −∞).
-- [ ] `RoundsRNA F x y` — round to nearest, ties to larger magnitude. Same shape as `RoundsRNE` except the tie-break clause becomes `... → IsLargerMagnitude F y` (or stated directly: `|y| ≥ |z|` for any equidistant `z ∈ F`).
-- [ ] Add `RTP | RTN | RNA` constructors to `inductive RoundingMode`.
-
-### Sign-based reduction lemmas (`Mpfx/Rounding.lean`)
-The key bridges that let the new theorems reduce to existing ones:
-- [ ] `RoundsRTP_iff_RAZ_of_nn : 0 ≤ x → (RoundsRTP F x y ↔ RoundsRAZ F x y)`.
-- [ ] `RoundsRTP_iff_RTZ_of_nonpos : x ≤ 0 → (RoundsRTP F x y ↔ RoundsRTZ F x y)`.
-- [ ] `RoundsRTN_iff_RTZ_of_nn : 0 ≤ x → (RoundsRTN F x y ↔ RoundsRTZ F x y)`.
-- [ ] `RoundsRTN_iff_RAZ_of_nonpos : x ≤ 0 → (RoundsRTN F x y ↔ RoundsRAZ F x y)`.
-- [ ] `RoundsRNA_iff_RNE_of_no_tie : (¬ ∃ y₁ y₂, ... midpoint ...) → (RoundsRNA F x y ↔ RoundsRNE F x y)` — RNA equals RNE when there is no tie.
-- [ ] `RoundsRNA.neg`, `RoundsRTP.neg`, `RoundsRTN.neg` symmetry lemmas (RTP and RTN swap under negation).
-
-### Double-rounding theorems (`Mpfx/DoubleRounding.lean`)
-Fig. 9 only treats RTZ/RAZ/RTO/RNE. The new theorems are derived via sign analysis or parallel proofs:
-
-- [ ] **`rndRTP_RTP`** (`F₁ ⊆ F₂`): split on `sign x`, reduce positive case to `rndRAZ_RAZ`, negative case to `rndRTZ_RTZ`, x = 0 trivial. ~30 lines.
-- [ ] **`rndRTN_RTN`** (`F₁ ⊆ F₂`): symmetric to RTP via sign reduction. ~30 lines.
-- [ ] **`rndRTO_RTP`** (paper-aligned containment, same as `rndRTO_RTZ` / `rndRTO_RAZ`): split on sign of `x`, reduce to `rndRTO_RTZ` (negative) / `rndRTO_RAZ` (positive).
-- [ ] **`rndRTO_RTN`**: symmetric.
-- [ ] **`rndRTO_RNA`** (paper-aligned containment, same as `rndRTO_RNE`): the `notMem_of_extend_subset` chain forces `z ≠ midpoint(w', z')`, so `x` lies strictly off-midpoint and **no tie occurs in F₁ rounding** — RNE and RNA coincide on the actual round-step. The proof body is a near-copy of `rndRTO_RNE` with the tie-break clause swapped from `IsEven` to "larger magnitude". Likely shareable scaffolding via a parametric helper over the tie-break predicate.
-- [ ] **`rndRNA_RNA`** (paper-aligned containment): closer to `rndRTO_RNE`'s structure but harder — RNA→RNA chains can produce ties differently. Likely needs the same `notMem_of_extend_subset` trick + a same-side-of-midpoint argument. May require a separate lemma `RoundsRNA.notMem_of_extend_subset` analogous to `RoundsRTO.notMem_of_extend_subset` but with RNA's parity-discrimination semantics.
-
-### Estimated effort
-- Definitions + sign-bridge lemmas: ~150 lines (`Mpfx/Rounding.lean`).
-- `rndRTP_RTP`, `rndRTN_RTN`, `rndRTO_RTP`, `rndRTO_RTN` (sign-reduction theorems): ~150 lines combined.
-- `rndRTO_RNA`: ~200 lines (parallels `rndRTO_RNE`'s 180-line body); could share `rndRTO_RNE_close_transfer` if generalized over the tie-break predicate.
-- `rndRNA_RNA`: hardest; likely needs new infrastructure analogous to `numDigits_eq_of_subset_of_isOdd` if the RTO-bypass trick doesn't apply directly.
-
-### Suggested order
-1. Definitions + sign-reduction bridges.
-2. `rndRTP_RTP`, `rndRTN_RTN` (smallest, validates the sign-reduction approach).
-3. `rndRTO_RTP`, `rndRTO_RTN` (extension of #2 to RTO-prefix chains).
-4. `rndRTO_RNA` (refactor `rndRTO_RNE_close_transfer` to be tie-break-generic, then derive both RNE and RNA versions).
-5. `rndRNA_RNA` (last; may surface new infrastructure needs).
 
 ## Tests & smoke tests
 

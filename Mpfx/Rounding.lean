@@ -56,6 +56,42 @@ def RoundsRAZ (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
   y ∈ F ∧ |x| ≤ |(y : ℝ)| ∧ (y : ℝ) * x ≥ 0 ∧
   ∀ z : Dyadic, z ∈ F → |x| ≤ |(z : ℝ)| → (z : ℝ) * x ≥ 0 → |(y : ℝ)| ≤ |(z : ℝ)|
 
+/-- `y = RTO-rounding of x in F` — round to odd. The result `y ∈ F` is either
+the round-down (`RoundsRTN`) or round-up (`RoundsRTP`) of `x`, and when `x` is
+not exactly equal to `y`, the parity of `y` (in the `IsOdd F` sense) is odd:
+parity is at precision `numDigits F.p F.exp y` and discriminated by `F.p` (odd
+significand for `F.p ≥ 2`, odd exponent for `F.p = 1`). -/
+def RoundsRTO (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
+  y ∈ F ∧
+  (RoundsRTN F x y ∨ RoundsRTP F x y) ∧
+  (x ≠ (y : ℝ) → IsOdd F y)
+
+/-- `y = RNE-rounding of x in F` — round to nearest, ties to even. The result
+`y ∈ F` is one of the two adjacents bracketing `x`, chosen as the closer one;
+ties (when `x` is exactly halfway between the two adjacents) are broken by
+picking the value with `IsEven F` parity. -/
+def RoundsRNE (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
+  y ∈ F ∧
+  (RoundsRTN F x y ∨ RoundsRTP F x y) ∧
+  -- `y` is at least as close to `x` as any other adjacent
+  (∀ z : Dyadic, z ∈ F → (RoundsRTN F x z ∨ RoundsRTP F x z) →
+    |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
+  -- Tie-break: if `x` is equidistant from `y` and another adjacent, `y` is even
+  ((∃ z : Dyadic, z ∈ F ∧ (RoundsRTN F x z ∨ RoundsRTP F x z) ∧
+      z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
+    IsEven F y)
+
+/-- `y = RNA-rounding of x in F` — round to nearest, ties away from zero
+(picking the value with the larger magnitude). Same shape as `RoundsRNE`
+except the tie-break clause requires `|z| ≤ |y|` instead of `IsEven F y`. -/
+def RoundsRNA (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
+  y ∈ F ∧
+  (RoundsRTN F x y ∨ RoundsRTP F x y) ∧
+  (∀ z : Dyadic, z ∈ F → (RoundsRTN F x z ∨ RoundsRTP F x z) →
+    |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
+  (∀ z : Dyadic, z ∈ F → (RoundsRTN F x z ∨ RoundsRTP F x z) →
+      z ≠ y → |x - (y : ℝ)| = |x - (z : ℝ)| → |(z : ℝ)| ≤ |(y : ℝ)|)
+
 /-- For `0 ≤ x`, `RoundsRTP` (smallest F-element ≥ x) coincides with `RoundsRAZ`
 (smallest F-element with `|y| ≥ |x|` on x's side). -/
 theorem RoundsRTP_iff_RAZ_of_nn {F : AbstractFormat} {x : ℝ} {y : Dyadic}
@@ -314,42 +350,6 @@ theorem RoundsRTP.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
   have hyF₂ : y ∈ F₂ := hsub y hyF₁
   have hzy : (z : ℝ) ≤ (y : ℝ) := hz_min y hyF₂ hxy
   exact hw_min y hyF₁ hzy
-
-/-- `y = RTO-rounding of x in F` — round to odd. The result `y ∈ F` is either
-the round-down (`RoundsRTN`) or round-up (`RoundsRTP`) of `x`, and when `x` is
-not exactly equal to `y`, the parity of `y` (in the `IsOdd F` sense) is odd:
-parity is at precision `numDigits F.p F.exp y` and discriminated by `F.p` (odd
-significand for `F.p ≥ 2`, odd exponent for `F.p = 1`). -/
-def RoundsRTO (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
-  y ∈ F ∧
-  (RoundsRTN F x y ∨ RoundsRTP F x y) ∧
-  (x ≠ (y : ℝ) → IsOdd F y)
-
-/-- `y = RNE-rounding of x in F` — round to nearest, ties to even. The result
-`y ∈ F` is one of the two adjacents bracketing `x`, chosen as the closer one;
-ties (when `x` is exactly halfway between the two adjacents) are broken by
-picking the value with `IsEven F` parity. -/
-def RoundsRNE (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
-  y ∈ F ∧
-  (RoundsRTN F x y ∨ RoundsRTP F x y) ∧
-  -- `y` is at least as close to `x` as any other adjacent
-  (∀ z : Dyadic, z ∈ F → (RoundsRTN F x z ∨ RoundsRTP F x z) →
-    |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
-  -- Tie-break: if `x` is equidistant from `y` and another adjacent, `y` is even
-  ((∃ z : Dyadic, z ∈ F ∧ (RoundsRTN F x z ∨ RoundsRTP F x z) ∧
-      z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
-    IsEven F y)
-
-/-- `y = RNA-rounding of x in F` — round to nearest, ties away from zero
-(picking the value with the larger magnitude). Same shape as `RoundsRNE`
-except the tie-break clause requires `|z| ≤ |y|` instead of `IsEven F y`. -/
-def RoundsRNA (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
-  y ∈ F ∧
-  (RoundsRTN F x y ∨ RoundsRTP F x y) ∧
-  (∀ z : Dyadic, z ∈ F → (RoundsRTN F x z ∨ RoundsRTP F x z) →
-    |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
-  (∀ z : Dyadic, z ∈ F → (RoundsRTN F x z ∨ RoundsRTP F x z) →
-      z ≠ y → |x - (y : ℝ)| = |x - (z : ℝ)| → |(z : ℝ)| ≤ |(y : ℝ)|)
 
 /-- If `x ∈ F` and `y` is the RTO-rounding of `x` in `F`, then `y = x`. -/
 theorem RoundsRTO.unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
