@@ -76,38 +76,32 @@ theorem extend_mono (F : AbstractFormat) {j k : ℕ} (h : j ≤ k) :
       exact WithBot.coe_le_coe.mpr (by linarith)
   · exact le_refl _
 
-/-- **𝒜-Contains-Sub** (Fig. 8). If `b₁ ≤ 2^(exp₁ + p₂)`, `exp₂ ≤ exp₁`, and
-`b₁ ≤ b₂`, then `𝒜(p₁, exp₁, b₁) ⊆ 𝒜(p₂, exp₂, b₂)`. Requires `p₂ ≥ 1`, a
-finite `exp₁ : ℤ`, a finite `β₁ : Dyadic`, and the non-degeneracy condition
-`p₂ ≠ 1 ∨ exp₂ ≠ ⊥`. The non-negative-bound invariants `hβ` and `hb_nn` are
-required to construct the underlying `AbstractFormat`s. -/
-theorem containsSub {p₁ : ℕ∞} {p₂ : ℕ} {exp₁ : ℤ} {exp₂ : WithBot ℤ}
-    {β₁ : Dyadic} {b₂ : WithTop Dyadic}
-    (hp₁ : 1 ≤ p₁)
-    (hp₂ : 1 ≤ p₂)
-    (hnd₂ : p₂ ≠ 1 ∨ exp₂ ≠ ⊥)
-    (hβ : 0 ≤ (β₁ : ℝ))
-    (hb_nn : (0 : WithTop Dyadic) ≤ b₂)
+/-- **𝒜-Contains-Sub** (Fig. 8). If `F₁`'s bound `β₁` is small enough that
+all values of `F₁` fit in `F₂.p` bits at exponent `exp₁`, plus the standard
+quantum and bound orderings, then `F₁ ⊆ F₂`. Covers the degenerate-format
+case where `F₁.p > F₂.p` is allowed because `F₁`'s bound is so small that
+nothing in `F₁` actually uses more than `F₂.p` bits. Requires `F₁.exp` and
+`F₁.b` finite (so the bound argument has a concrete exponent to operate on)
+and `F₂.p` finite (target precision). -/
+theorem containsSub {F₁ F₂ : AbstractFormat}
+    {exp₁ : ℤ} (he₁ : F₁.exp = (exp₁ : WithBot ℤ))
+    {β₁ : Dyadic} (hb₁ : F₁.b = (β₁ : WithTop Dyadic))
+    {p₂ : ℕ} (hp₂ : F₂.p = (p₂ : ℕ∞))
     (hbprec : (β₁ : ℝ) ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)))
-    (he : exp₂ ≤ (exp₁ : WithBot ℤ))
-    (hb : (β₁ : WithTop Dyadic) ≤ b₂) :
-    ({ p := p₁, exp := (exp₁ : WithBot ℤ), b := (β₁ : WithTop Dyadic),
-       p_pos := hp₁,
-       not_degenerate := Or.inr (by simp),
-       b_nn := by exact_mod_cast hβ } : AbstractFormat)
-      ⊆ { p := (p₂ : ℕ∞), exp := exp₂, b := b₂,
-          p_pos := by exact_mod_cast hp₂,
-          not_degenerate := by
-            rcases hnd₂ with hne1 | hexp_ne
-            · refine Or.inl ⟨by simp, ?_⟩
-              intro h
-              exact hne1 (by exact_mod_cast h)
-            · exact Or.inr hexp_ne,
-          b_nn := hb_nn } := by
+    (he : F₂.exp ≤ F₁.exp)
+    (hb : F₁.b ≤ F₂.b) :
+    F₁ ⊆ F₂ := by
   intro x hx
   obtain ⟨_, hex, hbx⟩ := hx
-  obtain ⟨c, hx_eq⟩ := hex
-  have hbx' : |(x : ℝ)| ≤ (β₁ : ℝ) := hbx
+  have hp₂_pos : 1 ≤ p₂ := by
+    have := F₂.p_pos; rw [hp₂] at this; exact_mod_cast this
+  have hex_coe : Dyadic.quantumAtLeast (exp₁ : WithBot ℤ) x := by
+    rw [← he₁]; exact hex
+  obtain ⟨c, hx_eq⟩ := hex_coe
+  have hbx' : |(x : ℝ)| ≤ ((β₁ : Dyadic) : ℝ) := by
+    have := hbx
+    rw [hb₁] at this
+    exact this
   have hc_le_real : |(c : ℝ)| ≤ (2 : ℝ) ^ (p₂ : ℤ) := by
     have h1 : |(c : ℝ)| * (2 : ℝ) ^ exp₁ ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)) := by
       calc |(c : ℝ)| * (2 : ℝ) ^ exp₁
@@ -126,9 +120,13 @@ theorem containsSub {p₁ : ℕ∞} {p₂ : ℕ} {exp₁ : ℤ} {exp₂ : WithBo
       exact hc_le_real
     exact_mod_cast this
   refine ⟨?_, ?_, ?_⟩
-  · exact Dyadic.precisionAtMost_of_abs_le (by omega : 1 ≤ p₂) c exp₁ hx_eq hc_le
-  · exact Dyadic.quantumAtLeast_anti he ⟨c, hx_eq⟩
-  · exact boundOK_mono hb hbx
+  · -- precisionAtMost F₂.p x
+    rw [hp₂]
+    exact Dyadic.precisionAtMost_of_abs_le hp₂_pos c exp₁ hx_eq hc_le
+  · -- quantumAtLeast F₂.exp x
+    exact Dyadic.quantumAtLeast_anti he hex
+  · -- boundOK F₂.b x
+    exact boundOK_mono hb hbx
 
 end AbstractFormat
 
