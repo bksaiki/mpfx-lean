@@ -11,6 +11,18 @@ from Fig. 9 (`rndRTZ_RTZ`, `rndRAZ_RAZ`, `rndRTO_RTO`, `rndRTO_RTZ`,
 fully paper-aligned (no `hp_F₂`, no F.exp-finite, no auxiliary closeness or
 midpoint hypotheses).
 
+Beyond the paper, the IEEE 754 directed modes (RTP, RTN) and the alternative
+tie-break (RNA) are also covered. `RoundsRTP`/`RoundsRTN` are the renamed
+`RoundsUp`/`RoundsDown` predicates (same definitions); `RoundsRNA` is the
+larger-magnitude tie-break variant of `RoundsRNE`. The five double-rounding
+theorems `rndRTP_RTP`, `rndRTN_RTN`, `rndRTO_RTP`, `rndRTO_RTN`, and
+`rndRTO_RNA` are mechanized via sign-reduction (RTP/RTN) and a parallel
+proof reusing `rndRTO_RNE_close_transfer` (RNA).
+
+`rndRNA_RNA` is **not a theorem** — pen-and-paper analysis shows that
+RNA→RNA chains can fail (RNA→RNA differs from direct RNA at certain
+binade-boundary inputs).
+
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked.
 
 ## Tests & smoke tests
