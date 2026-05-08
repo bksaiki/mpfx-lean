@@ -195,9 +195,9 @@ theorem rndRTO_RTO {F₁ F₂ : AbstractFormat}
     (hz : RoundsRTO F₂ x z)
     (hw : RoundsRTO F₁ (z : ℝ) w') :
     RoundsRTO F₁ x w' := by
-  have hz_adj : RoundsDown F₂ x z ∨ RoundsUp F₂ x z := hz.2.1
+  have hz_adj : RoundsRTN F₂ x z ∨ RoundsRTP F₂ x z := hz.2.1
   have hw'F₁ : w' ∈ F₁ := hw.1
-  have hw_adj : RoundsDown F₁ (z : ℝ) w' ∨ RoundsUp F₁ (z : ℝ) w' := hw.2.1
+  have hw_adj : RoundsRTN F₁ (z : ℝ) w' ∨ RoundsRTP F₁ (z : ℝ) w' := hw.2.1
   have hw_odd_imp : (z : ℝ) ≠ (w' : ℝ) → IsOdd F₁ w' := hw.2.2
   rcases eq_or_ne ((z : ℝ)) x with hzx | hzx
   · -- z = x: hw is essentially the goal
@@ -651,7 +651,7 @@ private theorem hp_F₂_or_F₁_trivial_RNE {F₁ F₂ : AbstractFormat}
 /-- If `F₁` is trivial (contains only `0`) then `RoundsRNE F₁ x w'` holds for
 any real `x` whenever `w' ∈ F₁`. With `F₁ = {0}`, the closeness and
 tie-break conditions are vacuous; the adjacency condition is satisfied by
-`RoundsDown` (when `x ≥ 0`) or `RoundsUp` (when `x ≤ 0`). -/
+`RoundsRTN` (when `x ≥ 0`) or `RoundsRTP` (when `x ≤ 0`). -/
 private theorem RoundsRNE_of_trivial {F₁ : AbstractFormat}
     (hF₁_triv : ∀ d : Dyadic, d ∈ F₁ → (d : ℝ) = 0)
     {x : ℝ} {w' : Dyadic} (hw : w' ∈ F₁) :
@@ -803,8 +803,8 @@ when `w' < z'` (or symmetric). For w' < z', x ∈ (w', z') and any F₁-y with
 w' < y must be ≥ z' (else contradicts the round-down/up structure). -/
 private theorem F_adjacent_of_RNE_round_pair {F₁ : AbstractFormat}
     {x : ℝ} {w' z' : Dyadic}
-    (hw'_adj : RoundsDown F₁ x w' ∨ RoundsUp F₁ x w')
-    (hz'_adj : RoundsDown F₁ x z' ∨ RoundsUp F₁ x z')
+    (hw'_adj : RoundsRTN F₁ x w' ∨ RoundsRTP F₁ x w')
+    (hz'_adj : RoundsRTN F₁ x z' ∨ RoundsRTP F₁ x z')
     (hw'_lt_x : ((w' : Dyadic) : ℝ) ≤ x) (hx_lt_z' : x ≤ ((z' : Dyadic) : ℝ)) :
     ∀ y : Dyadic, y ∈ F₁ → ((w' : Dyadic) : ℝ) < ((y : Dyadic) : ℝ) →
       ((z' : Dyadic) : ℝ) ≤ ((y : Dyadic) : ℝ) := by
@@ -996,7 +996,7 @@ theorem rndRTO_RTZ {F₁ F₂ : AbstractFormat}
 
 /-- **rnd-RTO-RAZ** (Fig. 9), paper-aligned form, positive case `0 < x`.
 Symmetric to `rndRTO_RTZ_pos` but for round-away-from-zero. The key Lemma 5.3
-application happens in the *RoundsDown* case of `z` (rather than RoundsUp). -/
+application happens in the *RoundsRTN* case of `z` (rather than RoundsRTP). -/
 private theorem rndRTO_RAZ_pos {F₁ F₂ : AbstractFormat}
     (hsub : F₁.extend 1 ⊆ F₂)
     (hp_F₂ : 2 ≤ F₂.p)
@@ -1031,7 +1031,7 @@ private theorem rndRTO_RAZ_pos {F₁ F₂ : AbstractFormat}
     linarith
   have hw'_nn : 0 ≤ (w' : ℝ) := le_of_lt hw'_pos
   have hw'_abs : |(w' : ℝ)| = (w' : ℝ) := abs_of_nonneg hw'_nn
-  -- |w'| ≥ |x| via the contradiction in the RoundsDown branch using
+  -- |w'| ≥ |x| via the contradiction in the RoundsRTN branch using
   -- `notMem_of_extend_subset` instead of going through `hgt`.
   have hx_le_w' : x ≤ (w' : ℝ) := by
     rcases hz_adj with hRD | hRU
@@ -1148,16 +1148,16 @@ private lemma rndRTO_RNE_close_transfer {F₁ F₂ : AbstractFormat}
     (hsub' : F₁ ⊆ F₂)
     (hF₁_sub_ext1 : F₁ ⊆ F₁.extend 1)
     {x : ℝ} {z w' : Dyadic}
-    (hz_adj : RoundsDown F₂ x z ∨ RoundsUp F₂ x z)
+    (hz_adj : RoundsRTN F₂ x z ∨ RoundsRTP F₂ x z)
     (hw'F₁ : w' ∈ F₁)
-    (h_adj_x : RoundsDown F₁ x w' ∨ RoundsUp F₁ x w')
+    (h_adj_x : RoundsRTN F₁ x w' ∨ RoundsRTP F₁ x w')
     (hw_close_inner : ∀ z' : Dyadic, z' ∈ F₁ →
-        (RoundsDown F₁ ((z : Dyadic) : ℝ) z' ∨ RoundsUp F₁ ((z : Dyadic) : ℝ) z') →
+        (RoundsRTN F₁ ((z : Dyadic) : ℝ) z' ∨ RoundsRTP F₁ ((z : Dyadic) : ℝ) z') →
         |((z : Dyadic) : ℝ) - ((w' : Dyadic) : ℝ)| ≤
             |((z : Dyadic) : ℝ) - ((z' : Dyadic) : ℝ)|)
     (hz_not_F₁_ext1 : z ∉ F₁.extend 1) :
     ∀ z' : Dyadic, z' ∈ F₁ →
-      (RoundsDown F₁ x z' ∨ RoundsUp F₁ x z') →
+      (RoundsRTN F₁ x z' ∨ RoundsRTP F₁ x z') →
       |x - ((w' : Dyadic) : ℝ)| ≤ |x - ((z' : Dyadic) : ℝ)| := by
   intro z' hz'F₁ hz'_adj
   by_cases h_eq : ((z' : Dyadic) : ℝ) = ((w' : Dyadic) : ℝ)
@@ -1176,7 +1176,7 @@ private lemma rndRTO_RNE_close_transfer {F₁ F₂ : AbstractFormat}
     have hw'F₂ : w' ∈ F₂ := hsub' _ hw'F₁
     have hz'F₂ : z' ∈ F₂ := hsub' _ hz'F₁
     rcases lt_or_gt_of_ne h_w_ne_z' with h_w_lt_z | h_z_lt_w
-    · have hwRD : RoundsDown F₁ x w' := by
+    · have hwRD : RoundsRTN F₁ x w' := by
         rcases h_adj_x with hwRD | hwRU
         · exact hwRD
         · exfalso
@@ -1187,7 +1187,7 @@ private lemma rndRTO_RNE_close_transfer {F₁ F₂ : AbstractFormat}
             have h2 : ((z' : Dyadic) : ℝ) ≤ ((w' : Dyadic) : ℝ) :=
               hzRU.2.2 w' hw'F₁ hwRU.2.1
             exact h_w_ne_z' (le_antisymm h1 h2)
-      have hzRU : RoundsUp F₁ x z' := by
+      have hzRU : RoundsRTP F₁ x z' := by
         rcases hz'_adj with hzRD | hzRU
         · exfalso
           have h1 : ((w' : Dyadic) : ℝ) ≤ ((z' : Dyadic) : ℝ) :=
@@ -1227,7 +1227,7 @@ private lemma rndRTO_RNE_close_transfer {F₁ F₂ : AbstractFormat}
         lt_of_le_of_ne h_w_le_z_F (Ne.symm h_z_ne_w'_real)
       have h_z_lt_z' : ((z : Dyadic) : ℝ) < ((z' : Dyadic) : ℝ) :=
         lt_of_le_of_ne h_z_le_z'_F h_z_ne_z'_real
-      have hz_RU_z' : RoundsUp F₁ z z' := by
+      have hz_RU_z' : RoundsRTP F₁ z z' := by
         refine ⟨hz'F₁, le_of_lt h_z_lt_z', ?_⟩
         intro y hyF₁ h_z_le_y
         have h_w_lt_y : ((w' : Dyadic) : ℝ) < ((y : Dyadic) : ℝ) := by linarith
@@ -1262,7 +1262,7 @@ private lemma rndRTO_RNE_close_transfer {F₁ F₂ : AbstractFormat}
       have h_x_z_nonpos : x - ((z' : Dyadic) : ℝ) ≤ 0 := by linarith
       rw [abs_of_nonneg h_x_w_pos, abs_of_nonpos h_x_z_nonpos]
       linarith
-    · have hwRU : RoundsUp F₁ x w' := by
+    · have hwRU : RoundsRTP F₁ x w' := by
         rcases h_adj_x with hwRD | hwRU
         · exfalso
           rcases hz'_adj with hzRD | hzRU
@@ -1273,7 +1273,7 @@ private lemma rndRTO_RNE_close_transfer {F₁ F₂ : AbstractFormat}
             exact h_w_ne_z' (le_antisymm h1 h2)
           · linarith [hwRD.2.1, hzRU.2.1]
         · exact hwRU
-      have hzRD : RoundsDown F₁ x z' := by
+      have hzRD : RoundsRTN F₁ x z' := by
         rcases hz'_adj with hzRD | hzRU
         · exact hzRD
         · exfalso
@@ -1318,7 +1318,7 @@ private lemma rndRTO_RNE_close_transfer {F₁ F₂ : AbstractFormat}
         lt_of_le_of_ne h_z_le_w_F h_z_ne_w'_real
       have h_z'_lt_z : ((z' : Dyadic) : ℝ) < ((z : Dyadic) : ℝ) :=
         lt_of_le_of_ne h_z'_le_z_F (Ne.symm h_z_ne_z'_real)
-      have hz_RD_z' : RoundsDown F₁ z z' := by
+      have hz_RD_z' : RoundsRTN F₁ z z' := by
         refine ⟨hz'F₁, le_of_lt h_z'_lt_z, ?_⟩
         intro y hyF₁ h_y_le_z
         by_contra h_lt
@@ -1396,7 +1396,7 @@ theorem rndRTO_RNE {F₁ F₂ : AbstractFormat}
   have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
   have hz_not_F₁ : z ∉ F₁ :=
     RoundsRTO.notMem_of_extend_subset hsub_ext1 hp_F₂_two hz hxne
-  have hz_adj : RoundsDown F₂ x z ∨ RoundsUp F₂ x z := hz.2.1
+  have hz_adj : RoundsRTN F₂ x z ∨ RoundsRTP F₂ x z := hz.2.1
   obtain ⟨hw'F₁, hw_adj, hw_close_inner, _⟩ := hw
   have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := by
     intro h_eq
@@ -1404,7 +1404,7 @@ theorem rndRTO_RNE {F₁ F₂ : AbstractFormat}
     rw [show z = w' from Subtype.ext h_eq]
     exact hw'F₁
   -- Step 4: Adjacency transfer (4-way case split).
-  have h_adj_x : RoundsDown F₁ x w' ∨ RoundsUp F₁ x w' := by
+  have h_adj_x : RoundsRTN F₁ x w' ∨ RoundsRTP F₁ x w' := by
     rcases hz_adj with hzRD | hzRU
     · rcases hw_adj with hwRD | hwRU
       · left

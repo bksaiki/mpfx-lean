@@ -17,25 +17,31 @@ namespace Mpfx
 * `RAZ` — round away from zero.
 * `RTO` — round to odd: pick the value with odd significand.
 * `RNE` — round to nearest, ties to even.
+* `RTP` — round towards plus infinity (round-up).
+* `RTN` — round towards minus infinity (round-down).
+* `RNA` — round to nearest, ties away from zero.
 -/
 inductive RoundingMode
   | RTZ : RoundingMode
   | RAZ : RoundingMode
   | RTO : RoundingMode
   | RNE : RoundingMode
+  | RTP : RoundingMode
+  | RTN : RoundingMode
+  | RNA : RoundingMode
 deriving DecidableEq, Repr
 
 namespace AbstractFormat
 
-/-- `y = round-down of x in F` — i.e., `y` is the largest element of `F` with
-`(y : ℝ) ≤ x`. This is the building block for `RTZ` (when `x ≥ 0`) and
-`RTN`. -/
-def RoundsDown (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
+/-- `y = RTN-rounding of x in F` (round towards minus infinity) — i.e., `y` is
+the largest element of `F` with `(y : ℝ) ≤ x`. This is the building block for
+`RTZ` (when `x ≥ 0`) and `RTN`. -/
+def RoundsRTN (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
   y ∈ F ∧ (y : ℝ) ≤ x ∧ ∀ z : Dyadic, z ∈ F → (z : ℝ) ≤ x → (z : ℝ) ≤ (y : ℝ)
 
-/-- `y = round-up of x in F` — i.e., `y` is the smallest element of `F` with
-`x ≤ (y : ℝ)`. -/
-def RoundsUp (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
+/-- `y = RTP-rounding of x in F` (round towards plus infinity) — i.e., `y` is
+the smallest element of `F` with `x ≤ (y : ℝ)`. -/
+def RoundsRTP (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
   y ∈ F ∧ x ≤ (y : ℝ) ∧ ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ)
 
 /-- `y = RTZ-rounding of x in F` — round towards zero. For `x ≥ 0` this is
@@ -50,11 +56,244 @@ def RoundsRAZ (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
   y ∈ F ∧ |x| ≤ |(y : ℝ)| ∧ (y : ℝ) * x ≥ 0 ∧
   ∀ z : Dyadic, z ∈ F → |x| ≤ |(z : ℝ)| → (z : ℝ) * x ≥ 0 → |(y : ℝ)| ≤ |(z : ℝ)|
 
-/-- Composition lemma for round-down: if `F₁ ⊆ F₂`, then rounding down through
-`F₂` to `F₁` agrees with rounding down directly to `F₁`. -/
-theorem RoundsDown.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
-    {x : ℝ} {z w : Dyadic} (hz : RoundsDown F₂ x z) (hw : RoundsDown F₁ (z : ℝ) w) :
-    RoundsDown F₁ x w := by
+/-- For `0 ≤ x`, `RoundsRTP` (smallest F-element ≥ x) coincides with `RoundsRAZ`
+(smallest F-element with `|y| ≥ |x|` on x's side). -/
+theorem RoundsRTP_iff_RAZ_of_nn {F : AbstractFormat} {x : ℝ} {y : Dyadic}
+    (hx : 0 ≤ x) : RoundsRTP F x y ↔ RoundsRAZ F x y := by
+  constructor
+  · rintro ⟨hyF, hxy, hmin⟩
+    have hy_nn : 0 ≤ (y : ℝ) := le_trans hx hxy
+    refine ⟨hyF, ?_, ?_, ?_⟩
+    · rw [abs_of_nonneg hx, abs_of_nonneg hy_nn]; exact hxy
+    · nlinarith
+    · intro z hzF hxz hzx
+      -- |x| ≤ |z| means x ≤ |z|. We want |y| ≤ |z|, i.e. y ≤ |z|.
+      -- z * x ≥ 0 with x ≥ 0: either x = 0 (any z works for the sign) or z ≥ 0.
+      by_cases hz_nn : 0 ≤ (z : ℝ)
+      · -- z ≥ 0, so |z| = z and |x| = x
+        have habs_z : |(z : ℝ)| = (z : ℝ) := abs_of_nonneg hz_nn
+        have habs_x : |x| = x := abs_of_nonneg hx
+        have habs_y : |(y : ℝ)| = (y : ℝ) := abs_of_nonneg hy_nn
+        rw [habs_z, habs_x] at hxz
+        have h_yz : (y : ℝ) ≤ (z : ℝ) := hmin z hzF hxz
+        rw [habs_y, habs_z]; exact h_yz
+      · -- z < 0. Then z * x ≥ 0 with x ≥ 0 forces x = 0, then y = 0 (smallest F-elt ≥ 0).
+        push Not at hz_nn
+        have hx_zero : x = 0 := by nlinarith
+        have h0 : (y : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
+          apply hmin 0 F.zero_mem; rw [hx_zero]; rfl
+        have hy0 : (y : ℝ) = 0 :=
+          le_antisymm (by simpa using h0) (by rw [← hx_zero]; exact hxy)
+        rw [hy0, abs_zero]
+        exact abs_nonneg ((z : Dyadic) : ℝ)
+  · rintro ⟨hyF, hxy, hsign, hmin⟩
+    have hy_nn : 0 ≤ (y : ℝ) := by
+      -- y * x ≥ 0 and x ≥ 0; either x = 0 (then |y| ≥ 0 only forces y ≠ 0... no) or y ≥ 0
+      by_cases hx0 : x = 0
+      · -- Need: y ≥ 0. From |x| ≤ |y| we get 0 ≤ |y|; we also need sign.
+        -- Actually: with x = 0, y * 0 = 0 ≥ 0 trivially; we don't know y's sign.
+        -- But the universal property: for z = 0, |x| = 0 ≤ |0| = 0 ✓, 0 * 0 = 0 ≥ 0 ✓,
+        -- so |y| ≤ |0| = 0, forcing y = 0.
+        have h0 : |(y : ℝ)| ≤ |((0 : Dyadic) : ℝ)| :=
+          hmin 0 F.zero_mem (by rw [hx0]; simp) (by simp)
+        have : |(y : ℝ)| = 0 := le_antisymm (by simpa using h0) (abs_nonneg _)
+        have hy0 : (y : ℝ) = 0 := abs_eq_zero.mp this
+        rw [hy0]
+      · have hx_pos : 0 < x := lt_of_le_of_ne hx (Ne.symm hx0)
+        nlinarith
+    refine ⟨hyF, ?_, ?_⟩
+    · rw [abs_of_nonneg hx, abs_of_nonneg hy_nn] at hxy; exact hxy
+    · intro z hzF hxz
+      have hz_nn : 0 ≤ (z : ℝ) := le_trans hx hxz
+      have h1 : |x| ≤ |(z : ℝ)| := by
+        rw [abs_of_nonneg hx, abs_of_nonneg hz_nn]; exact hxz
+      have h2 : (z : ℝ) * x ≥ 0 := mul_nonneg hz_nn hx
+      have key := hmin z hzF h1 h2
+      rw [abs_of_nonneg hy_nn, abs_of_nonneg hz_nn] at key
+      exact key
+
+/-- For `x ≤ 0`, `RoundsRTP` (smallest F-element ≥ x) coincides with `RoundsRTZ`
+(largest F-element on x's side with magnitude ≤ |x|). -/
+theorem RoundsRTP_iff_RTZ_of_nonpos {F : AbstractFormat} {x : ℝ} {y : Dyadic}
+    (hx : x ≤ 0) : RoundsRTP F x y ↔ RoundsRTZ F x y := by
+  constructor
+  · rintro ⟨hyF, hxy, hmin⟩
+    -- For x ≤ 0, smallest F-elt ≥ x. Claim: y ≤ 0 since 0 ∈ F is ≥ x, so y ≤ 0.
+    have hy_nonpos : (y : ℝ) ≤ 0 := by
+      have := hmin 0 F.zero_mem hx
+      simpa using this
+    refine ⟨hyF, ?_, ?_, ?_⟩
+    · rw [abs_of_nonpos hy_nonpos, abs_of_nonpos hx]; linarith
+    · -- y * x ≥ 0 from y ≤ 0 and x ≤ 0
+      nlinarith
+    · intro z hzF hzx hzsign
+      -- |z| ≤ |x| and z * x ≥ 0. With x ≤ 0, want |z| ≤ |y|.
+      by_cases hz_nonpos : (z : ℝ) ≤ 0
+      · -- z ≤ 0. Then |z| = -z, |x| = -x, so -z ≤ -x, i.e., x ≤ z.
+        have habs_z : |(z : ℝ)| = -(z : ℝ) := abs_of_nonpos hz_nonpos
+        have habs_x : |x| = -x := abs_of_nonpos hx
+        have habs_y : |(y : ℝ)| = -(y : ℝ) := abs_of_nonpos hy_nonpos
+        rw [habs_z, habs_x] at hzx
+        have hxz : x ≤ (z : ℝ) := by linarith
+        have h_yz : (y : ℝ) ≤ (z : ℝ) := hmin z hzF hxz
+        rw [habs_z, habs_y]; linarith
+      · -- z > 0. With x ≤ 0, z * x ≥ 0 forces x = 0; then |z| ≤ 0 gives z = 0
+        -- — contradicting z > 0.
+        push Not at hz_nonpos
+        have hx_zero : x = 0 := by nlinarith
+        have habs_x_zero : |x| = 0 := by rw [hx_zero, abs_zero]
+        rw [habs_x_zero] at hzx
+        have hz_zero_abs : |(z : ℝ)| = 0 := le_antisymm hzx (abs_nonneg (z : ℝ))
+        have hz_zero : (z : ℝ) = 0 := abs_eq_zero.mp hz_zero_abs
+        linarith
+  · rintro ⟨hyF, hbnd, hsign, hmax⟩
+    -- y ≤ 0: from |y| ≤ |x|, sign y * x ≥ 0, x ≤ 0
+    have hy_nonpos : (y : ℝ) ≤ 0 := by
+      by_cases hx0 : x = 0
+      · -- Then |y| ≤ 0, so y = 0
+        have habs_x : |x| = 0 := by rw [hx0, abs_zero]
+        rw [habs_x] at hbnd
+        have : |(y : ℝ)| = 0 := le_antisymm hbnd (abs_nonneg _)
+        have : (y : ℝ) = 0 := abs_eq_zero.mp this
+        linarith
+      · have hx_neg : x < 0 := lt_of_le_of_ne hx hx0
+        nlinarith
+    refine ⟨hyF, ?_, ?_⟩
+    · -- x ≤ y: |y| ≤ |x| with both nonpos gives -y ≤ -x, i.e., x ≤ y
+      rw [abs_of_nonpos hy_nonpos, abs_of_nonpos hx] at hbnd
+      linarith
+    · intro z hzF hxz
+      -- z ≥ x. Want y ≤ z. We use the maximality property in RTZ flavor.
+      by_cases hz_nonpos : (z : ℝ) ≤ 0
+      · -- z ≤ 0; |z| ≤ |x|; z * x ≥ 0
+        have h1 : |(z : ℝ)| ≤ |x| := by
+          rw [abs_of_nonpos hz_nonpos, abs_of_nonpos hx]; linarith
+        have h2 : (z : ℝ) * x ≥ 0 := by nlinarith
+        have key := hmax z hzF h1 h2
+        rw [abs_of_nonpos hy_nonpos, abs_of_nonpos hz_nonpos] at key
+        linarith
+      · push Not at hz_nonpos
+        linarith
+
+/-- For `0 ≤ x`, `RoundsRTN` (largest F-element ≤ x) coincides with `RoundsRTZ`
+(largest F-element on x's side with magnitude ≤ |x|). -/
+theorem RoundsRTN_iff_RTZ_of_nn {F : AbstractFormat} {x : ℝ} {y : Dyadic}
+    (hx : 0 ≤ x) : RoundsRTN F x y ↔ RoundsRTZ F x y := by
+  constructor
+  · rintro ⟨hyF, hyx, hmax⟩
+    -- Largest F-elt ≤ x with x ≥ 0; 0 ∈ F is ≤ x so y ≥ 0.
+    have hy_nn : 0 ≤ (y : ℝ) := by
+      have := hmax 0 F.zero_mem hx
+      simpa using this
+    refine ⟨hyF, ?_, ?_, ?_⟩
+    · rw [abs_of_nonneg hx, abs_of_nonneg hy_nn]; exact hyx
+    · nlinarith
+    · intro z hzF hzx hzsign
+      by_cases hz_nn : 0 ≤ (z : ℝ)
+      · have habs_z : |(z : ℝ)| = (z : ℝ) := abs_of_nonneg hz_nn
+        have habs_x : |x| = x := abs_of_nonneg hx
+        have habs_y : |(y : ℝ)| = (y : ℝ) := abs_of_nonneg hy_nn
+        rw [habs_z, habs_x] at hzx
+        have h_zy : (z : ℝ) ≤ (y : ℝ) := hmax z hzF hzx
+        rw [habs_z, habs_y]; exact h_zy
+      · push Not at hz_nn
+        -- z < 0. z * x ≥ 0 with x ≥ 0 forces x = 0.
+        have hx_zero : x = 0 := by nlinarith
+        -- |z| ≤ |x| = 0 forces z = 0, contradicting z < 0.
+        have habs_x : |x| = 0 := by rw [hx_zero, abs_zero]
+        rw [habs_x] at hzx
+        have : (z : ℝ) = 0 := abs_eq_zero.mp (le_antisymm hzx (abs_nonneg _))
+        linarith
+  · rintro ⟨hyF, hbnd, hsign, hmax⟩
+    have hy_nn : 0 ≤ (y : ℝ) := by
+      by_cases hx0 : x = 0
+      · -- |y| ≤ 0 ⇒ y = 0
+        have habs_x : |x| = 0 := by rw [hx0, abs_zero]
+        rw [habs_x] at hbnd
+        have : |(y : ℝ)| = 0 := le_antisymm hbnd (abs_nonneg _)
+        have : (y : ℝ) = 0 := abs_eq_zero.mp this
+        linarith
+      · have hx_pos : 0 < x := lt_of_le_of_ne hx (Ne.symm hx0)
+        nlinarith
+    refine ⟨hyF, ?_, ?_⟩
+    · rw [abs_of_nonneg hy_nn, abs_of_nonneg hx] at hbnd; exact hbnd
+    · intro z hzF hzx
+      by_cases hz_nn : 0 ≤ (z : ℝ)
+      · have h1 : |(z : ℝ)| ≤ |x| := by
+          rw [abs_of_nonneg hz_nn, abs_of_nonneg hx]; exact hzx
+        have h2 : (z : ℝ) * x ≥ 0 := mul_nonneg hz_nn hx
+        have key := hmax z hzF h1 h2
+        rw [abs_of_nonneg hy_nn, abs_of_nonneg hz_nn] at key
+        exact key
+      · push Not at hz_nn
+        linarith
+
+/-- For `x ≤ 0`, `RoundsRTN` (largest F-element ≤ x) coincides with `RoundsRAZ`
+(smallest F-element with `|y| ≥ |x|` on x's side). -/
+theorem RoundsRTN_iff_RAZ_of_nonpos {F : AbstractFormat} {x : ℝ} {y : Dyadic}
+    (hx : x ≤ 0) : RoundsRTN F x y ↔ RoundsRAZ F x y := by
+  constructor
+  · rintro ⟨hyF, hyx, hmax⟩
+    -- y ≤ x ≤ 0
+    have hy_nonpos : (y : ℝ) ≤ 0 := le_trans hyx hx
+    refine ⟨hyF, ?_, ?_, ?_⟩
+    · rw [abs_of_nonpos hx, abs_of_nonpos hy_nonpos]; linarith
+    · nlinarith
+    · intro z hzF hxz hzsign
+      by_cases hz_nonpos : (z : ℝ) ≤ 0
+      · -- z ≤ 0. |x| ≤ |z| means -x ≤ -z, i.e., z ≤ x.
+        have habs_z : |(z : ℝ)| = -(z : ℝ) := abs_of_nonpos hz_nonpos
+        have habs_x : |x| = -x := abs_of_nonpos hx
+        have habs_y : |(y : ℝ)| = -(y : ℝ) := abs_of_nonpos hy_nonpos
+        rw [habs_z, habs_x] at hxz
+        have hzx : (z : ℝ) ≤ x := by linarith
+        have h_zy : (z : ℝ) ≤ (y : ℝ) := hmax z hzF hzx
+        rw [habs_z, habs_y]; linarith
+      · push Not at hz_nonpos
+        -- z > 0; z * x ≥ 0 with x ≤ 0 forces x = 0
+        have hx_zero : x = 0 := by nlinarith
+        -- y ≤ 0 and largest F-elt ≤ 0 is 0 (since 0 ∈ F).
+        have h0 : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) := by
+          apply hmax 0 F.zero_mem; rw [hx_zero]; rfl
+        have hy0 : (y : ℝ) = 0 :=
+          le_antisymm hy_nonpos (by simpa using h0)
+        -- |x| = 0, |y| = 0, |z| > 0; need |y| ≥ |z|, but |y| = 0 < |z|.
+        -- Wait, the hypothesis is |x| ≤ |z|, with |x| = 0; |z| > 0. So we just
+        -- need 0 ≤ z's claim, but RAZ says |y| ≤ |z|, not |z| ≤ |y|.
+        -- Re-reading: RAZ requires |y| ≤ |z|. y = 0 makes this |0| ≤ |z|, true.
+        rw [hy0, abs_zero]
+        exact abs_nonneg _
+  · rintro ⟨hyF, hbnd, hsign, hmin⟩
+    have hy_nonpos : (y : ℝ) ≤ 0 := by
+      by_cases hx0 : x = 0
+      · -- |x| = 0 ≤ |y|; not enough alone. Use the universal property at z = 0.
+        -- For z = 0: |x| ≤ |0| means 0 ≤ 0 ✓; 0 * x = 0 ≥ 0 ✓. So |y| ≤ 0, y = 0.
+        have h0 : |(y : ℝ)| ≤ |((0 : Dyadic) : ℝ)| :=
+          hmin 0 F.zero_mem (by rw [hx0]; simp) (by simp)
+        have : |(y : ℝ)| = 0 := le_antisymm (by simpa using h0) (abs_nonneg _)
+        have : (y : ℝ) = 0 := abs_eq_zero.mp this
+        linarith
+      · have hx_neg : x < 0 := lt_of_le_of_ne hx hx0
+        nlinarith
+    refine ⟨hyF, ?_, ?_⟩
+    · -- y ≤ x: |x| ≤ |y| with both nonpos gives -x ≤ -y, so y ≤ x
+      rw [abs_of_nonpos hx, abs_of_nonpos hy_nonpos] at hbnd
+      linarith
+    · intro z hzF hzx
+      -- z ≤ x ≤ 0; want z ≤ y.
+      have hz_nonpos : (z : ℝ) ≤ 0 := le_trans hzx hx
+      have h1 : |x| ≤ |(z : ℝ)| := by
+        rw [abs_of_nonpos hx, abs_of_nonpos hz_nonpos]; linarith
+      have h2 : (z : ℝ) * x ≥ 0 := by nlinarith
+      have key := hmin z hzF h1 h2
+      rw [abs_of_nonpos hy_nonpos, abs_of_nonpos hz_nonpos] at key
+      linarith
+
+/-- Composition lemma for RTN (round-down): if `F₁ ⊆ F₂`, then RTN through
+`F₂` to `F₁` agrees with RTN directly to `F₁`. -/
+theorem RoundsRTN.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
+    {x : ℝ} {z w : Dyadic} (hz : RoundsRTN F₂ x z) (hw : RoundsRTN F₁ (z : ℝ) w) :
+    RoundsRTN F₁ x w := by
   obtain ⟨hzF, hzx, hz_max⟩ := hz
   obtain ⟨hwF, hwz, hw_max⟩ := hw
   refine ⟨hwF, le_trans hwz hzx, ?_⟩
@@ -63,11 +302,11 @@ theorem RoundsDown.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
   have hyz : (y : ℝ) ≤ (z : ℝ) := hz_max y hyF₂ hyx
   exact hw_max y hyF₁ hyz
 
-/-- Composition lemma for round-up: if `F₁ ⊆ F₂`, then rounding up through
-`F₂` to `F₁` agrees with rounding up directly to `F₁`. -/
-theorem RoundsUp.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
-    {x : ℝ} {z w : Dyadic} (hz : RoundsUp F₂ x z) (hw : RoundsUp F₁ (z : ℝ) w) :
-    RoundsUp F₁ x w := by
+/-- Composition lemma for RTP (round-up): if `F₁ ⊆ F₂`, then RTP through
+`F₂` to `F₁` agrees with RTP directly to `F₁`. -/
+theorem RoundsRTP.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
+    {x : ℝ} {z w : Dyadic} (hz : RoundsRTP F₂ x z) (hw : RoundsRTP F₁ (z : ℝ) w) :
+    RoundsRTP F₁ x w := by
   obtain ⟨hzF, hxz, hz_min⟩ := hz
   obtain ⟨hwF, hzw, hw_min⟩ := hw
   refine ⟨hwF, le_trans hxz hzw, ?_⟩
@@ -77,13 +316,13 @@ theorem RoundsUp.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
   exact hw_min y hyF₁ hzy
 
 /-- `y = RTO-rounding of x in F` — round to odd. The result `y ∈ F` is either
-the round-down (`RoundsDown`) or round-up (`RoundsUp`) of `x`, and when `x` is
+the round-down (`RoundsRTN`) or round-up (`RoundsRTP`) of `x`, and when `x` is
 not exactly equal to `y`, the parity of `y` (in the `IsOdd F` sense) is odd:
 parity is at precision `numDigits F.p F.exp y` and discriminated by `F.p` (odd
 significand for `F.p ≥ 2`, odd exponent for `F.p = 1`). -/
 def RoundsRTO (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
   y ∈ F ∧
-  (RoundsDown F x y ∨ RoundsUp F x y) ∧
+  (RoundsRTN F x y ∨ RoundsRTP F x y) ∧
   (x ≠ (y : ℝ) → IsOdd F y)
 
 /-- `y = RNE-rounding of x in F` — round to nearest, ties to even. The result
@@ -92,25 +331,36 @@ ties (when `x` is exactly halfway between the two adjacents) are broken by
 picking the value with `IsEven F` parity. -/
 def RoundsRNE (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
   y ∈ F ∧
-  (RoundsDown F x y ∨ RoundsUp F x y) ∧
+  (RoundsRTN F x y ∨ RoundsRTP F x y) ∧
   -- `y` is at least as close to `x` as any other adjacent
-  (∀ z : Dyadic, z ∈ F → (RoundsDown F x z ∨ RoundsUp F x z) →
+  (∀ z : Dyadic, z ∈ F → (RoundsRTN F x z ∨ RoundsRTP F x z) →
     |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
   -- Tie-break: if `x` is equidistant from `y` and another adjacent, `y` is even
-  ((∃ z : Dyadic, z ∈ F ∧ (RoundsDown F x z ∨ RoundsUp F x z) ∧
+  ((∃ z : Dyadic, z ∈ F ∧ (RoundsRTN F x z ∨ RoundsRTP F x z) ∧
       z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
     IsEven F y)
+
+/-- `y = RNA-rounding of x in F` — round to nearest, ties away from zero
+(picking the value with the larger magnitude). Same shape as `RoundsRNE`
+except the tie-break clause requires `|z| ≤ |y|` instead of `IsEven F y`. -/
+def RoundsRNA (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
+  y ∈ F ∧
+  (RoundsRTN F x y ∨ RoundsRTP F x y) ∧
+  (∀ z : Dyadic, z ∈ F → (RoundsRTN F x z ∨ RoundsRTP F x z) →
+    |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
+  (∀ z : Dyadic, z ∈ F → (RoundsRTN F x z ∨ RoundsRTP F x z) →
+      z ≠ y → |x - (y : ℝ)| = |x - (z : ℝ)| → |(z : ℝ)| ≤ |(y : ℝ)|)
 
 /-- If `x ∈ F` and `y` is the RTO-rounding of `x` in `F`, then `y = x`. -/
 theorem RoundsRTO.unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
     {y : Dyadic} (h : RoundsRTO F (x : ℝ) y) : y = x := by
   obtain ⟨_, hadj, _⟩ := h
   rcases hadj with ⟨_, hyx, hmax⟩ | ⟨_, hxy, hmin⟩
-  · -- RoundsDown: (y:ℝ) ≤ (x:ℝ) and y is largest such
+  · -- RoundsRTN: (y:ℝ) ≤ (x:ℝ) and y is largest such
     have hxy : (x : ℝ) ≤ (y : ℝ) := hmax x hx (le_refl _)
     have heq : (y : ℝ) = (x : ℝ) := le_antisymm hyx hxy
     exact Subtype.ext heq
-  · -- RoundsUp: (x:ℝ) ≤ (y:ℝ) and y is smallest such
+  · -- RoundsRTP: (x:ℝ) ≤ (y:ℝ) and y is smallest such
     have hyx : (y : ℝ) ≤ (x : ℝ) := hmin x hx (le_refl _)
     have heq : (y : ℝ) = (x : ℝ) := le_antisymm hyx hxy
     exact Subtype.ext heq
@@ -264,7 +514,7 @@ theorem RoundsRTO.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
     (h : RoundsRTO F x y) : RoundsRTO F (-x) (-y) := by
   obtain ⟨hyF, hadj, hodd_imp⟩ := h
   refine ⟨neg_mem hyF, ?_, ?_⟩
-  · -- RoundsDown ↔ RoundsUp under negation
+  · -- RoundsRTN ↔ RoundsRTP under negation
     rcases hadj with hRD | hRU
     · right
       obtain ⟨_, hyx, hmax⟩ := hRD
@@ -293,11 +543,11 @@ theorem RoundsRTO.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
       rw [h_eq]; push_cast; rfl
     exact (hodd_imp hxne').neg
 
-/-- `RoundsDown ∨ RoundsUp` is preserved (with the disjuncts flipped) under
+/-- `RoundsRTN ∨ RoundsRTP` is preserved (with the disjuncts flipped) under
 joint negation of `x` and `y`. Used by `RoundsRTO.neg` and `RoundsRNE.neg`. -/
 theorem roundsAdj_neg {F : AbstractFormat} {a : ℝ} {b : Dyadic}
-    (h : RoundsDown F a b ∨ RoundsUp F a b) :
-    RoundsDown F (-a) (-b) ∨ RoundsUp F (-a) (-b) := by
+    (h : RoundsRTN F a b ∨ RoundsRTP F a b) :
+    RoundsRTN F (-a) (-b) ∨ RoundsRTP F (-a) (-b) := by
   rcases h with hRD | hRU
   · right
     obtain ⟨hbF, hba, hmax⟩ := hRD
@@ -367,7 +617,7 @@ theorem RoundsRNE.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
   · -- closeness: every adjacent of (-x) corresponds to its negation as adjacent of x
     intro z hzF hzadj
     have hnzF : (-z) ∈ F := neg_mem hzF
-    have hnzadj : RoundsDown F x (-z) ∨ RoundsUp F x (-z) := by
+    have hnzadj : RoundsRTN F x (-z) ∨ RoundsRTP F x (-z) := by
       have := roundsAdj_neg hzadj
       simpa using this
     have key := hclose (-z) hnzF hnzadj
@@ -377,7 +627,7 @@ theorem RoundsRNE.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
   · -- tie-break: a tie at (-x, -y) yields a tie at (x, y); apply IsEven.neg
     rintro ⟨z, hzF, hzadj, hzne, hzdist⟩
     have hnzF : (-z) ∈ F := neg_mem hzF
-    have hnzadj : RoundsDown F x (-z) ∨ RoundsUp F x (-z) := by
+    have hnzadj : RoundsRTN F x (-z) ∨ RoundsRTP F x (-z) := by
       have := roundsAdj_neg hzadj
       simpa using this
     have hnzne : (-z) ≠ y := by
