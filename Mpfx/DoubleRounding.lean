@@ -184,6 +184,64 @@ theorem rndRAZ_RAZ {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
   · -- x > 0
     exact rndRAZ_RAZ_pos hsub hx_pos hz hw
 
+/-- **rnd-RTP-RTP** (round towards +∞ chained). Reduces to `rndRAZ_RAZ_pos`
+when `x > 0` and to `rndRTZ_RTZ` when `x ≤ 0`, via the sign-bridge lemmas. -/
+theorem rndRTP_RTP {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
+    {x : ℝ} {z w : Dyadic}
+    (hz : RoundsRTP F₂ x z) (hw : RoundsRTP F₁ (z : ℝ) w) :
+    RoundsRTP F₁ x w := by
+  rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
+  · -- x < 0: bridge to RTZ.
+    have hx_le : x ≤ 0 := le_of_lt hx_neg
+    have hz_le_0 : (z : ℝ) ≤ 0 := hz.2.2 0 F₂.zero_mem hx_le
+    have hz_RTZ : RoundsRTZ F₂ x z := (RoundsRTP_iff_RTZ_of_nonpos hx_le).mp hz
+    have hw_RTZ : RoundsRTZ F₁ (z : ℝ) w := (RoundsRTP_iff_RTZ_of_nonpos hz_le_0).mp hw
+    have hresult : RoundsRTZ F₁ x w := rndRTZ_RTZ hsub hz_RTZ hw_RTZ
+    exact (RoundsRTP_iff_RTZ_of_nonpos hx_le).mpr hresult
+  · -- x = 0: bridge to RTZ.
+    have hx_le : x ≤ 0 := le_of_eq hx_zero
+    have hz_le_0 : (z : ℝ) ≤ 0 := hz.2.2 0 F₂.zero_mem hx_le
+    have hz_RTZ : RoundsRTZ F₂ x z := (RoundsRTP_iff_RTZ_of_nonpos hx_le).mp hz
+    have hw_RTZ : RoundsRTZ F₁ (z : ℝ) w := (RoundsRTP_iff_RTZ_of_nonpos hz_le_0).mp hw
+    have hresult : RoundsRTZ F₁ x w := rndRTZ_RTZ hsub hz_RTZ hw_RTZ
+    exact (RoundsRTP_iff_RTZ_of_nonpos hx_le).mpr hresult
+  · -- x > 0: bridge to RAZ, apply rndRAZ_RAZ_pos.
+    have hx_nn : 0 ≤ x := le_of_lt hx_pos
+    have hz_nn : 0 ≤ (z : ℝ) := le_trans hx_nn hz.2.1
+    have hz_RAZ : RoundsRAZ F₂ x z := (RoundsRTP_iff_RAZ_of_nn hx_nn).mp hz
+    have hw_RAZ : RoundsRAZ F₁ (z : ℝ) w := (RoundsRTP_iff_RAZ_of_nn hz_nn).mp hw
+    have hresult : RoundsRAZ F₁ x w := rndRAZ_RAZ_pos hsub hx_pos hz_RAZ hw_RAZ
+    exact (RoundsRTP_iff_RAZ_of_nn hx_nn).mpr hresult
+
+/-- **rnd-RTN-RTN** (round towards −∞ chained). Reduces to `rndRTZ_RTZ` when
+`x ≥ 0` and to `rndRAZ_RAZ` when `x < 0`, via the sign-bridge lemmas. -/
+theorem rndRTN_RTN {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
+    {x : ℝ} {z w : Dyadic}
+    (hz : RoundsRTN F₂ x z) (hw : RoundsRTN F₁ (z : ℝ) w) :
+    RoundsRTN F₁ x w := by
+  rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
+  · -- x < 0: bridge to RAZ.
+    have hx_le : x ≤ 0 := le_of_lt hx_neg
+    have hz_le_0 : (z : ℝ) ≤ 0 := le_trans hz.2.1 hx_le
+    have hz_RAZ : RoundsRAZ F₂ x z := (RoundsRTN_iff_RAZ_of_nonpos hx_le).mp hz
+    have hw_RAZ : RoundsRAZ F₁ (z : ℝ) w := (RoundsRTN_iff_RAZ_of_nonpos hz_le_0).mp hw
+    have hresult : RoundsRAZ F₁ x w := rndRAZ_RAZ hsub hz_RAZ hw_RAZ
+    exact (RoundsRTN_iff_RAZ_of_nonpos hx_le).mpr hresult
+  · -- x = 0: bridge to RTZ.
+    have hx_nn : 0 ≤ x := le_of_eq hx_zero.symm
+    have hz_nn : 0 ≤ (z : ℝ) := hz.2.2 0 F₂.zero_mem hx_nn
+    have hz_RTZ : RoundsRTZ F₂ x z := (RoundsRTN_iff_RTZ_of_nn hx_nn).mp hz
+    have hw_RTZ : RoundsRTZ F₁ (z : ℝ) w := (RoundsRTN_iff_RTZ_of_nn hz_nn).mp hw
+    have hresult : RoundsRTZ F₁ x w := rndRTZ_RTZ hsub hz_RTZ hw_RTZ
+    exact (RoundsRTN_iff_RTZ_of_nn hx_nn).mpr hresult
+  · -- x > 0: bridge to RTZ.
+    have hx_nn : 0 ≤ x := le_of_lt hx_pos
+    have hz_nn : 0 ≤ (z : ℝ) := hz.2.2 0 F₂.zero_mem hx_nn
+    have hz_RTZ : RoundsRTZ F₂ x z := (RoundsRTN_iff_RTZ_of_nn hx_nn).mp hz
+    have hw_RTZ : RoundsRTZ F₁ (z : ℝ) w := (RoundsRTN_iff_RTZ_of_nn hz_nn).mp hw
+    have hresult : RoundsRTZ F₁ x w := rndRTZ_RTZ hsub hz_RTZ hw_RTZ
+    exact (RoundsRTN_iff_RTZ_of_nn hx_nn).mpr hresult
+
 /-- **rnd-RTO-RTO** (Fig. 9), general case `x ∈ ℝ`.
 
 Restricted to `F₂.p ≥ 2`. -/
@@ -1123,6 +1181,54 @@ theorem rndRTO_RAZ {F₁ F₂ : AbstractFormat}
       simp [hw'_zero, abs_nonneg]
   · -- x > 0
     exact rndRTO_RAZ_pos hsub_old hp_F₂ hx_pos hz hw
+
+/-- **rnd-RTO-RTP** (round-to-odd then round-to-+∞). Reduces to `rndRTO_RAZ`
+when `x ≥ 0` and to `rndRTO_RTZ` when `x ≤ 0`, via the sign-bridge lemmas. -/
+theorem rndRTO_RTP {F₁ F₂ : AbstractFormat}
+    (hsub : ((F₁.extend 1).withBound F₁.boundAfterNext F₁.boundAfterNext_nn) ⊆ F₂)
+    {x : ℝ} {z w : Dyadic}
+    (hz : RoundsRTO F₂ x z) (hw : RoundsRTP F₁ (z : ℝ) w) :
+    RoundsRTP F₁ x w := by
+  rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
+  · have hx_le : x ≤ 0 := le_of_lt hx_neg
+    have hz_le_0 : (z : ℝ) ≤ 0 := RoundsRTO.nonpos_of_nonpos hx_le hz
+    have hw_RTZ : RoundsRTZ F₁ (z : ℝ) w := (RoundsRTP_iff_RTZ_of_nonpos hz_le_0).mp hw
+    have hresult : RoundsRTZ F₁ x w := rndRTO_RTZ hsub hz hw_RTZ
+    exact (RoundsRTP_iff_RTZ_of_nonpos hx_le).mpr hresult
+  · have hx_le : x ≤ 0 := le_of_eq hx_zero
+    have hz_le_0 : (z : ℝ) ≤ 0 := RoundsRTO.nonpos_of_nonpos hx_le hz
+    have hw_RTZ : RoundsRTZ F₁ (z : ℝ) w := (RoundsRTP_iff_RTZ_of_nonpos hz_le_0).mp hw
+    have hresult : RoundsRTZ F₁ x w := rndRTO_RTZ hsub hz hw_RTZ
+    exact (RoundsRTP_iff_RTZ_of_nonpos hx_le).mpr hresult
+  · have hx_nn : 0 ≤ x := le_of_lt hx_pos
+    have hz_nn : 0 ≤ (z : ℝ) := RoundsRTO.nonneg_of_pos hx_pos hz
+    have hw_RAZ : RoundsRAZ F₁ (z : ℝ) w := (RoundsRTP_iff_RAZ_of_nn hz_nn).mp hw
+    have hresult : RoundsRAZ F₁ x w := rndRTO_RAZ hsub hz hw_RAZ
+    exact (RoundsRTP_iff_RAZ_of_nn hx_nn).mpr hresult
+
+/-- **rnd-RTO-RTN** (round-to-odd then round-to-−∞). Reduces to `rndRTO_RTZ`
+when `x ≥ 0` and to `rndRTO_RAZ` when `x ≤ 0`, via the sign-bridge lemmas. -/
+theorem rndRTO_RTN {F₁ F₂ : AbstractFormat}
+    (hsub : ((F₁.extend 1).withBound F₁.boundAfterNext F₁.boundAfterNext_nn) ⊆ F₂)
+    {x : ℝ} {z w : Dyadic}
+    (hz : RoundsRTO F₂ x z) (hw : RoundsRTN F₁ (z : ℝ) w) :
+    RoundsRTN F₁ x w := by
+  rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
+  · have hx_le : x ≤ 0 := le_of_lt hx_neg
+    have hz_le_0 : (z : ℝ) ≤ 0 := RoundsRTO.nonpos_of_nonpos hx_le hz
+    have hw_RAZ : RoundsRAZ F₁ (z : ℝ) w := (RoundsRTN_iff_RAZ_of_nonpos hz_le_0).mp hw
+    have hresult : RoundsRAZ F₁ x w := rndRTO_RAZ hsub hz hw_RAZ
+    exact (RoundsRTN_iff_RAZ_of_nonpos hx_le).mpr hresult
+  · have hx_nn : 0 ≤ x := le_of_eq hx_zero.symm
+    have hz_nn : 0 ≤ (z : ℝ) := RoundsRTO.nonneg_of_nn hx_nn hz
+    have hw_RTZ : RoundsRTZ F₁ (z : ℝ) w := (RoundsRTN_iff_RTZ_of_nn hz_nn).mp hw
+    have hresult : RoundsRTZ F₁ x w := rndRTO_RTZ hsub hz hw_RTZ
+    exact (RoundsRTN_iff_RTZ_of_nn hx_nn).mpr hresult
+  · have hx_nn : 0 ≤ x := le_of_lt hx_pos
+    have hz_nn : 0 ≤ (z : ℝ) := RoundsRTO.nonneg_of_pos hx_pos hz
+    have hw_RTZ : RoundsRTZ F₁ (z : ℝ) w := (RoundsRTN_iff_RTZ_of_nn hz_nn).mp hw
+    have hresult : RoundsRTZ F₁ x w := rndRTO_RTZ hsub hz hw_RTZ
+    exact (RoundsRTN_iff_RTZ_of_nn hx_nn).mpr hresult
 
 /-- Helper for tie-break: from `|x - w'| = |x - z'|` with `w' ≠ z'`, derive
 `x = (w' + z') / 2`. -/

@@ -382,6 +382,25 @@ theorem RoundsRTO.nonneg_of_pos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
     simpa using this
   · linarith [hRU.2.1]
 
+/-- The RTO-rounding of a non-positive `x` is non-positive. -/
+theorem RoundsRTO.nonpos_of_nonpos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
+    (hx : x ≤ 0) (h : RoundsRTO F x z) : (z : ℝ) ≤ 0 := by
+  rcases h.2.1 with hRD | hRU
+  · linarith [hRD.2.1]
+  · obtain ⟨_, _, hz_min⟩ := hRU
+    have := hz_min 0 F.zero_mem hx
+    simpa using this
+
+/-- The RTO-rounding of a non-negative `x` is non-negative (variant of
+`nonneg_of_pos` covering `x = 0` too). -/
+theorem RoundsRTO.nonneg_of_nn {F : AbstractFormat} {x : ℝ} {z : Dyadic}
+    (hx : 0 ≤ x) (h : RoundsRTO F x z) : 0 ≤ (z : ℝ) := by
+  rcases h.2.1 with hRD | hRU
+  · obtain ⟨_, _, hz_max⟩ := hRD
+    have := hz_max 0 F.zero_mem hx
+    simpa using this
+  · linarith [hRU.2.1]
+
 /-- **Lemma 5.3 (spec-form corollary)**: when `x` is unrepresentable in `F`
 (`x ≠ x'`), the RTO-rounded `x'` cannot coincide with *any* dyadic `y` that is
 representable at strictly lower precision than the rounding precision at `x'`.
