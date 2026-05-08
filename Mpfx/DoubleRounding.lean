@@ -370,7 +370,7 @@ private theorem hp_F₂_or_F₁_trivial {F₁ F₂ : AbstractFormat}
       have h_next_eq : F₁.next b = b + 1 := by unfold AbstractFormat.next; rw [hF_exp]
       rw [h_next_eq]
       rw [Dyadic.coe_ofIntZpow]
-      have hb_nn : 0 ≤ ((b : Dyadic) : ℝ) := F₁.b_nn b hF_b
+      have hb_nn : 0 ≤ ((b : Dyadic) : ℝ) := F₁.b_nn_of_coe hF_b
       push_cast
       have h_v_eq : (3 : ℝ) * (2 : ℝ) ^ (-2 : ℤ) = 3/4 := by norm_num
       rw [h_v_eq]
@@ -564,7 +564,7 @@ private theorem hp_F₂_or_F₁_trivial_RNE {F₁ F₂ : AbstractFormat}
         unfold AbstractFormat.next; rw [h_F₁ext_exp]
       rw [h_next_eq]
       rw [Dyadic.coe_ofIntZpow]
-      have hb_nn : 0 ≤ ((b : Dyadic) : ℝ) := F₁.b_nn b hF_b
+      have hb_nn : 0 ≤ ((b : Dyadic) : ℝ) := F₁.b_nn_of_coe hF_b
       push_cast
       have h_v_eq : (3 : ℝ) * (2 : ℝ) ^ (-2 : ℤ) = 3/4 := by norm_num
       rw [h_v_eq]
@@ -706,7 +706,7 @@ private theorem extend_one_subset_of_paper_subset {F₁ F₂ : AbstractFormat}
     change AbstractFormat.boundOK F₁.b y at hb_y
     rw [hF_b] at hb_y
     have h_y_le_b : |((y : Dyadic) : ℝ)| ≤ ((b : Dyadic) : ℝ) := hb_y
-    have hb_nn : 0 ≤ ((b : Dyadic) : ℝ) := F₁.b_nn b hF_b
+    have hb_nn : 0 ≤ ((b : Dyadic) : ℝ) := F₁.b_nn_of_coe hF_b
     linarith [AbstractFormat.self_le_next F₁ b hb_nn]
 
 /-- RNE analog of `extend_one_subset_of_paper_subset`: from the paper-aligned
@@ -741,7 +741,7 @@ private theorem extend_two_subset_of_paper_RNE_subset {F₁ F₂ : AbstractForma
     have hF₁_ext2_b : (F₁.extend 2).b = F₁.b := rfl
     rw [hF₁_ext2_b, hF_b] at hb_y
     have h_y_le_b : |((y : Dyadic) : ℝ)| ≤ ((b : Dyadic) : ℝ) := hb_y
-    have hb_nn : 0 ≤ ((b : Dyadic) : ℝ) := F₁.b_nn b hF_b
+    have hb_nn : 0 ≤ ((b : Dyadic) : ℝ) := F₁.b_nn_of_coe hF_b
     linarith [AbstractFormat.self_le_next (F₁.extend 1) b hb_nn]
 
 /-- `(F.extend 1).extend 1 ⊆ F.extend 2` via precision/quantum equivalence. -/

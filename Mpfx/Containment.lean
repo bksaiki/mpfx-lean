@@ -87,16 +87,14 @@ theorem containsSub {p₁ : ℕ∞} {p₂ : ℕ} {exp₁ : ℤ} {exp₂ : WithBo
     (hp₂ : 1 ≤ p₂)
     (hnd₂ : p₂ ≠ 1 ∨ exp₂ ≠ ⊥)
     (hβ : 0 ≤ (β₁ : ℝ))
-    (hb_nn : ∀ d : Dyadic, b₂ = ↑d → 0 ≤ (d : ℝ))
+    (hb_nn : (0 : WithTop Dyadic) ≤ b₂)
     (hbprec : (β₁ : ℝ) ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)))
     (he : exp₂ ≤ (exp₁ : WithBot ℤ))
     (hb : (β₁ : WithTop Dyadic) ≤ b₂) :
     ({ p := p₁, exp := (exp₁ : WithBot ℤ), b := (β₁ : WithTop Dyadic),
        p_pos := hp₁,
        not_degenerate := Or.inr (by simp),
-       b_nn := fun d hd => by
-         have : d = β₁ := by exact_mod_cast hd.symm
-         rw [this]; exact hβ } : AbstractFormat)
+       b_nn := by exact_mod_cast hβ } : AbstractFormat)
       ⊆ { p := (p₂ : ℕ∞), exp := exp₂, b := b₂,
           p_pos := by exact_mod_cast hp₂,
           not_degenerate := by
