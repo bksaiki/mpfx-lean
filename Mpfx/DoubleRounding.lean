@@ -205,11 +205,12 @@ theorem rndRTO_RTO {F₁ F₂ : AbstractFormat}
     refine ⟨hw'F₁, hw_adj, ?_⟩
     intro hxne
     exact hw_odd_imp hxne
-  · -- z ≠ x: split on z ∈ F₁ vs z ∉ F₁
+  · -- z ≠ x: split on z = w' vs z ≠ w' (decidable equality on Dyadic).
     have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
-    rcases Classical.em (z ∈ F₁) with hzF₁ | hz_not_F₁
-    · -- z ∈ F₁: w' = z by uniqueness; conclusion follows from F₂'s data + IsOdd transfer
-      have hw'_eq : w' = z := RoundsRTO.unique_of_mem hzF₁ hw
+    rcases eq_or_ne z w' with hzw | hzw
+    · -- z = w': w' is x's F₁-rounding directly via hz's adjacency.
+      have hzF₁ : z ∈ F₁ := hzw ▸ hw'F₁
+      have hw'_eq : w' = z := hzw.symm
       have hw'_eq_real : (w' : ℝ) = (z : ℝ) := by rw [hw'_eq]
       refine ⟨hw'F₁, ?_, ?_⟩
       · -- Adjacency: z is x's F₁-adjacent (because z ∈ F₁ ⊆ F₂ and z is x's F₂-adjacent)
@@ -233,12 +234,8 @@ theorem rndRTO_RTO {F₁ F₂ : AbstractFormat}
             = numDigits F₂.p F₂.exp ((z : Dyadic) : ℝ) :=
           numDigits_eq_of_subset_of_isOdd hsub hp_F₂ hzF₁ h_iod_F₂
         exact IsOdd.transfer_of_numDigits_eq hsub hp_F₂ hzF₁ h_iod_F₂ h_eq
-    · -- z ∉ F₁: standard 4-way adjacency case split
-      have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := by
-        intro h_eq
-        apply hz_not_F₁
-        rw [show z = w' from Subtype.ext h_eq]
-        exact hw'F₁
+    · -- z ≠ w': standard 4-way adjacency case split.
+      have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := fun h_eq => hzw (Subtype.ext h_eq)
       refine ⟨hw'F₁, ?_, ?_⟩
       · rcases hz_adj with hzRD | hzRU
         · rcases hw_adj with hwRD | hwRU
