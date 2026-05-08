@@ -101,16 +101,6 @@ def RoundsRNE (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
       z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
     IsEven F y)
 
-/-- For `x ∈ F`, the RTO rounding is `x` itself. -/
-theorem RoundsRTO.of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F) :
-    RoundsRTO F (x : ℝ) x := by
-  refine ⟨hx, Or.inl ?_, ?_⟩
-  · refine ⟨hx, le_refl _, ?_⟩
-    intro z _ hzx
-    exact hzx
-  · intro hne
-    exact absurd rfl hne
-
 /-- If `x ∈ F` and `y` is the RTO-rounding of `x` in `F`, then `y = x`. -/
 theorem RoundsRTO.unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
     {y : Dyadic} (h : RoundsRTO F (x : ℝ) y) : y = x := by
@@ -124,6 +114,23 @@ theorem RoundsRTO.unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
     have hyx : (y : ℝ) ≤ (x : ℝ) := hmin x hx (le_refl _)
     have heq : (y : ℝ) = (x : ℝ) := le_antisymm hyx hxy
     exact Subtype.ext heq
+
+/-- The RTO-rounding of `0` in any format is `0` itself. -/
+theorem RoundsRTO.eq_zero_of_zero {F : AbstractFormat} {z : Dyadic}
+    (h : RoundsRTO F 0 z) : z = 0 := by
+  have h0 : RoundsRTO F (((0 : Dyadic) : ℝ)) z := by
+    have : ((0 : Dyadic) : ℝ) = 0 := rfl
+    rw [this]; exact h
+  exact RoundsRTO.unique_of_mem F.zero_mem h0
+
+/-- The RTO-rounding of a positive `x` is non-negative. -/
+theorem RoundsRTO.nonneg_of_pos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
+    (hx_pos : 0 < x) (h : RoundsRTO F x z) : 0 ≤ (z : ℝ) := by
+  rcases h.2.1 with hRD | hRU
+  · obtain ⟨_, _, hz_max⟩ := hRD
+    have := hz_max 0 F.zero_mem hx_pos.le
+    simpa using this
+  · linarith [hRU.2.1]
 
 /-- **Lemma 5.3 (spec-form corollary)**: when `x` is unrepresentable in `F`
 (`x ≠ x'`), the RTO-rounded `x'` cannot coincide with *any* dyadic `y` that is

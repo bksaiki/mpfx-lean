@@ -25,12 +25,21 @@ structure AbstractFormat where
     for `IsOdd` (Odd e in the canonical 1-bit representation) is meaningful
     only with a quantum to anchor the index counting from. -/
   not_degenerate : (p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥
-  /-- The bound is non-negative when finite. This rules out degenerate formats
-  with negative bounds (which would have no representable values), and
-  guarantees that `0` is always representable in any `AbstractFormat`. -/
-  b_nn : ∀ d : Dyadic, b = ↑d → 0 ≤ (d : ℝ)
+  /-- The bound is non-negative. This rules out degenerate formats with
+  negative bounds (which would have no representable values), and guarantees
+  that `0` is always representable in any `AbstractFormat`. The `WithTop`
+  order treats `⊤ ≥ 0` trivially, so this constrains the finite case only. -/
+  b_nn : (0 : WithTop Dyadic) ≤ b
 
 namespace AbstractFormat
+
+/-- Ergonomic form of `b_nn` for callers that have destructured `F.b = ↑d`:
+extracts `0 ≤ (d : ℝ)` directly. -/
+theorem b_nn_of_coe (F : AbstractFormat) {d : Dyadic} (h : F.b = ↑d) :
+    0 ≤ (d : ℝ) := by
+  have := F.b_nn
+  rw [h] at this
+  exact_mod_cast WithTop.coe_le_coe.mp this
 
 /-- Extend `F` by increasing precision by `k` and decreasing the exponent of
 the quantum by `k`. The bound is preserved.
@@ -106,7 +115,7 @@ Used together with `extend` to express the paper's RTO double-rounding
 hypotheses, e.g., `((F.extend 1).withBound (F.next F.b) hb) ⊆ F₂` for
 `rnd-RTO-RTZ`. -/
 def withBound (F : AbstractFormat) (b' : WithTop Dyadic)
-    (hb' : ∀ d : Dyadic, b' = ↑d → 0 ≤ (d : ℝ)) : AbstractFormat where
+    (hb' : (0 : WithTop Dyadic) ≤ b') : AbstractFormat where
   p := F.p
   exp := F.exp
   b := b'
@@ -114,16 +123,16 @@ def withBound (F : AbstractFormat) (b' : WithTop Dyadic)
   not_degenerate := F.not_degenerate
   b_nn := hb'
 
-@[simp] theorem withBound_p (F : AbstractFormat) (b' : WithTop Dyadic) (hb' :
-    ∀ d : Dyadic, b' = ↑d → 0 ≤ (d : ℝ)) :
+@[simp] theorem withBound_p (F : AbstractFormat) (b' : WithTop Dyadic)
+    (hb' : (0 : WithTop Dyadic) ≤ b') :
     (F.withBound b' hb').p = F.p := rfl
 
-@[simp] theorem withBound_exp (F : AbstractFormat) (b' : WithTop Dyadic) (hb' :
-    ∀ d : Dyadic, b' = ↑d → 0 ≤ (d : ℝ)) :
+@[simp] theorem withBound_exp (F : AbstractFormat) (b' : WithTop Dyadic)
+    (hb' : (0 : WithTop Dyadic) ≤ b') :
     (F.withBound b' hb').exp = F.exp := rfl
 
-@[simp] theorem withBound_b (F : AbstractFormat) (b' : WithTop Dyadic) (hb' :
-    ∀ d : Dyadic, b' = ↑d → 0 ≤ (d : ℝ)) :
+@[simp] theorem withBound_b (F : AbstractFormat) (b' : WithTop Dyadic)
+    (hb' : (0 : WithTop Dyadic) ≤ b') :
     (F.withBound b' hb').b = b' := rfl
 
 /-- The paper's `next_{F.p, F.exp}(b)` from §5.2 / Fig. 9: the smallest Dyadic
@@ -435,8 +444,9 @@ private theorem grid_rep_c_pos {y : Dyadic} (hy_pos : 0 < ((y : Dyadic) : ℝ))
     exact pos_of_mul_pos_left (by linarith) (le_of_lt h_2k_pos)
   exact_mod_cast h_c_real_pos
 
-/-- F-grid representation for `F.exp = ⊥`. Same as `exists_grid_rep` but
-`k = ⌊log₂ y⌋ - p + 1` (no `max` with exp). -/
+/-- F-grid representation in the precision-only form: `k = ⌊log₂ y⌋ - p + 1`
+(no `max` with `F.exp`). Useful when `F.exp = ⊥` (since the `k ≥ exp` clause
+of `exists_grid_rep` is then vacuous). -/
 theorem exists_grid_rep_exp_bot (F : AbstractFormat) {p : ℕ}
     (hp : F.p = (p : ℕ∞))
     {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.p y)
@@ -630,8 +640,8 @@ private theorem no_F_element_in_step_interval (F : AbstractFormat) {p : ℕ} {ex
   have h_c'_int_lt : c' < c + 1 := by exact_mod_cast h_c'_lt_c1
   omega
 
-/-- No F element lies strictly in `(c·2^k, (c+1)·2^k)` for the F.exp = ⊥ case.
-Same argument as the finite-exp version, but k = log(c·2^k) - p + 1 (no max). -/
+/-- No F element lies strictly in `(c·2^k, (c+1)·2^k)` when `k` is the
+precision-only step `log(c·2^k) - p + 1` (no `max` with `F.exp`). -/
 private theorem no_F_element_in_step_interval_exp_bot (F : AbstractFormat) {p : ℕ}
     (hp : F.p = (p : ℕ∞))
     {c : ℤ} (hc_pos : 0 < c) (hc_lt : c < (2 : ℤ) ^ p)
@@ -704,28 +714,22 @@ noncomputable def boundAfterNext (F : AbstractFormat) : WithTop Dyadic :=
   | ⊤ => ⊤
   | (b : Dyadic) => ((F.next b : Dyadic) : WithTop Dyadic)
 
-/-- `b_nn` invariant for `F.boundAfterNext`: when finite, the bound is
-non-negative, derived from `next_nonneg` and `F.b_nn`. -/
+/-- `b_nn` invariant for `F.boundAfterNext`: the bound is non-negative,
+derived from `next_nonneg` and `F.b_nn`. -/
 theorem boundAfterNext_nn (F : AbstractFormat) :
-    ∀ d : Dyadic, F.boundAfterNext = ↑d → 0 ≤ ((d : Dyadic) : ℝ) := by
-  intro d hd
+    (0 : WithTop Dyadic) ≤ F.boundAfterNext := by
   cases hF_b : F.b with
   | top =>
-    -- F.b = ⊤ ⇒ boundAfterNext = ⊤. But hd says boundAfterNext = ↑d (finite).
-    -- Contradiction.
     have : F.boundAfterNext = ⊤ := by unfold boundAfterNext; rw [hF_b]
-    rw [this] at hd
-    exact absurd hd (by simp)
+    rw [this]; exact le_top
   | coe b =>
-    -- F.b = ↑b. boundAfterNext = ↑(F.next b). hd: ↑(F.next b) = ↑d ⇒ d = F.next b.
     have h_eq : F.boundAfterNext = ((F.next b : Dyadic) : WithTop Dyadic) := by
       unfold boundAfterNext; rw [hF_b]
-    rw [h_eq] at hd
-    have hd_eq : d = F.next b := by exact_mod_cast hd.symm
-    rw [hd_eq]
-    -- Need 0 ≤ F.next b. Use next_nonneg with hb : 0 ≤ b from F.b_nn.
-    have hb : 0 ≤ ((b : Dyadic) : ℝ) := F.b_nn b hF_b
-    exact next_nonneg F b hb
+    rw [h_eq]
+    have hb : 0 ≤ ((b : Dyadic) : ℝ) := F.b_nn_of_coe hF_b
+    have h_next_nn : 0 ≤ ((F.next b : Dyadic) : ℝ) := next_nonneg F b hb
+    have : (0 : Dyadic) ≤ F.next b := by exact_mod_cast h_next_nn
+    exact_mod_cast this
 
 /-- When `F.p = 1`, the structural invariant forces `F.exp ≠ ⊥`. -/
 theorem exp_finite_of_p_one (F : AbstractFormat) (h : F.p = 1) : F.exp ≠ ⊥ := by
@@ -746,9 +750,6 @@ def boundOK : WithTop Dyadic → Dyadic → Prop
 
 @[simp] theorem boundOK_top (x : Dyadic) : boundOK ⊤ x := trivial
 
-theorem boundOK_coe (b : Dyadic) (x : Dyadic) :
-    boundOK (b : WithTop Dyadic) x ↔ |(x : ℝ)| ≤ (b : ℝ) := Iff.rfl
-
 /-- Membership in `𝒜(p, exp, b)`: precision ≤ p, quantum ≥ exp, |x| ≤ b. -/
 def Mem (F : AbstractFormat) (x : Dyadic) : Prop :=
   Dyadic.precisionAtMost F.p x ∧
@@ -756,11 +757,6 @@ def Mem (F : AbstractFormat) (x : Dyadic) : Prop :=
   boundOK F.b x
 
 instance : Membership Dyadic AbstractFormat := ⟨fun F x => F.Mem x⟩
-
-theorem mem_iff (F : AbstractFormat) (x : Dyadic) :
-    x ∈ F ↔ Dyadic.precisionAtMost F.p x ∧
-            Dyadic.quantumAtLeast F.exp x ∧
-            boundOK F.b x := Iff.rfl
 
 /-- `0` is always representable. Uses the structural `b_nn` invariant. -/
 theorem zero_mem (F : AbstractFormat) : (0 : Dyadic) ∈ F := by
@@ -779,7 +775,7 @@ theorem zero_mem (F : AbstractFormat) : (0 : Dyadic) ∈ F := by
     | coe d =>
       change |((0 : Dyadic) : ℝ)| ≤ (d : ℝ)
       push_cast
-      simpa using F.b_nn d hb
+      simpa using F.b_nn_of_coe hb
 
 /-- Every abstract format is closed under negation: `precisionAtMost`,
 `quantumAtLeast`, and the bound `|·| ≤ b` are all sign-invariant. -/
@@ -1167,7 +1163,7 @@ theorem half_mem_extend_one (F : AbstractFormat) {p : ℕ}
       rw [h_mid_eq]
       change boundOK F.b y at hb_y
       rw [hF_b] at hb_y
-      have h_b_nn : 0 ≤ ((b : Dyadic) : ℝ) := F.b_nn b hF_b
+      have h_b_nn : 0 ≤ ((b : Dyadic) : ℝ) := F.b_nn_of_coe hF_b
       have hy_le : |((y : Dyadic) : ℝ)| ≤ ((b : Dyadic) : ℝ) := hb_y
       rw [abs_div, abs_of_pos (by norm_num : (0 : ℝ) < 2)]
       linarith
