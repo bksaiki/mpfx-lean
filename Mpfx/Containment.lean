@@ -76,18 +76,17 @@ theorem extend_mono (F : AbstractFormat) {j k : ℕ} (h : j ≤ k) :
       exact WithBot.coe_le_coe.mpr (by linarith)
   · exact le_refl _
 
-/-- **𝒜-Contains-Sub** (Fig. 8). If `F₁`'s bound `β₁` is small enough that
-all values of `F₁` fit in `F₂.p` bits at exponent `exp₁`, plus the standard
+/-- **𝒜-Contains-Sub** (Fig. 8). If `F₁`'s bound is small enough that all
+values of `F₁` fit in `F₂.p` bits at exponent `exp₁`, plus the standard
 quantum and bound orderings, then `F₁ ⊆ F₂`. Covers the degenerate-format
 case where `F₁.p > F₂.p` is allowed because `F₁`'s bound is so small that
 nothing in `F₁` actually uses more than `F₂.p` bits. Requires `F₁.exp` and
-`F₁.b` finite (so the bound argument has a concrete exponent to operate on)
-and `F₂.p` finite (target precision). -/
+`F₂.p` finite. -/
 theorem containsSub {F₁ F₂ : AbstractFormat}
     {exp₁ : ℤ} (he₁ : F₁.exp = (exp₁ : WithBot ℤ))
-    {β₁ : Dyadic} (hb₁ : F₁.b = (β₁ : WithTop Dyadic))
     {p₂ : ℕ} (hp₂ : F₂.p = (p₂ : ℕ∞))
-    (hbprec : (β₁ : ℝ) ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)))
+    (hbprec : F₁.b ≤
+      ((Dyadic.ofIntZpow 1 (exp₁ + (p₂ : ℤ)) : Dyadic) : WithTop Dyadic))
     (he : F₂.exp ≤ F₁.exp)
     (hb : F₁.b ≤ F₂.b) :
     F₁ ⊆ F₂ := by
@@ -98,16 +97,20 @@ theorem containsSub {F₁ F₂ : AbstractFormat}
   have hex_coe : Dyadic.quantumAtLeast (exp₁ : WithBot ℤ) x := by
     rw [← he₁]; exact hex
   obtain ⟨c, hx_eq⟩ := hex_coe
-  have hbx' : |(x : ℝ)| ≤ ((β₁ : Dyadic) : ℝ) := by
-    have := hbx
-    rw [hb₁] at this
-    exact this
+  -- |x| ≤ 2^(exp₁ + p₂), via the bound on F₁.b.
+  have hbx' : |(x : ℝ)| ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)) := by
+    have h_bnd : AbstractFormat.boundOK
+        ((Dyadic.ofIntZpow 1 (exp₁ + (p₂ : ℤ)) : Dyadic) : WithTop Dyadic) x :=
+      boundOK_mono hbprec hbx
+    have : |(x : ℝ)| ≤ ((Dyadic.ofIntZpow 1 (exp₁ + (p₂ : ℤ)) : Dyadic) : ℝ) := h_bnd
+    rw [Dyadic.coe_ofIntZpow] at this
+    push_cast at this
+    rwa [one_mul] at this
   have hc_le_real : |(c : ℝ)| ≤ (2 : ℝ) ^ (p₂ : ℤ) := by
     have h1 : |(c : ℝ)| * (2 : ℝ) ^ exp₁ ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)) := by
       calc |(c : ℝ)| * (2 : ℝ) ^ exp₁
           = |(x : ℝ)| := by rw [hx_eq, abs_mul_two_zpow]
-        _ ≤ (β₁ : ℝ) := hbx'
-        _ ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)) := hbprec
+        _ ≤ (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)) := hbx'
     have h2 : (2 : ℝ) ^ (exp₁ + (p₂ : ℤ)) = (2 : ℝ) ^ (p₂ : ℤ) * (2 : ℝ) ^ exp₁ := by
       rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; ring
     rw [h2] at h1
