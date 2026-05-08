@@ -884,17 +884,10 @@ private theorem rndRTO_RTZ_pos {F₁ F₂ : AbstractFormat}
   have hsub' : F₁ ⊆ F₂ := fun y hy => hsub _ (hF₁_sub_ext _ hy)
   -- Body: copied from `rndRTO_RTZ_pos`, but replace the
   -- `notMem_of_lower_numDigits` step with `notMem_of_extend_subset`.
-  have h0_F₂ : (0 : Dyadic) ∈ F₂ := F₂.zero_mem
+  have hz_nn : 0 ≤ (z : ℝ) := RoundsRTO.nonneg_of_pos hx_pos hz
   obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
   obtain ⟨hw'F₁, hw'_bnd_z, hw'_sign_z, hw'_max⟩ := hw
   have hx_abs : |x| = x := abs_of_pos hx_pos
-  have hz_nn : 0 ≤ (z : ℝ) := by
-    rcases hz_adj with hRD | hRU
-    · obtain ⟨_, _, hz_max⟩ := hRD
-      have h := hz_max 0 h0_F₂ hx_pos.le
-      simpa using h
-    · obtain ⟨_, hxz, _⟩ := hRU
-      linarith
   have hz_abs : |(z : ℝ)| = (z : ℝ) := abs_of_nonneg hz_nn
   rw [hz_abs] at hw'_bnd_z
   have hw'_nn : 0 ≤ (w' : ℝ) := by
@@ -984,18 +977,7 @@ theorem rndRTO_RTZ {F₁ F₂ : AbstractFormat}
     rwa [neg_neg, neg_neg] at hfinal
   · -- x = 0: forces z = 0 and w' = 0.
     subst hx_zero
-    have h0_F₂ : (0 : Dyadic) ∈ F₂ := F₂.zero_mem
-    obtain ⟨hzF₂, hz_adj, _⟩ := hz
-    have hz_zero : z = 0 := by
-      rcases hz_adj with ⟨_, hz_le, hz_max⟩ | ⟨_, hz_ge, hz_min⟩
-      · have h1 : (0 : ℝ) ≤ (z : ℝ) := hz_max 0 h0_F₂ (le_refl _)
-        have h2 : (z : ℝ) ≤ 0 := hz_le
-        have : (z : ℝ) = 0 := le_antisymm h2 h1
-        exact Subtype.ext this
-      · have h1 : (z : ℝ) ≤ 0 := hz_min 0 h0_F₂ (le_refl _)
-        have h2 : (0 : ℝ) ≤ (z : ℝ) := hz_ge
-        have : (z : ℝ) = 0 := le_antisymm h1 h2
-        exact Subtype.ext this
+    have hz_zero : z = 0 := RoundsRTO.eq_zero_of_zero hz
     rw [hz_zero] at hw
     obtain ⟨hw'F₁, hw'_bnd, _, _⟩ := hw
     have hw'_zero : (w' : ℝ) = 0 := by
@@ -1028,18 +1010,10 @@ private theorem rndRTO_RAZ_pos {F₁ F₂ : AbstractFormat}
     RoundsRAZ F₁ x w' := by
   have hF₁_sub_ext : F₁ ⊆ F₁.extend 1 := self_subset_extend F₁ 1
   have hsub' : F₁ ⊆ F₂ := fun y hy => hsub _ (hF₁_sub_ext _ hy)
-  have h0_F₂ : (0 : Dyadic) ∈ F₂ := F₂.zero_mem
+  have hz_nn : 0 ≤ (z : ℝ) := RoundsRTO.nonneg_of_pos hx_pos hz
   obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
   obtain ⟨hw'F₁, hw'_bnd_z, hw'_sign_z, hw'_min⟩ := hw
   have hx_abs : |x| = x := abs_of_pos hx_pos
-  -- z ≥ 0
-  have hz_nn : 0 ≤ (z : ℝ) := by
-    rcases hz_adj with hRD | hRU
-    · obtain ⟨_, _, hz_max⟩ := hRD
-      have h := hz_max 0 h0_F₂ hx_pos.le
-      simpa using h
-    · obtain ⟨_, hxz, _⟩ := hRU
-      linarith
   have hz_abs : |(z : ℝ)| = (z : ℝ) := abs_of_nonneg hz_nn
   rw [hz_abs] at hw'_bnd_z
   -- z > 0 (RTO of positive x cannot be 0)
@@ -1135,16 +1109,7 @@ theorem rndRTO_RAZ {F₁ F₂ : AbstractFormat}
     rwa [neg_neg, neg_neg] at hfinal
   · -- x = 0: pin z = 0 = w'
     subst hx_zero
-    have h0_F₂ : (0 : Dyadic) ∈ F₂ := F₂.zero_mem
-    obtain ⟨hzF₂, hz_adj, _⟩ := hz
-    have hz_zero : z = 0 := by
-      rcases hz_adj with ⟨_, hz_le, hz_max⟩ | ⟨_, hz_ge, hz_min⟩
-      · have h1 : (0 : ℝ) ≤ (z : ℝ) := hz_max 0 h0_F₂ (le_refl _)
-        have : (z : ℝ) = 0 := le_antisymm hz_le h1
-        exact Subtype.ext this
-      · have h1 : (z : ℝ) ≤ 0 := hz_min 0 h0_F₂ (le_refl _)
-        have : (z : ℝ) = 0 := le_antisymm h1 hz_ge
-        exact Subtype.ext this
+    have hz_zero : z = 0 := RoundsRTO.eq_zero_of_zero hz
     rw [hz_zero] at hw
     obtain ⟨hw'F₁, _, _, hw'_min⟩ := hw
     have h0_F₁ : (0 : Dyadic) ∈ F₁ := F₁.zero_mem
@@ -1173,6 +1138,228 @@ private theorem RoundsRNE.midpoint_of_tie {x : ℝ} {w' z' : Dyadic}
     exact absurd (Subtype.ext this).symm h_ne
   · -- x - w' = -(x - z') ⇒ 2x = w' + z'
     linarith
+
+/-- The closeness transfer step for `rndRTO_RNE`: given that `z = RTO F₂ x`
+sits outside `F₁.extend 1` (Lemma 5.3) and `w' = RNE F₁ z`, every F₁-adjacent
+`z'` to `x` satisfies `|x - w'| ≤ |x - z'|`. The argument uses the midpoint
+`m = (w' + z') / 2` (in F₂ via `midpoint_F₁_in_F₂_of_F_adjacent`, in
+`F₁.extend 1` via `midpoint_in_F₁_extend_one_of_F_adjacent`), shows
+`z ≠ m`, and concludes `x` lies on `w'`'s side of `m`. -/
+private lemma rndRTO_RNE_close_transfer {F₁ F₂ : AbstractFormat}
+    (hsub_paper : ((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext
+                    (F₁.extend 1).boundAfterNext_nn) ⊆ F₂)
+    (hsub' : F₁ ⊆ F₂)
+    (hF₁_sub_ext1 : F₁ ⊆ F₁.extend 1)
+    {x : ℝ} {z w' : Dyadic}
+    (hz_adj : RoundsDown F₂ x z ∨ RoundsUp F₂ x z)
+    (hw'F₁ : w' ∈ F₁)
+    (h_adj_x : RoundsDown F₁ x w' ∨ RoundsUp F₁ x w')
+    (hw_close_inner : ∀ z' : Dyadic, z' ∈ F₁ →
+        (RoundsDown F₁ ((z : Dyadic) : ℝ) z' ∨ RoundsUp F₁ ((z : Dyadic) : ℝ) z') →
+        |((z : Dyadic) : ℝ) - ((w' : Dyadic) : ℝ)| ≤
+            |((z : Dyadic) : ℝ) - ((z' : Dyadic) : ℝ)|)
+    (hz_not_F₁_ext1 : z ∉ F₁.extend 1) :
+    ∀ z' : Dyadic, z' ∈ F₁ →
+      (RoundsDown F₁ x z' ∨ RoundsUp F₁ x z') →
+      |x - ((w' : Dyadic) : ℝ)| ≤ |x - ((z' : Dyadic) : ℝ)| := by
+  intro z' hz'F₁ hz'_adj
+  by_cases h_eq : ((z' : Dyadic) : ℝ) = ((w' : Dyadic) : ℝ)
+  · rw [h_eq]
+  · have h_w_ne_z' : ((w' : Dyadic) : ℝ) ≠ ((z' : Dyadic) : ℝ) := fun h => h_eq h.symm
+    have h_z_ne_w'_real : ((z : Dyadic) : ℝ) ≠ ((w' : Dyadic) : ℝ) := by
+      intro h
+      apply hz_not_F₁_ext1
+      have hzw : z = w' := Subtype.ext h
+      rw [hzw]; exact hF₁_sub_ext1 _ hw'F₁
+    have h_z_ne_z'_real : ((z : Dyadic) : ℝ) ≠ ((z' : Dyadic) : ℝ) := by
+      intro h
+      apply hz_not_F₁_ext1
+      have hzz' : z = z' := Subtype.ext h
+      rw [hzz']; exact hF₁_sub_ext1 _ hz'F₁
+    have hw'F₂ : w' ∈ F₂ := hsub' _ hw'F₁
+    have hz'F₂ : z' ∈ F₂ := hsub' _ hz'F₁
+    rcases lt_or_gt_of_ne h_w_ne_z' with h_w_lt_z | h_z_lt_w
+    · have hwRD : RoundsDown F₁ x w' := by
+        rcases h_adj_x with hwRD | hwRU
+        · exact hwRD
+        · exfalso
+          rcases hz'_adj with hzRD | hzRU
+          · linarith [hwRU.2.1, hzRD.2.1]
+          · have h1 : ((w' : Dyadic) : ℝ) ≤ ((z' : Dyadic) : ℝ) :=
+              hwRU.2.2 z' hz'F₁ hzRU.2.1
+            have h2 : ((z' : Dyadic) : ℝ) ≤ ((w' : Dyadic) : ℝ) :=
+              hzRU.2.2 w' hw'F₁ hwRU.2.1
+            exact h_w_ne_z' (le_antisymm h1 h2)
+      have hzRU : RoundsUp F₁ x z' := by
+        rcases hz'_adj with hzRD | hzRU
+        · exfalso
+          have h1 : ((w' : Dyadic) : ℝ) ≤ ((z' : Dyadic) : ℝ) :=
+            hzRD.2.2 w' hw'F₁ hwRD.2.1
+          have h2 : ((z' : Dyadic) : ℝ) ≤ ((w' : Dyadic) : ℝ) :=
+            hwRD.2.2 z' hz'F₁ hzRD.2.1
+          exact h_w_ne_z' (le_antisymm h1 h2)
+        · exact hzRU
+      have h_w_le_x : ((w' : Dyadic) : ℝ) ≤ x := hwRD.2.1
+      have h_x_le_z : x ≤ ((z' : Dyadic) : ℝ) := hzRU.2.1
+      have h_F_adj : ∀ y : Dyadic, y ∈ F₁ →
+          ((w' : Dyadic) : ℝ) < ((y : Dyadic) : ℝ) →
+          ((z' : Dyadic) : ℝ) ≤ ((y : Dyadic) : ℝ) :=
+        F_adjacent_of_RNE_round_pair (Or.inl hwRD) (Or.inr hzRU) h_w_le_x h_x_le_z
+      have h_mid_F₂ : Dyadic.midpoint w' z' ∈ F₂ :=
+        midpoint_F₁_in_F₂_of_F_adjacent hsub_paper hw'F₁ hz'F₁
+          h_w_lt_z h_F_adj
+      have h_mid_F₁_ext1 : Dyadic.midpoint w' z' ∈ F₁.extend 1 :=
+        midpoint_in_F₁_extend_one_of_F_adjacent hw'F₁ hz'F₁
+          h_w_lt_z h_F_adj
+      have h_mid_real : ((Dyadic.midpoint w' z' : Dyadic) : ℝ) =
+          (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 := Dyadic.coe_midpoint w' z'
+      have h_z_ne_m : ((z : Dyadic) : ℝ) ≠ ((Dyadic.midpoint w' z' : Dyadic) : ℝ) := by
+        intro h_eq_m
+        apply hz_not_F₁_ext1
+        have : z = Dyadic.midpoint w' z' := Subtype.ext h_eq_m
+        rw [this]; exact h_mid_F₁_ext1
+      have h_w_le_z_F : ((w' : Dyadic) : ℝ) ≤ ((z : Dyadic) : ℝ) := by
+        rcases hz_adj with hzRD' | hzRU'
+        · exact hzRD'.2.2 w' hw'F₂ h_w_le_x
+        · linarith [hzRU'.2.1]
+      have h_z_le_z'_F : ((z : Dyadic) : ℝ) ≤ ((z' : Dyadic) : ℝ) := by
+        rcases hz_adj with hzRD' | hzRU'
+        · linarith [hzRD'.2.1]
+        · exact hzRU'.2.2 z' hz'F₂ h_x_le_z
+      have h_w_lt_z_F : ((w' : Dyadic) : ℝ) < ((z : Dyadic) : ℝ) :=
+        lt_of_le_of_ne h_w_le_z_F (Ne.symm h_z_ne_w'_real)
+      have h_z_lt_z' : ((z : Dyadic) : ℝ) < ((z' : Dyadic) : ℝ) :=
+        lt_of_le_of_ne h_z_le_z'_F h_z_ne_z'_real
+      have hz_RU_z' : RoundsUp F₁ z z' := by
+        refine ⟨hz'F₁, le_of_lt h_z_lt_z', ?_⟩
+        intro y hyF₁ h_z_le_y
+        have h_w_lt_y : ((w' : Dyadic) : ℝ) < ((y : Dyadic) : ℝ) := by linarith
+        exact h_F_adj y hyF₁ h_w_lt_y
+      have h_z_close : |((z : Dyadic) : ℝ) - ((w' : Dyadic) : ℝ)|
+          ≤ |((z : Dyadic) : ℝ) - ((z' : Dyadic) : ℝ)| :=
+        hw_close_inner z' hz'F₁ (Or.inr hz_RU_z')
+      have h_z_w_pos : 0 < ((z : Dyadic) : ℝ) - ((w' : Dyadic) : ℝ) := by linarith
+      have h_z_z_neg : ((z : Dyadic) : ℝ) - ((z' : Dyadic) : ℝ) < 0 := by linarith
+      rw [abs_of_pos h_z_w_pos, abs_of_neg h_z_z_neg] at h_z_close
+      have h_z_le_m : ((z : Dyadic) : ℝ)
+          ≤ (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 := by linarith
+      have h_z_lt_m : ((z : Dyadic) : ℝ)
+          < (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 := by
+        have : ((z : Dyadic) : ℝ) ≠ (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 := by
+          rw [← h_mid_real]; exact h_z_ne_m
+        exact lt_of_le_of_ne h_z_le_m this
+      have h_x_le_m : x ≤ (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 := by
+        rcases hz_adj with hzRD' | hzRU'
+        · by_contra h_x_gt
+          push Not at h_x_gt
+          have h_m_le_x : (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 ≤ x :=
+            le_of_lt h_x_gt
+          have h_m_le_x' : ((Dyadic.midpoint w' z' : Dyadic) : ℝ) ≤ x := by
+            rw [h_mid_real]; exact h_m_le_x
+          have h_m_le_z : ((Dyadic.midpoint w' z' : Dyadic) : ℝ) ≤ ((z : Dyadic) : ℝ) :=
+            hzRD'.2.2 (Dyadic.midpoint w' z') h_mid_F₂ h_m_le_x'
+          rw [h_mid_real] at h_m_le_z
+          linarith
+        · linarith [hzRU'.2.1]
+      have h_x_w_pos : 0 ≤ x - ((w' : Dyadic) : ℝ) := by linarith
+      have h_x_z_nonpos : x - ((z' : Dyadic) : ℝ) ≤ 0 := by linarith
+      rw [abs_of_nonneg h_x_w_pos, abs_of_nonpos h_x_z_nonpos]
+      linarith
+    · have hwRU : RoundsUp F₁ x w' := by
+        rcases h_adj_x with hwRD | hwRU
+        · exfalso
+          rcases hz'_adj with hzRD | hzRU
+          · have h1 : ((w' : Dyadic) : ℝ) ≤ ((z' : Dyadic) : ℝ) :=
+              hzRD.2.2 w' hw'F₁ hwRD.2.1
+            have h2 : ((z' : Dyadic) : ℝ) ≤ ((w' : Dyadic) : ℝ) :=
+              hwRD.2.2 z' hz'F₁ hzRD.2.1
+            exact h_w_ne_z' (le_antisymm h1 h2)
+          · linarith [hwRD.2.1, hzRU.2.1]
+        · exact hwRU
+      have hzRD : RoundsDown F₁ x z' := by
+        rcases hz'_adj with hzRD | hzRU
+        · exact hzRD
+        · exfalso
+          have h1 : ((w' : Dyadic) : ℝ) ≤ ((z' : Dyadic) : ℝ) :=
+            hwRU.2.2 z' hz'F₁ hzRU.2.1
+          have h2 : ((z' : Dyadic) : ℝ) ≤ ((w' : Dyadic) : ℝ) :=
+            hzRU.2.2 w' hw'F₁ hwRU.2.1
+          exact h_w_ne_z' (le_antisymm h1 h2)
+      have h_x_le_w : x ≤ ((w' : Dyadic) : ℝ) := hwRU.2.1
+      have h_z_le_x : ((z' : Dyadic) : ℝ) ≤ x := hzRD.2.1
+      have h_F_adj : ∀ y : Dyadic, y ∈ F₁ →
+          ((z' : Dyadic) : ℝ) < ((y : Dyadic) : ℝ) →
+          ((w' : Dyadic) : ℝ) ≤ ((y : Dyadic) : ℝ) :=
+        F_adjacent_of_RNE_round_pair (Or.inl hzRD) (Or.inr hwRU) h_z_le_x h_x_le_w
+      have h_mid_F₂_swap : Dyadic.midpoint z' w' ∈ F₂ :=
+        midpoint_F₁_in_F₂_of_F_adjacent hsub_paper hz'F₁ hw'F₁
+          h_z_lt_w h_F_adj
+      have h_mid_F₁_ext1_swap : Dyadic.midpoint z' w' ∈ F₁.extend 1 :=
+        midpoint_in_F₁_extend_one_of_F_adjacent hz'F₁ hw'F₁
+          h_z_lt_w h_F_adj
+      have h_mid_swap_eq : Dyadic.midpoint z' w' = Dyadic.midpoint w' z' :=
+        Dyadic.midpoint_comm z' w'
+      have h_mid_F₂ : Dyadic.midpoint w' z' ∈ F₂ := h_mid_swap_eq ▸ h_mid_F₂_swap
+      have h_mid_F₁_ext1 : Dyadic.midpoint w' z' ∈ F₁.extend 1 :=
+        h_mid_swap_eq ▸ h_mid_F₁_ext1_swap
+      have h_mid_real : ((Dyadic.midpoint w' z' : Dyadic) : ℝ) =
+          (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 := Dyadic.coe_midpoint w' z'
+      have h_z_ne_m : ((z : Dyadic) : ℝ) ≠ ((Dyadic.midpoint w' z' : Dyadic) : ℝ) := by
+        intro h_eq_m
+        apply hz_not_F₁_ext1
+        have : z = Dyadic.midpoint w' z' := Subtype.ext h_eq_m
+        rw [this]; exact h_mid_F₁_ext1
+      have h_z_le_w_F : ((z : Dyadic) : ℝ) ≤ ((w' : Dyadic) : ℝ) := by
+        rcases hz_adj with hzRD' | hzRU'
+        · linarith [hzRD'.2.1]
+        · exact hzRU'.2.2 w' hw'F₂ h_x_le_w
+      have h_z'_le_z_F : ((z' : Dyadic) : ℝ) ≤ ((z : Dyadic) : ℝ) := by
+        rcases hz_adj with hzRD' | hzRU'
+        · exact hzRD'.2.2 z' hz'F₂ h_z_le_x
+        · linarith [hzRU'.2.1]
+      have h_z_lt_w_F : ((z : Dyadic) : ℝ) < ((w' : Dyadic) : ℝ) :=
+        lt_of_le_of_ne h_z_le_w_F h_z_ne_w'_real
+      have h_z'_lt_z : ((z' : Dyadic) : ℝ) < ((z : Dyadic) : ℝ) :=
+        lt_of_le_of_ne h_z'_le_z_F (Ne.symm h_z_ne_z'_real)
+      have hz_RD_z' : RoundsDown F₁ z z' := by
+        refine ⟨hz'F₁, le_of_lt h_z'_lt_z, ?_⟩
+        intro y hyF₁ h_y_le_z
+        by_contra h_lt
+        push Not at h_lt
+        have h_w_le_y := h_F_adj y hyF₁ h_lt
+        linarith
+      have h_z_close : |((z : Dyadic) : ℝ) - ((w' : Dyadic) : ℝ)|
+          ≤ |((z : Dyadic) : ℝ) - ((z' : Dyadic) : ℝ)| :=
+        hw_close_inner z' hz'F₁ (Or.inl hz_RD_z')
+      have h_z_w_neg : ((z : Dyadic) : ℝ) - ((w' : Dyadic) : ℝ) < 0 := by linarith
+      have h_z_z_pos : 0 < ((z : Dyadic) : ℝ) - ((z' : Dyadic) : ℝ) := by linarith
+      rw [abs_of_neg h_z_w_neg, abs_of_pos h_z_z_pos] at h_z_close
+      have h_m_le_z : (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2
+          ≤ ((z : Dyadic) : ℝ) := by linarith
+      have h_m_lt_z : (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2
+          < ((z : Dyadic) : ℝ) := by
+        have : (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 ≠ ((z : Dyadic) : ℝ) := by
+          intro h_eq2
+          rw [← h_mid_real] at h_eq2
+          exact h_z_ne_m h_eq2.symm
+        exact lt_of_le_of_ne h_m_le_z this
+      have h_m_le_x : (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 ≤ x := by
+        rcases hz_adj with hzRD' | hzRU'
+        · linarith [hzRD'.2.1]
+        · by_contra h_x_lt
+          push Not at h_x_lt
+          have h_x_le_m : x ≤ (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 :=
+            le_of_lt h_x_lt
+          have h_x_le_m' : x ≤ ((Dyadic.midpoint w' z' : Dyadic) : ℝ) := by
+            rw [h_mid_real]; exact h_x_le_m
+          have h_z_le_m : ((z : Dyadic) : ℝ) ≤ ((Dyadic.midpoint w' z' : Dyadic) : ℝ) :=
+            hzRU'.2.2 (Dyadic.midpoint w' z') h_mid_F₂ h_x_le_m'
+          rw [h_mid_real] at h_z_le_m
+          linarith
+      have h_x_w_neg : x - ((w' : Dyadic) : ℝ) ≤ 0 := by linarith
+      have h_x_z_pos : 0 ≤ x - ((z' : Dyadic) : ℝ) := by linarith
+      rw [abs_of_nonpos h_x_w_neg, abs_of_nonneg h_x_z_pos]
+      linarith
 
 /-- **rnd-RTO-RNE** (Fig. 9), paper-aligned form. The hypothesis `hsub`
 encodes the paper's `A(p₁ + 2, exp₁ − 2, next_{p₁+1, exp₁-1}(b₁)) ⊆
@@ -1263,212 +1450,8 @@ theorem rndRTO_RNE {F₁ F₂ : AbstractFormat}
       (extend_one_extend_one_subset_extend_two F₁ y hy)
   have hz_not_F₁_ext1 : z ∉ F₁.extend 1 :=
     RoundsRTO.notMem_of_extend_subset hsub_double hp_F₂_two hz hxne
-  -- h_close derivation.
-  have h_close : ∀ z' : Dyadic, z' ∈ F₁ →
-      (RoundsDown F₁ x z' ∨ RoundsUp F₁ x z') →
-      |x - (w' : ℝ)| ≤ |x - (z' : ℝ)| := by
-    intro z' hz'F₁ hz'_adj
-    by_cases h_eq : ((z' : Dyadic) : ℝ) = ((w' : Dyadic) : ℝ)
-    · rw [h_eq]
-    · have h_w_ne_z' : ((w' : Dyadic) : ℝ) ≠ ((z' : Dyadic) : ℝ) := fun h => h_eq h.symm
-      -- z, w', z' are not in F₁.extend 1, etc. Useful facts:
-      have h_z_ne_w'_real : ((z : Dyadic) : ℝ) ≠ ((w' : Dyadic) : ℝ) := by
-        intro h
-        apply hz_not_F₁_ext1
-        have hzw : z = w' := Subtype.ext h
-        rw [hzw]; exact hF₁_sub_ext1 _ hw'F₁
-      have h_z_ne_z'_real : ((z : Dyadic) : ℝ) ≠ ((z' : Dyadic) : ℝ) := by
-        intro h
-        apply hz_not_F₁_ext1
-        have hzz' : z = z' := Subtype.ext h
-        rw [hzz']; exact hF₁_sub_ext1 _ hz'F₁
-      have hw'F₂ : w' ∈ F₂ := hsub' _ hw'F₁
-      have hz'F₂ : z' ∈ F₂ := hsub' _ hz'F₁
-      rcases lt_or_gt_of_ne h_w_ne_z' with h_w_lt_z | h_z_lt_w
-      · -- w' < z'. h_adj_x = RoundDown w', hz'_adj = RoundUp z'.
-        have hwRD : RoundsDown F₁ x w' := by
-          rcases h_adj_x with hwRD | hwRU
-          · exact hwRD
-          · exfalso
-            rcases hz'_adj with hzRD | hzRU
-            · linarith [hwRU.2.1, hzRD.2.1]
-            · have h1 : ((w' : Dyadic) : ℝ) ≤ ((z' : Dyadic) : ℝ) :=
-                hwRU.2.2 z' hz'F₁ hzRU.2.1
-              have h2 : ((z' : Dyadic) : ℝ) ≤ ((w' : Dyadic) : ℝ) :=
-                hzRU.2.2 w' hw'F₁ hwRU.2.1
-              exact h_w_ne_z' (le_antisymm h1 h2)
-        have hzRU : RoundsUp F₁ x z' := by
-          rcases hz'_adj with hzRD | hzRU
-          · exfalso
-            have h1 : ((w' : Dyadic) : ℝ) ≤ ((z' : Dyadic) : ℝ) :=
-              hzRD.2.2 w' hw'F₁ hwRD.2.1
-            have h2 : ((z' : Dyadic) : ℝ) ≤ ((w' : Dyadic) : ℝ) :=
-              hwRD.2.2 z' hz'F₁ hzRD.2.1
-            exact h_w_ne_z' (le_antisymm h1 h2)
-          · exact hzRU
-        have h_w_le_x : ((w' : Dyadic) : ℝ) ≤ x := hwRD.2.1
-        have h_x_le_z : x ≤ ((z' : Dyadic) : ℝ) := hzRU.2.1
-        have h_F_adj : ∀ y : Dyadic, y ∈ F₁ →
-            ((w' : Dyadic) : ℝ) < ((y : Dyadic) : ℝ) →
-            ((z' : Dyadic) : ℝ) ≤ ((y : Dyadic) : ℝ) :=
-          F_adjacent_of_RNE_round_pair (Or.inl hwRD) (Or.inr hzRU) h_w_le_x h_x_le_z
-        have h_mid_F₂ : Dyadic.midpoint w' z' ∈ F₂ :=
-          midpoint_F₁_in_F₂_of_F_adjacent hsub_paper hw'F₁ hz'F₁
-            h_w_lt_z h_F_adj
-        have h_mid_F₁_ext1 : Dyadic.midpoint w' z' ∈ F₁.extend 1 :=
-          midpoint_in_F₁_extend_one_of_F_adjacent hw'F₁ hz'F₁
-            h_w_lt_z h_F_adj
-        have h_mid_real : ((Dyadic.midpoint w' z' : Dyadic) : ℝ) =
-            (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 := Dyadic.coe_midpoint w' z'
-        have h_z_ne_m : ((z : Dyadic) : ℝ) ≠ ((Dyadic.midpoint w' z' : Dyadic) : ℝ) := by
-          intro h_eq_m
-          apply hz_not_F₁_ext1
-          have : z = Dyadic.midpoint w' z' := Subtype.ext h_eq_m
-          rw [this]; exact h_mid_F₁_ext1
-        have h_w_le_z_F : ((w' : Dyadic) : ℝ) ≤ ((z : Dyadic) : ℝ) := by
-          rcases hz_adj with hzRD' | hzRU'
-          · exact hzRD'.2.2 w' hw'F₂ h_w_le_x
-          · linarith [hzRU'.2.1]
-        have h_z_le_z'_F : ((z : Dyadic) : ℝ) ≤ ((z' : Dyadic) : ℝ) := by
-          rcases hz_adj with hzRD' | hzRU'
-          · linarith [hzRD'.2.1]
-          · exact hzRU'.2.2 z' hz'F₂ h_x_le_z
-        have h_w_lt_z_F : ((w' : Dyadic) : ℝ) < ((z : Dyadic) : ℝ) :=
-          lt_of_le_of_ne h_w_le_z_F (Ne.symm h_z_ne_w'_real)
-        have h_z_lt_z' : ((z : Dyadic) : ℝ) < ((z' : Dyadic) : ℝ) :=
-          lt_of_le_of_ne h_z_le_z'_F h_z_ne_z'_real
-        have hz_RU_z' : RoundsUp F₁ z z' := by
-          refine ⟨hz'F₁, le_of_lt h_z_lt_z', ?_⟩
-          intro y hyF₁ h_z_le_y
-          have h_w_lt_y : ((w' : Dyadic) : ℝ) < ((y : Dyadic) : ℝ) := by linarith
-          exact h_F_adj y hyF₁ h_w_lt_y
-        have h_z_close : |((z : Dyadic) : ℝ) - ((w' : Dyadic) : ℝ)|
-            ≤ |((z : Dyadic) : ℝ) - ((z' : Dyadic) : ℝ)| :=
-          hw_close_inner z' hz'F₁ (Or.inr hz_RU_z')
-        have h_z_w_pos : 0 < ((z : Dyadic) : ℝ) - ((w' : Dyadic) : ℝ) := by linarith
-        have h_z_z_neg : ((z : Dyadic) : ℝ) - ((z' : Dyadic) : ℝ) < 0 := by linarith
-        rw [abs_of_pos h_z_w_pos, abs_of_neg h_z_z_neg] at h_z_close
-        have h_z_le_m : ((z : Dyadic) : ℝ)
-            ≤ (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 := by linarith
-        have h_z_lt_m : ((z : Dyadic) : ℝ)
-            < (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 := by
-          have : ((z : Dyadic) : ℝ) ≠ (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 := by
-            rw [← h_mid_real]; exact h_z_ne_m
-          exact lt_of_le_of_ne h_z_le_m this
-        have h_x_le_m : x ≤ (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 := by
-          rcases hz_adj with hzRD' | hzRU'
-          · by_contra h_x_gt
-            push Not at h_x_gt
-            have h_m_le_x : (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 ≤ x :=
-              le_of_lt h_x_gt
-            have h_m_le_x' : ((Dyadic.midpoint w' z' : Dyadic) : ℝ) ≤ x := by
-              rw [h_mid_real]; exact h_m_le_x
-            have h_m_le_z : ((Dyadic.midpoint w' z' : Dyadic) : ℝ) ≤ ((z : Dyadic) : ℝ) :=
-              hzRD'.2.2 (Dyadic.midpoint w' z') h_mid_F₂ h_m_le_x'
-            rw [h_mid_real] at h_m_le_z
-            linarith
-          · linarith [hzRU'.2.1]
-        have h_x_w_pos : 0 ≤ x - ((w' : Dyadic) : ℝ) := by linarith
-        have h_x_z_nonpos : x - ((z' : Dyadic) : ℝ) ≤ 0 := by linarith
-        rw [abs_of_nonneg h_x_w_pos, abs_of_nonpos h_x_z_nonpos]
-        linarith
-      · -- z' < w'. Symmetric.
-        have hwRU : RoundsUp F₁ x w' := by
-          rcases h_adj_x with hwRD | hwRU
-          · exfalso
-            rcases hz'_adj with hzRD | hzRU
-            · have h1 : ((w' : Dyadic) : ℝ) ≤ ((z' : Dyadic) : ℝ) :=
-                hzRD.2.2 w' hw'F₁ hwRD.2.1
-              have h2 : ((z' : Dyadic) : ℝ) ≤ ((w' : Dyadic) : ℝ) :=
-                hwRD.2.2 z' hz'F₁ hzRD.2.1
-              exact h_w_ne_z' (le_antisymm h1 h2)
-            · linarith [hwRD.2.1, hzRU.2.1]
-          · exact hwRU
-        have hzRD : RoundsDown F₁ x z' := by
-          rcases hz'_adj with hzRD | hzRU
-          · exact hzRD
-          · exfalso
-            have h1 : ((w' : Dyadic) : ℝ) ≤ ((z' : Dyadic) : ℝ) :=
-              hwRU.2.2 z' hz'F₁ hzRU.2.1
-            have h2 : ((z' : Dyadic) : ℝ) ≤ ((w' : Dyadic) : ℝ) :=
-              hzRU.2.2 w' hw'F₁ hwRU.2.1
-            exact h_w_ne_z' (le_antisymm h1 h2)
-        have h_x_le_w : x ≤ ((w' : Dyadic) : ℝ) := hwRU.2.1
-        have h_z_le_x : ((z' : Dyadic) : ℝ) ≤ x := hzRD.2.1
-        have h_F_adj : ∀ y : Dyadic, y ∈ F₁ →
-            ((z' : Dyadic) : ℝ) < ((y : Dyadic) : ℝ) →
-            ((w' : Dyadic) : ℝ) ≤ ((y : Dyadic) : ℝ) :=
-          F_adjacent_of_RNE_round_pair (Or.inl hzRD) (Or.inr hwRU) h_z_le_x h_x_le_w
-        have h_mid_F₂_swap : Dyadic.midpoint z' w' ∈ F₂ :=
-          midpoint_F₁_in_F₂_of_F_adjacent hsub_paper hz'F₁ hw'F₁
-            h_z_lt_w h_F_adj
-        have h_mid_F₁_ext1_swap : Dyadic.midpoint z' w' ∈ F₁.extend 1 :=
-          midpoint_in_F₁_extend_one_of_F_adjacent hz'F₁ hw'F₁
-            h_z_lt_w h_F_adj
-        have h_mid_swap_eq : Dyadic.midpoint z' w' = Dyadic.midpoint w' z' := by
-          apply Subtype.ext
-          rw [Dyadic.coe_midpoint, Dyadic.coe_midpoint]; ring
-        have h_mid_F₂ : Dyadic.midpoint w' z' ∈ F₂ := h_mid_swap_eq ▸ h_mid_F₂_swap
-        have h_mid_F₁_ext1 : Dyadic.midpoint w' z' ∈ F₁.extend 1 :=
-          h_mid_swap_eq ▸ h_mid_F₁_ext1_swap
-        have h_mid_real : ((Dyadic.midpoint w' z' : Dyadic) : ℝ) =
-            (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 := Dyadic.coe_midpoint w' z'
-        have h_z_ne_m : ((z : Dyadic) : ℝ) ≠ ((Dyadic.midpoint w' z' : Dyadic) : ℝ) := by
-          intro h_eq_m
-          apply hz_not_F₁_ext1
-          have : z = Dyadic.midpoint w' z' := Subtype.ext h_eq_m
-          rw [this]; exact h_mid_F₁_ext1
-        have h_z_le_w_F : ((z : Dyadic) : ℝ) ≤ ((w' : Dyadic) : ℝ) := by
-          rcases hz_adj with hzRD' | hzRU'
-          · linarith [hzRD'.2.1]
-          · exact hzRU'.2.2 w' hw'F₂ h_x_le_w
-        have h_z'_le_z_F : ((z' : Dyadic) : ℝ) ≤ ((z : Dyadic) : ℝ) := by
-          rcases hz_adj with hzRD' | hzRU'
-          · exact hzRD'.2.2 z' hz'F₂ h_z_le_x
-          · linarith [hzRU'.2.1]
-        have h_z_lt_w_F : ((z : Dyadic) : ℝ) < ((w' : Dyadic) : ℝ) :=
-          lt_of_le_of_ne h_z_le_w_F h_z_ne_w'_real
-        have h_z'_lt_z : ((z' : Dyadic) : ℝ) < ((z : Dyadic) : ℝ) :=
-          lt_of_le_of_ne h_z'_le_z_F (Ne.symm h_z_ne_z'_real)
-        have hz_RD_z' : RoundsDown F₁ z z' := by
-          refine ⟨hz'F₁, le_of_lt h_z'_lt_z, ?_⟩
-          intro y hyF₁ h_y_le_z
-          by_contra h_lt
-          push Not at h_lt
-          have h_w_le_y := h_F_adj y hyF₁ h_lt
-          linarith
-        have h_z_close : |((z : Dyadic) : ℝ) - ((w' : Dyadic) : ℝ)|
-            ≤ |((z : Dyadic) : ℝ) - ((z' : Dyadic) : ℝ)| :=
-          hw_close_inner z' hz'F₁ (Or.inl hz_RD_z')
-        have h_z_w_neg : ((z : Dyadic) : ℝ) - ((w' : Dyadic) : ℝ) < 0 := by linarith
-        have h_z_z_pos : 0 < ((z : Dyadic) : ℝ) - ((z' : Dyadic) : ℝ) := by linarith
-        rw [abs_of_neg h_z_w_neg, abs_of_pos h_z_z_pos] at h_z_close
-        have h_m_le_z : (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2
-            ≤ ((z : Dyadic) : ℝ) := by linarith
-        have h_m_lt_z : (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2
-            < ((z : Dyadic) : ℝ) := by
-          have : (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 ≠ ((z : Dyadic) : ℝ) := by
-            intro h_eq2
-            rw [← h_mid_real] at h_eq2
-            exact h_z_ne_m h_eq2.symm
-          exact lt_of_le_of_ne h_m_le_z this
-        have h_m_le_x : (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 ≤ x := by
-          rcases hz_adj with hzRD' | hzRU'
-          · linarith [hzRD'.2.1]
-          · by_contra h_x_lt
-            push Not at h_x_lt
-            have h_x_le_m : x ≤ (((w' : Dyadic) : ℝ) + ((z' : Dyadic) : ℝ)) / 2 :=
-              le_of_lt h_x_lt
-            have h_x_le_m' : x ≤ ((Dyadic.midpoint w' z' : Dyadic) : ℝ) := by
-              rw [h_mid_real]; exact h_x_le_m
-            have h_z_le_m : ((z : Dyadic) : ℝ) ≤ ((Dyadic.midpoint w' z' : Dyadic) : ℝ) :=
-              hzRU'.2.2 (Dyadic.midpoint w' z') h_mid_F₂ h_x_le_m'
-            rw [h_mid_real] at h_z_le_m
-            linarith
-        have h_x_w_neg : x - ((w' : Dyadic) : ℝ) ≤ 0 := by linarith
-        have h_x_z_pos : 0 ≤ x - ((z' : Dyadic) : ℝ) := by linarith
-        rw [abs_of_nonpos h_x_w_neg, abs_of_nonneg h_x_z_pos]
-        linarith
+  have h_close := rndRTO_RNE_close_transfer hsub_paper hsub' hF₁_sub_ext1
+    hz_adj hw'F₁ h_adj_x hw_close_inner hz_not_F₁_ext1
   -- Step 5: Assemble the RoundsRNE witness.
   refine ⟨hw'F₁, h_adj_x, h_close, ?_⟩
   -- Step 6: No-tie via midpoint ∈ F₂ + RoundsRTO.unique_of_mem.
@@ -1550,10 +1533,8 @@ theorem rndRTO_RNE {F₁ F₂ : AbstractFormat}
       exact midpoint_F₁_in_F₂_of_F_adjacent hsub_paper hw'F₁ hz'F₁
         h_w_lt_z h_adj_pair
     · -- z' < w'. midpoint(w', z') = midpoint(z', w').
-      have h_mid_swap : Dyadic.midpoint w' z' = Dyadic.midpoint z' w' := by
-        apply Subtype.ext
-        rw [Dyadic.coe_midpoint, Dyadic.coe_midpoint]
-        ring
+      have h_mid_swap : Dyadic.midpoint w' z' = Dyadic.midpoint z' w' :=
+        Dyadic.midpoint_comm w' z'
       rw [h_mid_swap]
       have h_adj_pair := h_F_adj_pair z' w' hz'F₁ hw'F₁
         (Or.inr ⟨rfl, rfl⟩) h_z_lt_w

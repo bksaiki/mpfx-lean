@@ -87,6 +87,11 @@ theorem coe_midpoint (y₁ y₂ : Dyadic) :
   rw [coe_half]
   ring
 
+theorem midpoint_comm (y₁ y₂ : Dyadic) :
+    midpoint y₁ y₂ = midpoint y₂ y₁ := by
+  apply Subtype.ext
+  rw [coe_midpoint, coe_midpoint]; ring
+
 /-- `x` has precision at most `p` (`⊤` = no constraint): there exist `c, e : ℤ`
 with `x = c · 2^e` and `|c| < 2^p`. Matches the paper's `precisionAtMost`. -/
 def precisionAtMost : ℕ∞ → Dyadic → Prop
