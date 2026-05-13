@@ -11,24 +11,33 @@ collapse to RAZ/RTZ depending on sign and RNA differs from RNE only in tiebreaki
 
 namespace Mpfx
 
-/-- Rounding modes covered by Fig. 9 of the paper:
+/-- Tie-break for nearest rounding modes.
 
-* `RTZ` — round towards zero (truncate).
-* `RAZ` — round away from zero.
-* `RTO` — round to odd: pick the value with odd significand.
-* `RNE` — round to nearest, ties to even.
-* `RTP` — round towards plus infinity (round-up).
-* `RTN` — round towards minus infinity (round-down).
-* `RNA` — round to nearest, ties away from zero.
+* `ToEven` — ties to the value with even significand parity.
+* `AwayFromZero` — ties to the value with larger magnitude.
+-/
+inductive TieBreak
+  | ToEven : TieBreak
+  | AwayFromZero : TieBreak
+deriving DecidableEq, Repr
+
+/-- Rounding modes. Five IEEE 754 modes plus the paper's auxiliary RTO mode.
+
+* `Nearest .ToEven` — round to nearest, ties to even (RNE).
+* `Nearest .AwayFromZero` — round to nearest, ties away from zero (RNA).
+* `ToZero` — round towards zero / truncate (RTZ).
+* `AwayZero` — round away from zero (RAZ).
+* `ToPositive` — round towards plus infinity (RTP / round-up).
+* `ToNegative` — round towards minus infinity (RTN / round-down).
+* `ToOdd` — round to the value with odd significand (RTO; not IEEE).
 -/
 inductive RoundingMode
-  | RTZ : RoundingMode
-  | RAZ : RoundingMode
-  | RTO : RoundingMode
-  | RNE : RoundingMode
-  | RTP : RoundingMode
-  | RTN : RoundingMode
-  | RNA : RoundingMode
+  | Nearest (tieBreak : TieBreak)
+  | ToZero : RoundingMode
+  | AwayZero : RoundingMode
+  | ToNegative : RoundingMode
+  | ToPositive : RoundingMode
+  | ToOdd : RoundingMode
 deriving DecidableEq, Repr
 
 namespace AbstractFormat
@@ -91,6 +100,40 @@ def RoundsRNA (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
     |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
   (∀ z : Dyadic, z ∈ F → (RoundsRTN F x z ∨ RoundsRTP F x z) →
       z ≠ y → |x - (y : ℝ)| = |x - (z : ℝ)| → |(z : ℝ)| ≤ |(y : ℝ)|)
+
+/-- Unified rounding relation: `Rounds F rm x y` holds iff `y` is the
+`rm`-rounding of `x` in `F`. Dispatches to the per-mode predicate; useful
+for stating mode-generic theorems. -/
+def Rounds (F : AbstractFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) : Prop :=
+  match rm with
+  | .Nearest .ToEven => RoundsRNE F x y
+  | .Nearest .AwayFromZero => RoundsRNA F x y
+  | .ToZero => RoundsRTZ F x y
+  | .AwayZero => RoundsRAZ F x y
+  | .ToNegative => RoundsRTN F x y
+  | .ToPositive => RoundsRTP F x y
+  | .ToOdd => RoundsRTO F x y
+
+@[simp] theorem Rounds_nearest_toEven (F : AbstractFormat) (x : ℝ) (y : Dyadic) :
+    Rounds F (.Nearest .ToEven) x y ↔ RoundsRNE F x y := Iff.rfl
+
+@[simp] theorem Rounds_nearest_awayFromZero (F : AbstractFormat) (x : ℝ) (y : Dyadic) :
+    Rounds F (.Nearest .AwayFromZero) x y ↔ RoundsRNA F x y := Iff.rfl
+
+@[simp] theorem Rounds_toZero (F : AbstractFormat) (x : ℝ) (y : Dyadic) :
+    Rounds F .ToZero x y ↔ RoundsRTZ F x y := Iff.rfl
+
+@[simp] theorem Rounds_awayZero (F : AbstractFormat) (x : ℝ) (y : Dyadic) :
+    Rounds F .AwayZero x y ↔ RoundsRAZ F x y := Iff.rfl
+
+@[simp] theorem Rounds_toNegative (F : AbstractFormat) (x : ℝ) (y : Dyadic) :
+    Rounds F .ToNegative x y ↔ RoundsRTN F x y := Iff.rfl
+
+@[simp] theorem Rounds_toPositive (F : AbstractFormat) (x : ℝ) (y : Dyadic) :
+    Rounds F .ToPositive x y ↔ RoundsRTP F x y := Iff.rfl
+
+@[simp] theorem Rounds_toOdd (F : AbstractFormat) (x : ℝ) (y : Dyadic) :
+    Rounds F .ToOdd x y ↔ RoundsRTO F x y := Iff.rfl
 
 /-- For `0 ≤ x`, `RoundsRTP` (smallest F-element ≥ x) coincides with `RoundsRAZ`
 (smallest F-element with `|y| ≥ |x|` on x's side). -/
