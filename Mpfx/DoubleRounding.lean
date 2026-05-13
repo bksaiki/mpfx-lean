@@ -970,7 +970,7 @@ private theorem rndRTO_RTZ_pos {F₁ F₂ : AbstractFormat}
   have hsub' : F₁ ⊆ F₂ := fun y hy => hsub _ (hF₁_sub_ext _ hy)
   -- Body: copied from `rndRTO_RTZ_pos`, but replace the
   -- `notMem_of_lower_numDigits` step with `notMem_of_extend_subset`.
-  have hz_nn : 0 ≤ (z : ℝ) := Rounds.toOdd_nonneg_of_pos hx_pos hz
+  have hz_nn : 0 ≤ (z : ℝ) := Rounds.toOdd_nonneg_of_nn hx_pos.le hz
   obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
   obtain ⟨hw'F₁, hw'_bnd_z, hw'_sign_z, hw'_max⟩ := hw
   have hx_abs : |x| = x := abs_of_pos hx_pos
@@ -1096,7 +1096,7 @@ private theorem rndRTO_RAZ_pos {F₁ F₂ : AbstractFormat}
     Rounds F₁ .AwayZero x w' := by
   have hF₁_sub_ext : F₁ ⊆ F₁.extend 1 := self_subset_extend F₁ 1
   have hsub' : F₁ ⊆ F₂ := fun y hy => hsub _ (hF₁_sub_ext _ hy)
-  have hz_nn : 0 ≤ (z : ℝ) := Rounds.toOdd_nonneg_of_pos hx_pos hz
+  have hz_nn : 0 ≤ (z : ℝ) := Rounds.toOdd_nonneg_of_nn hx_pos.le hz
   obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
   obtain ⟨hw'F₁, hw'_bnd_z, hw'_sign_z, hw'_min⟩ := hw
   have hx_abs : |x| = x := abs_of_pos hx_pos
@@ -1234,7 +1234,7 @@ theorem rndRTO_RTP {F₁ F₂ : AbstractFormat}
     have hresult : Rounds F₁ .ToZero x w := rndRTO_RTZ hsub hz hw_RTZ
     exact (Rounds.toPositive_iff_toZero_of_nonpos hx_le).mpr hresult
   · have hx_nn : 0 ≤ x := le_of_lt hx_pos
-    have hz_nn : 0 ≤ (z : ℝ) := Rounds.toOdd_nonneg_of_pos hx_pos hz
+    have hz_nn : 0 ≤ (z : ℝ) := Rounds.toOdd_nonneg_of_nn hx_pos.le hz
     have hw_RAZ : Rounds F₁ .AwayZero (z : ℝ) w :=
       (Rounds.toPositive_iff_awayZero_of_nn hz_nn).mp hw
     have hresult : Rounds F₁ .AwayZero x w := rndRTO_RAZ hsub hz hw_RAZ
@@ -1260,7 +1260,7 @@ theorem rndRTO_RTN {F₁ F₂ : AbstractFormat}
     have hresult : Rounds F₁ .ToZero x w := rndRTO_RTZ hsub hz hw_RTZ
     exact (Rounds.toNegative_iff_toZero_of_nn hx_nn).mpr hresult
   · have hx_nn : 0 ≤ x := le_of_lt hx_pos
-    have hz_nn : 0 ≤ (z : ℝ) := Rounds.toOdd_nonneg_of_pos hx_pos hz
+    have hz_nn : 0 ≤ (z : ℝ) := Rounds.toOdd_nonneg_of_nn hx_pos.le hz
     have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (Rounds.toNegative_iff_toZero_of_nn hz_nn).mp hw
     have hresult : Rounds F₁ .ToZero x w := rndRTO_RTZ hsub hz hw_RTZ
     exact (Rounds.toNegative_iff_toZero_of_nn hx_nn).mpr hresult
