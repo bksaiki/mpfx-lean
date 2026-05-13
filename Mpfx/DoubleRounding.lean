@@ -193,24 +193,27 @@ theorem rndRTP_RTP {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
   · -- x < 0: bridge to RTZ.
     have hx_le : x ≤ 0 := le_of_lt hx_neg
     have hz_le_0 : (z : ℝ) ≤ 0 := hz.2.2 0 F₂.zero_mem hx_le
-    have hz_RTZ : Rounds F₂ .ToZero x z := (RoundsRTP_iff_RTZ_of_nonpos hx_le).mp hz
-    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (RoundsRTP_iff_RTZ_of_nonpos hz_le_0).mp hw
+    have hz_RTZ : Rounds F₂ .ToZero x z := (Rounds.toPositive_iff_toZero_of_nonpos hx_le).mp hz
+    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w :=
+      (Rounds.toPositive_iff_toZero_of_nonpos hz_le_0).mp hw
     have hresult : Rounds F₁ .ToZero x w := rndRTZ_RTZ hsub hz_RTZ hw_RTZ
-    exact (RoundsRTP_iff_RTZ_of_nonpos hx_le).mpr hresult
+    exact (Rounds.toPositive_iff_toZero_of_nonpos hx_le).mpr hresult
   · -- x = 0: bridge to RTZ.
     have hx_le : x ≤ 0 := le_of_eq hx_zero
     have hz_le_0 : (z : ℝ) ≤ 0 := hz.2.2 0 F₂.zero_mem hx_le
-    have hz_RTZ : Rounds F₂ .ToZero x z := (RoundsRTP_iff_RTZ_of_nonpos hx_le).mp hz
-    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (RoundsRTP_iff_RTZ_of_nonpos hz_le_0).mp hw
+    have hz_RTZ : Rounds F₂ .ToZero x z := (Rounds.toPositive_iff_toZero_of_nonpos hx_le).mp hz
+    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w :=
+      (Rounds.toPositive_iff_toZero_of_nonpos hz_le_0).mp hw
     have hresult : Rounds F₁ .ToZero x w := rndRTZ_RTZ hsub hz_RTZ hw_RTZ
-    exact (RoundsRTP_iff_RTZ_of_nonpos hx_le).mpr hresult
+    exact (Rounds.toPositive_iff_toZero_of_nonpos hx_le).mpr hresult
   · -- x > 0: bridge to RAZ, apply rndRAZ_RAZ_pos.
     have hx_nn : 0 ≤ x := le_of_lt hx_pos
     have hz_nn : 0 ≤ (z : ℝ) := le_trans hx_nn hz.2.1
-    have hz_RAZ : Rounds F₂ .AwayZero x z := (RoundsRTP_iff_RAZ_of_nn hx_nn).mp hz
-    have hw_RAZ : Rounds F₁ .AwayZero (z : ℝ) w := (RoundsRTP_iff_RAZ_of_nn hz_nn).mp hw
+    have hz_RAZ : Rounds F₂ .AwayZero x z := (Rounds.toPositive_iff_awayZero_of_nn hx_nn).mp hz
+    have hw_RAZ : Rounds F₁ .AwayZero (z : ℝ) w :=
+      (Rounds.toPositive_iff_awayZero_of_nn hz_nn).mp hw
     have hresult : Rounds F₁ .AwayZero x w := rndRAZ_RAZ_pos hsub hx_pos hz_RAZ hw_RAZ
-    exact (RoundsRTP_iff_RAZ_of_nn hx_nn).mpr hresult
+    exact (Rounds.toPositive_iff_awayZero_of_nn hx_nn).mpr hresult
 
 /-- **rnd-RTN-RTN** (round towards −∞ chained). Reduces to `rndRTZ_RTZ` when
 `x ≥ 0` and to `rndRAZ_RAZ` when `x < 0`, via the sign-bridge lemmas. -/
@@ -222,24 +225,25 @@ theorem rndRTN_RTN {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
   · -- x < 0: bridge to RAZ.
     have hx_le : x ≤ 0 := le_of_lt hx_neg
     have hz_le_0 : (z : ℝ) ≤ 0 := le_trans hz.2.1 hx_le
-    have hz_RAZ : Rounds F₂ .AwayZero x z := (RoundsRTN_iff_RAZ_of_nonpos hx_le).mp hz
-    have hw_RAZ : Rounds F₁ .AwayZero (z : ℝ) w := (RoundsRTN_iff_RAZ_of_nonpos hz_le_0).mp hw
+    have hz_RAZ : Rounds F₂ .AwayZero x z := (Rounds.toNegative_iff_awayZero_of_nonpos hx_le).mp hz
+    have hw_RAZ : Rounds F₁ .AwayZero (z : ℝ) w :=
+      (Rounds.toNegative_iff_awayZero_of_nonpos hz_le_0).mp hw
     have hresult : Rounds F₁ .AwayZero x w := rndRAZ_RAZ hsub hz_RAZ hw_RAZ
-    exact (RoundsRTN_iff_RAZ_of_nonpos hx_le).mpr hresult
+    exact (Rounds.toNegative_iff_awayZero_of_nonpos hx_le).mpr hresult
   · -- x = 0: bridge to RTZ.
     have hx_nn : 0 ≤ x := le_of_eq hx_zero.symm
     have hz_nn : 0 ≤ (z : ℝ) := hz.2.2 0 F₂.zero_mem hx_nn
-    have hz_RTZ : Rounds F₂ .ToZero x z := (RoundsRTN_iff_RTZ_of_nn hx_nn).mp hz
-    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (RoundsRTN_iff_RTZ_of_nn hz_nn).mp hw
+    have hz_RTZ : Rounds F₂ .ToZero x z := (Rounds.toNegative_iff_toZero_of_nn hx_nn).mp hz
+    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (Rounds.toNegative_iff_toZero_of_nn hz_nn).mp hw
     have hresult : Rounds F₁ .ToZero x w := rndRTZ_RTZ hsub hz_RTZ hw_RTZ
-    exact (RoundsRTN_iff_RTZ_of_nn hx_nn).mpr hresult
+    exact (Rounds.toNegative_iff_toZero_of_nn hx_nn).mpr hresult
   · -- x > 0: bridge to RTZ.
     have hx_nn : 0 ≤ x := le_of_lt hx_pos
     have hz_nn : 0 ≤ (z : ℝ) := hz.2.2 0 F₂.zero_mem hx_nn
-    have hz_RTZ : Rounds F₂ .ToZero x z := (RoundsRTN_iff_RTZ_of_nn hx_nn).mp hz
-    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (RoundsRTN_iff_RTZ_of_nn hz_nn).mp hw
+    have hz_RTZ : Rounds F₂ .ToZero x z := (Rounds.toNegative_iff_toZero_of_nn hx_nn).mp hz
+    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (Rounds.toNegative_iff_toZero_of_nn hz_nn).mp hw
     have hresult : Rounds F₁ .ToZero x w := rndRTZ_RTZ hsub hz_RTZ hw_RTZ
-    exact (RoundsRTN_iff_RTZ_of_nn hx_nn).mpr hresult
+    exact (Rounds.toNegative_iff_toZero_of_nn hx_nn).mpr hresult
 
 /-- **rnd-RTO-RTO** (Fig. 9), general case `x ∈ ℝ`.
 
@@ -1081,7 +1085,7 @@ theorem rndRTO_RTZ {F₁ F₂ : AbstractFormat}
 
 /-- **rnd-RTO-RAZ** (Fig. 9), paper-aligned form, positive case `0 < x`.
 Symmetric to `rndRTO_RTZ_pos` but for round-away-from-zero. The key Lemma 5.3
-application happens in the *RoundsRTN* case of `z` (rather than RoundsRTP). -/
+application happens in the *ToNegative* (RTN) case of `z` rather than ToPositive (RTP). -/
 private theorem rndRTO_RAZ_pos {F₁ F₂ : AbstractFormat}
     (hsub : F₁.extend 1 ⊆ F₂)
     (hp_F₂ : 2 ≤ F₂.p)
@@ -1116,7 +1120,7 @@ private theorem rndRTO_RAZ_pos {F₁ F₂ : AbstractFormat}
     linarith
   have hw'_nn : 0 ≤ (w' : ℝ) := le_of_lt hw'_pos
   have hw'_abs : |(w' : ℝ)| = (w' : ℝ) := abs_of_nonneg hw'_nn
-  -- |w'| ≥ |x| via the contradiction in the RoundsRTN branch using
+  -- |w'| ≥ |x| via the contradiction in the ToNegative (RTN) branch using
   -- `notMem_of_extend_subset` instead of going through `hgt`.
   have hx_le_w' : x ≤ (w' : ℝ) := by
     rcases hz_adj with hRD | hRU
@@ -1219,19 +1223,22 @@ theorem rndRTO_RTP {F₁ F₂ : AbstractFormat}
   rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
   · have hx_le : x ≤ 0 := le_of_lt hx_neg
     have hz_le_0 : (z : ℝ) ≤ 0 := Rounds.toOdd_nonpos_of_nonpos hx_le hz
-    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (RoundsRTP_iff_RTZ_of_nonpos hz_le_0).mp hw
+    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w :=
+      (Rounds.toPositive_iff_toZero_of_nonpos hz_le_0).mp hw
     have hresult : Rounds F₁ .ToZero x w := rndRTO_RTZ hsub hz hw_RTZ
-    exact (RoundsRTP_iff_RTZ_of_nonpos hx_le).mpr hresult
+    exact (Rounds.toPositive_iff_toZero_of_nonpos hx_le).mpr hresult
   · have hx_le : x ≤ 0 := le_of_eq hx_zero
     have hz_le_0 : (z : ℝ) ≤ 0 := Rounds.toOdd_nonpos_of_nonpos hx_le hz
-    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (RoundsRTP_iff_RTZ_of_nonpos hz_le_0).mp hw
+    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w :=
+      (Rounds.toPositive_iff_toZero_of_nonpos hz_le_0).mp hw
     have hresult : Rounds F₁ .ToZero x w := rndRTO_RTZ hsub hz hw_RTZ
-    exact (RoundsRTP_iff_RTZ_of_nonpos hx_le).mpr hresult
+    exact (Rounds.toPositive_iff_toZero_of_nonpos hx_le).mpr hresult
   · have hx_nn : 0 ≤ x := le_of_lt hx_pos
     have hz_nn : 0 ≤ (z : ℝ) := Rounds.toOdd_nonneg_of_pos hx_pos hz
-    have hw_RAZ : Rounds F₁ .AwayZero (z : ℝ) w := (RoundsRTP_iff_RAZ_of_nn hz_nn).mp hw
+    have hw_RAZ : Rounds F₁ .AwayZero (z : ℝ) w :=
+      (Rounds.toPositive_iff_awayZero_of_nn hz_nn).mp hw
     have hresult : Rounds F₁ .AwayZero x w := rndRTO_RAZ hsub hz hw_RAZ
-    exact (RoundsRTP_iff_RAZ_of_nn hx_nn).mpr hresult
+    exact (Rounds.toPositive_iff_awayZero_of_nn hx_nn).mpr hresult
 
 /-- **rnd-RTO-RTN** (round-to-odd then round-to-−∞). Reduces to `rndRTO_RTZ`
 when `x ≥ 0` and to `rndRTO_RAZ` when `x ≤ 0`, via the sign-bridge lemmas. -/
@@ -1243,23 +1250,24 @@ theorem rndRTO_RTN {F₁ F₂ : AbstractFormat}
   rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
   · have hx_le : x ≤ 0 := le_of_lt hx_neg
     have hz_le_0 : (z : ℝ) ≤ 0 := Rounds.toOdd_nonpos_of_nonpos hx_le hz
-    have hw_RAZ : Rounds F₁ .AwayZero (z : ℝ) w := (RoundsRTN_iff_RAZ_of_nonpos hz_le_0).mp hw
+    have hw_RAZ : Rounds F₁ .AwayZero (z : ℝ) w :=
+      (Rounds.toNegative_iff_awayZero_of_nonpos hz_le_0).mp hw
     have hresult : Rounds F₁ .AwayZero x w := rndRTO_RAZ hsub hz hw_RAZ
-    exact (RoundsRTN_iff_RAZ_of_nonpos hx_le).mpr hresult
+    exact (Rounds.toNegative_iff_awayZero_of_nonpos hx_le).mpr hresult
   · have hx_nn : 0 ≤ x := le_of_eq hx_zero.symm
     have hz_nn : 0 ≤ (z : ℝ) := Rounds.toOdd_nonneg_of_nn hx_nn hz
-    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (RoundsRTN_iff_RTZ_of_nn hz_nn).mp hw
+    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (Rounds.toNegative_iff_toZero_of_nn hz_nn).mp hw
     have hresult : Rounds F₁ .ToZero x w := rndRTO_RTZ hsub hz hw_RTZ
-    exact (RoundsRTN_iff_RTZ_of_nn hx_nn).mpr hresult
+    exact (Rounds.toNegative_iff_toZero_of_nn hx_nn).mpr hresult
   · have hx_nn : 0 ≤ x := le_of_lt hx_pos
     have hz_nn : 0 ≤ (z : ℝ) := Rounds.toOdd_nonneg_of_pos hx_pos hz
-    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (RoundsRTN_iff_RTZ_of_nn hz_nn).mp hw
+    have hw_RTZ : Rounds F₁ .ToZero (z : ℝ) w := (Rounds.toNegative_iff_toZero_of_nn hz_nn).mp hw
     have hresult : Rounds F₁ .ToZero x w := rndRTO_RTZ hsub hz hw_RTZ
-    exact (RoundsRTN_iff_RTZ_of_nn hx_nn).mpr hresult
+    exact (Rounds.toNegative_iff_toZero_of_nn hx_nn).mpr hresult
 
 /-- Helper for tie-break: from `|x - w'| = |x - z'|` with `w' ≠ z'`, derive
 `x = (w' + z') / 2`. -/
-private theorem RoundsRNE.midpoint_of_tie {x : ℝ} {w' z' : Dyadic}
+private theorem Rounds.nearestEven_midpoint_of_tie {x : ℝ} {w' z' : Dyadic}
     (h_ne : z' ≠ w') (h_tie : |x - (w' : ℝ)| = |x - (z' : ℝ)|) :
     x = ((w' : ℝ) + (z' : ℝ)) / 2 := by
   rcases abs_eq_abs.mp h_tie with h1 | h1
@@ -1514,7 +1522,7 @@ private lemma rndRTO_no_tie_contradiction {F₁ F₂ : AbstractFormat}
     (hz'_eq_dist : |x - ((w' : Dyadic) : ℝ)| = |x - ((z' : Dyadic) : ℝ)|) :
     False := by
   have hx_mid : x = ((w' : ℝ) + (z' : ℝ)) / 2 :=
-    RoundsRNE.midpoint_of_tie hz'_ne_w' hz'_eq_dist
+    Rounds.nearestEven_midpoint_of_tie hz'_ne_w' hz'_eq_dist
   have hw'_ne_z'_real : ((w' : Dyadic) : ℝ) ≠ ((z' : Dyadic) : ℝ) := by
     intro heq
     apply hz'_ne_w'
@@ -1681,7 +1689,7 @@ theorem rndRTO_RNE {F₁ F₂ : AbstractFormat}
     Rounds.toOdd_notMem_of_extend_subset hsub_double hp_F₂_two hz hxne
   have h_close := rndRTO_RNE_close_transfer hsub_paper hsub' hF₁_sub_ext1
     hz_adj hw'F₁ h_adj_x hw_close_inner hz_not_F₁_ext1
-  -- Step 5: Assemble the RoundsRNE witness.
+  -- Step 5: Assemble the `Rounds .Nearest .ToEven` witness.
   refine ⟨hw'F₁, h_adj_x, h_close, ?_⟩
   -- Step 6: No-tie via midpoint ∈ F₂ + Rounds.toOdd_unique_of_mem.
   rintro ⟨z', hz'F₁, hz'_adj, hz'_ne_w', hz'_eq_dist⟩
