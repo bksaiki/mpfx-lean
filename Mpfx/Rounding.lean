@@ -86,30 +86,31 @@ IEEE 754 (or paper-extended) rounding mode:
 * `.Nearest .AwayZero` (RNA) — same closeness, ties broken to the larger
   `|·|`. -/
 def Rounds (F : AbstractFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) : Prop :=
+  y ∈ F ∧
   match rm with
   | .ToNegative =>
-      y ∈ F ∧ (y : ℝ) ≤ x ∧ ∀ z : Dyadic, z ∈ F → (z : ℝ) ≤ x → (z : ℝ) ≤ (y : ℝ)
+      (y : ℝ) ≤ x ∧ ∀ z : Dyadic, z ∈ F → (z : ℝ) ≤ x → (z : ℝ) ≤ (y : ℝ)
   | .ToPositive =>
-      y ∈ F ∧ x ≤ (y : ℝ) ∧ ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ)
+      x ≤ (y : ℝ) ∧ ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ)
   | .ToZero =>
-      y ∈ F ∧ |(y : ℝ)| ≤ |x| ∧ (y : ℝ) * x ≥ 0 ∧
+      |(y : ℝ)| ≤ |x| ∧ (y : ℝ) * x ≥ 0 ∧
       ∀ z : Dyadic, z ∈ F → |(z : ℝ)| ≤ |x| → (z : ℝ) * x ≥ 0 →
         |(z : ℝ)| ≤ |(y : ℝ)|
   | .AwayZero =>
-      y ∈ F ∧ |x| ≤ |(y : ℝ)| ∧ (y : ℝ) * x ≥ 0 ∧
+      |x| ≤ |(y : ℝ)| ∧ (y : ℝ) * x ≥ 0 ∧
       ∀ z : Dyadic, z ∈ F → |x| ≤ |(z : ℝ)| → (z : ℝ) * x ≥ 0 →
         |(y : ℝ)| ≤ |(z : ℝ)|
   | .ToOdd =>
-      y ∈ F ∧ IsFaithfulRound F x y ∧ (x ≠ (y : ℝ) → IsOdd F y)
+      IsFaithfulRound F x y ∧ (x ≠ (y : ℝ) → IsOdd F y)
   | .Nearest .ToEven =>
-      y ∈ F ∧ IsFaithfulRound F x y ∧
+      IsFaithfulRound F x y ∧
       (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
         |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
       ((∃ z : Dyadic, z ∈ F ∧ IsFaithfulRound F x z ∧
           z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
         IsEven F y)
   | .Nearest .AwayZero =>
-      y ∈ F ∧ IsFaithfulRound F x y ∧
+      IsFaithfulRound F x y ∧
       (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
         |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
       (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
@@ -380,7 +381,7 @@ theorem Rounds.compose_toPositive {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ 
 theorem Rounds.toOdd_unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
     {y : Dyadic} (h : Rounds F .ToOdd (x : ℝ) y) : y = x := by
   obtain ⟨_, hadj, _⟩ := h
-  rcases hadj with ⟨_, hyx, hmax⟩ | ⟨_, hxy, hmin⟩
+  rcases hadj with ⟨-, hyx, hmax⟩ | ⟨-, hxy, hmin⟩
   · -- round-down: (y:ℝ) ≤ (x:ℝ) and y is largest such
     have hxy : (x : ℝ) ≤ (y : ℝ) := hmax x hx (le_refl _)
     have heq : (y : ℝ) = (x : ℝ) := le_antisymm hyx hxy
@@ -398,24 +399,33 @@ theorem Rounds.toOdd_eq_zero_of_zero {F : AbstractFormat} {z : Dyadic}
     rw [this]; exact h
   exact Rounds.toOdd_unique_of_mem F.zero_mem h0
 
-/-- The RTO-rounding of a non-positive `x` is non-positive. -/
-theorem Rounds.toOdd_nonpos_of_nonpos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
-    (hx : x ≤ 0) (h : Rounds F .ToOdd x z) : (z : ℝ) ≤ 0 := by
-  rcases h.2.1 with hRD | hRU
+/-- If `0 ≤ x` and `z` is one of the two F-adjacents of `x`, then `z ≥ 0`. -/
+theorem IsFaithfulRound.nonneg_of_nn {F : AbstractFormat} {x : ℝ} {z : Dyadic}
+    (hx : 0 ≤ x) (h : IsFaithfulRound F x z) : 0 ≤ (z : ℝ) := by
+  rcases h with hRD | hRU
+  · obtain ⟨_, _, hz_max⟩ := hRD
+    have := hz_max 0 F.zero_mem hx
+    simpa using this
+  · linarith [hRU.2.1]
+
+/-- If `x ≤ 0` and `z` is one of the two F-adjacents of `x`, then `z ≤ 0`. -/
+theorem IsFaithfulRound.nonpos_of_nonpos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
+    (hx : x ≤ 0) (h : IsFaithfulRound F x z) : (z : ℝ) ≤ 0 := by
+  rcases h with hRD | hRU
   · linarith [hRD.2.1]
   · obtain ⟨_, _, hz_min⟩ := hRU
     have := hz_min 0 F.zero_mem hx
     simpa using this
 
-/-- The RTO-rounding of a non-negative `x` is non-negative (variant of
-`nonneg_of_pos` covering `x = 0` too). -/
+/-- The RTO-rounding of a non-positive `x` is non-positive. -/
+theorem Rounds.toOdd_nonpos_of_nonpos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
+    (hx : x ≤ 0) (h : Rounds F .ToOdd x z) : (z : ℝ) ≤ 0 :=
+  IsFaithfulRound.nonpos_of_nonpos hx h.2.1
+
+/-- The RTO-rounding of a non-negative `x` is non-negative. -/
 theorem Rounds.toOdd_nonneg_of_nn {F : AbstractFormat} {x : ℝ} {z : Dyadic}
-    (hx : 0 ≤ x) (h : Rounds F .ToOdd x z) : 0 ≤ (z : ℝ) := by
-  rcases h.2.1 with hRD | hRU
-  · obtain ⟨_, _, hz_max⟩ := hRD
-    have := hz_max 0 F.zero_mem hx
-    simpa using this
-  · linarith [hRU.2.1]
+    (hx : 0 ≤ x) (h : Rounds F .ToOdd x z) : 0 ≤ (z : ℝ) :=
+  IsFaithfulRound.nonneg_of_nn hx h.2.1
 
 /-- **Lemma 5.3 (spec-form corollary)**: when `x` is unrepresentable in `F`
 (`x ≠ x'`), the RTO-rounded `x'` cannot coincide with *any* dyadic `y` that is
@@ -549,9 +559,8 @@ round-down and round-up branches swap). Used by `Rounds.neg_toOdd`,
 `Rounds.neg_nearestEven`, and `Rounds.neg_nearestAwayZero`. -/
 theorem IsFaithfulRound.neg {F : AbstractFormat} {a : ℝ} {b : Dyadic}
     (h : IsFaithfulRound F a b) : IsFaithfulRound F (-a) (-b) := by
-  rcases h with hRD | hRU
+  rcases h with ⟨hbF, hba, hmax⟩ | ⟨hbF, hab, hmin⟩
   · right
-    obtain ⟨hbF, hba, hmax⟩ := hRD
     refine ⟨neg_mem hbF, ?_, ?_⟩
     · push_cast; linarith
     · intro w hwF haw
@@ -560,7 +569,6 @@ theorem IsFaithfulRound.neg {F : AbstractFormat} {a : ℝ} {b : Dyadic}
       have key := hmax (-w) hnwF h1
       push_cast at key ⊢; linarith
   · left
-    obtain ⟨hbF, hab, hmin⟩ := hRU
     refine ⟨neg_mem hbF, ?_, ?_⟩
     · push_cast; linarith
     · intro w hwF hwa
