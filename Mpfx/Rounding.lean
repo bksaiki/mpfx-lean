@@ -40,6 +40,27 @@ inductive RoundingMode
   | ToOdd : RoundingMode
 deriving DecidableEq, Repr
 
+/-- A rounding mode is *sign-symmetric* if rounding under it commutes with
+negation (`Rounds F rm x y ↔ Rounds F rm (-x) (-y)`). The directed modes
+`ToPositive`/`ToNegative` are not sign-symmetric (they're each other's
+negation-duals); all other modes are. -/
+def RoundingMode.IsSymmetric : RoundingMode → Prop
+  | .Nearest _ => True
+  | .ToZero => True
+  | .AwayZero => True
+  | .ToOdd => True
+  | .ToPositive => False
+  | .ToNegative => False
+
+instance (rm : RoundingMode) : Decidable rm.IsSymmetric :=
+  match rm with
+  | .Nearest _ => instDecidableTrue
+  | .ToZero => instDecidableTrue
+  | .AwayZero => instDecidableTrue
+  | .ToOdd => instDecidableTrue
+  | .ToPositive => instDecidableFalse
+  | .ToNegative => instDecidableFalse
+
 namespace AbstractFormat
 
 /-- `y = RTN-rounding of x in F` (round towards minus infinity) — i.e., `y` is
@@ -135,10 +156,10 @@ def Rounds (F : AbstractFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) : Pro
 @[simp] theorem Rounds_toOdd (F : AbstractFormat) (x : ℝ) (y : Dyadic) :
     Rounds F .ToOdd x y ↔ RoundsRTO F x y := Iff.rfl
 
-/-- For `0 ≤ x`, `RoundsRTP` (smallest F-element ≥ x) coincides with `RoundsRAZ`
+/-- For `0 ≤ x`, RTP (smallest F-element ≥ x) coincides with RAZ
 (smallest F-element with `|y| ≥ |x|` on x's side). -/
 theorem RoundsRTP_iff_RAZ_of_nn {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (hx : 0 ≤ x) : RoundsRTP F x y ↔ RoundsRAZ F x y := by
+    (hx : 0 ≤ x) : Rounds F .ToPositive x y ↔ Rounds F .AwayZero x y := by
   constructor
   · rintro ⟨hyF, hxy, hmin⟩
     have hy_nn : 0 ≤ (y : ℝ) := le_trans hx hxy
@@ -191,10 +212,10 @@ theorem RoundsRTP_iff_RAZ_of_nn {F : AbstractFormat} {x : ℝ} {y : Dyadic}
       rw [abs_of_nonneg hy_nn, abs_of_nonneg hz_nn] at key
       exact key
 
-/-- For `x ≤ 0`, `RoundsRTP` (smallest F-element ≥ x) coincides with `RoundsRTZ`
+/-- For `x ≤ 0`, RTP (smallest F-element ≥ x) coincides with RTZ
 (largest F-element on x's side with magnitude ≤ |x|). -/
 theorem RoundsRTP_iff_RTZ_of_nonpos {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (hx : x ≤ 0) : RoundsRTP F x y ↔ RoundsRTZ F x y := by
+    (hx : x ≤ 0) : Rounds F .ToPositive x y ↔ Rounds F .ToZero x y := by
   constructor
   · rintro ⟨hyF, hxy, hmin⟩
     -- For x ≤ 0, smallest F-elt ≥ x. Claim: y ≤ 0 since 0 ∈ F is ≥ x, so y ≤ 0.
@@ -254,10 +275,10 @@ theorem RoundsRTP_iff_RTZ_of_nonpos {F : AbstractFormat} {x : ℝ} {y : Dyadic}
       · push Not at hz_nonpos
         linarith
 
-/-- For `0 ≤ x`, `RoundsRTN` (largest F-element ≤ x) coincides with `RoundsRTZ`
+/-- For `0 ≤ x`, RTN (largest F-element ≤ x) coincides with RTZ
 (largest F-element on x's side with magnitude ≤ |x|). -/
 theorem RoundsRTN_iff_RTZ_of_nn {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (hx : 0 ≤ x) : RoundsRTN F x y ↔ RoundsRTZ F x y := by
+    (hx : 0 ≤ x) : Rounds F .ToNegative x y ↔ Rounds F .ToZero x y := by
   constructor
   · rintro ⟨hyF, hyx, hmax⟩
     -- Largest F-elt ≤ x with x ≥ 0; 0 ∈ F is ≤ x so y ≥ 0.
@@ -307,10 +328,10 @@ theorem RoundsRTN_iff_RTZ_of_nn {F : AbstractFormat} {x : ℝ} {y : Dyadic}
       · push Not at hz_nn
         linarith
 
-/-- For `x ≤ 0`, `RoundsRTN` (largest F-element ≤ x) coincides with `RoundsRAZ`
+/-- For `x ≤ 0`, RTN (largest F-element ≤ x) coincides with RAZ
 (smallest F-element with `|y| ≥ |x|` on x's side). -/
 theorem RoundsRTN_iff_RAZ_of_nonpos {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (hx : x ≤ 0) : RoundsRTN F x y ↔ RoundsRAZ F x y := by
+    (hx : x ≤ 0) : Rounds F .ToNegative x y ↔ Rounds F .AwayZero x y := by
   constructor
   · rintro ⟨hyF, hyx, hmax⟩
     -- y ≤ x ≤ 0
@@ -370,9 +391,10 @@ theorem RoundsRTN_iff_RAZ_of_nonpos {F : AbstractFormat} {x : ℝ} {y : Dyadic}
 
 /-- Composition lemma for RTN (round-down): if `F₁ ⊆ F₂`, then RTN through
 `F₂` to `F₁` agrees with RTN directly to `F₁`. -/
-theorem RoundsRTN.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
-    {x : ℝ} {z w : Dyadic} (hz : RoundsRTN F₂ x z) (hw : RoundsRTN F₁ (z : ℝ) w) :
-    RoundsRTN F₁ x w := by
+theorem Rounds.compose_toNegative {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
+    {x : ℝ} {z w : Dyadic}
+    (hz : Rounds F₂ .ToNegative x z) (hw : Rounds F₁ .ToNegative (z : ℝ) w) :
+    Rounds F₁ .ToNegative x w := by
   obtain ⟨hzF, hzx, hz_max⟩ := hz
   obtain ⟨hwF, hwz, hw_max⟩ := hw
   refine ⟨hwF, le_trans hwz hzx, ?_⟩
@@ -383,9 +405,10 @@ theorem RoundsRTN.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
 
 /-- Composition lemma for RTP (round-up): if `F₁ ⊆ F₂`, then RTP through
 `F₂` to `F₁` agrees with RTP directly to `F₁`. -/
-theorem RoundsRTP.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
-    {x : ℝ} {z w : Dyadic} (hz : RoundsRTP F₂ x z) (hw : RoundsRTP F₁ (z : ℝ) w) :
-    RoundsRTP F₁ x w := by
+theorem Rounds.compose_toPositive {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
+    {x : ℝ} {z w : Dyadic}
+    (hz : Rounds F₂ .ToPositive x z) (hw : Rounds F₁ .ToPositive (z : ℝ) w) :
+    Rounds F₁ .ToPositive x w := by
   obtain ⟨hzF, hxz, hz_min⟩ := hz
   obtain ⟨hwF, hzw, hw_min⟩ := hw
   refine ⟨hwF, le_trans hxz hzw, ?_⟩
@@ -395,8 +418,8 @@ theorem RoundsRTP.compose {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
   exact hw_min y hyF₁ hzy
 
 /-- If `x ∈ F` and `y` is the RTO-rounding of `x` in `F`, then `y = x`. -/
-theorem RoundsRTO.unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
-    {y : Dyadic} (h : RoundsRTO F (x : ℝ) y) : y = x := by
+theorem Rounds.toOdd_unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
+    {y : Dyadic} (h : Rounds F .ToOdd (x : ℝ) y) : y = x := by
   obtain ⟨_, hadj, _⟩ := h
   rcases hadj with ⟨_, hyx, hmax⟩ | ⟨_, hxy, hmin⟩
   · -- RoundsRTN: (y:ℝ) ≤ (x:ℝ) and y is largest such
@@ -409,15 +432,15 @@ theorem RoundsRTO.unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
     exact Subtype.ext heq
 
 /-- The RTO-rounding of `0` in any format is `0` itself. -/
-theorem RoundsRTO.eq_zero_of_zero {F : AbstractFormat} {z : Dyadic}
-    (h : RoundsRTO F 0 z) : z = 0 := by
-  have h0 : RoundsRTO F (((0 : Dyadic) : ℝ)) z := by
+theorem Rounds.toOdd_eq_zero_of_zero {F : AbstractFormat} {z : Dyadic}
+    (h : Rounds F .ToOdd 0 z) : z = 0 := by
+  have h0 : Rounds F .ToOdd (((0 : Dyadic) : ℝ)) z := by
     have : ((0 : Dyadic) : ℝ) = 0 := rfl
     rw [this]; exact h
-  exact RoundsRTO.unique_of_mem F.zero_mem h0
+  exact Rounds.toOdd_unique_of_mem F.zero_mem h0
 
 /-- The RTO-rounding of a positive `x` is non-negative. -/
-theorem RoundsRTO.nonneg_of_pos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
+theorem Rounds.toOdd_nonneg_of_pos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
     (hx_pos : 0 < x) (h : RoundsRTO F x z) : 0 ≤ (z : ℝ) := by
   rcases h.2.1 with hRD | hRU
   · obtain ⟨_, _, hz_max⟩ := hRD
@@ -426,7 +449,7 @@ theorem RoundsRTO.nonneg_of_pos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
   · linarith [hRU.2.1]
 
 /-- The RTO-rounding of a non-positive `x` is non-positive. -/
-theorem RoundsRTO.nonpos_of_nonpos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
+theorem Rounds.toOdd_nonpos_of_nonpos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
     (hx : x ≤ 0) (h : RoundsRTO F x z) : (z : ℝ) ≤ 0 := by
   rcases h.2.1 with hRD | hRU
   · linarith [hRD.2.1]
@@ -436,7 +459,7 @@ theorem RoundsRTO.nonpos_of_nonpos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
 
 /-- The RTO-rounding of a non-negative `x` is non-negative (variant of
 `nonneg_of_pos` covering `x = 0` too). -/
-theorem RoundsRTO.nonneg_of_nn {F : AbstractFormat} {x : ℝ} {z : Dyadic}
+theorem Rounds.toOdd_nonneg_of_nn {F : AbstractFormat} {x : ℝ} {z : Dyadic}
     (hx : 0 ≤ x) (h : RoundsRTO F x z) : 0 ≤ (z : ℝ) := by
   rcases h.2.1 with hRD | hRU
   · obtain ⟨_, _, hz_max⟩ := hRD
@@ -451,7 +474,7 @@ representable at strictly lower precision than the rounding precision at `x'`.
 The hypothesis `hgt : (w : ℤ) < numDigits F.p F.exp x'` captures "the rounding
 precision (at `x'`) exceeds `w`". In typical applications, this follows from
 the rounding precision at `x` (Lemma 5.1) plus a magnitude-bin invariant. -/
-theorem RoundsRTO.ne_of_precisionAtMost {F : AbstractFormat} {w : ℕ}
+theorem Rounds.toOdd_ne_of_precisionAtMost {F : AbstractFormat} {w : ℕ}
     {x : ℝ} {x' : Dyadic} (hround : RoundsRTO F x x')
     (hxne : x ≠ (x' : ℝ))
     (hgt : (w : ℤ) < numDigits F.p F.exp (x' : ℝ))
@@ -471,7 +494,7 @@ cannot be representable in any format `F₁` whose effective precision at `z`
 (per Lemma 5.1) is strictly less than `F₂`'s. This is the form used by every
 double-rounding theorem to rule out the case "F₂'s rounded value lands on an
 `F₁`-representable point". -/
-theorem RoundsRTO.notMem_of_lower_numDigits {F₁ F₂ : AbstractFormat}
+theorem Rounds.toOdd_notMem_of_lower_numDigits {F₁ F₂ : AbstractFormat}
     {x : ℝ} {z : Dyadic} (hz : RoundsRTO F₂ x z)
     (hxne : x ≠ (z : ℝ))
     (hlt : numDigits F₁.p F₁.exp (z : ℝ) < numDigits F₂.p F₂.exp (z : ℝ)) :
@@ -489,7 +512,7 @@ theorem RoundsRTO.notMem_of_lower_numDigits {F₁ F₂ : AbstractFormat}
     · rw [Int.toNat_of_nonneg h]; exact hlt
     · rw [Int.toNat_of_nonpos (le_of_lt h)]
       push_cast; exact h_nd_F₂_pos
-  exact (RoundsRTO.ne_of_precisionAtMost hz hxne hcast h_prec) rfl
+  exact (Rounds.toOdd_ne_of_precisionAtMost hz hxne hcast h_prec) rfl
 
 /-- Paper-aligned form of Lemma 5.3. From `F₁.extend 1 ⊆ F₂` and an RTO
 rounding `z` with `x ≠ z` (so `IsOdd F₂ z`), conclude `z ∉ F₁`.
@@ -498,7 +521,7 @@ Proof: `z ∈ F₁ ⊆ F₁.extend 1`. By `numDigits_eq_of_subset_of_isOdd`,
 `numDigits (F₁.extend 1) z = numDigits F₂ z`. By `numDigits_extend`, the LHS
 equals `numDigits F₁ z + 1`. So `numDigits F₁ z + 1 = numDigits F₂ z`, i.e.,
 `numDigits F₁ z < numDigits F₂ z`. Then apply `notMem_of_lower_numDigits`. -/
-theorem RoundsRTO.notMem_of_extend_subset {F₁ F₂ : AbstractFormat}
+theorem Rounds.toOdd_notMem_of_extend_subset {F₁ F₂ : AbstractFormat}
     (hsub : F₁.extend 1 ⊆ F₂)
     (hp_F₂ : 2 ≤ F₂.p)
     {x : ℝ} {z : Dyadic} (hz : RoundsRTO F₂ x z)
@@ -540,7 +563,7 @@ theorem RoundsRTO.notMem_of_extend_subset {F₁ F₂ : AbstractFormat}
   have h_F₂_pos : 0 < numDigits F₂.p F₂.exp (z : ℝ) := h_iod.numDigits_pos
   have h_lt : numDigits F₁.p F₁.exp (z : ℝ) < numDigits F₂.p F₂.exp (z : ℝ) := by
     omega
-  exact (RoundsRTO.notMem_of_lower_numDigits hz hxne h_lt) hzF₁
+  exact (Rounds.toOdd_notMem_of_lower_numDigits hz hxne h_lt) hzF₁
 
 /-- Sign-flip symmetry for RTZ rounding. -/
 theorem RoundsRTZ.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
@@ -607,7 +630,7 @@ theorem RoundsRTO.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
 
 /-- `RoundsRTN ∨ RoundsRTP` is preserved (with the disjuncts flipped) under
 joint negation of `x` and `y`. Used by `RoundsRTO.neg` and `RoundsRNE.neg`. -/
-theorem roundsAdj_neg {F : AbstractFormat} {a : ℝ} {b : Dyadic}
+private lemma roundsAdj_neg {F : AbstractFormat} {a : ℝ} {b : Dyadic}
     (h : RoundsRTN F a b ∨ RoundsRTP F a b) :
     RoundsRTN F (-a) (-b) ∨ RoundsRTP F (-a) (-b) := by
   rcases h with hRD | hRU
@@ -700,6 +723,68 @@ theorem RoundsRNE.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
     have hnzdist : |x - (y : ℝ)| = |x - ((-z : Dyadic) : ℝ)| := by
       rw [eq2, eq1 z]; exact hzdist
     exact (htie ⟨-z, hnzF, hnzadj, hnzne, hnzdist⟩).neg
+
+/-- Sign-flip symmetry for RNA rounding (round-to-nearest, ties away from
+zero). Mirrors `RoundsRNE.neg`; the larger-magnitude tie-break is
+sign-invariant. -/
+theorem RoundsRNA.neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
+    (h : RoundsRNA F x y) : RoundsRNA F (-x) (-y) := by
+  obtain ⟨hyF, hadj, hclose, htie⟩ := h
+  have eq1 : ∀ (w : Dyadic),
+      |x - ((-w : Dyadic) : ℝ)| = |(-x) - (w : ℝ)| := by
+    intro w
+    push_cast
+    rw [show x - -(w : ℝ) = -((-x) - (w : ℝ)) from by ring, abs_neg]
+  have eq2 : |x - (y : ℝ)| = |(-x) - ((-y : Dyadic) : ℝ)| := by
+    push_cast
+    rw [show x - (y : ℝ) = -((-x) - -(y : ℝ)) from by ring, abs_neg]
+  refine ⟨neg_mem hyF, roundsAdj_neg hadj, ?_, ?_⟩
+  · intro z hzF hzadj
+    have hnzF : (-z) ∈ F := neg_mem hzF
+    have hnzadj : RoundsRTN F x (-z) ∨ RoundsRTP F x (-z) := by
+      have := roundsAdj_neg hzadj
+      simpa using this
+    have key := hclose (-z) hnzF hnzadj
+    rw [eq1 z] at key
+    rw [← eq2]
+    exact key
+  · intro z hzF hzadj hzne hzdist
+    have hnzF : (-z) ∈ F := neg_mem hzF
+    have hnzadj : RoundsRTN F x (-z) ∨ RoundsRTP F x (-z) := by
+      have := roundsAdj_neg hzadj
+      simpa using this
+    have hnzne : (-z) ≠ y := by
+      intro h_eq
+      apply hzne
+      have h2 : -(-z) = -y := by rw [h_eq]
+      rwa [neg_neg] at h2
+    have hnzdist : |x - (y : ℝ)| = |x - ((-z : Dyadic) : ℝ)| := by
+      rw [eq2, eq1 z]; exact hzdist
+    have key := htie (-z) hnzF hnzadj hnzne hnzdist
+    have h_neg_z : |((-z : Dyadic) : ℝ)| = |(z : ℝ)| := by push_cast; rw [abs_neg]
+    have h_neg_y : |((-y : Dyadic) : ℝ)| = |(y : ℝ)| := by push_cast; rw [abs_neg]
+    rw [h_neg_y]
+    rw [h_neg_z] at key
+    exact key
+
+/-- Sign-flip symmetry for the unified `Rounds` relation, on sign-symmetric
+modes. Dispatches to the per-mode `.neg` helpers (`RoundsRTZ.neg`,
+`RoundsRAZ.neg`, `RoundsRTO.neg`, `RoundsRNE.neg`, `RoundsRNA.neg`). The
+directed modes `ToPositive`/`ToNegative` are excluded by `hrm`. -/
+theorem Rounds.neg {F : AbstractFormat} {rm : RoundingMode}
+    {x : ℝ} {y : Dyadic}
+    (h : Rounds F rm x y) (hrm : rm.IsSymmetric) :
+    Rounds F rm (-x) (-y) := by
+  cases rm with
+  | Nearest tb =>
+    cases tb with
+    | ToEven => exact RoundsRNE.neg h
+    | AwayZero => exact RoundsRNA.neg h
+  | ToZero => exact RoundsRTZ.neg h
+  | AwayZero => exact RoundsRAZ.neg h
+  | ToOdd => exact RoundsRTO.neg h
+  | ToPositive => exact absurd hrm (by simp [RoundingMode.IsSymmetric])
+  | ToNegative => exact absurd hrm (by simp [RoundingMode.IsSymmetric])
 
 end AbstractFormat
 
