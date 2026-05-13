@@ -12,16 +12,26 @@ fully paper-aligned (no `hp_F₂`, no F.exp-finite, no auxiliary closeness or
 midpoint hypotheses).
 
 Beyond the paper, the IEEE 754 directed modes (RTP, RTN) and the alternative
-tie-break (RNA) are also covered. `RoundsRTP`/`RoundsRTN` are the renamed
-`RoundsUp`/`RoundsDown` predicates (same definitions); `RoundsRNA` is the
-larger-magnitude tie-break variant of `RoundsRNE`. The five double-rounding
-theorems `rndRTP_RTP`, `rndRTN_RTN`, `rndRTO_RTP`, `rndRTO_RTN`, and
-`rndRTO_RNA` are mechanized via sign-reduction (RTP/RTN) and a parallel
-proof reusing `rndRTO_RNE_close_transfer` (RNA).
+tie-break (RNA) are also covered. `RoundsRTP`/`RoundsRTN` are the round-up /
+round-down predicates renamed; `RoundsRNA` is the larger-magnitude tie-break
+variant of `RoundsRNE`. The five additional double-rounding theorems
+`rndRTP_RTP`, `rndRTN_RTN`, `rndRTO_RTP`, `rndRTO_RTN`, and `rndRTO_RNA` are
+mechanized via sign-reduction (RTP/RTN) and a parallel proof reusing
+`rndRTO_no_tie_contradiction` (RNA).
 
 `rndRNA_RNA` is **not a theorem** — pen-and-paper analysis shows that
-RNA→RNA chains can fail (RNA→RNA differs from direct RNA at certain
-binade-boundary inputs).
+RNA→RNA chains can fail at binade-boundary inputs.
+
+There is also a directed `RoundsRTE` (round-to-even, the dual of RTO). It is
+a valid rounding mode but `rndRTE_RTE` is **not a theorem** — counterexample
+in `Mpfx/Rounding.lean`'s notes — so no double-rounding theorem is stated.
+
+**Unified `Rounds F rm x y` API.** `Rounds : AbstractFormat → RoundingMode →
+ℝ → Dyadic → Prop` is a single dispatcher over the seven per-mode predicates,
+indexed by `RoundingMode` (which itself takes a `TieBreak` parameter for
+`.Nearest`). All public double-rounding theorem signatures use `Rounds F .X
+x y` form; the per-mode predicates remain as primitives and helpers continue
+to use them internally.
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked.
 
@@ -49,21 +59,22 @@ wrappers would simplify smoke tests and external use.
 ## API polish
 
 - [ ] Merge `exists_grid_rep` and `exists_grid_rep_exp_bot` (and the `_exp_bot` siblings of `no_F_element_in_step_interval`, `F_adjacent_step_form`, `midpoint_mem_extend_one_of_F_adjacent_pos`) under a unified `k = (F.exp.unbotD (log y - p + 1)) ⊔ (log y - p + 1)` form. Trade-off: pushes the `cases F.exp` dispatch inward; the current twin-lemma structure with the dispatcher in `DoubleRounding.lean` is acceptable.
-- [ ] Encode `1 ≤ p` at the type level by changing `p : ℕ∞` to `p : WithTop ℕ+`. Drops the `p_pos` field. Significant cast-threading refactor across numeric literals, `F.p + k`, and `exact_mod_cast`s.
+- [ ] Encode `1 ≤ p` at the type level by changing `p : ℕ∞` to `p : WithTop ℕ+`. Drops the `p_pos` field. Significant cast-threading refactor. Investigated previously; left deferred — `p_pos` is fine in practice.
+- [ ] Migrate sign-bridge lemmas (`RoundsRTP_iff_RAZ_of_nn`, etc.) to use `Rounds F .X` form for API consistency. Low-priority polish.
+- [ ] Migrate private helpers (`rndRTO_no_tie_contradiction`, `rndRTO_RNE_close_transfer`, etc.) to use `Rounds`. Cosmetic.
 
 ## Constructive rounding (deferred)
 
-The double-rounding proofs use spec-relational `RoundsXX` predicates rather
-than a constructive `rnd`. The `RoundingMode` inductive is defined but
-unused; a constructive `rnd` would unblock `decide`-based smoke tests but is
-not load-bearing for the paper's theorems.
+The double-rounding proofs use spec-relational `Rounds`/`RoundsXX` predicates
+rather than a constructive `rnd`. A constructive `rnd` would unblock
+`decide`-based smoke tests but is not load-bearing for the paper's theorems.
 
 - [ ] `AbstractFormat.adjacents : AbstractFormat → ℝ → Option (Dyadic × Dyadic)`.
 - [ ] Existence + uniqueness for adjacents (off-overflow).
 - [ ] `rnd : AbstractFormat → RoundingMode → ℝ → Dyadic`.
 - [ ] `rnd F rm x ∈ F` for non-overflow inputs.
 - [ ] `rnd F rm x = ⟨x, _⟩` when `x ∈ F`.
-- [ ] Connect `rnd` to `RoundsXX` predicates (e.g., `RoundsRTZ F x (rnd F .RTZ x)`).
+- [ ] Connect `rnd` to `Rounds` predicate: `Rounds F rm x (rnd F rm x)`.
 
 ## Out of scope (paper §9)
 
