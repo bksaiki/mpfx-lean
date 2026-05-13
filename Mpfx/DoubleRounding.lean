@@ -25,8 +25,8 @@ namespace AbstractFormat
 RTZ-rounding of `x` in `F₁` directly. -/
 theorem rndRTZ_RTZ {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
     {x : ℝ} {z w : Dyadic}
-    (hz : RoundsRTZ F₂ x z) (hw : RoundsRTZ F₁ (z : ℝ) w) :
-    RoundsRTZ F₁ x w := by
+    (hz : Rounds F₂ .ToZero x z) (hw : Rounds F₁ .ToZero (z : ℝ) w) :
+    Rounds F₁ .ToZero x w := by
   obtain ⟨hzF, hzbnd, hzsign, hzmax⟩ := hz
   obtain ⟨hwF, hwbnd, hwsign, hwmax⟩ := hw
   refine ⟨hwF, le_trans hwbnd hzbnd, ?_, ?_⟩
@@ -147,8 +147,8 @@ positive case, negative case (via `RoundsRAZ.neg`), and the `x = 0` case
 (uses `neg_mem` to handle elements of `F₁` whose sign opposes `z`). -/
 theorem rndRAZ_RAZ {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
     {x : ℝ} {z w : Dyadic}
-    (hz : RoundsRAZ F₂ x z) (hw : RoundsRAZ F₁ (z : ℝ) w) :
-    RoundsRAZ F₁ x w := by
+    (hz : Rounds F₂ .AwayZero x z) (hw : Rounds F₁ .AwayZero (z : ℝ) w) :
+    Rounds F₁ .AwayZero x w := by
   rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
   · -- x < 0: flip via RoundsRAZ.neg, apply positive case, flip back
     have hz' : RoundsRAZ F₂ (-x) (-z) := RoundsRAZ.neg hz
@@ -188,8 +188,8 @@ theorem rndRAZ_RAZ {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
 when `x > 0` and to `rndRTZ_RTZ` when `x ≤ 0`, via the sign-bridge lemmas. -/
 theorem rndRTP_RTP {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
     {x : ℝ} {z w : Dyadic}
-    (hz : RoundsRTP F₂ x z) (hw : RoundsRTP F₁ (z : ℝ) w) :
-    RoundsRTP F₁ x w := by
+    (hz : Rounds F₂ .ToPositive x z) (hw : Rounds F₁ .ToPositive (z : ℝ) w) :
+    Rounds F₁ .ToPositive x w := by
   rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
   · -- x < 0: bridge to RTZ.
     have hx_le : x ≤ 0 := le_of_lt hx_neg
@@ -217,8 +217,8 @@ theorem rndRTP_RTP {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
 `x ≥ 0` and to `rndRAZ_RAZ` when `x < 0`, via the sign-bridge lemmas. -/
 theorem rndRTN_RTN {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
     {x : ℝ} {z w : Dyadic}
-    (hz : RoundsRTN F₂ x z) (hw : RoundsRTN F₁ (z : ℝ) w) :
-    RoundsRTN F₁ x w := by
+    (hz : Rounds F₂ .ToNegative x z) (hw : Rounds F₁ .ToNegative (z : ℝ) w) :
+    Rounds F₁ .ToNegative x w := by
   rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
   · -- x < 0: bridge to RAZ.
     have hx_le : x ≤ 0 := le_of_lt hx_neg
@@ -250,9 +250,9 @@ theorem rndRTO_RTO {F₁ F₂ : AbstractFormat}
     (hp_F₂ : 2 ≤ F₂.p)
     {x : ℝ}
     {z w' : Dyadic}
-    (hz : RoundsRTO F₂ x z)
-    (hw : RoundsRTO F₁ (z : ℝ) w') :
-    RoundsRTO F₁ x w' := by
+    (hz : Rounds F₂ .ToOdd x z)
+    (hw : Rounds F₁ .ToOdd (z : ℝ) w') :
+    Rounds F₁ .ToOdd x w' := by
   have hz_adj : RoundsRTN F₂ x z ∨ RoundsRTP F₂ x z := hz.2.1
   have hw'F₁ : w' ∈ F₁ := hw.1
   have hw_adj : RoundsRTN F₁ (z : ℝ) w' ∨ RoundsRTP F₁ (z : ℝ) w' := hw.2.1
@@ -1036,9 +1036,9 @@ theorem rndRTO_RTZ {F₁ F₂ : AbstractFormat}
     (hsub : ((F₁.extend 1).withBound F₁.boundAfterNext F₁.boundAfterNext_nn) ⊆ F₂)
     {x : ℝ}
     {z w' : Dyadic}
-    (hz : RoundsRTO F₂ x z)
-    (hw : RoundsRTZ F₁ (z : ℝ) w') :
-    RoundsRTZ F₁ x w' := by
+    (hz : Rounds F₂ .ToOdd x z)
+    (hw : Rounds F₁ .ToZero (z : ℝ) w') :
+    Rounds F₁ .ToZero x w' := by
   rcases hp_F₂_or_F₁_trivial hsub with hp_F₂ | hF₁_triv
   swap
   · -- F₁ trivial: conclusion holds directly from `w' ∈ F₁`.
@@ -1170,9 +1170,9 @@ theorem rndRTO_RAZ {F₁ F₂ : AbstractFormat}
     (hsub : ((F₁.extend 1).withBound F₁.boundAfterNext F₁.boundAfterNext_nn) ⊆ F₂)
     {x : ℝ}
     {z w' : Dyadic}
-    (hz : RoundsRTO F₂ x z)
-    (hw : RoundsRAZ F₁ (z : ℝ) w') :
-    RoundsRAZ F₁ x w' := by
+    (hz : Rounds F₂ .ToOdd x z)
+    (hw : Rounds F₁ .AwayZero (z : ℝ) w') :
+    Rounds F₁ .AwayZero x w' := by
   rcases hp_F₂_or_F₁_trivial hsub with hp_F₂ | hF₁_triv
   swap
   · -- F₁ trivial: x = 0 is forced and conclusion is RoundsRAZ F₁ 0 0.
@@ -1215,8 +1215,8 @@ when `x ≥ 0` and to `rndRTO_RTZ` when `x ≤ 0`, via the sign-bridge lemmas. -
 theorem rndRTO_RTP {F₁ F₂ : AbstractFormat}
     (hsub : ((F₁.extend 1).withBound F₁.boundAfterNext F₁.boundAfterNext_nn) ⊆ F₂)
     {x : ℝ} {z w : Dyadic}
-    (hz : RoundsRTO F₂ x z) (hw : RoundsRTP F₁ (z : ℝ) w) :
-    RoundsRTP F₁ x w := by
+    (hz : Rounds F₂ .ToOdd x z) (hw : Rounds F₁ .ToPositive (z : ℝ) w) :
+    Rounds F₁ .ToPositive x w := by
   rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
   · have hx_le : x ≤ 0 := le_of_lt hx_neg
     have hz_le_0 : (z : ℝ) ≤ 0 := RoundsRTO.nonpos_of_nonpos hx_le hz
@@ -1239,8 +1239,8 @@ when `x ≥ 0` and to `rndRTO_RAZ` when `x ≤ 0`, via the sign-bridge lemmas. -
 theorem rndRTO_RTN {F₁ F₂ : AbstractFormat}
     (hsub : ((F₁.extend 1).withBound F₁.boundAfterNext F₁.boundAfterNext_nn) ⊆ F₂)
     {x : ℝ} {z w : Dyadic}
-    (hz : RoundsRTO F₂ x z) (hw : RoundsRTN F₁ (z : ℝ) w) :
-    RoundsRTN F₁ x w := by
+    (hz : Rounds F₂ .ToOdd x z) (hw : Rounds F₁ .ToNegative (z : ℝ) w) :
+    Rounds F₁ .ToNegative x w := by
   rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
   · have hx_le : x ≤ 0 := le_of_lt hx_neg
     have hz_le_0 : (z : ℝ) ≤ 0 := RoundsRTO.nonpos_of_nonpos hx_le hz
@@ -1605,9 +1605,9 @@ theorem rndRTO_RNE {F₁ F₂ : AbstractFormat}
               (F₁.extend 1).boundAfterNext_nn) ⊆ F₂)
     {x : ℝ}
     {z w' : Dyadic}
-    (hz : RoundsRTO F₂ x z)
-    (hw : RoundsRNE F₁ (z : ℝ) w') :
-    RoundsRNE F₁ x w' := by
+    (hz : Rounds F₂ .ToOdd x z)
+    (hw : Rounds F₁ (.Nearest .ToEven) (z : ℝ) w') :
+    Rounds F₁ (.Nearest .ToEven) x w' := by
   have hsub_paper := hsub
   rcases hp_F₂_or_F₁_trivial_RNE hsub_paper with hp_F₂_two | hF₁_triv
   swap
@@ -1700,9 +1700,9 @@ theorem rndRTO_RNA {F₁ F₂ : AbstractFormat}
               (F₁.extend 1).boundAfterNext_nn) ⊆ F₂)
     {x : ℝ}
     {z w' : Dyadic}
-    (hz : RoundsRTO F₂ x z)
-    (hw : RoundsRNA F₁ (z : ℝ) w') :
-    RoundsRNA F₁ x w' := by
+    (hz : Rounds F₂ .ToOdd x z)
+    (hw : Rounds F₁ (.Nearest .AwayZero) (z : ℝ) w') :
+    Rounds F₁ (.Nearest .AwayZero) x w' := by
   have hsub_paper := hsub
   rcases hp_F₂_or_F₁_trivial_RNE hsub_paper with hp_F₂_two | hF₁_triv
   swap

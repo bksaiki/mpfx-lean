@@ -14,17 +14,17 @@ namespace Mpfx
 /-- Tie-break for nearest rounding modes.
 
 * `ToEven` — ties to the value with even significand parity.
-* `AwayFromZero` — ties to the value with larger magnitude.
+* `AwayZero` — ties to the value with larger magnitude.
 -/
 inductive TieBreak
   | ToEven : TieBreak
-  | AwayFromZero : TieBreak
+  | AwayZero : TieBreak
 deriving DecidableEq, Repr
 
 /-- Rounding modes. Five IEEE 754 modes plus the paper's auxiliary RTO mode.
 
 * `Nearest .ToEven` — round to nearest, ties to even (RNE).
-* `Nearest .AwayFromZero` — round to nearest, ties away from zero (RNA).
+* `Nearest .AwayZero` — round to nearest, ties away from zero (RNA).
 * `ToZero` — round towards zero / truncate (RTZ).
 * `AwayZero` — round away from zero (RAZ).
 * `ToPositive` — round towards plus infinity (RTP / round-up).
@@ -107,7 +107,7 @@ for stating mode-generic theorems. -/
 def Rounds (F : AbstractFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) : Prop :=
   match rm with
   | .Nearest .ToEven => RoundsRNE F x y
-  | .Nearest .AwayFromZero => RoundsRNA F x y
+  | .Nearest .AwayZero => RoundsRNA F x y
   | .ToZero => RoundsRTZ F x y
   | .AwayZero => RoundsRAZ F x y
   | .ToNegative => RoundsRTN F x y
@@ -117,8 +117,8 @@ def Rounds (F : AbstractFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) : Pro
 @[simp] theorem Rounds_nearest_toEven (F : AbstractFormat) (x : ℝ) (y : Dyadic) :
     Rounds F (.Nearest .ToEven) x y ↔ RoundsRNE F x y := Iff.rfl
 
-@[simp] theorem Rounds_nearest_awayFromZero (F : AbstractFormat) (x : ℝ) (y : Dyadic) :
-    Rounds F (.Nearest .AwayFromZero) x y ↔ RoundsRNA F x y := Iff.rfl
+@[simp] theorem Rounds_nearest_AwayZero (F : AbstractFormat) (x : ℝ) (y : Dyadic) :
+    Rounds F (.Nearest .AwayZero) x y ↔ RoundsRNA F x y := Iff.rfl
 
 @[simp] theorem Rounds_toZero (F : AbstractFormat) (x : ℝ) (y : Dyadic) :
     Rounds F .ToZero x y ↔ RoundsRTZ F x y := Iff.rfl
