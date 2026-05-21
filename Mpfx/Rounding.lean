@@ -555,8 +555,8 @@ theorem Rounds.neg_toZero {F : AbstractFormat} {x : ℝ} {y : Dyadic}
     exact key
 
 /-- `IsFaithfulRound` is preserved under joint negation of `x` and `y` (the
-round-down and round-up branches swap). Used by `Rounds.neg_toOdd`,
-`Rounds.neg_nearestEven`, and `Rounds.neg_nearestAwayZero`. -/
+round-down and round-up branches swap). Used by `Rounds.neg_toOdd` and
+`Rounds.neg_nearest`. -/
 theorem IsFaithfulRound.neg {F : AbstractFormat} {a : ℝ} {b : Dyadic}
     (h : IsFaithfulRound F a b) : IsFaithfulRound F (-a) (-b) := by
   rcases h with ⟨hbF, hba, hmax⟩ | ⟨hbF, hab, hmin⟩

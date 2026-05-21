@@ -46,7 +46,7 @@ the quantum by `k`. The bound is preserved.
 
 Used by §5.2 / Fig. 9 to express the paper's "`A(p₁ + k, exp₁ − k, b₁) ⊆ F₂`"
 hypotheses for the RTO-double-rounding rules (`k = 1` for `rnd-RTO-RTZ` /
-`rnd-RTO-RAZ`, `k = 2` for `rnd-RTO-RNE`). -/
+`rnd-RTO-RAZ`, `k = 2` for `rnd-RTO-RN`). -/
 def extend (F : AbstractFormat) (k : ℕ) : AbstractFormat where
   p := F.p + k
   exp := F.exp.map (· - (k : ℤ))
