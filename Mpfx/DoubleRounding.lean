@@ -710,17 +710,22 @@ private theorem hp_F₂_or_F₁_trivial_RN {F₁ F₂ : AbstractFormat}
           zpow_le_zpow_right₀ (by norm_num : (1 : ℝ) ≤ 2) h_step_ge
         linarith
 
-/-- If `F₁` is trivial (contains only `0`) then `Rounds F₁ .Nearest .ToEven x w'`
-holds for any real `x` whenever `w' ∈ F₁`. With `F₁ = {0}`, the closeness and
-tie-break conditions are vacuous; the adjacency condition is satisfied by
-the round-down branch (when `x ≥ 0`) or round-up branch (when `x ≤ 0`). -/
-private theorem Rounds.nearestEven_of_trivial {F₁ : AbstractFormat}
+/-- If `F₁` is trivial (contains only `0`) then `Rounds F₁ (.Nearest tb) x w'`
+holds for any real `x` and tie-break `tb`, whenever `w' ∈ F₁`. With
+`F₁ = {0}`, the closeness and tie-break conditions are vacuous (every F₁
+element equals `w' = 0`); the adjacency condition is satisfied by the
+round-down branch (when `x ≥ 0`) or the round-up branch (when `x < 0`). -/
+private theorem Rounds.nearest_of_trivial {F₁ : AbstractFormat}
     (hF₁_triv : ∀ d : Dyadic, d ∈ F₁ → (d : ℝ) = 0)
+    {tb : TieBreak}
     {x : ℝ} {w' : Dyadic} (hw : w' ∈ F₁) :
-    Rounds F₁ (.Nearest .ToEven) x w' := by
+    Rounds F₁ (.Nearest tb) x w' := by
   have hw'_zero : (w' : ℝ) = 0 := hF₁_triv w' hw
-  refine ⟨hw, ?_, ?_, ?_⟩
-  · -- adjacency: choose Down or Up depending on sign of x.
+  -- Every F₁ element equals w' (since both are 0).
+  have h_eq_w' : ∀ z : Dyadic, z ∈ F₁ → z = w' := fun z hzF₁ =>
+    Subtype.ext (by rw [hF₁_triv z hzF₁, hw'_zero])
+  -- Shared adjacency proof.
+  have h_adj : IsFaithfulRound F₁ x w' := by
     rcases lt_or_ge x 0 with hx_neg | hx_nn
     · right
       refine ⟨hw, by rw [hw'_zero]; linarith, ?_⟩
@@ -730,43 +735,21 @@ private theorem Rounds.nearestEven_of_trivial {F₁ : AbstractFormat}
       refine ⟨hw, by rw [hw'_zero]; exact hx_nn, ?_⟩
       intro v hvF₁ _
       rw [hF₁_triv v hvF₁, hw'_zero]
-  · -- closeness: any z ∈ F₁ has z = 0 = w'.
+  -- Shared closeness proof.
+  have h_close : ∀ z : Dyadic, z ∈ F₁ → IsFaithfulRound F₁ x z →
+      |x - (w' : ℝ)| ≤ |x - (z : ℝ)| := by
     intro z hzF₁ _
     rw [hF₁_triv z hzF₁, hw'_zero]
-  · -- tie-break: vacuous since the only F₁ element is 0 = w'.
+  -- Dispatch on tb only for the tie-break clause shape.
+  cases tb with
+  | ToEven =>
+    refine ⟨hw, h_adj, h_close, ?_⟩
     rintro ⟨z, hzF₁, _, hz_ne_w', _⟩
-    have hz_zero : (z : ℝ) = 0 := hF₁_triv z hzF₁
-    exfalso
-    apply hz_ne_w'
-    exact Subtype.ext (by rw [hz_zero, hw'_zero])
-
-/-- The trivial-`F₁` analog of `Rounds.nearestEven_of_trivial` for RNA: if `F₁ = {0}`
-then any `Rounds F₁ .Nearest .AwayZero x w'` holds for `w' ∈ F₁` and any real `x`. -/
-private theorem Rounds.nearestAwayZero_of_trivial {F₁ : AbstractFormat}
-    (hF₁_triv : ∀ d : Dyadic, d ∈ F₁ → (d : ℝ) = 0)
-    {x : ℝ} {w' : Dyadic} (hw : w' ∈ F₁) :
-    Rounds F₁ (.Nearest .AwayZero) x w' := by
-  have hw'_zero : (w' : ℝ) = 0 := hF₁_triv w' hw
-  refine ⟨hw, ?_, ?_, ?_⟩
-  · -- adjacency: choose Down or Up depending on sign of x.
-    rcases lt_or_ge x 0 with hx_neg | hx_nn
-    · right
-      refine ⟨hw, by rw [hw'_zero]; linarith, ?_⟩
-      intro v hvF₁ _
-      rw [hF₁_triv v hvF₁, hw'_zero]
-    · left
-      refine ⟨hw, by rw [hw'_zero]; exact hx_nn, ?_⟩
-      intro v hvF₁ _
-      rw [hF₁_triv v hvF₁, hw'_zero]
-  · -- closeness: any z ∈ F₁ has z = 0 = w'.
-    intro z hzF₁ _
-    rw [hF₁_triv z hzF₁, hw'_zero]
-  · -- tie-break: vacuous since the only F₁ element is 0 = w'.
+    exact (hz_ne_w' (h_eq_w' z hzF₁)).elim
+  | AwayZero =>
+    refine ⟨hw, h_adj, h_close, ?_⟩
     intro z hzF₁ _ hz_ne_w' _
-    have hz_zero : (z : ℝ) = 0 := hF₁_triv z hzF₁
-    exfalso
-    apply hz_ne_w'
-    exact Subtype.ext (by rw [hz_zero, hw'_zero])
+    exact (hz_ne_w' (h_eq_w' z hzF₁)).elim
 
 /-- Given the paper-aligned containment, derive the weaker
 `F₁.extend 1 ⊆ F₂` form (used by the `_pos` private theorems). The bound
@@ -1719,10 +1702,8 @@ theorem rndRTO_RN {F₁ F₂ : AbstractFormat}
     Rounds F₁ (.Nearest tb) x w' := by
   rcases hp_F₂_or_F₁_trivial_RN hsub with hp_F₂_two | hF₁_triv
   swap
-  · -- F₁ trivial: dispatch on tb to the matching trivial helper.
-    cases tb with
-    | ToEven => exact Rounds.nearestEven_of_trivial hF₁_triv hw.1
-    | AwayZero => exact Rounds.nearestAwayZero_of_trivial hF₁_triv hw.1
+  · -- F₁ trivial: handled uniformly for any tb.
+    exact Rounds.nearest_of_trivial hF₁_triv hw.1
   rcases eq_or_ne ((z : ℝ)) x with hzx | hzx
   · -- x = z: hw already has the right shape after rewriting.
     rw [hzx] at hw; exact hw
