@@ -875,7 +875,7 @@ private theorem midpoint_in_F₁_extend_one_of_F_adjacent {F₁ : AbstractFormat
 from `RoundDown w'` ∨ `RoundUp w'` + `RoundDown z'` ∨ `RoundUp z'` for `x`,
 when `w' < z'` (or symmetric). For w' < z', x ∈ (w', z') and any F₁-y with
 w' < y must be ≥ z' (else contradicts the round-down/up structure). -/
-private theorem F_adjacent_of_RNE_round_pair {F₁ : AbstractFormat}
+private theorem F_adjacent_of_RN_round_pair {F₁ : AbstractFormat}
     {x : ℝ} {w' z' : Dyadic}
     (hw'_adj : Rounds F₁ .ToNegative x w' ∨ Rounds F₁ .ToPositive x w')
     (hz'_adj : Rounds F₁ .ToNegative x z' ∨ Rounds F₁ .ToPositive x z')
@@ -1252,7 +1252,7 @@ theorem rndRTO_RTN {F₁ F₂ : AbstractFormat}
 
 /-- Helper for tie-break: from `|x - w'| = |x - z'|` with `w' ≠ z'`, derive
 `x = (w' + z') / 2`. -/
-private theorem Rounds.nearestEven_midpoint_of_tie {x : ℝ} {w' z' : Dyadic}
+private theorem Rounds.nearest_midpoint_of_tie {x : ℝ} {w' z' : Dyadic}
     (h_ne : z' ≠ w') (h_tie : |x - (w' : ℝ)| = |x - (z' : ℝ)|) :
     x = ((w' : ℝ) + (z' : ℝ)) / 2 := by
   rcases abs_eq_abs.mp h_tie with h1 | h1
@@ -1328,7 +1328,7 @@ private lemma rndRTO_RN_close_transfer {F₁ F₂ : AbstractFormat}
       have h_F_adj : ∀ y : Dyadic, y ∈ F₁ →
           ((w' : Dyadic) : ℝ) < ((y : Dyadic) : ℝ) →
           ((z' : Dyadic) : ℝ) ≤ ((y : Dyadic) : ℝ) :=
-        F_adjacent_of_RNE_round_pair (Or.inl hwRD) (Or.inr hzRU) h_w_le_x h_x_le_z
+        F_adjacent_of_RN_round_pair (Or.inl hwRD) (Or.inr hzRU) h_w_le_x h_x_le_z
       have h_mid_F₂ : Dyadic.midpoint w' z' ∈ F₂ :=
         midpoint_F₁_in_F₂_of_F_adjacent hsub_paper hw'F₁ hz'F₁
           h_w_lt_z h_F_adj
@@ -1414,7 +1414,7 @@ private lemma rndRTO_RN_close_transfer {F₁ F₂ : AbstractFormat}
       have h_F_adj : ∀ y : Dyadic, y ∈ F₁ →
           ((z' : Dyadic) : ℝ) < ((y : Dyadic) : ℝ) →
           ((w' : Dyadic) : ℝ) ≤ ((y : Dyadic) : ℝ) :=
-        F_adjacent_of_RNE_round_pair (Or.inl hzRD) (Or.inr hwRU) h_z_le_x h_x_le_w
+        F_adjacent_of_RN_round_pair (Or.inl hzRD) (Or.inr hwRU) h_z_le_x h_x_le_w
       have h_mid_F₂_swap : Dyadic.midpoint z' w' ∈ F₂ :=
         midpoint_F₁_in_F₂_of_F_adjacent hsub_paper hz'F₁ hw'F₁
           h_z_lt_w h_F_adj
@@ -1507,7 +1507,7 @@ private lemma rndRTO_no_tie_contradiction {F₁ F₂ : AbstractFormat}
     (hz'_eq_dist : |x - ((w' : Dyadic) : ℝ)| = |x - ((z' : Dyadic) : ℝ)|) :
     False := by
   have hx_mid : x = ((w' : ℝ) + (z' : ℝ)) / 2 :=
-    Rounds.nearestEven_midpoint_of_tie hz'_ne_w' hz'_eq_dist
+    Rounds.nearest_midpoint_of_tie hz'_ne_w' hz'_eq_dist
   have hw'_ne_z'_real : ((w' : Dyadic) : ℝ) ≠ ((z' : Dyadic) : ℝ) := by
     intro heq
     apply hz'_ne_w'

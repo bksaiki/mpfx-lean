@@ -662,44 +662,41 @@ private theorem Rounds.nearest_tie_neg {F : AbstractFormat} {x : ℝ} {y z : Dya
       push_cast; rw [show x - (y : ℝ) = -((-x) - -(y : ℝ)) from by ring, abs_neg]
     rw [e2, e1]; exact hzdist
 
-/-- Sign-flip symmetry for RNE rounding. -/
-theorem Rounds.neg_nearestEven {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (h : Rounds F (.Nearest .ToEven) x y) : Rounds F (.Nearest .ToEven) (-x) (-y) := by
-  obtain ⟨hyF, hadj, hclose, htie⟩ := h
-  refine ⟨neg_mem hyF, IsFaithfulRound.neg hadj, Rounds.nearest_close_neg hclose, ?_⟩
-  rintro ⟨z, hzF, hzadj, hzne, hzdist⟩
-  obtain ⟨hnzF, hnzadj, hnzne, hnzdist⟩ := Rounds.nearest_tie_neg hzF hzadj hzne hzdist
-  exact (htie ⟨-z, hnzF, hnzadj, hnzne, hnzdist⟩).neg
-
-/-- Sign-flip symmetry for RNA rounding (round-to-nearest, ties away from
-zero). Mirrors `Rounds.neg_nearestEven`; the larger-magnitude tie-break is
-sign-invariant. -/
-theorem Rounds.neg_nearestAwayZero {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (h : Rounds F (.Nearest .AwayZero) x y) :
-    Rounds F (.Nearest .AwayZero) (-x) (-y) := by
-  obtain ⟨hyF, hadj, hclose, htie⟩ := h
-  refine ⟨neg_mem hyF, IsFaithfulRound.neg hadj, Rounds.nearest_close_neg hclose, ?_⟩
-  intro z hzF hzadj hzne hzdist
-  obtain ⟨hnzF, hnzadj, hnzne, hnzdist⟩ := Rounds.nearest_tie_neg hzF hzadj hzne hzdist
-  have key := htie (-z) hnzF hnzadj hnzne hnzdist
-  have h_neg_z : |((-z : Dyadic) : ℝ)| = |(z : ℝ)| := by push_cast; rw [abs_neg]
-  have h_neg_y : |((-y : Dyadic) : ℝ)| = |(y : ℝ)| := by push_cast; rw [abs_neg]
-  rw [h_neg_y]; rw [h_neg_z] at key; exact key
+/-- Sign-flip symmetry for nearest rounding, parameterized by the tie-break.
+The membership, faithful-round, and closeness clauses follow from
+`IsFaithfulRound.neg` and `Rounds.nearest_close_neg`; the tie-break clause
+dispatches on `tb` (RNE uses `IsEven.neg`; RNA uses `abs_neg` to rewrite
+the magnitude bound). -/
+theorem Rounds.neg_nearest {F : AbstractFormat} {tb : TieBreak}
+    {x : ℝ} {y : Dyadic}
+    (h : Rounds F (.Nearest tb) x y) : Rounds F (.Nearest tb) (-x) (-y) := by
+  cases tb with
+  | ToEven =>
+    obtain ⟨hyF, hadj, hclose, htie⟩ := h
+    refine ⟨neg_mem hyF, IsFaithfulRound.neg hadj, Rounds.nearest_close_neg hclose, ?_⟩
+    rintro ⟨z, hzF, hzadj, hzne, hzdist⟩
+    obtain ⟨hnzF, hnzadj, hnzne, hnzdist⟩ := Rounds.nearest_tie_neg hzF hzadj hzne hzdist
+    exact (htie ⟨-z, hnzF, hnzadj, hnzne, hnzdist⟩).neg
+  | AwayZero =>
+    obtain ⟨hyF, hadj, hclose, htie⟩ := h
+    refine ⟨neg_mem hyF, IsFaithfulRound.neg hadj, Rounds.nearest_close_neg hclose, ?_⟩
+    intro z hzF hzadj hzne hzdist
+    obtain ⟨hnzF, hnzadj, hnzne, hnzdist⟩ := Rounds.nearest_tie_neg hzF hzadj hzne hzdist
+    have key := htie (-z) hnzF hnzadj hnzne hnzdist
+    have h_neg_z : |((-z : Dyadic) : ℝ)| = |(z : ℝ)| := by push_cast; rw [abs_neg]
+    have h_neg_y : |((-y : Dyadic) : ℝ)| = |(y : ℝ)| := by push_cast; rw [abs_neg]
+    rw [h_neg_y]; rw [h_neg_z] at key; exact key
 
 /-- Sign-flip symmetry for the unified `Rounds` relation, on sign-symmetric
 modes. Dispatches to the per-mode `.neg` helpers (`Rounds.neg_toZero`,
-`Rounds.neg_awayZero`, `Rounds.neg_toOdd`, `Rounds.neg_nearestEven`,
-`Rounds.neg_nearestAwayZero`). The directed modes `ToPositive`/`ToNegative`
-are excluded by `hrm`. -/
+`Rounds.neg_awayZero`, `Rounds.neg_toOdd`, `Rounds.neg_nearest`). The
+directed modes `ToPositive`/`ToNegative` are excluded by `hrm`. -/
 theorem Rounds.neg {F : AbstractFormat} {rm : RoundingMode}
     {x : ℝ} {y : Dyadic}
     (h : Rounds F rm x y) (hrm : rm.IsSymmetric) :
     Rounds F rm (-x) (-y) := by
   cases rm with
-  | Nearest tb =>
-    cases tb with
-    | ToEven => exact Rounds.neg_nearestEven h
-    | AwayZero => exact Rounds.neg_nearestAwayZero h
+  | Nearest _ => exact Rounds.neg_nearest h
   | ToZero => exact Rounds.neg_toZero h
   | AwayZero => exact Rounds.neg_awayZero h
   | ToOdd => exact Rounds.neg_toOdd h
