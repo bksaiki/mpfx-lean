@@ -5,3 +5,4 @@ import Mpfx.Digits
 import Mpfx.Containment
 import Mpfx.Rounding
 import Mpfx.DoubleRounding
+import Mpfx.FormatInference
