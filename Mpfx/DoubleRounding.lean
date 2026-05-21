@@ -547,17 +547,18 @@ private theorem Rounds.awayZero_of_trivial {F₁ F₂ : AbstractFormat}
   · intro v hvF₁ _ _
     rw [hF₁_triv v hvF₁, hw'_zero]
 
-/-- RNE analog of `hp_F₂_or_F₁_trivial`: from the paper-aligned RNE
-containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext _) ⊆ F₂`,
+/-- RN analog of `hp_F₂_or_F₁_trivial` (for round-to-nearest, used by
+`rndRTO_RN`): from the paper-aligned containment
+`((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext _) ⊆ F₂`,
 either `2 ≤ F₂.p` or `F₁` contains only `0`.
 
-The same precision-2 witness `v = 3·2^k` works because the RNE format only
+The same precision-2 witness `v = 3·2^k` works because the RN format only
 has *looser* precision and quantum constraints than RTZ's `F₁.extend 1`
 shape (`F₁.p + 2 ≥ F₁.p + 1`, `F₁.exp - 2 ≤ F₁.exp - 1`). The bound
 `(F₁.extend 1).boundAfterNext = (F₁.extend 1).next F₁.b` is large enough:
 its step is `≥ 2^(F₁.exp - 1)`, so when F₁ has a nonzero element
 (`F₁.b ≥ 2^F₁.exp`), the bound is `≥ 1.5·2^F₁.exp = |v|`. -/
-private theorem hp_F₂_or_F₁_trivial_RNE {F₁ F₂ : AbstractFormat}
+private theorem hp_F₂_or_F₁_trivial_RN {F₁ F₂ : AbstractFormat}
     (hsub : ((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext
               (F₁.extend 1).boundAfterNext_nn) ⊆ F₂) :
     2 ≤ F₂.p ∨ ∀ d : Dyadic, d ∈ F₁ → (d : ℝ) = 0 := by
@@ -795,10 +796,11 @@ private theorem extend_one_subset_of_paper_subset {F₁ F₂ : AbstractFormat}
     have hb_nn : 0 ≤ ((b : Dyadic) : ℝ) := F₁.b_nn_of_coe hF_b
     linarith [AbstractFormat.self_le_next F₁ b hb_nn]
 
-/-- RNE analog of `extend_one_subset_of_paper_subset`: from the paper-aligned
-RNE containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext _) ⊆ F₂`,
+/-- RN analog of `extend_one_subset_of_paper_subset` (for round-to-nearest,
+used by `rndRTO_RN`): from the paper-aligned containment
+`((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext _) ⊆ F₂`,
 derive the weaker `F₁.extend 2 ⊆ F₂` form. -/
-private theorem extend_two_subset_of_paper_RNE_subset {F₁ F₂ : AbstractFormat}
+private theorem extend_two_subset_of_paper_RN_subset {F₁ F₂ : AbstractFormat}
     (hsub : ((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext
               (F₁.extend 1).boundAfterNext_nn) ⊆ F₂) :
     F₁.extend 2 ⊆ F₂ := by
@@ -955,7 +957,7 @@ private theorem midpoint_F₁_in_F₂_of_F_adjacent {F₁ F₂ : AbstractFormat}
           change ((e - 2 : ℤ) : WithBot ℤ) ≤ ((e - 1 : ℤ) : WithBot ℤ)
           exact WithBot.coe_le_coe.mpr (by linarith)
       exact Dyadic.quantumAtLeast_anti h_exp_ge hq
-  exact extend_two_subset_of_paper_RNE_subset hsub _ h_in_ext_2
+  exact extend_two_subset_of_paper_RN_subset hsub _ h_in_ext_2
 
 /-- **rnd-RTO-RTZ** (Fig. 9), paper-aligned form, positive case `0 < x`. -/
 private theorem rndRTO_RTZ_pos {F₁ F₂ : AbstractFormat}
@@ -1277,13 +1279,13 @@ private theorem Rounds.nearestEven_midpoint_of_tie {x : ℝ} {w' z' : Dyadic}
   · -- x - w' = -(x - z') ⇒ 2x = w' + z'
     linarith
 
-/-- The closeness transfer step for `rndRTO_RNE`: given that `z = RTO F₂ x`
-sits outside `F₁.extend 1` (Lemma 5.3) and `w' = RNE F₁ z`, every F₁-adjacent
+/-- The closeness transfer step for `rndRTO_RN`: given that `z = RTO F₂ x`
+sits outside `F₁.extend 1` (Lemma 5.3) and `w' = RN F₁ z`, every F₁-adjacent
 `z'` to `x` satisfies `|x - w'| ≤ |x - z'|`. The argument uses the midpoint
 `m = (w' + z') / 2` (in F₂ via `midpoint_F₁_in_F₂_of_F_adjacent`, in
 `F₁.extend 1` via `midpoint_in_F₁_extend_one_of_F_adjacent`), shows
 `z ≠ m`, and concludes `x` lies on `w'`'s side of `m`. -/
-private lemma rndRTO_RNE_close_transfer {F₁ F₂ : AbstractFormat}
+private lemma rndRTO_RN_close_transfer {F₁ F₂ : AbstractFormat}
     (hsub_paper : ((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext
                     (F₁.extend 1).boundAfterNext_nn) ⊆ F₂)
     (hsub' : F₁ ⊆ F₂)
@@ -1500,7 +1502,7 @@ private lemma rndRTO_RNE_close_transfer {F₁ F₂ : AbstractFormat}
       rw [abs_of_nonpos h_x_w_neg, abs_of_nonneg h_x_z_pos]
       linarith
 
-/-- The "no-tie" derivation shared by `rndRTO_RNE` and `rndRTO_RNA`. Given
+/-- The "no-tie" derivation used by the nearest-rounding branch of `rndRTO_RN`. Given
 that `z = RTO F₂ x` is unrepresentable in `F₁` (`hxne` + the implicit
 `z ∉ F₁` chain) and that `z'` is supposedly tied with `w'` for `x`'s
 nearest-rounding in `F₁`, derive `False` via the midpoint-uniqueness
@@ -1598,143 +1600,49 @@ private lemma rndRTO_no_tie_contradiction {F₁ F₂ : AbstractFormat}
     exact Rounds.toOdd_unique_of_mem h_mid_F₂ hz'
   exact hxne (by rw [hz_eq]; exact hm_x.symm)
 
-/-- **rnd-RTO-RNE** (Fig. 9), paper-aligned form. The hypothesis `hsub`
-encodes the paper's `A(p₁ + 2, exp₁ − 2, next_{p₁+1, exp₁-1}(b₁)) ⊆
-A(p₂, exp₂, b₂)` containment from Fig. 9 — uniform with the `rndRTO_RTZ`
-and `rndRTO_RAZ` signatures.
-
-Proof key steps:
-- midpoint membership in F₂ follows from `midpoint_F₁_in_F₂_of_F_adjacent`.
-- closeness transfer follows from `notMem_of_extend_subset` at the
-  `F₁.extend 1` level (giving `z ∉ F₁.extend 1`, hence `z ≠ midpoint(w', z')`)
-  plus a same-side-of-midpoint argument over `z = RTO F₂ x`. -/
-theorem rndRTO_RNE {F₁ F₂ : AbstractFormat}
-    (hsub : ((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext
-              (F₁.extend 1).boundAfterNext_nn) ⊆ F₂)
-    {x : ℝ}
-    {z w' : Dyadic}
-    (hz : Rounds F₂ .ToOdd x z)
-    (hw : Rounds F₁ (.Nearest .ToEven) (z : ℝ) w') :
-    Rounds F₁ (.Nearest .ToEven) x w' := by
-  have hsub_paper := hsub
-  rcases hp_F₂_or_F₁_trivial_RNE hsub_paper with hp_F₂_two | hF₁_triv
-  swap
-  · -- F₁ trivial case: conclusion holds directly.
-    exact Rounds.nearestEven_of_trivial hF₁_triv hw.1
-  have hsub : F₁.extend 2 ⊆ F₂ := extend_two_subset_of_paper_RNE_subset hsub_paper
-  -- Subset chain F₁ ⊆ F₁.extend 1 ⊆ F₁.extend 2 ⊆ F₂.
+/-- Shared core for the nearest-rounding branch of `rndRTO_RN`. Given the
+paper-aligned RNE containment plus extracted hypotheses from the inner
+nearest-rounding, produces the three facts needed by either tie-break:
+adjacency transfer (`h_adj_x`), closeness transfer (`h_close`), and an
+absence-of-tie property (`h_no_tie`). The two `tb` branches of `rndRTO_RN`
+differ only in how they consume `h_no_tie` (∃→IsEven for `.ToEven`,
+∀→|·|-bound for `.AwayZero`). -/
+private theorem rndRTO_nearest_facts {F₁ F₂ : AbstractFormat}
+    (hsub_paper : ((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext
+                    (F₁.extend 1).boundAfterNext_nn) ⊆ F₂)
+    (hp_F₂_two : 2 ≤ F₂.p)
+    {x : ℝ} {z w' : Dyadic}
+    (hz : Rounds F₂ .ToOdd x z) (hxne : x ≠ (z : ℝ))
+    (hw'F₁ : w' ∈ F₁)
+    (hw_adj : Rounds F₁ .ToNegative ((z : Dyadic) : ℝ) w'
+              ∨ Rounds F₁ .ToPositive ((z : Dyadic) : ℝ) w')
+    (hw_close_inner : ∀ z' : Dyadic, z' ∈ F₁ →
+        (Rounds F₁ .ToNegative ((z : Dyadic) : ℝ) z'
+          ∨ Rounds F₁ .ToPositive ((z : Dyadic) : ℝ) z') →
+        |((z : Dyadic) : ℝ) - ((w' : Dyadic) : ℝ)| ≤
+            |((z : Dyadic) : ℝ) - ((z' : Dyadic) : ℝ)|) :
+    (Rounds F₁ .ToNegative x w' ∨ Rounds F₁ .ToPositive x w') ∧
+    (∀ z' : Dyadic, z' ∈ F₁ →
+        (Rounds F₁ .ToNegative x z' ∨ Rounds F₁ .ToPositive x z') →
+        |x - ((w' : Dyadic) : ℝ)| ≤ |x - ((z' : Dyadic) : ℝ)|) ∧
+    (∀ z' : Dyadic, z' ∈ F₁ →
+        (Rounds F₁ .ToNegative x z' ∨ Rounds F₁ .ToPositive x z') →
+        z' ≠ w' →
+        |x - ((w' : Dyadic) : ℝ)| = |x - ((z' : Dyadic) : ℝ)| → False) := by
+  have hsub : F₁.extend 2 ⊆ F₂ := extend_two_subset_of_paper_RN_subset hsub_paper
   have hF₁_sub_ext1 : F₁ ⊆ F₁.extend 1 := self_subset_extend F₁ 1
   have h_ext1_sub_ext2 : F₁.extend 1 ⊆ F₁.extend 2 := extend_mono F₁ (by omega : 1 ≤ 2)
   have hsub_ext1 : F₁.extend 1 ⊆ F₂ := fun y hy => hsub _ (h_ext1_sub_ext2 _ hy)
   have hsub' : F₁ ⊆ F₂ := fun y hy => hsub_ext1 _ (hF₁_sub_ext1 _ hy)
-  -- Step 2: Trivial case z = x.
-  rcases eq_or_ne ((z : ℝ)) x with hzx | hzx
-  · obtain ⟨hw'F₁, hw_adj, hw_close, hw_tie⟩ := hw
-    rw [hzx] at hw_adj hw_close hw_tie
-    exact ⟨hw'F₁, hw_adj, hw_close, hw_tie⟩
-  -- Step 3: Non-trivial case z ≠ x.
-  have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
   have hz_not_F₁ : z ∉ F₁ :=
     Rounds.toOdd_notMem_of_extend_subset hsub_ext1 hp_F₂_two hz hxne
   have hz_adj : Rounds F₂ .ToNegative x z ∨ Rounds F₂ .ToPositive x z := hz.2.1
-  obtain ⟨hw'F₁, hw_adj, hw_close_inner, _⟩ := hw
   have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := by
     intro h_eq
     apply hz_not_F₁
     rw [show z = w' from Subtype.ext h_eq]
     exact hw'F₁
-  -- Step 4: Adjacency transfer (4-way case split).
-  have h_adj_x : Rounds F₁ .ToNegative x w' ∨ Rounds F₁ .ToPositive x w' := by
-    rcases hz_adj with hzRD | hzRU
-    · rcases hw_adj with hwRD | hwRU
-      · left
-        obtain ⟨_, hwz, hw_max⟩ := hwRD
-        have hzx_le := hzRD.2.1
-        refine ⟨hw'F₁, le_trans hwz hzx_le, ?_⟩
-        intro v hvF₁ hvx
-        exact hw_max v hvF₁ (hzRD.2.2 v (hsub' _ hvF₁) hvx)
-      · obtain ⟨_, hzw, hw_min⟩ := hwRU
-        by_cases hw'_le_x : (w' : ℝ) ≤ x
-        · exfalso
-          have hw_le_z : (w' : ℝ) ≤ (z : ℝ) := hzRD.2.2 w' (hsub' _ hw'F₁) hw'_le_x
-          exact hz_ne_w' (le_antisymm hw_le_z hzw).symm
-        · push Not at hw'_le_x
-          right
-          refine ⟨hw'F₁, hw'_le_x.le, ?_⟩
-          intro v hvF₁ hxv
-          exact hw_min v hvF₁ (le_trans hzRD.2.1 hxv)
-    · rcases hw_adj with hwRD | hwRU
-      · obtain ⟨_, hwz, hw_max⟩ := hwRD
-        by_cases hw'_le_x : (w' : ℝ) ≤ x
-        · left
-          refine ⟨hw'F₁, hw'_le_x, ?_⟩
-          intro v hvF₁ hvx
-          exact hw_max v hvF₁ (le_trans hvx hzRU.2.1)
-        · exfalso
-          push Not at hw'_le_x
-          have hw_ge_z : (z : ℝ) ≤ (w' : ℝ) :=
-            hzRU.2.2 w' (hsub' _ hw'F₁) hw'_le_x.le
-          exact hz_ne_w' (le_antisymm hwz hw_ge_z).symm
-      · right
-        obtain ⟨_, hzw, hw_min⟩ := hwRU
-        have hxz := hzRU.2.1
-        refine ⟨hw'F₁, le_trans hxz hzw, ?_⟩
-        intro v hvF₁ hxv
-        exact hw_min v hvF₁ (hzRU.2.2 v (hsub' _ hvF₁) hxv)
-  -- Helper: z ∉ F₁.extend 1 (via notMem_of_extend_subset at F₁.extend 1 level).
-  have hsub_double : (F₁.extend 1).extend 1 ⊆ F₂ := fun y hy =>
-    extend_two_subset_of_paper_RNE_subset hsub_paper y
-      (extend_one_extend_one_subset_extend_two F₁ y hy)
-  have hz_not_F₁_ext1 : z ∉ F₁.extend 1 :=
-    Rounds.toOdd_notMem_of_extend_subset hsub_double hp_F₂_two hz hxne
-  have h_close := rndRTO_RNE_close_transfer hsub_paper hsub' hF₁_sub_ext1
-    hz_adj hw'F₁ h_adj_x hw_close_inner hz_not_F₁_ext1
-  -- Step 5: Assemble the `Rounds .Nearest .ToEven` witness.
-  refine ⟨hw'F₁, h_adj_x, h_close, ?_⟩
-  -- Step 6: No-tie via midpoint ∈ F₂ + Rounds.toOdd_unique_of_mem.
-  rintro ⟨z', hz'F₁, hz'_adj, hz'_ne_w', hz'_eq_dist⟩
-  exact (rndRTO_no_tie_contradiction hsub_paper hz hxne hw'F₁ hz'F₁
-    h_adj_x hz'_adj hz'_ne_w' hz'_eq_dist).elim
-
-/-- **rnd-RTO-RNA** (round-to-odd then round-to-nearest, ties-away-from-zero).
-Same paper-aligned containment as `rndRTO_RNE`. The proof structure is
-identical to `rndRTO_RNE` — the closeness clause uses
-`rndRTO_RNE_close_transfer`, and the no-tie clause is satisfied vacuously
-because any tied `z' ≠ w'` would force `x = midpoint(w', z') = z`,
-contradicting `z ∉ F₁`. RNA's `|z'| ≤ |w'|` tie-break differs from RNE's
-`IsEven` only at actual ties — and there are none under this hypothesis. -/
-theorem rndRTO_RNA {F₁ F₂ : AbstractFormat}
-    (hsub : ((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext
-              (F₁.extend 1).boundAfterNext_nn) ⊆ F₂)
-    {x : ℝ}
-    {z w' : Dyadic}
-    (hz : Rounds F₂ .ToOdd x z)
-    (hw : Rounds F₁ (.Nearest .AwayZero) (z : ℝ) w') :
-    Rounds F₁ (.Nearest .AwayZero) x w' := by
-  have hsub_paper := hsub
-  rcases hp_F₂_or_F₁_trivial_RNE hsub_paper with hp_F₂_two | hF₁_triv
-  swap
-  · exact Rounds.nearestAwayZero_of_trivial hF₁_triv hw.1
-  have hsub : F₁.extend 2 ⊆ F₂ := extend_two_subset_of_paper_RNE_subset hsub_paper
-  have hF₁_sub_ext1 : F₁ ⊆ F₁.extend 1 := self_subset_extend F₁ 1
-  have h_ext1_sub_ext2 : F₁.extend 1 ⊆ F₁.extend 2 := extend_mono F₁ (by omega : 1 ≤ 2)
-  have hsub_ext1 : F₁.extend 1 ⊆ F₂ := fun y hy => hsub _ (h_ext1_sub_ext2 _ hy)
-  have hsub' : F₁ ⊆ F₂ := fun y hy => hsub_ext1 _ (hF₁_sub_ext1 _ hy)
-  rcases eq_or_ne ((z : ℝ)) x with hzx | hzx
-  · obtain ⟨hw'F₁, hw_adj, hw_close, hw_tie⟩ := hw
-    rw [hzx] at hw_adj hw_close hw_tie
-    exact ⟨hw'F₁, hw_adj, hw_close, hw_tie⟩
-  have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
-  have hz_not_F₁ : z ∉ F₁ :=
-    Rounds.toOdd_notMem_of_extend_subset hsub_ext1 hp_F₂_two hz hxne
-  have hz_adj : Rounds F₂ .ToNegative x z ∨ Rounds F₂ .ToPositive x z := hz.2.1
-  obtain ⟨hw'F₁, hw_adj, hw_close_inner, _⟩ := hw
-  have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := by
-    intro h_eq
-    apply hz_not_F₁
-    rw [show z = w' from Subtype.ext h_eq]
-    exact hw'F₁
-  -- Adjacency transfer (same 4-way case split as rndRTO_RNE).
+  -- Adjacency transfer (4-way case split).
   have h_adj_x : Rounds F₁ .ToNegative x w' ∨ Rounds F₁ .ToPositive x w' := by
     rcases hz_adj with hzRD | hzRU
     · rcases hw_adj with hwRD | hwRU
@@ -1773,17 +1681,69 @@ theorem rndRTO_RNA {F₁ F₂ : AbstractFormat}
         intro v hvF₁ hxv
         exact hw_min v hvF₁ (hzRU.2.2 v (hsub' _ hvF₁) hxv)
   have hsub_double : (F₁.extend 1).extend 1 ⊆ F₂ := fun y hy =>
-    extend_two_subset_of_paper_RNE_subset hsub_paper y
+    extend_two_subset_of_paper_RN_subset hsub_paper y
       (extend_one_extend_one_subset_extend_two F₁ y hy)
   have hz_not_F₁_ext1 : z ∉ F₁.extend 1 :=
     Rounds.toOdd_notMem_of_extend_subset hsub_double hp_F₂_two hz hxne
-  have h_close := rndRTO_RNE_close_transfer hsub_paper hsub' hF₁_sub_ext1
+  have h_close := rndRTO_RN_close_transfer hsub_paper hsub' hF₁_sub_ext1
     hz_adj hw'F₁ h_adj_x hw_close_inner hz_not_F₁_ext1
-  refine ⟨hw'F₁, h_adj_x, h_close, ?_⟩
-  -- No-tie: any z' tied with w' would force x = midpoint = z, contradicting z ∉ F₁.
+  refine ⟨h_adj_x, h_close, ?_⟩
   intro z' hz'F₁ hz'_adj hz'_ne_w' hz'_eq_dist
-  exact (rndRTO_no_tie_contradiction hsub_paper hz hxne hw'F₁ hz'F₁
-    h_adj_x hz'_adj hz'_ne_w' hz'_eq_dist).elim
+  exact rndRTO_no_tie_contradiction hsub_paper hz hxne hw'F₁ hz'F₁
+    h_adj_x hz'_adj hz'_ne_w' hz'_eq_dist
+
+/-- **rnd-RTO-RN** (Fig. 9), paper-aligned form for round-to-odd followed by
+round-to-nearest, parameterized by the nearest-rounding tie-break `tb`.
+Covers both RNE (`tb = .ToEven`) and RNA (`tb = .AwayZero`) in a single
+theorem: the hypothesis `hsub` encodes the paper's
+`A(p₁ + 2, exp₁ − 2, next_{p₁+1, exp₁-1}(b₁)) ⊆ A(p₂, exp₂, b₂)` containment
+— uniform with the `rndRTO_RTZ` and `rndRTO_RAZ` signatures.
+
+Proof structure:
+* `hp_F₂_or_F₁_trivial_RN` discharges either `F₂.p ≥ 2` or trivial F₁.
+* x = z case: direct transport of `hw`.
+* x ≠ z case: extract the three shared facts (adjacency-transfer, closeness,
+  no-tie) from `rndRTO_nearest_facts`, then dispatch on `tb` to consume the
+  appropriate tie-break clause (∃→IsEven for RNE; ∀→|·|-bound for RNA).
+  Both tie-break clauses are discharged *vacuously* because
+  `rndRTO_nearest_facts` proves no tie can exist (any tied `z' ≠ w'` would
+  force `x = midpoint(w', z') = z`, contradicting `z ∉ F₁`). -/
+theorem rndRTO_RN {F₁ F₂ : AbstractFormat}
+    (hsub : ((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext
+              (F₁.extend 1).boundAfterNext_nn) ⊆ F₂)
+    {tb : TieBreak}
+    {x : ℝ}
+    {z w' : Dyadic}
+    (hz : Rounds F₂ .ToOdd x z)
+    (hw : Rounds F₁ (.Nearest tb) (z : ℝ) w') :
+    Rounds F₁ (.Nearest tb) x w' := by
+  rcases hp_F₂_or_F₁_trivial_RN hsub with hp_F₂_two | hF₁_triv
+  swap
+  · -- F₁ trivial: dispatch on tb to the matching trivial helper.
+    cases tb with
+    | ToEven => exact Rounds.nearestEven_of_trivial hF₁_triv hw.1
+    | AwayZero => exact Rounds.nearestAwayZero_of_trivial hF₁_triv hw.1
+  rcases eq_or_ne ((z : ℝ)) x with hzx | hzx
+  · -- x = z: hw already has the right shape after rewriting.
+    rw [hzx] at hw; exact hw
+  have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
+  -- Non-trivial case: destructure hw (requires cases tb), then assemble.
+  cases tb with
+  | ToEven =>
+    obtain ⟨hw'F₁, hw_adj, hw_close_inner, _⟩ := hw
+    obtain ⟨h_adj_x, h_close, h_no_tie⟩ :=
+      rndRTO_nearest_facts hsub hp_F₂_two hz hxne hw'F₁ hw_adj hw_close_inner
+    refine ⟨hw'F₁, h_adj_x, h_close, ?_⟩
+    rintro ⟨z', hz'F₁, hz'_adj, hz'_ne_w', hz'_eq_dist⟩
+    exact (h_no_tie z' hz'F₁ hz'_adj hz'_ne_w' hz'_eq_dist).elim
+  | AwayZero =>
+    obtain ⟨hw'F₁, hw_adj, hw_close_inner, _⟩ := hw
+    obtain ⟨h_adj_x, h_close, h_no_tie⟩ :=
+      rndRTO_nearest_facts hsub hp_F₂_two hz hxne hw'F₁ hw_adj hw_close_inner
+    refine ⟨hw'F₁, h_adj_x, h_close, ?_⟩
+    intro z' hz'F₁ hz'_adj hz'_ne_w' hz'_eq_dist
+    exact (h_no_tie z' hz'F₁ hz'_adj hz'_ne_w' hz'_eq_dist).elim
+
 
 end AbstractFormat
 

@@ -5,19 +5,19 @@ Paper reference: `When_Double_Rounding_is_Correct.pdf`.
 
 The full Appendix A is mechanized: format containment (`containsPrec`,
 `containsSub`), Lemmas 5.1/5.2/5.3 (`numDigits`, `numDigits_shift`,
-`precisionAtMost_not_IsOdd` and friends), and all seven double-rounding rules
+`precisionAtMost_not_IsOdd` and friends), and all double-rounding rules
 from Fig. 9 (`rndRTZ_RTZ`, `rndRAZ_RAZ`, `rndRTO_RTO`, `rndRTO_RTZ`,
-`rndRTO_RAZ`, `rndRTO_RNE`). All seven double-rounding theorems are stated
-fully paper-aligned (no `hp_F₂`, no F.exp-finite, no auxiliary closeness or
-midpoint hypotheses).
+`rndRTO_RAZ`, `rndRTO_RN`). The double-rounding theorems are stated
+paper-aligned; `rndRTO_RAZ` additionally takes an explicit `2 ≤ F₂.p`
+hypothesis (a concrete counterexample shows it cannot be derived from the
+paper-aligned `F₁.extend 1 ⊆ F₂` alone).
 
 Beyond the paper, the IEEE 754 directed modes (RTP, RTN) and the alternative
-tie-break (RNA) are also covered. `RoundsRTP`/`RoundsRTN` are the round-up /
-round-down predicates renamed; `RoundsRNA` is the larger-magnitude tie-break
-variant of `RoundsRNE`. The five additional double-rounding theorems
-`rndRTP_RTP`, `rndRTN_RTN`, `rndRTO_RTP`, `rndRTO_RTN`, and `rndRTO_RNA` are
-mechanized via sign-reduction (RTP/RTN) and a parallel proof reusing
-`rndRTO_no_tie_contradiction` (RNA).
+tie-break (RNA) are also covered. The unified `rndRTO_RN` theorem covers
+both RNE (`tb = .ToEven`) and RNA (`tb = .AwayZero`) via a `TieBreak`
+parameter, sharing the bulk of the proof in `rndRTO_nearest_facts`. The
+directed-mode theorems `rndRTP_RTP`, `rndRTN_RTN`, `rndRTO_RTP`,
+`rndRTO_RTN` are mechanized via sign-reduction.
 
 `rndRNA_RNA` is **not a theorem** — pen-and-paper analysis shows that
 RNA→RNA chains can fail at binade-boundary inputs.
