@@ -1,5 +1,6 @@
 import Mpfx.Format
 import Mathlib.Algebra.Group.Pointwise.Set.Basic
+import Mathlib.Data.Nat.Log
 
 /-!
 # Format inference for unrounded operations (Section 6.1 of the paper)
@@ -26,24 +27,22 @@ The public API of this file mirrors the paper:
 | `A ⊗ B ⊆ 𝒜(p₁+p₂, …)`     | `mul_subset : F₁.toSet * F₂.toSet ⊆ (opMul F₁ F₂ _ _).toSet` |
 | `A ⊕ B ⊆ 𝒜(⌈log₂…⌉, …)`   | `add_subset : F₁.toSet + F₂.toSet ⊆ (opAdd F₁ F₂ _ _).toSet` |
 
-Two intentional differences from the paper:
+One intentional deviation from the paper:
 
-1. **Validity hypothesis on `opMul` and `opAdd`.** Returning an
-   `AbstractFormat` requires its `not_degenerate` invariant
-   `(p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥` to hold.  The literal `(p₁+p₂, exp₁+exp₂, …)`
-   tuple can violate this in edge cases (e.g., `F₁.p = ⊤` forces
-   `F₁.exp` finite, but `F₂.exp = ⊥` is allowed if `F₂.p` is finite ≥ 2 —
-   then the sum is `(⊤, ⊥, …)`, degenerate).  We rule this out by
-   requiring `F₁.exp ≠ ⊥` and `F₂.exp ≠ ⊥` in the hypothesis of
-   `opMul`/`opAdd`.  The paper doesn't state such a precondition; our
-   formalization makes it explicit.
+**Validity hypothesis on `opMul` and `opAdd`.** Returning an
+`AbstractFormat` requires its `not_degenerate` invariant
+`(p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥` to hold.  The literal `(p₁+p₂, exp₁+exp₂, …)`
+tuple can violate this in edge cases (e.g., `F₁.p = ⊤` forces `F₁.exp`
+finite, but `F₂.exp = ⊥` is allowed if `F₂.p` is finite ≥ 2 — then the sum
+is `(⊤, ⊥, …)`, degenerate).  We rule this out by requiring
+`F₁.exp ≠ ⊥` and `F₂.exp ≠ ⊥` in the hypothesis of `opMul`/`opAdd`.  The
+paper doesn't state such a precondition; our formalization makes it
+explicit so the inferred bounding format is itself a valid
+`AbstractFormat`.
 
-2. **Loose precision in `opAdd`.** The paper gives the *tight* bound
-   `⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉`; we use `⊤` (no precision
-   constraint).  Any precision ≥ the tight one — including `⊤` — gives a
-   valid containing format, so this is sound but not optimal.  Proving
-   the tight bound would require `Nat.clog`-style machinery and is
-   deferred.
+The `⊕`-precision matches the paper exactly via `opAddPrec`, which
+implements `⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉` using `Nat.clog 2` (with
+`max 1 …` to satisfy `p_pos` in the degenerate `b₁ = b₂ = 0` case).
 -/
 
 namespace Mpfx
@@ -263,16 +262,35 @@ noncomputable def opMul (F₁ F₂ : AbstractFormat)
         push_cast
         exact mul_nonneg (F₁.b_nn_of_coe hF1_b) (F₂.b_nn_of_coe hF2_b)
 
-/-- Paper's `⊕`: additive format inference.  Returns
-`𝒜(⊤, min(exp₁, exp₂), b₁ + b₂)` — *loose* precision; the paper's
-`⌈log₂(…)⌉` precision is left as future work.  The `F.exp ≠ ⊥` hypotheses
-ensure the result satisfies `not_degenerate`. -/
+/-- Paper's tight precision bound for `⊕`:
+`p = ⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉`.  Defined as `⊤` when either of
+the operand bounds or exponents is infinite; otherwise as the `Nat.clog`
+formula matching the paper.  The `max 1 …` ensures `p ≥ 1` (the degenerate
+`b₁ = b₂ = 0` case otherwise gives `Nat.clog 2 1 = 0`, which would
+violate `AbstractFormat.p_pos`). -/
+noncomputable def opAddPrec (F₁ F₂ : AbstractFormat) : ℕ∞ :=
+  match (F₁.b + F₂.b : WithTop Dyadic), (min F₁.exp F₂.exp : WithBot ℤ) with
+  | (b : Dyadic), (m : ℤ) =>
+      ((max 1 (Nat.clog 2 (Int.toNat ⌈((b : ℝ) / (2 : ℝ) ^ m)⌉ + 1)) : ℕ) : ℕ∞)
+  | _, _ => ⊤
+
+/-- Paper's `⊕`: additive format inference.  Returns the inferred
+`AbstractFormat` `𝒜(⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉, min(exp₁, exp₂),
+b₁ + b₂)`, matching the paper.  The `F.exp ≠ ⊥` hypotheses ensure the
+result satisfies `not_degenerate`. -/
 noncomputable def opAdd (F₁ F₂ : AbstractFormat)
     (h₁ : F₁.exp ≠ ⊥) (h₂ : F₂.exp ≠ ⊥) : AbstractFormat where
-  p := ⊤
+  p := opAddPrec F₁ F₂
   exp := min F₁.exp F₂.exp
   b := F₁.b + F₂.b
-  p_pos := le_top
+  p_pos := by
+    -- Either p = ⊤ (trivial) or p = max 1 _ (≥ 1).
+    show 1 ≤ opAddPrec F₁ F₂
+    unfold opAddPrec
+    split
+    · -- Finite case: opAddPrec = ((max 1 _ : ℕ) : ℕ∞).
+      exact_mod_cast le_max_left _ _
+    · exact le_top
   not_degenerate := by
     refine Or.inr ?_
     obtain ⟨e₁, he₁⟩ := WithBot.ne_bot_iff_exists.mp h₁
@@ -344,6 +362,88 @@ theorem mul_subset (F₁ F₂ : AbstractFormat)
       rw [← WithTop.coe_mul]
       exact h_bnd d1 d2 hF1_b hF2_b
 
+/-- Precision bound for the tight `opAdd`: if every bound and exponent is
+finite, the specific significand of `x + y` at the finer quantum is bounded
+by `⌈(b₁+b₂)/2^m⌉`, hence its bit-length fits in the paper's tight precision
+formula.  This is the technical heart of `add_subset`'s precision claim. -/
+private theorem add_prec_finite {F₁ F₂ : AbstractFormat} {x y : Dyadic}
+    {b1 b2 : Dyadic} {e1 e2 : ℤ}
+    (hF1_b : F₁.b = (b1 : WithTop Dyadic)) (hF2_b : F₂.b = (b2 : WithTop Dyadic))
+    (hF1_exp : F₁.exp = (e1 : WithBot ℤ)) (hF2_exp : F₂.exp = (e2 : WithBot ℤ))
+    (hx : x ∈ F₁) (hy : y ∈ F₂) :
+    Dyadic.precisionAtMost
+      ((max 1 (Nat.clog 2 (Int.toNat ⌈(((b1 + b2 : Dyadic) : ℝ)) /
+                                         (2 : ℝ) ^ (min e1 e2)⌉ + 1)) : ℕ) : ℕ∞)
+      (x + y) := by
+  obtain ⟨_, hqx, hbx⟩ := hx
+  obtain ⟨_, hqy, hby⟩ := hy
+  rw [hF1_exp] at hqx
+  rw [hF2_exp] at hqy
+  rw [hF1_b] at hbx
+  rw [hF2_b] at hby
+  change |(x : ℝ)| ≤ ((b1 : Dyadic) : ℝ) at hbx
+  change |(y : ℝ)| ≤ ((b2 : Dyadic) : ℝ) at hby
+  obtain ⟨c1, hxeq⟩ := hqx
+  obtain ⟨c2, hyeq⟩ := hqy
+  set m := min e1 e2 with hm
+  have he1_ge : m ≤ e1 := min_le_left _ _
+  have he2_ge : m ≤ e2 := min_le_right _ _
+  -- Construct the significand of x+y at quantum m.
+  set c : ℤ := c1 * 2 ^ (e1 - m).toNat + c2 * 2 ^ (e2 - m).toNat with hc_def
+  have h_xy_eq : ((x + y : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ m := by
+    push_cast
+    rw [hxeq, hyeq, hc_def]
+    push_cast
+    rw [two_zpow_split_toNat he1_ge, two_zpow_split_toNat he2_ge]
+    ring
+  -- Bound |c|: |c|·2^m ≤ |x|+|y| ≤ b1+b2.
+  have h2m_pos : (0 : ℝ) < (2 : ℝ) ^ m := zpow_pos (by norm_num) _
+  have h_b1_nn : 0 ≤ ((b1 : Dyadic) : ℝ) := F₁.b_nn_of_coe hF1_b
+  have h_b2_nn : 0 ≤ ((b2 : Dyadic) : ℝ) := F₂.b_nn_of_coe hF2_b
+  have h_c_bound : |(c : ℝ)| * (2 : ℝ) ^ m ≤ ((b1 : Dyadic) : ℝ) + ((b2 : Dyadic) : ℝ) := by
+    calc |(c : ℝ)| * (2 : ℝ) ^ m
+        = |((x + y : Dyadic) : ℝ)| := by rw [h_xy_eq, abs_mul_two_zpow]
+      _ ≤ |(x : ℝ)| + |(y : ℝ)| := by push_cast; exact abs_add_le _ _
+      _ ≤ ((b1 : Dyadic) : ℝ) + ((b2 : Dyadic) : ℝ) := add_le_add hbx hby
+  -- Therefore |c| ≤ (b1+b2) / 2^m (as reals).
+  have h_c_le_ratio : |(c : ℝ)| ≤ (((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m := by
+    rw [le_div_iff₀ h2m_pos]; push_cast at h_c_bound ⊢; linarith
+  -- |c| (as ℤ) ≤ ⌈(b₁+b₂)/2^m⌉.
+  set N : ℕ := Int.toNat ⌈(((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌉ with hN_def
+  have h_ratio_nn : 0 ≤ (((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m :=
+    div_nonneg (by push_cast; linarith) (le_of_lt h2m_pos)
+  have h_ceil_nn : 0 ≤ ⌈(((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌉ := Int.ceil_nonneg h_ratio_nn
+  have hN_ceil : (N : ℤ) = ⌈(((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌉ := by
+    rw [hN_def, Int.toNat_of_nonneg h_ceil_nn]
+  have h_abs_c_le : |c| ≤ (N : ℤ) := by
+    rw [hN_ceil]
+    have h1 : (|c| : ℝ) ≤ (((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m := by
+      push_cast; exact h_c_le_ratio
+    have h2 : (|c| : ℝ) ≤ (⌈(((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌉ : ℝ) :=
+      h1.trans (Int.le_ceil _)
+    exact_mod_cast h2
+  -- Build the precisionAtMost witness.
+  refine ⟨c, m, h_xy_eq, ?_⟩
+  -- Goal: |c| < (2 : ℤ) ^ max 1 (Nat.clog 2 (N + 1)).
+  -- Have: |c| ≤ N, hence |c| + 1 ≤ N + 1 ≤ 2 ^ Nat.clog 2 (N+1) ≤ 2 ^ p.
+  have h_natAbs_le : c.natAbs ≤ N := by
+    have : (c.natAbs : ℤ) ≤ (N : ℤ) := by rw [Int.natCast_natAbs]; exact h_abs_c_le
+    exact_mod_cast this
+  have h_clog : N + 1 ≤ 2 ^ Nat.clog 2 (N + 1) :=
+    Nat.le_pow_clog (by norm_num : 1 < 2) _
+  have h_pow_mono : Nat.clog 2 (N + 1) ≤ max 1 (Nat.clog 2 (N + 1)) := le_max_right _ _
+  have h_pow_le : 2 ^ Nat.clog 2 (N + 1) ≤ 2 ^ max 1 (Nat.clog 2 (N + 1)) :=
+    Nat.pow_le_pow_right (by norm_num) h_pow_mono
+  have h_final : c.natAbs + 1 ≤ 2 ^ max 1 (Nat.clog 2 (N + 1)) := by
+    calc c.natAbs + 1 ≤ N + 1 := Nat.add_le_add_right h_natAbs_le 1
+      _ ≤ 2 ^ Nat.clog 2 (N + 1) := h_clog
+      _ ≤ _ := h_pow_le
+  -- |c| = c.natAbs as a ℤ.
+  change |c| < (2 : ℤ) ^ max 1 (Nat.clog 2 (N + 1))
+  rw [Int.abs_eq_natAbs]
+  have h_lt : c.natAbs < 2 ^ max 1 (Nat.clog 2 (N + 1)) := by omega
+  exact_mod_cast h_lt
+
 /-- **Add ⊆ inferred** — paper's `⊕`-containment:
 `{x + y | x ∈ F₁, y ∈ F₂} ⊆ opAdd F₁ F₂`. -/
 theorem add_subset (F₁ F₂ : AbstractFormat)
@@ -352,15 +452,57 @@ theorem add_subset (F₁ F₂ : AbstractFormat)
   rintro z ⟨x, hx, y, hy, rfl⟩
   obtain ⟨h_quant, h_bnd⟩ :=
     add_inferred (mem_toSet.mp hx) (mem_toSet.mp hy)
-  refine ⟨trivial, h_quant, ?_⟩
-  change AbstractFormat.boundOK (F₁.b + F₂.b) (x + y)
-  cases hF1_b : F₁.b with
-  | top => rw [WithTop.top_add]; trivial
-  | coe d1 => cases hF2_b : F₂.b with
-    | top => rw [WithTop.add_top]; trivial
-    | coe d2 =>
-      rw [← WithTop.coe_add]
-      exact h_bnd d1 d2 hF1_b hF2_b
+  refine ⟨?_, h_quant, ?_⟩
+  · -- precisionAtMost (opAddPrec F₁ F₂) (x + y)
+    change Dyadic.precisionAtMost (opAddPrec F₁ F₂) (x + y)
+    unfold opAddPrec
+    cases hsum : (F₁.b + F₂.b : WithTop Dyadic) with
+    | top => simp
+    | coe sumB =>
+      cases hmin : (min F₁.exp F₂.exp : WithBot ℤ) with
+      | bot =>
+        -- Contradiction: h₁ ∧ h₂ ⇒ min ≠ ⊥.
+        exfalso
+        obtain ⟨e₁, he₁⟩ := WithBot.ne_bot_iff_exists.mp h₁
+        obtain ⟨e₂, he₂⟩ := WithBot.ne_bot_iff_exists.mp h₂
+        have : min F₁.exp F₂.exp = ((min e₁ e₂ : ℤ) : WithBot ℤ) := by
+          rw [← he₁, ← he₂]
+          rcases le_total e₁ e₂ with hle | hle
+          · rw [min_eq_left (by exact_mod_cast hle : (e₁ : WithBot ℤ) ≤ (e₂ : WithBot ℤ))]
+            rw [min_eq_left hle]
+          · rw [min_eq_right (by exact_mod_cast hle : (e₂ : WithBot ℤ) ≤ (e₁ : WithBot ℤ))]
+            rw [min_eq_right hle]
+        rw [this] at hmin
+        exact (WithBot.coe_ne_bot hmin).elim
+      | coe m =>
+        -- Both bounds and exponents finite: extract b1, b2, e1, e2.
+        obtain ⟨b1, b2, hF1_b, hF2_b, h_sum_eq⟩ := WithTop.add_eq_coe.mp hsum
+        obtain ⟨e₁, he₁⟩ := WithBot.ne_bot_iff_exists.mp h₁
+        obtain ⟨e₂, he₂⟩ := WithBot.ne_bot_iff_exists.mp h₂
+        have h_min_eq : min e₁ e₂ = m := by
+          have : min F₁.exp F₂.exp = ((min e₁ e₂ : ℤ) : WithBot ℤ) := by
+            rw [← he₁, ← he₂]
+            rcases le_total e₁ e₂ with hle | hle
+            · rw [min_eq_left (by exact_mod_cast hle : (e₁ : WithBot ℤ) ≤ (e₂ : WithBot ℤ))]
+              rw [min_eq_left hle]
+            · rw [min_eq_right (by exact_mod_cast hle : (e₂ : WithBot ℤ) ≤ (e₁ : WithBot ℤ))]
+              rw [min_eq_right hle]
+          rw [this] at hmin
+          exact_mod_cast hmin
+        have h_sum_dyadic : b1 + b2 = sumB := h_sum_eq
+        have := add_prec_finite hF1_b.symm hF2_b.symm he₁.symm he₂.symm
+          (mem_toSet.mp hx) (mem_toSet.mp hy)
+        rw [h_sum_dyadic, h_min_eq] at this
+        exact this
+  · -- boundOK
+    change AbstractFormat.boundOK (F₁.b + F₂.b) (x + y)
+    cases hF1_b : F₁.b with
+    | top => rw [WithTop.top_add]; trivial
+    | coe d1 => cases hF2_b : F₂.b with
+      | top => rw [WithTop.add_top]; trivial
+      | coe d2 =>
+        rw [← WithTop.coe_add]
+        exact h_bnd d1 d2 hF1_b hF2_b
 
 /-- **Neg ⊆ self** — paper: `format(neg(e)) = format(e)`. -/
 theorem neg_subset (F : AbstractFormat) : -F.toSet ⊆ F.toSet := by
