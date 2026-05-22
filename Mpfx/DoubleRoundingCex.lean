@@ -99,6 +99,9 @@ private def F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) : AbstractFormat wher
 private noncomputable def y_lo_g (e : ℤ) : Dyadic := Dyadic.ofIntZpow 3 e
 private noncomputable def y_hi_g (e : ℤ) : Dyadic := Dyadic.ofIntZpow 1 (e + 2)
 
+/-- `2^e` as a Dyadic, used as the smallest positive F₁_g-element witness. -/
+private noncomputable def two_e_g (e : ℤ) : Dyadic := Dyadic.ofIntZpow 1 e
+
 private theorem coe_y_lo_g (e : ℤ) : ((y_lo_g e : Dyadic) : ℝ) = 3 * (2 : ℝ)^e := by
   change ((Dyadic.ofIntZpow 3 e : Dyadic) : ℝ) = _
   rw [Dyadic.coe_ofIntZpow]; push_cast; ring
@@ -106,6 +109,10 @@ private theorem coe_y_lo_g (e : ℤ) : ((y_lo_g e : Dyadic) : ℝ) = 3 * (2 : �
 private theorem coe_y_hi_g (e : ℤ) :
     ((y_hi_g e : Dyadic) : ℝ) = (2 : ℝ)^(e + 2) := by
   change ((Dyadic.ofIntZpow 1 (e + 2) : Dyadic) : ℝ) = _
+  rw [Dyadic.coe_ofIntZpow]; push_cast; ring
+
+private theorem coe_two_e_g (e : ℤ) : ((two_e_g e : Dyadic) : ℝ) = (2 : ℝ)^e := by
+  change ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) = _
   rw [Dyadic.coe_ofIntZpow]; push_cast; ring
 
 private theorem y_lo_mem_F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
@@ -126,9 +133,69 @@ private theorem y_lo_mem_F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
     refine ⟨3, ?_⟩
     rw [coe_y_lo_g]; push_cast; ring
 
+private theorem two_e_mem_F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
+    two_e_g e ∈ F₁_g p hp_ge_2 e := by
+  refine ⟨?_, ?_, trivial⟩
+  · change Dyadic.precisionAtMost ((p : ℕ) : ℕ∞) (two_e_g e)
+    refine ⟨1, e, ?_, ?_⟩
+    · rw [coe_two_e_g]; push_cast; ring
+    · have h_pow : (2 : ℤ) ≤ (2 : ℤ)^p :=
+        calc (2 : ℤ) = (2 : ℤ)^1 := by norm_num
+          _ ≤ (2 : ℤ)^p := pow_le_pow_right₀ (by norm_num) (by omega)
+      have : |(1 : ℤ)| = 1 := by decide
+      omega
+  · change Dyadic.quantumAtLeast (((e : ℤ)) : WithBot ℤ) (two_e_g e)
+    rw [Dyadic.quantumAtLeast_coe]
+    exact ⟨1, by rw [coe_two_e_g]; push_cast; ring⟩
+
 private theorem F₁_g_quantum (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ)
     {z : Dyadic} (hz : z ∈ F₁_g p hp_ge_2 e) :
     ∃ c : ℤ, (z : ℝ) = (c : ℝ) * (2 : ℝ)^e := hz.2.1
+
+/-- From `F₁_g ⊆ F₂` and `F₂.exp = (f₂ : WithBot ℤ)`, we have `f₂ ≤ e`:
+`2^e ∈ F₁_g ⊆ F₂` forces `F₂.quantumAtLeast f₂ (2^e)`, i.e., `2^e = c · 2^f₂`
+for some `c : ℤ`. Integer `c` requires `f₂ ≤ e`. -/
+private theorem f₂_le_e_of_F₁_g_subset (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ)
+    (F₂ : AbstractFormat) (hsub : F₁_g p hp_ge_2 e ⊆ F₂)
+    {f₂ : ℤ} (hF₂_exp : F₂.exp = (f₂ : WithBot ℤ)) :
+    f₂ ≤ e := by
+  have h_two_e_in_F₂ : two_e_g e ∈ F₂ := hsub _ (two_e_mem_F₁_g p hp_ge_2 e)
+  have hq : Dyadic.quantumAtLeast F₂.exp (two_e_g e) := h_two_e_in_F₂.2.1
+  rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
+  obtain ⟨c, hc⟩ := hq
+  rw [coe_two_e_g] at hc
+  by_contra h_gt; push Not at h_gt
+  have h_2f_pos : (0 : ℝ) < (2 : ℝ)^f₂ := zpow_pos (by norm_num) _
+  have h_split : (2 : ℝ)^e = (2 : ℝ)^(e - f₂) * (2 : ℝ)^f₂ := by
+    rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
+  rw [h_split] at hc
+  have hc_real : (c : ℝ) = (2 : ℝ)^(e - f₂) :=
+    (mul_right_cancel₀ (ne_of_gt h_2f_pos) hc).symm
+  have h_lt_1 : (c : ℝ) < 1 := by
+    rw [hc_real]
+    have h_diff_neg : e - f₂ < 0 := by omega
+    have : (2 : ℝ)^(e - f₂) < (2 : ℝ)^(0 : ℤ) :=
+      zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) h_diff_neg
+    simpa using this
+  have h_pos : 0 < (c : ℝ) := by rw [hc_real]; exact zpow_pos (by norm_num) _
+  have hc_int_pos : 0 < c := by exact_mod_cast h_pos
+  have hc_int_lt : c < 1 := by exact_mod_cast h_lt_1
+  omega
+
+/-- `(2:ℝ)^(e - f) = ((2:ℤ)^n : ℝ)` where `n = (e - f).toNat`, when `f ≤ e`. -/
+private theorem two_zpow_diff_eq (e f : ℤ) (h : f ≤ e) :
+    (2 : ℝ)^(e - f) = ((2 : ℤ)^(e - f).toNat : ℝ) := by
+  have hn_eq : ((e - f).toNat : ℤ) = e - f := Int.toNat_of_nonneg (by omega)
+  rw [show (2 : ℝ)^(e - f) = (2 : ℝ)^(((e - f).toNat : ℤ) : ℤ) by rw [hn_eq],
+      zpow_natCast]
+  push_cast; ring
+
+/-- `(2:ℝ)^e = ((2:ℤ)^n : ℝ) * (2:ℝ)^f` where `n = (e - f).toNat`, when `f ≤ e`. -/
+private theorem two_zpow_split (e f : ℤ) (h : f ≤ e) :
+    (2 : ℝ)^e = ((2 : ℤ)^(e - f).toNat : ℝ) * (2 : ℝ)^f := by
+  have h_split : (2 : ℝ)^e = (2 : ℝ)^(e - f) * (2 : ℝ)^f := by
+    rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
+  rw [h_split, two_zpow_diff_eq e f h]
 
 private noncomputable def m_g (e : ℤ) : Dyadic := Dyadic.ofIntZpow 7 (e - 1)
 
@@ -618,23 +685,20 @@ theorem no_rndRNE_RNE_arbitrary_F₂
   refine ⟨x_val, m, y_hi, ?_, ?_, ?_⟩
   · -- Rounds F₂ RNE x m.
     refine ⟨h_m_mem_F₂, ?_, ?_, ?_⟩
-    · -- IsFaithfulRound: RoundUp.
+    · -- IsFaithfulRound (RoundUp).
       right
       refine ⟨h_m_mem_F₂, le_of_lt h_x_lt_m, ?_⟩
       intro z hzF₂ hx_le_z
-      -- Need m ≤ z. If z < m, then z ≤ pred (by h_pred_max), but pred < x ≤ z, contra.
       by_contra h_z_lt_m
       push Not at h_z_lt_m
       have h_z_le_pred := h_pred_max z hzF₂ h_z_lt_m
       linarith
-    · -- Closeness: ∀ z ∈ F₂ faithful for x, |x - m| ≤ |x - z|.
+    · -- Closeness.
       intro z hzF₂ hf
-      -- Faithful z: RoundDown (= pred) or RoundUp (= m).
       rcases hf with ⟨_, hz_le, hz_max⟩ | ⟨_, hx_le_z, hz_min⟩
-      · -- RoundDown: z ≤ x. z ≤ x < m, so z < m, so z ≤ pred.
+      · -- RoundDown z ≤ pred ⇒ |x - z| ≥ 3·2^k/4 ≥ 2^k/4 = |x - m|.
         have h_z_lt_m : (z : ℝ) < (m : ℝ) := lt_of_le_of_lt hz_le h_x_lt_m
         have h_z_le_pred := h_pred_max z hzF₂ h_z_lt_m
-        -- z ≤ pred ⇒ |x - z| ≥ x - pred = 3·2^k/4 ≥ 2^k/4 = |x - m|.
         have h_xm : x_val - (m : ℝ) = -((2 : ℝ)^k / 4) := by
           rw [hx_def]; linarith
         have h_zx : (z : ℝ) ≤ (pred : ℝ) := by
@@ -651,22 +715,17 @@ theorem no_rndRNE_RNE_arbitrary_F₂
         have h_abs : |x_val - (z : ℝ)| = x_val - (z : ℝ) := by
           rw [abs_of_nonneg]; linarith
         rw [h_abs]; exact h_x_minus_z_ge
-      · -- RoundUp: x ≤ z ≤ m (by min property). Either z = m (trivial) or
-        -- z < m forces z ≤ pred via F-adjacency, contradicting pred < x ≤ z.
+      · -- RoundUp x ≤ z. F-adjacency (z < m would force z ≤ pred < x ≤ z) gives z = m.
         have h_z_le_m : (z : ℝ) ≤ (m : ℝ) :=
           hz_min m h_m_mem_F₂ (le_of_lt h_x_lt_m)
-        -- Need 2^k/4 ≤ z - x, but z ≤ m gives z - x ≤ 2^k/4. So z = m.
-        -- Hmm we'd need to verify z = m here.
         have h_z_eq_m : (z : ℝ) = (m : ℝ) := by
-          -- If z < m: by adjacency, z ≤ pred. But z ≥ x > pred. Contra.
           by_contra h_z_ne_m
           have h_z_lt_m : (z : ℝ) < (m : ℝ) := lt_of_le_of_ne h_z_le_m h_z_ne_m
           have h_z_le_pred := h_pred_max z hzF₂ h_z_lt_m
           linarith
         rw [h_z_eq_m]
-    · -- No-tie.
+    · -- No-tie: any tied z faithful and ≠ m would be pred (RoundDown) — but distances differ.
       rintro ⟨z, hzF₂, hf, hne, heq⟩
-      -- z faithful, z ≠ m, equal distance. Then z = pred (the only other faithful).
       rcases hf with ⟨_, hz_le, hz_max⟩ | ⟨_, hx_le_z, hz_min⟩
       · -- RoundDown z ≤ pred ⇒ |x - z| ≥ 3·2^k/4 > 2^k/4 = |x - m|.
         exfalso
@@ -682,7 +741,7 @@ theorem no_rndRNE_RNE_arbitrary_F₂
           rw [abs_of_nonneg]; linarith
         rw [hL, h_abs_xz] at heq
         linarith
-      · -- RoundUp: z ≥ x. We've shown z = m. But hne says z ≠ m. Contradiction.
+      · -- RoundUp z = m (same argument as closeness) contradicts hne.
         exfalso
         apply hne
         apply Subtype.ext
@@ -691,17 +750,15 @@ theorem no_rndRNE_RNE_arbitrary_F₂
         have h_z_lt_m : (z : ℝ) < (m : ℝ) := lt_of_le_of_ne h_z_le_m h_z_ne_m
         have h_z_le_pred := h_pred_max z hzF₂ h_z_lt_m
         linarith
-  · -- Rounds F₁ RNE m y_hi.
-    exact rounds_F₁_g_RNE_m_y_hi p hp_ge_2 e
-  · -- ¬ Rounds F₁ RNE x y_hi.
+  · exact rounds_F₁_g_RNE_m_y_hi p hp_ge_2 e
+  · -- y_lo is F₁-RoundDown of x, with |x - y_lo| < |x - y_hi|.
     intro hr
     obtain ⟨_, _, h_close, _⟩ := hr
     have h_2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
-    -- y_lo is a faithful F₁-RoundDown of x.
     have h_y_lo_faith : IsFaithfulRound (F₁_g p hp_ge_2 e) x_val y_lo := by
       left
       refine ⟨y_lo_mem_F₁_g p hp_ge_2 e, ?_, ?_⟩
-      · -- y_lo ≤ x = m - 2^k/4. y_lo = m - 2^(e-1). Need 2^k/4 ≤ 2^(e-1).
+      · -- y_lo = m - 2^(e-1), x = m - 2^k/4, and 2^k/4 ≤ 2^(e-1) since 2^k ≤ 2^(e-1).
         rw [h_y_lo_eq]
         have h_2k4_le : (2 : ℝ)^k / 4 ≤ (2 : ℝ)^(e - 1) :=
           le_of_lt (by linarith [h_2k_lt_2e1])
@@ -728,9 +785,8 @@ theorem no_rndRNE_RNE_arbitrary_F₂
         rw [hc', h_y_lo_coe]
         have : (c' : ℝ) ≤ 3 := by exact_mod_cast hc'_le_3
         nlinarith
-    -- Apply closeness.
     have h_close_lo := h_close y_lo (y_lo_mem_F₁_g p hp_ge_2 e) h_y_lo_faith
-    -- |x - y_hi| = 2^(e-1) + 2^k/4. |x - y_lo| = 2^(e-1) - 2^k/4.
+    -- |x − y_hi| = 2^(e−1) + 2^k/4, |x − y_lo| = 2^(e−1) − 2^k/4.
     have hx_eq : x_val = (m : ℝ) - (2 : ℝ)^k / 4 := by
       rw [hx_def]; linarith
     have h_x_y_hi : x_val - (y_hi : ℝ) = -((2 : ℝ)^(e-1) + (2 : ℝ)^k/4) := by
@@ -1105,47 +1161,35 @@ theorem no_rndRNE_RAZ
     have h_cr : (1 : ℝ) ≤ (c : ℝ) := by exact_mod_cast hc_ge_1
     nlinarith
   refine ⟨x_val, 0, 0, ?_, ?_, ?_⟩
-  · -- Rounds F₂ RNE x 0.
-    refine ⟨F₂.zero_mem, ?_, ?_, ?_⟩
-    · -- IsFaithfulRound: RoundDown.
+  · refine ⟨F₂.zero_mem, ?_, ?_, ?_⟩
+    · -- IsFaithfulRound (RoundDown 0).
       left
       refine ⟨F₂.zero_mem, ?_, ?_⟩
-      · -- 0 ≤ x.
-        change ((0 : Dyadic) : ℝ) ≤ x_val
+      · change ((0 : Dyadic) : ℝ) ≤ x_val
         push_cast; linarith
       · intro z hz hz_le
-        -- (z : ℝ) ≤ x ⇒ (z : ℝ) ≤ 0 = ((0 : Dyadic) : ℝ).
         have := h_F₂_le_x_to_le_0 z hz hz_le
         change ((z : Dyadic) : ℝ) ≤ ((0 : Dyadic) : ℝ)
         push_cast; linarith
-    · -- Closeness: ∀ z faithful, |x - 0| ≤ |x - z|.
+    · -- Closeness. Faithful z is RoundDown (≤ 0) or RoundUp (≥ 2^f₂).
       intro z hz hf
-      -- Faithful z is either RoundDown (z ≤ 0 since z ≤ x and our lemma)
-      -- or RoundUp (z ≥ 2^f₂).
       push_cast
       rcases hf with ⟨_, hz_le, _⟩ | ⟨_, hz_ge, _⟩
-      · -- RoundDown: z ≤ x ⇒ z ≤ 0.
-        have h_z_le_0 := h_F₂_le_x_to_le_0 z hz hz_le
+      · have h_z_le_0 := h_F₂_le_x_to_le_0 z hz hz_le
         rw [show x_val - 0 = x_val from by ring, abs_of_pos h_x_pos]
         rw [abs_of_nonneg (by linarith : (0 : ℝ) ≤ x_val - (z : ℝ))]
         linarith
-      · -- RoundUp: z ≥ x ⇒ z ≥ 2^f₂.
-        have h_z_ge_2f := h_F₂_ge_x_to_ge_2f z hz hz_ge
+      · have h_z_ge_2f := h_F₂_ge_x_to_ge_2f z hz hz_ge
         rw [show x_val - 0 = x_val from by ring, abs_of_pos h_x_pos]
         rw [abs_of_nonpos (by linarith : x_val - (z : ℝ) ≤ 0), neg_sub]
-        -- Want x ≤ z - x. With z ≥ 2^f₂ = 4·2^(f₂-2) and x = 2^(f₂-2):
-        -- z - x ≥ 4·2^(f₂-2) - 2^(f₂-2) = 3·2^(f₂-2) ≥ 2^(f₂-2) = x. ✓
+        -- z - x ≥ 4·2^(f₂-2) - 2^(f₂-2) = 3·2^(f₂-2) ≥ 2^(f₂-2) = x.
         linarith
-    · -- No tie: if ∃ z ≠ 0 tied, then IsEven (vacuously satisfiable, but easier to
-      -- show no tie exists). z ≠ 0 means z > 0 (since z ≤ 0 from RoundDown gives
-      -- z ≤ 0, and equality with 0 contradicts z ≠ 0) or z is RoundUp ≥ 2^f₂.
-      -- Either way |x - z| ≠ |x - 0|.
+    · -- No tie: distances to 0 (= 2^(f₂-2)) and any faithful z ≠ 0 differ.
       rintro ⟨z, hzF, hf, hne, heq⟩
       change |x_val - ((0 : Dyadic) : ℝ)| = |x_val - ((z : Dyadic) : ℝ)| at heq
       push_cast at heq
       rcases hf with ⟨_, hz_le, _⟩ | ⟨_, hz_ge, _⟩
-      · -- RoundDown: z ≤ 0. z ≠ 0 ⇒ z < 0. But then |x - z| = x - z > x = |x - 0|.
-        have h_z_le_0 := h_F₂_le_x_to_le_0 z hzF hz_le
+      · have h_z_le_0 := h_F₂_le_x_to_le_0 z hzF hz_le
         have h_z_lt_0 : ((z : Dyadic) : ℝ) < 0 := by
           rcases lt_or_eq_of_le h_z_le_0 with h | h_eq
           · exact h
@@ -1153,13 +1197,11 @@ theorem no_rndRNE_RAZ
         rw [show x_val - 0 = x_val from by ring, abs_of_pos h_x_pos] at heq
         rw [abs_of_pos (by linarith : 0 < x_val - (z : ℝ))] at heq
         linarith
-      · -- RoundUp: z ≥ 2^f₂ > x. |x - z| ≥ 3·2^(f₂-2) ≠ 2^(f₂-2) = |x - 0|.
-        have h_z_ge_2f := h_F₂_ge_x_to_ge_2f z hzF hz_ge
+      · have h_z_ge_2f := h_F₂_ge_x_to_ge_2f z hzF hz_ge
         rw [show x_val - 0 = x_val from by ring, abs_of_pos h_x_pos] at heq
         rw [abs_of_nonpos (by linarith : x_val - (z : ℝ) ≤ 0), neg_sub] at heq
         linarith
-  · -- Rounds F₁ RAZ 0 0.
-    refine ⟨(F₁_g p hp_ge_2 e).zero_mem, ?_, ?_, ?_⟩
+  · refine ⟨(F₁_g p hp_ge_2 e).zero_mem, ?_, ?_, ?_⟩
     · change |((0 : Dyadic) : ℝ)| ≤ |((0 : Dyadic) : ℝ)|; rfl
     · change ((0 : Dyadic) : ℝ) * ((0 : Dyadic) : ℝ) ≥ 0
       push_cast; linarith
@@ -1167,7 +1209,7 @@ theorem no_rndRNE_RAZ
       push_cast
       rw [abs_zero]
       exact abs_nonneg _
-  · -- ¬ Rounds F₁ RAZ x 0.
+  · -- |x| > 0 = |0|, so the bound clause of `Rounds F₁ RAZ x 0` fails.
     intro hr
     obtain ⟨_, h_bnd, _, _⟩ := hr
     change |x_val| ≤ |((0 : Dyadic) : ℝ)| at h_bnd
@@ -1194,81 +1236,27 @@ theorem no_rndRNE_RTZ
       ¬ Rounds (F₁_g p hp_ge_2 e) .ToZero x w := by
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
   have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
-  -- 2^e ∈ F₁_g, hence in F₂.
-  have h_two_e_in_F₁ : (Dyadic.ofIntZpow 1 e : Dyadic) ∈ F₁_g p hp_ge_2 e := by
-    refine ⟨?_, ?_, trivial⟩
-    · change Dyadic.precisionAtMost ((p : ℕ) : ℕ∞) (Dyadic.ofIntZpow 1 e)
-      refine ⟨1, e, ?_, ?_⟩
-      · rw [Dyadic.coe_ofIntZpow]
-      · have h_pow : (2 : ℤ) ≤ (2 : ℤ)^p :=
-          calc (2 : ℤ) = (2 : ℤ)^1 := by norm_num
-            _ ≤ (2 : ℤ)^p := pow_le_pow_right₀ (by norm_num) (by omega)
-        have h_abs : |(1 : ℤ)| = 1 := by decide
-        omega
-    · change Dyadic.quantumAtLeast (((e : ℤ)) : WithBot ℤ) (Dyadic.ofIntZpow 1 e)
-      rw [Dyadic.quantumAtLeast_coe]
-      exact ⟨1, by rw [Dyadic.coe_ofIntZpow]⟩
-  have h_two_e_in_F₂ : (Dyadic.ofIntZpow 1 e : Dyadic) ∈ F₂ := hsub _ h_two_e_in_F₁
-  -- Derive f₂ ≤ e from 2^e ∈ F₂'s quantum.
-  have hf₂_le_e : f₂ ≤ e := by
-    have hq : Dyadic.quantumAtLeast F₂.exp (Dyadic.ofIntZpow 1 e : Dyadic) :=
-      h_two_e_in_F₂.2.1
-    rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
-    obtain ⟨c, hc⟩ := hq
-    rw [Dyadic.coe_ofIntZpow] at hc
-    -- (1 : ℝ) * (2 : ℝ)^e = c · 2^f₂. So c = 2^(e - f₂).
-    by_contra h_gt; push Not at h_gt
-    -- f₂ > e. Then 2^(e-f₂) is not an integer (it's a non-trivial fraction).
-    have h_2f_pos : (0 : ℝ) < (2 : ℝ)^f₂ := zpow_pos (by norm_num) _
-    have h_2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
-    have hc_real : (c : ℝ) = (2 : ℝ)^(e - f₂) := by
-      have hh : ((1 : ℤ) : ℝ) * (2 : ℝ)^e = (c : ℝ) * (2 : ℝ)^f₂ := hc
-      push_cast at hh
-      have h_eq : (c : ℝ) * (2 : ℝ)^f₂ = (2 : ℝ)^e := by linarith
-      have h_split : (2 : ℝ)^e = (2 : ℝ)^(e - f₂) * (2 : ℝ)^f₂ := by
-        rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
-      rw [h_split] at h_eq
-      exact mul_right_cancel₀ (ne_of_gt h_2f_pos) h_eq
-    have h_lt_1 : (c : ℝ) < 1 := by
-      rw [hc_real]
-      have h_diff_neg : e - f₂ < 0 := by omega
-      have : (2 : ℝ)^(e - f₂) < (2 : ℝ)^(0 : ℤ) :=
-        zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) h_diff_neg
-      simpa using this
-    have h_pos : 0 < (c : ℝ) := by rw [hc_real]; exact zpow_pos (by norm_num) _
-    have hc_int_pos : 0 < c := by exact_mod_cast h_pos
-    have hc_int_lt : c < 1 := by exact_mod_cast h_lt_1
-    omega
+  have h_two_e_in_F₁ := two_e_mem_F₁_g p hp_ge_2 e
+  have h_two_e_in_F₂ : two_e_g e ∈ F₂ := hsub _ h_two_e_in_F₁
+  have hf₂_le_e : f₂ ≤ e := f₂_le_e_of_F₁_g_subset p hp_ge_2 e F₂ hsub hF₂_exp
   -- Setup.
   set x_val : ℝ := (2 : ℝ)^e - (2 : ℝ)^(f₂ - 2) with hx_def
   have h_2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
   have h_2f2_pos : (0 : ℝ) < (2 : ℝ)^(f₂ - 2) := zpow_pos (by norm_num) _
   have h_2f_pos : (0 : ℝ) < (2 : ℝ)^f₂ := zpow_pos (by norm_num) _
-  have h_2f2_lt_2e : (2 : ℝ)^(f₂ - 2) < (2 : ℝ)^e := by
-    have h_lt : f₂ - 2 < e := by omega
-    have : (2 : ℝ)^(f₂ - 2) < (2 : ℝ)^e :=
-      zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) h_lt
-    exact this
+  have h_2f2_lt_2e : (2 : ℝ)^(f₂ - 2) < (2 : ℝ)^e :=
+    zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) (by omega : f₂ - 2 < e)
   have h_x_pos : 0 < x_val := by rw [hx_def]; linarith
   have h_x_lt_2e : x_val < (2 : ℝ)^e := by rw [hx_def]; linarith
-  have h_two_e_coe : ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) = (2 : ℝ)^e := by
-    rw [Dyadic.coe_ofIntZpow]; push_cast; ring
-  -- 2^f₂ = 4 · 2^(f₂ - 2).
+  have h_two_e_coe := coe_two_e_g e
+  -- 2^(e - f₂) as a natural-power of 2.
+  set n : ℕ := (e - f₂).toNat with hn_def
+  have h_2e_eq : (2 : ℝ)^e = ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ := two_zpow_split e f₂ hf₂_le_e
+  -- 2^f₂ = 4 · 2^(f₂-2) (split helper).
   have h_2f_split : (2 : ℝ)^f₂ = 4 * (2 : ℝ)^(f₂ - 2) := by
     have h_eq : (2 : ℝ)^f₂ = (2 : ℝ)^(f₂ - 2) * (2 : ℝ)^(2 : ℤ) := by
       rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
-    have h2 : (2 : ℝ)^(2 : ℤ) = 4 := by norm_num
-    rw [h_eq, h2]; ring
-  -- Helper: 2^(e - f₂) as a natural-power of 2 (since e ≥ f₂).
-  set n : ℕ := (e - f₂).toNat with hn_def
-  have hn_eq : (n : ℤ) = e - f₂ := Int.toNat_of_nonneg (by omega)
-  have h_2efp_eq : (2 : ℝ)^(e - f₂) = ((2 : ℤ)^n : ℝ) := by
-    have h : (2 : ℝ)^(e - f₂) = (2 : ℝ)^((n : ℤ) : ℤ) := by rw [hn_eq]
-    rw [h, zpow_natCast]; push_cast; ring
-  have h_2e_eq : (2 : ℝ)^e = ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ := by
-    have h : (2 : ℝ)^e = (2 : ℝ)^(e - f₂) * (2 : ℝ)^f₂ := by
-      rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
-    rw [h, h_2efp_eq]
+    rw [h_eq, show (2 : ℝ)^(2 : ℤ) = 4 by norm_num]; ring
   -- Any z ∈ F₂ with z < 2^e satisfies z ≤ 2^e - 2^f₂.
   have h_F₂_lt_2e_bound : ∀ z ∈ F₂, ((z : Dyadic) : ℝ) < (2 : ℝ)^e →
       ((z : Dyadic) : ℝ) ≤ (2 : ℝ)^e - (2 : ℝ)^f₂ := by
@@ -1301,10 +1289,9 @@ theorem no_rndRNE_RTZ
       have : f₂ - 2 < f₂ := by omega
       exact zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) this
     linarith
-  refine ⟨x_val, Dyadic.ofIntZpow 1 e, Dyadic.ofIntZpow 1 e, ?_, ?_, ?_⟩
-  · -- Rounds F₂ RNE x 2^e.
-    refine ⟨h_two_e_in_F₂, ?_, ?_, ?_⟩
-    · -- IsFaithfulRound: RoundUp.
+  refine ⟨x_val, two_e_g e, two_e_g e, ?_, ?_, ?_⟩
+  · refine ⟨h_two_e_in_F₂, ?_, ?_, ?_⟩
+    · -- IsFaithfulRound (RoundUp 2^e).
       right
       refine ⟨h_two_e_in_F₂, ?_, ?_⟩
       · rw [h_two_e_coe]; linarith
@@ -1315,37 +1302,31 @@ theorem no_rndRNE_RTZ
       intro z hz hf
       rw [h_two_e_coe]
       rcases hf with ⟨_, hz_le, _⟩ | ⟨_, hz_ge, _⟩
-      · -- RoundDown: z ≤ x. z < 2^e (since z ≤ x < 2^e). So z ≤ 2^e - 2^f₂.
+      · -- RoundDown z ≤ 2^e − 2^f₂, so x − z ≥ 3·2^(f₂−2) ≥ 2^(f₂−2) = 2^e − x.
         have h_z_lt_2e : (z : ℝ) < (2 : ℝ)^e := lt_of_le_of_lt hz_le h_x_lt_2e
         have h_z_bnd := h_F₂_lt_2e_bound z hz h_z_lt_2e
-        -- |x - 2^e| = 2^(f₂-2). |x - z| = x - z ≥ x - (2^e - 2^f₂) = 2^f₂ - 2^(f₂-2)
-        --   = 3·2^(f₂-2). 2^(f₂-2) ≤ 3·2^(f₂-2). ✓
         rw [abs_of_neg (by rw [hx_def]; linarith : x_val - (2 : ℝ)^e < 0), neg_sub]
         rw [abs_of_nonneg (by rw [hx_def]; linarith : (0 : ℝ) ≤ x_val - (z : ℝ))]
+        rw [h_2f_split] at h_z_bnd
         rw [hx_def]; linarith
-      · -- RoundUp: z ≥ x ⇒ z ≥ 2^e ⇒ |x - z| = z - x ≥ 2^e - x = 2^(f₂-2) = |x - 2^e|.
+      · -- RoundUp z ≥ 2^e, so z − x ≥ 2^e − x = 2^(f₂−2).
         have h_z_ge_2e := h_F₂_ge_x_to_ge_2e z hz hz_ge
         rw [abs_of_neg (by rw [hx_def]; linarith : x_val - (2 : ℝ)^e < 0), neg_sub]
         rw [abs_of_nonpos (by linarith : x_val - (z : ℝ) ≤ 0), neg_sub]
         linarith
-    · -- No tie.
+    · -- No tie: RoundDown z has |x−z| ≥ 3·2^(f₂−2); RoundUp z ≠ 2^e jumps to ≥ 2^e + 2^f₂.
       rintro ⟨z, hzF₂, hf, hne, heq⟩
       rw [h_two_e_coe] at heq
       rcases hf with ⟨_, hz_le, _⟩ | ⟨_, hz_ge, _⟩
-      · -- RoundDown: z ≤ x < 2^e. From bound: z ≤ 2^e - 2^f₂. |x - z| ≥ 3·2^(f₂-2).
-        -- |x - 2^e| = 2^(f₂-2). Not equal.
-        exfalso
+      · exfalso
         have h_z_lt_2e : (z : ℝ) < (2 : ℝ)^e := lt_of_le_of_lt hz_le h_x_lt_2e
         have h_z_bnd := h_F₂_lt_2e_bound z hzF₂ h_z_lt_2e
         rw [abs_of_neg (by rw [hx_def]; linarith : x_val - (2 : ℝ)^e < 0), neg_sub] at heq
         rw [abs_of_nonneg (by rw [hx_def]; linarith : (0 : ℝ) ≤ x_val - (z : ℝ))] at heq
-        have h_2f2_lt_2f : (2 : ℝ)^(f₂ - 2) < (2 : ℝ)^f₂ := by
-          have : f₂ - 2 < f₂ := by omega
-          exact zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) this
-        rw [hx_def] at heq; linarith
-      · -- RoundUp: z ≥ x ⇒ z ≥ 2^e. z ≠ 2^e ⇒ z > 2^e. |x - z| ≥ 2^e + 2^f₂ - x. Hmm.
-        -- Actually z ≥ 2^e and z ≠ 2^e ⇒ z > 2^e. From quantum, z ≥ 2^e + 2^f₂.
-        exfalso
+        rw [h_2f_split] at h_z_bnd
+        rw [hx_def] at heq
+        linarith
+      · exfalso
         have h_z_ge_2e := h_F₂_ge_x_to_ge_2e z hzF₂ hz_ge
         have h_z_ne_2e : (z : ℝ) ≠ (2 : ℝ)^e := by
           intro h_eq
@@ -1353,8 +1334,7 @@ theorem no_rndRNE_RTZ
           apply Subtype.ext
           rw [h_two_e_coe]; exact h_eq
         have h_z_gt_2e : (2 : ℝ)^e < (z : ℝ) := lt_of_le_of_ne h_z_ge_2e (Ne.symm h_z_ne_2e)
-        -- z > 2^e in F₂. From quantum, z = c · 2^f₂ > 2^e = 2^(e-f₂) · 2^f₂.
-        -- So c > 2^(e-f₂), c ≥ 2^(e-f₂) + 1, z ≥ 2^e + 2^f₂.
+        -- From the f₂-quantum grid, z > 2^e forces z ≥ 2^e + 2^f₂.
         have h_z_ge_2e_plus : (2 : ℝ)^e + (2 : ℝ)^f₂ ≤ (z : ℝ) := by
           obtain ⟨_, hq, _⟩ := hzF₂
           rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
@@ -1375,20 +1355,14 @@ theorem no_rndRNE_RTZ
         rw [abs_of_neg (by rw [hx_def]; linarith : x_val - (2 : ℝ)^e < 0), neg_sub] at heq
         rw [abs_of_nonpos (by linarith : x_val - (z : ℝ) ≤ 0), neg_sub] at heq
         rw [hx_def] at heq; linarith
-  · -- Rounds F₁ RTZ 2^e 2^e (since 2^e ∈ F₁).
-    refine ⟨h_two_e_in_F₁, ?_, ?_, ?_⟩
-    · -- |2^e| ≤ |2^e|.
-      rfl
-    · -- 2^e * 2^e ≥ 0.
-      change ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) * ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) ≥ 0
-      rw [h_two_e_coe]; positivity
-    · -- Minimality: ∀ z ∈ F₁ with |z| ≤ |2^e| and z * 2^e ≥ 0, |z| ≤ |2^e|.
-      intro v _ hv_bnd _
+  · refine ⟨h_two_e_in_F₁, ?_, ?_, ?_⟩
+    · rfl
+    · exact mul_self_nonneg _
+    · intro v _ hv_bnd _
       exact hv_bnd
-  · -- ¬ Rounds F₁ RTZ x 2^e.
+  · -- Bound clause |2^e| ≤ |x| fails: x < 2^e and both are positive.
     intro hr
     obtain ⟨_, h_bnd, _, _⟩ := hr
-    -- |2^e| ≤ |x|. But x < 2^e and x > 0, so |x| = x < 2^e = |2^e|. Contradiction.
     rw [h_two_e_coe] at h_bnd
     rw [abs_of_pos h_x_pos, abs_of_pos h_2e_pos] at h_bnd
     linarith
@@ -1411,21 +1385,10 @@ theorem no_rndRTZ_RAZ
       ¬ Rounds (F₁_g p hp_ge_2 e) .AwayZero x w := by
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
   have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
-  have h_two_e_in_F₁ : (Dyadic.ofIntZpow 1 e : Dyadic) ∈ F₁_g p hp_ge_2 e := by
-    refine ⟨?_, ?_, trivial⟩
-    · change Dyadic.precisionAtMost ((p : ℕ) : ℕ∞) (Dyadic.ofIntZpow 1 e)
-      refine ⟨1, e, ?_, ?_⟩
-      · rw [Dyadic.coe_ofIntZpow]
-      · have h_pow : (2 : ℤ) ≤ (2 : ℤ)^p :=
-          calc (2 : ℤ) = (2 : ℤ)^1 := by norm_num
-            _ ≤ (2 : ℤ)^p := pow_le_pow_right₀ (by norm_num) (by omega)
-        have : |(1 : ℤ)| = 1 := by decide
-        omega
-    · change Dyadic.quantumAtLeast (((e : ℤ)) : WithBot ℤ) (Dyadic.ofIntZpow 1 e)
-      rw [Dyadic.quantumAtLeast_coe]
-      exact ⟨1, by rw [Dyadic.coe_ofIntZpow]⟩
-  have h_two_e_in_F₂ : (Dyadic.ofIntZpow 1 e : Dyadic) ∈ F₂ := hsub _ h_two_e_in_F₁
-  -- 2·2^e ∈ F₁.
+  have h_two_e_in_F₁ := two_e_mem_F₁_g p hp_ge_2 e
+  have h_two_e_in_F₂ : two_e_g e ∈ F₂ := hsub _ h_two_e_in_F₁
+  have hf₂_le_e : f₂ ≤ e := f₂_le_e_of_F₁_g_subset p hp_ge_2 e F₂ hsub hF₂_exp
+  -- 2·2^e = 2^(e+1) ∈ F₁.
   have h_two_e1_in_F₁ : (Dyadic.ofIntZpow 1 (e + 1) : Dyadic) ∈ F₁_g p hp_ge_2 e := by
     refine ⟨?_, ?_, trivial⟩
     · change Dyadic.precisionAtMost ((p : ℕ) : ℕ∞) (Dyadic.ofIntZpow 1 (e + 1))
@@ -1446,33 +1409,6 @@ theorem no_rndRTZ_RAZ
         rw [h1]; have h2 : (2 : ℝ)^(1 : ℤ) = 2 := by norm_num
         rw [h2]; ring
       rw [h_eq]; push_cast; ring
-  -- Derive f₂ ≤ e from 2^e ∈ F₂'s quantum.
-  have hf₂_le_e : f₂ ≤ e := by
-    have hq : Dyadic.quantumAtLeast F₂.exp (Dyadic.ofIntZpow 1 e : Dyadic) :=
-      h_two_e_in_F₂.2.1
-    rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
-    obtain ⟨c, hc⟩ := hq
-    rw [Dyadic.coe_ofIntZpow] at hc
-    have h_2f_pos : (0 : ℝ) < (2 : ℝ)^f₂ := zpow_pos (by norm_num) _
-    by_contra h_gt; push Not at h_gt
-    have hh : ((1 : ℤ) : ℝ) * (2 : ℝ)^e = (c : ℝ) * (2 : ℝ)^f₂ := hc
-    push_cast at hh
-    have h_eq : (c : ℝ) * (2 : ℝ)^f₂ = (2 : ℝ)^e := by linarith
-    have h_split : (2 : ℝ)^e = (2 : ℝ)^(e - f₂) * (2 : ℝ)^f₂ := by
-      rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
-    rw [h_split] at h_eq
-    have hc_real : (c : ℝ) = (2 : ℝ)^(e - f₂) :=
-      mul_right_cancel₀ (ne_of_gt h_2f_pos) h_eq
-    have h_lt_1 : (c : ℝ) < 1 := by
-      rw [hc_real]
-      have h_diff_neg : e - f₂ < 0 := by omega
-      have : (2 : ℝ)^(e - f₂) < (2 : ℝ)^(0 : ℤ) :=
-        zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) h_diff_neg
-      simpa using this
-    have h_pos : 0 < (c : ℝ) := by rw [hc_real]; exact zpow_pos (by norm_num) _
-    have hc_int_pos : 0 < c := by exact_mod_cast h_pos
-    have hc_int_lt : c < 1 := by exact_mod_cast h_lt_1
-    omega
   -- Setup.
   set x_val : ℝ := (2 : ℝ)^e + (2 : ℝ)^(f₂ - 2) with hx_def
   have h_2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
@@ -1480,35 +1416,23 @@ theorem no_rndRTZ_RAZ
   have h_2f_pos : (0 : ℝ) < (2 : ℝ)^f₂ := zpow_pos (by norm_num) _
   have h_x_pos : 0 < x_val := by rw [hx_def]; linarith
   have h_x_gt_2e : (2 : ℝ)^e < x_val := by rw [hx_def]; linarith
-  have h_two_e_coe : ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) = (2 : ℝ)^e := by
-    rw [Dyadic.coe_ofIntZpow]; push_cast; ring
+  have h_two_e_coe := coe_two_e_g e
   have h_two_e1_coe : ((Dyadic.ofIntZpow 1 (e + 1) : Dyadic) : ℝ) = (2 : ℝ)^(e + 1) := by
     rw [Dyadic.coe_ofIntZpow]; push_cast; ring
-  have h_2f_gt_2f2 : (2 : ℝ)^(f₂ - 2) < (2 : ℝ)^f₂ := by
-    have : f₂ - 2 < f₂ := by omega
-    exact zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) this
   have h_2e1_eq : (2 : ℝ)^(e + 1) = 2 * (2 : ℝ)^e := by
     have h : (2 : ℝ)^(e + 1) = (2 : ℝ)^e * (2 : ℝ)^(1 : ℤ) := by
       rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
     have h1 : (2 : ℝ)^(1 : ℤ) = 2 := by norm_num
     rw [h, h1]; ring
-  -- 2^e + 2^(f₂-2) < 2·2^e (i.e., x < 2^(e+1)).
+  -- x < 2^(e+1).
   have h_x_lt_2e1 : x_val < (2 : ℝ)^(e + 1) := by
     rw [hx_def, h_2e1_eq]
-    have h_2f2_lt_2e : (2 : ℝ)^(f₂ - 2) < (2 : ℝ)^e := by
-      have : f₂ - 2 < e := by omega
-      exact zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) this
+    have h_2f2_lt_2e : (2 : ℝ)^(f₂ - 2) < (2 : ℝ)^e :=
+      zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) (by omega : f₂ - 2 < e)
     linarith
   -- 2^(e - f₂) as ℤ via n.
   set n : ℕ := (e - f₂).toNat with hn_def
-  have hn_eq : (n : ℤ) = e - f₂ := Int.toNat_of_nonneg (by omega)
-  have h_2efp_eq : (2 : ℝ)^(e - f₂) = ((2 : ℤ)^n : ℝ) := by
-    have h : (2 : ℝ)^(e - f₂) = (2 : ℝ)^((n : ℤ) : ℤ) := by rw [hn_eq]
-    rw [h, zpow_natCast]; push_cast; ring
-  have h_2e_eq : (2 : ℝ)^e = ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ := by
-    have h : (2 : ℝ)^e = (2 : ℝ)^(e - f₂) * (2 : ℝ)^f₂ := by
-      rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
-    rw [h, h_2efp_eq]
+  have h_2e_eq : (2 : ℝ)^e = ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ := two_zpow_split e f₂ hf₂_le_e
   -- Any z ∈ F₂ with z ≤ x satisfies z ≤ 2^e.
   have h_F₂_le_x_to_le_2e : ∀ z ∈ F₂, ((z : Dyadic) : ℝ) ≤ x_val →
       ((z : Dyadic) : ℝ) ≤ (2 : ℝ)^e := by
@@ -1527,21 +1451,20 @@ theorem no_rndRTZ_RAZ
     have hc_real_ge : ((2 : ℤ)^n : ℝ) + 1 ≤ (c : ℝ) := by
       have h1 : (((2 : ℤ)^n + 1 : ℤ) : ℝ) ≤ ((c : ℤ) : ℝ) := by exact_mod_cast hc_int_ge
       push_cast at h1; exact h1
-    have h_mul : (((2 : ℤ)^n : ℝ) + 1) * (2 : ℝ)^f₂ ≤ (c : ℝ) * (2 : ℝ)^f₂ :=
-      mul_le_mul_of_nonneg_right hc_real_ge h_2f_pos.le
+    have h_mul : ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ + (2 : ℝ)^f₂ ≤ (c : ℝ) * (2 : ℝ)^f₂ := by
+      have h := mul_le_mul_of_nonneg_right hc_real_ge h_2f_pos.le
+      linarith [h, show (((2 : ℤ)^n : ℝ) + 1) * (2 : ℝ)^f₂
+        = ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ + (2 : ℝ)^f₂ from by ring]
+    have h_2f_gt_2f2 : (2 : ℝ)^(f₂ - 2) < (2 : ℝ)^f₂ :=
+      zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) (by omega : f₂ - 2 < f₂)
     rw [hx_def] at hz_le
     rw [h_2e_eq] at hz_le
     linarith
-  refine ⟨x_val, Dyadic.ofIntZpow 1 e, Dyadic.ofIntZpow 1 e, ?_, ?_, ?_⟩
-  · -- Rounds F₂ RTZ x 2^e.
-    refine ⟨h_two_e_in_F₂, ?_, ?_, ?_⟩
-    · -- |2^e| ≤ |x|.
-      rw [h_two_e_coe, abs_of_pos h_2e_pos, abs_of_pos h_x_pos]; linarith
-    · -- 2^e * x ≥ 0.
-      rw [h_two_e_coe]; positivity
-    · -- ∀ z ∈ F₂ with |z| ≤ |x| ∧ z·x ≥ 0, |z| ≤ |2^e|.
-      intro z hz hz_bnd hz_sign
-      -- z·x ≥ 0 with x > 0 ⇒ z ≥ 0.
+  refine ⟨x_val, two_e_g e, two_e_g e, ?_, ?_, ?_⟩
+  · refine ⟨h_two_e_in_F₂, ?_, ?_, ?_⟩
+    · rw [h_two_e_coe, abs_of_pos h_2e_pos, abs_of_pos h_x_pos]; linarith
+    · rw [h_two_e_coe]; positivity
+    · intro z hz hz_bnd hz_sign
       have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := by
         rcases le_or_gt 0 ((z : Dyadic) : ℝ) with h | h
         · exact h
@@ -1549,20 +1472,13 @@ theorem no_rndRTZ_RAZ
       rw [abs_of_nonneg h_z_nn, abs_of_pos h_x_pos] at hz_bnd
       rw [h_two_e_coe, abs_of_pos h_2e_pos, abs_of_nonneg h_z_nn]
       exact h_F₂_le_x_to_le_2e z hz hz_bnd
-  · -- Rounds F₁ RAZ 2^e 2^e.
-    refine ⟨h_two_e_in_F₁, ?_, ?_, ?_⟩
+  · refine ⟨h_two_e_in_F₁, ?_, ?_, ?_⟩
     · rfl
-    · change ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) * ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) ≥ 0
+    · change ((two_e_g e : Dyadic) : ℝ) * ((two_e_g e : Dyadic) : ℝ) ≥ 0
       rw [h_two_e_coe]; positivity
-    · -- Minimality: ∀ v ∈ F₁ with |2^e| ≤ |v| and v·2^e ≥ 0, |2^e| ≤ |v|.
-      intro v _ hv_bnd _
+    · intro v _ hv_bnd _
       exact hv_bnd
-  · -- ¬ Rounds F₁ RAZ x 2^e.
-    -- The fact: direct F₁-RAZ(x) = 2^(e+1), not 2^e. Show ¬ Rounds F₁ RAZ x 2^e
-    -- via the minimality clause: 2^(e+1) ∈ F₁ with |x| ≤ |2^(e+1)| and 2^(e+1)·x ≥ 0,
-    -- but |2^(e+1)| = 2·2^e > 2^e = |2^e|, contradicting minimality |2^(e+1)| ≤ |2^e|.
-    -- Wait — actually we need to show that 2^e doesn't satisfy RAZ's definition.
-    -- The cleanest: |x| ≤ |2^e|? No, |x| = x > 2^e = |2^e|. So the bound clause fails.
+  · -- Bound clause |x| ≤ |2^e| fails: x > 2^e, both positive.
     intro hr
     obtain ⟨_, h_bnd, _, _⟩ := hr
     rw [h_two_e_coe, abs_of_pos h_x_pos, abs_of_pos h_2e_pos] at h_bnd
