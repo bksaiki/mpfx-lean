@@ -47,11 +47,12 @@ in `Mpfx.Format`, not on those positive theorems.
   `y_hi = 4·2^e`; direct F₁-RNE on `x` (slightly below `m`) picks
   the closer lower neighbor `y_lo = 3·2^e`.
   Requires `m ∈ F₂` (since `m ∉ F₁_g`).
-
-**To prove** (per the project task list):
-* `no_rndRTZ_RNE` — F₂-RTZ pulls `x` down to an F₁-midpoint;
-  F₁-RNE tie-breaks to the (even) lower neighbor; direct F₁-RNE picks
-  the upper neighbor. (Requires F₁ with lower-even F-adjacent pair.)
+* `no_rndRTZ_RNE` — F₂-RTZ pulls `x` down to the F₁-midpoint
+  `m_low = 5·2^(e−1)` (midpoint of the *lower-even* F-adjacent pair
+  `(2·2^e, 3·2^e)` in `F₁_g`); F₁-RNE tie-breaks to the even lower
+  neighbor `2·2^e`; direct F₁-RNE on `x` (slightly above `m_low`)
+  picks the closer upper neighbor `3·2^e`.
+  Requires `m_low ∈ F₂` (since `m_low ∉ F₁_g`).
 
 ## Common structure
 
@@ -327,6 +328,177 @@ private theorem notIsOdd_F₁_g_y_hi (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
     have : ((p : ℕ) : ℤ) ≥ 2 := by exact_mod_cast hp_ge_2
     omega
   exact precisionAtMost_not_IsOdd h_gt h_prec
+
+/-! ### Lower-even F-adjacent pair (used in `no_rndRTZ_RNE`)
+
+In `F₁_g`, the pair `(2·2^e, 3·2^e)` is F-adjacent with the *lower*
+element `2·2^e` even (canonical c = 2 at numDigits = 2) and the
+upper element `3·2^e` odd. Their midpoint `5·2^(e−1)` is *not* in
+`F₁_g` (quantum below `e`), making it the F-midpoint used to force
+F₁-RNE to tiebreak to the lower (even) neighbor — the mismatch
+required for `no_rndRTZ_RNE`. -/
+
+private noncomputable def y_lo_low_g (e : ℤ) : Dyadic := Dyadic.ofIntZpow 2 e
+
+private theorem coe_y_lo_low_g (e : ℤ) :
+    ((y_lo_low_g e : Dyadic) : ℝ) = 2 * (2 : ℝ)^e := by
+  change ((Dyadic.ofIntZpow 2 e : Dyadic) : ℝ) = _
+  rw [Dyadic.coe_ofIntZpow]; push_cast; ring
+
+private noncomputable def m_low_g (e : ℤ) : Dyadic := Dyadic.ofIntZpow 5 (e - 1)
+
+private theorem coe_m_low_g (e : ℤ) :
+    ((m_low_g e : Dyadic) : ℝ) = 5 * (2 : ℝ)^(e - 1) := by
+  change ((Dyadic.ofIntZpow 5 (e - 1) : Dyadic) : ℝ) = _
+  rw [Dyadic.coe_ofIntZpow]; push_cast; ring
+
+private theorem y_lo_low_mem_F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
+    y_lo_low_g e ∈ F₁_g p hp_ge_2 e := by
+  refine ⟨?_, ?_, trivial⟩
+  · change Dyadic.precisionAtMost ((p : ℕ) : ℕ∞) (y_lo_low_g e)
+    refine ⟨2, e, ?_, ?_⟩
+    · rw [coe_y_lo_low_g]; push_cast; ring
+    · have h_pow : (4 : ℤ) ≤ (2 : ℤ)^p :=
+        calc (4 : ℤ) = (2 : ℤ)^2 := by norm_num
+          _ ≤ (2 : ℤ)^p := pow_le_pow_right₀ (by norm_num) hp_ge_2
+      have h_abs : |(2 : ℤ)| = 2 := by decide
+      omega
+  · change Dyadic.quantumAtLeast (((e : ℤ)) : WithBot ℤ) (y_lo_low_g e)
+    rw [Dyadic.quantumAtLeast_coe]
+    refine ⟨2, ?_⟩
+    rw [coe_y_lo_low_g]; push_cast; ring
+
+/-- `IsEven F₁_g y_lo_low_g`: at numDigits = 2, canonical significand
+is `2` (even). The proof mirrors `isEven_F₁_g_y_hi`. -/
+private theorem isEven_F₁_g_y_lo_low (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
+    IsEven (F₁_g p hp_ge_2 e) (y_lo_low_g e) := by
+  have h_coe : ((y_lo_low_g e : Dyadic) : ℝ) = 2 * (2 : ℝ)^e := coe_y_lo_low_g e
+  have h_2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
+  have h_y_pos : (0 : ℝ) < ((y_lo_low_g e : Dyadic) : ℝ) := by rw [h_coe]; nlinarith
+  have h_y_ne_real : ((y_lo_low_g e : Dyadic) : ℝ) ≠ 0 := ne_of_gt h_y_pos
+  have h_y_eq_2e1 : ((y_lo_low_g e : Dyadic) : ℝ) = (2 : ℝ)^(e + 1) := by
+    rw [h_coe, show e + 1 = e + 1 from rfl,
+        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+    rw [show (2 : ℝ)^(1 : ℤ) = 2 by norm_num]; ring
+  have h_log : Int.log 2 |((y_lo_low_g e : Dyadic) : ℝ)| = e + 1 := by
+    rw [h_y_eq_2e1, abs_of_pos (by rw [← h_y_eq_2e1]; exact h_y_pos)]
+    rw [show (2 : ℝ)^(e + 1) = ((2 : ℕ) : ℝ)^(e + 1) by push_cast; rfl]
+    exact Int.log_zpow (R := ℝ) (by omega : 1 < 2) (e + 1)
+  have h_nd_eq : numDigits (F₁_g p hp_ge_2 e).p (F₁_g p hp_ge_2 e).exp
+        ((y_lo_low_g e : Dyadic) : ℝ) = min ((p : ℕ) : ℤ) 2 := by
+    unfold numDigits
+    rw [if_neg h_y_ne_real]
+    change (min ((p : ℕ) : ℤ) (Int.log 2 |((y_lo_low_g e : Dyadic) : ℝ)| - (e : ℤ) + 1)) = _
+    rw [h_log]; congr 1; ring
+  have h_nd_toNat : (numDigits (F₁_g p hp_ge_2 e).p (F₁_g p hp_ge_2 e).exp
+        ((y_lo_low_g e : Dyadic) : ℝ)).toNat = 2 := by
+    rw [h_nd_eq]
+    have hp_int : ((p : ℕ) : ℤ) ≥ 2 := by exact_mod_cast hp_ge_2
+    have h_min : min ((p : ℕ) : ℤ) 2 = 2 := by omega
+    rw [h_min]; rfl
+  have h_p_ne_1 : (F₁_g p hp_ge_2 e).p ≠ (1 : ℕ∞) := by
+    intro h
+    have h1 : (((p : ℕ) : ℕ∞)) = (1 : ℕ∞) := h
+    have h2 : p = 1 := by exact_mod_cast h1
+    omega
+  right
+  refine ⟨2, e, ⟨?_, ?_, ?_⟩, ?_⟩
+  · rw [h_coe]; push_cast; ring
+  · rw [h_nd_toNat]; decide
+  · rw [h_nd_toNat]; decide
+  · rw [if_neg h_p_ne_1]; decide
+
+/-- F₁-faithful values of `m_low = 5·2^(e-1)` enumerate to
+`{y_lo_low, y_lo_g}` (= `{2·2^e, 3·2^e}`). Note `y_lo_g e = 3·2^e`
+plays the role of the *upper* neighbor here. -/
+private theorem F₁_faithful_m_low_eq_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ)
+    {z : Dyadic} (hf : IsFaithfulRound (F₁_g p hp_ge_2 e) ((m_low_g e : Dyadic) : ℝ) z) :
+    (z : ℝ) = ((y_lo_low_g e : Dyadic) : ℝ) ∨ (z : ℝ) = ((y_lo_g e : Dyadic) : ℝ) := by
+  have h_2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
+  have h_m_eq : ((m_low_g e : Dyadic) : ℝ) = (5 / 2) * (2 : ℝ)^e := by
+    rw [coe_m_low_g, show (e - 1 : ℤ) = e + (-1 : ℤ) by ring,
+        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+    rw [show (2 : ℝ)^(-1 : ℤ) = 1/2 by
+      rw [show ((-1 : ℤ)) = -(1 : ℤ) by ring, zpow_neg]; norm_num]
+    ring
+  rcases hf with ⟨hzF, hle, hmax⟩ | ⟨hzF, hge, hmin⟩
+  · left
+    obtain ⟨c, hc⟩ := F₁_g_quantum p hp_ge_2 e hzF
+    rw [hc, h_m_eq] at hle
+    have hc_r_le : (c : ℝ) ≤ 5/2 := le_of_mul_le_mul_right hle h_2e_pos
+    have hc_lt : (c : ℝ) < 3 := by linarith
+    have hc_int_lt : c < 3 := by exact_mod_cast hc_lt
+    have hc_int_le : c ≤ 2 := by omega
+    have h_y_lo_low_le : ((y_lo_low_g e : Dyadic) : ℝ) ≤ ((m_low_g e : Dyadic) : ℝ) := by
+      rw [coe_y_lo_low_g, h_m_eq]
+      nlinarith
+    have h_ge_y_lo_low := hmax (y_lo_low_g e) (y_lo_low_mem_F₁_g p hp_ge_2 e) h_y_lo_low_le
+    rw [coe_y_lo_low_g, hc] at h_ge_y_lo_low
+    have hc_r_ge : (2 : ℝ) ≤ (c : ℝ) := le_of_mul_le_mul_right h_ge_y_lo_low h_2e_pos
+    have hc_int_ge : 2 ≤ c := by exact_mod_cast hc_r_ge
+    have hc_eq : c = 2 := by omega
+    rw [hc, coe_y_lo_low_g, hc_eq]; push_cast; ring
+  · right
+    obtain ⟨c, hc⟩ := F₁_g_quantum p hp_ge_2 e hzF
+    rw [hc, h_m_eq] at hge
+    have hc_r_ge : (5/2 : ℝ) ≤ (c : ℝ) := le_of_mul_le_mul_right hge h_2e_pos
+    have hc_gt : (2 : ℝ) < (c : ℝ) := by linarith
+    have hc_int_gt : 2 < c := by exact_mod_cast hc_gt
+    have hc_int_ge : 3 ≤ c := by omega
+    have h_y_lo_ge : ((m_low_g e : Dyadic) : ℝ) ≤ ((y_lo_g e : Dyadic) : ℝ) := by
+      rw [coe_y_lo_g, h_m_eq]
+      nlinarith
+    have h_le_y_lo := hmin (y_lo_g e) (y_lo_mem_F₁_g p hp_ge_2 e) h_y_lo_ge
+    rw [coe_y_lo_g, hc] at h_le_y_lo
+    have hc_r_le : (c : ℝ) ≤ 3 := le_of_mul_le_mul_right h_le_y_lo h_2e_pos
+    have hc_int_le : c ≤ 3 := by exact_mod_cast hc_r_le
+    have hc_eq : c = 3 := by omega
+    rw [hc, coe_y_lo_g, hc_eq]; push_cast; ring
+
+/-- F₁_g-RNE at `m_low = 5·2^(e-1)` is `y_lo_low = 2·2^e` (the even
+lower neighbor wins the tie). -/
+private theorem rounds_F₁_g_RNE_m_low_y_lo_low (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
+    Rounds (F₁_g p hp_ge_2 e) (.Nearest .ToEven)
+      ((m_low_g e : Dyadic) : ℝ) (y_lo_low_g e) := by
+  have h_2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
+  have h_m_eq : ((m_low_g e : Dyadic) : ℝ) = (5 / 2) * (2 : ℝ)^e := by
+    rw [coe_m_low_g, show (e - 1 : ℤ) = e + (-1 : ℤ) by ring,
+        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+    rw [show (2 : ℝ)^(-1 : ℤ) = 1/2 by
+      rw [show ((-1 : ℤ)) = -(1 : ℤ) by ring, zpow_neg]; norm_num]
+    ring
+  have h_y_lo_low_eq : ((y_lo_low_g e : Dyadic) : ℝ) = 2 * (2 : ℝ)^e := coe_y_lo_low_g e
+  refine ⟨y_lo_low_mem_F₁_g p hp_ge_2 e, ?_, ?_, ?_⟩
+  · -- IsFaithfulRound (RoundDown y_lo_low).
+    left
+    refine ⟨y_lo_low_mem_F₁_g p hp_ge_2 e, ?_, ?_⟩
+    · rw [h_m_eq, h_y_lo_low_eq]; nlinarith
+    · intro z hz hle
+      obtain ⟨c, hc⟩ := F₁_g_quantum p hp_ge_2 e hz
+      rw [hc, h_m_eq] at hle
+      rw [h_y_lo_low_eq, hc]
+      have hc_r_le : (c : ℝ) ≤ 5/2 := le_of_mul_le_mul_right hle h_2e_pos
+      have hc_lt : (c : ℝ) < 3 := by linarith
+      have hc_int_lt : c < 3 := by exact_mod_cast hc_lt
+      have hc_int_le : c ≤ 2 := by omega
+      have : (c : ℝ) ≤ 2 := by exact_mod_cast hc_int_le
+      nlinarith
+  · -- Closeness: faithful z ∈ {y_lo_low, y_lo_g}, both equidistant.
+    intro z hz hf
+    rcases F₁_faithful_m_low_eq_g p hp_ge_2 e hf with hz_lo | hz_hi
+    · rw [hz_lo]
+    · rw [hz_hi, coe_y_lo_g, h_m_eq, h_y_lo_low_eq]
+      have hL : |(5/2 : ℝ) * (2 : ℝ)^e - 2 * (2 : ℝ)^e| = (1/2) * (2 : ℝ)^e := by
+        rw [show (5/2 : ℝ) * (2 : ℝ)^e - 2 * (2 : ℝ)^e
+            = (1/2) * (2 : ℝ)^e by ring, abs_of_pos]
+        nlinarith
+      have hR : |(5/2 : ℝ) * (2 : ℝ)^e - 3 * (2 : ℝ)^e| = (1/2) * (2 : ℝ)^e := by
+        rw [show (5/2 : ℝ) * (2 : ℝ)^e - 3 * (2 : ℝ)^e
+            = -((1/2) * (2 : ℝ)^e) by ring, abs_neg, abs_of_pos]
+        nlinarith
+      rw [hL, hR]
+  · rintro ⟨_, _, _, _, _⟩
+    exact isEven_F₁_g_y_lo_low p hp_ge_2 e
 
 /-- F₁-faithful values of `m`: enumeration to `{y_lo, y_hi}`. -/
 private theorem F₁_faithful_m_eq_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ)
@@ -2076,6 +2248,172 @@ theorem no_rndRAZ_RNE
           (2 : ℝ)^(e - 1) - (2 : ℝ)^(f₂ - 2) from by ring]
       exact abs_of_pos (by linarith)
     rw [h_abs_hi, h_abs_lo] at h_close_lo
+    linarith
+
+/-- **Counterexample to `rndRTZ_RNE`.**
+
+Uses the lower-even F-adjacent pair `(y_lo_low, y_lo_g) = (2·2^e,
+3·2^e)` and their midpoint `m_low = 5·2^(e−1)`. Requires
+`m_low ∈ F₂` (since `m_low ∉ F₁_g`). Witness `x = m_low + 2^(f₂−2)`
+lies just above `m_low`, inside F₂'s downward-truncation zone for
+`m_low` (F₂'s next grid point above `m_low` is `m_low + 2^f₂ > x`).
+F₂-RTZ truncates `x` *down* to `m_low`. F₁-RNE at the midpoint
+breaks the tie to the even neighbor `y_lo_low = 2·2^e`. But direct
+F₁-RNE on `x` is closer to `y_lo_g = 3·2^e` (distance
+`2^(e−1) − 2^(f₂−2)`) than to `y_lo_low` (distance
+`2^(e−1) + 2^(f₂−2)`), so direct F₁-RNE returns `y_lo_g`. -/
+theorem no_rndRTZ_RNE
+    (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ)
+    (F₂ : AbstractFormat) (hm_low_in_F₂ : m_low_g e ∈ F₂)
+    (hF₂_exp_fin : F₂.exp ≠ ⊥) :
+    ∃ (x : ℝ) (z w : Dyadic),
+      Rounds F₂ .ToZero x z ∧
+      Rounds (F₁_g p hp_ge_2 e) (.Nearest .ToEven) (z : ℝ) w ∧
+      ¬ Rounds (F₁_g p hp_ge_2 e) (.Nearest .ToEven) x w := by
+  obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
+  have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
+  -- m_low has quantum e - 1, so m_low ∈ F₂ forces f₂ ≤ e - 1 (same parity argument
+  -- as in `no_rndRAZ_RNE`, applied to the odd integer `5`).
+  have hf₂_le_e1 : f₂ ≤ e - 1 := by
+    obtain ⟨_, hq, _⟩ := hm_low_in_F₂
+    rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
+    obtain ⟨c, hc⟩ := hq
+    have h_m_coe : ((m_low_g e : Dyadic) : ℝ) = 5 * (2 : ℝ)^(e - 1) := coe_m_low_g e
+    by_contra h_gt
+    push Not at h_gt
+    rw [h_m_coe] at hc
+    set k : ℕ := (f₂ - (e - 1)).toNat with hk_def
+    have h_kn : (k : ℤ) = f₂ - (e - 1) := Int.toNat_of_nonneg (by omega)
+    have h_k_pos : 1 ≤ k := by
+      have : (1 : ℤ) ≤ (k : ℤ) := by rw [h_kn]; omega
+      exact_mod_cast this
+    have h_2e1_ne : (2 : ℝ)^(e - 1) ≠ 0 := ne_of_gt (zpow_pos (by norm_num) _)
+    have h_split : (2 : ℝ)^f₂ = (2 : ℝ)^(k : ℤ) * (2 : ℝ)^(e - 1) := by
+      rw [show (f₂ : ℤ) = (k : ℤ) + (e - 1) from by linarith [h_kn],
+          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+    rw [h_split, ← mul_assoc, zpow_natCast] at hc
+    have h_eq : (5 : ℝ) = (c : ℝ) * (2 : ℝ)^k :=
+      mul_right_cancel₀ h_2e1_ne hc
+    have h_int : (5 : ℤ) = c * (2 : ℤ)^k := by
+      have h1 : ((5 : ℤ) : ℝ) = ((c * (2 : ℤ)^k : ℤ) : ℝ) := by push_cast; exact h_eq
+      exact_mod_cast h1
+    have h_even : Even (5 : ℤ) := by
+      rw [h_int, show k = (k - 1) + 1 from by omega, pow_succ]
+      refine ⟨c * 2^(k - 1), ?_⟩; ring
+    exact (Int.not_even_iff_odd.mpr (by decide : Odd (5 : ℤ))) h_even
+  have h_y_lo_low_in_F₁ := y_lo_low_mem_F₁_g p hp_ge_2 e
+  have h_y_lo_in_F₁ := y_lo_mem_F₁_g p hp_ge_2 e
+  set m_low : Dyadic := m_low_g e with hm_low_def
+  have h_m_low_in_F₂ : m_low ∈ F₂ := hm_low_in_F₂
+  have h_m_low_coe : (m_low : ℝ) = 5 * (2 : ℝ)^(e - 1) := coe_m_low_g e
+  have h_2e1_pos : (0 : ℝ) < (2 : ℝ)^(e - 1) := zpow_pos (by norm_num) _
+  have h_m_low_pos : 0 < (m_low : ℝ) := by rw [h_m_low_coe]; nlinarith
+  set x_val : ℝ := (m_low : ℝ) + (2 : ℝ)^(f₂ - 2) with hx_def
+  have h_2f2_pos : (0 : ℝ) < (2 : ℝ)^(f₂ - 2) := zpow_pos (by norm_num) _
+  have h_2f_pos : (0 : ℝ) < (2 : ℝ)^f₂ := zpow_pos (by norm_num) _
+  have h_2f2_lt_2e1 : (2 : ℝ)^(f₂ - 2) < (2 : ℝ)^(e - 1) :=
+    zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) (by omega : f₂ - 2 < e - 1)
+  have h_2f2_lt_2f : (2 : ℝ)^(f₂ - 2) < (2 : ℝ)^f₂ :=
+    zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) (by omega : f₂ - 2 < f₂)
+  have h_x_gt_m_low : (m_low : ℝ) < x_val := by rw [hx_def]; linarith
+  have h_x_pos : 0 < x_val := by linarith
+  -- f₂-quantum grid: m_low = 5·2^(e-1-f₂) · 2^f₂.
+  set n : ℕ := (e - 1 - f₂).toNat with hn_def
+  have h_m_low_grid : (m_low : ℝ) = ((5 * (2 : ℤ)^n : ℤ) : ℝ) * (2 : ℝ)^f₂ := by
+    have h_split : (2 : ℝ)^(e - 1) = ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ :=
+      two_zpow_split (e - 1) f₂ hf₂_le_e1
+    rw [h_m_low_coe, h_split]; push_cast; ring
+  -- Any z ∈ F₂ with z ≤ x has z ≤ m_low (no F₂ grid point strictly between m_low and x).
+  have h_F₂_le_x_to_le_m_low : ∀ z ∈ F₂, ((z : Dyadic) : ℝ) ≤ x_val →
+      ((z : Dyadic) : ℝ) ≤ (m_low : ℝ) := by
+    intro z hz hz_le
+    obtain ⟨_, hq, _⟩ := hz
+    rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
+    obtain ⟨c, hc⟩ := hq
+    rw [hc] at hz_le ⊢
+    by_contra h_gt
+    push Not at h_gt
+    rw [h_m_low_grid] at h_gt
+    have hc_gt : ((5 * (2 : ℤ)^n : ℤ) : ℝ) < (c : ℝ) :=
+      lt_of_mul_lt_mul_right h_gt h_2f_pos.le
+    have hc_int_gt : 5 * (2 : ℤ)^n < c := by exact_mod_cast hc_gt
+    have hc_int_ge : 5 * (2 : ℤ)^n + 1 ≤ c := by omega
+    have hc_real_ge : ((5 * (2 : ℤ)^n : ℤ) : ℝ) + 1 ≤ (c : ℝ) := by
+      have h1 : ((5 * (2 : ℤ)^n + 1 : ℤ) : ℝ) ≤ ((c : ℤ) : ℝ) := by exact_mod_cast hc_int_ge
+      push_cast at h1 ⊢; linarith
+    have h_mul : (((5 * (2 : ℤ)^n : ℤ) : ℝ) + 1) * (2 : ℝ)^f₂ ≤ (c : ℝ) * (2 : ℝ)^f₂ :=
+      mul_le_mul_of_nonneg_right hc_real_ge h_2f_pos.le
+    rw [hx_def, h_m_low_grid] at hz_le
+    linarith
+  -- y_lo_low and y_lo_g relations to m_low.
+  have h_y_lo_low_coe : ((y_lo_low_g e : Dyadic) : ℝ) = 2 * (2 : ℝ)^e := coe_y_lo_low_g e
+  have h_y_lo_coe : ((y_lo_g e : Dyadic) : ℝ) = 3 * (2 : ℝ)^e := coe_y_lo_g e
+  have h_y_lo_low_eq : ((y_lo_low_g e : Dyadic) : ℝ) = (m_low : ℝ) - (2 : ℝ)^(e - 1) := by
+    rw [h_y_lo_low_coe, h_m_low_coe]
+    have h_split : (2 : ℝ)^e = (2 : ℝ)^(e - 1) * (2 : ℝ)^(1 : ℤ) := by
+      rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
+    rw [h_split, show (2 : ℝ)^(1 : ℤ) = 2 by norm_num]; ring
+  have h_y_lo_eq : ((y_lo_g e : Dyadic) : ℝ) = (m_low : ℝ) + (2 : ℝ)^(e - 1) := by
+    rw [h_y_lo_coe, h_m_low_coe]
+    have h_split : (2 : ℝ)^e = (2 : ℝ)^(e - 1) * (2 : ℝ)^(1 : ℤ) := by
+      rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
+    rw [h_split, show (2 : ℝ)^(1 : ℤ) = 2 by norm_num]; ring
+  refine ⟨x_val, m_low, y_lo_low_g e, ?_, ?_, ?_⟩
+  · -- Rounds F₂ RTZ x m_low.
+    refine ⟨h_m_low_in_F₂, ?_, ?_, ?_⟩
+    · rw [abs_of_pos h_m_low_pos, abs_of_pos h_x_pos]; linarith
+    · positivity
+    · intro z hz hz_bnd hz_sign
+      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := by
+        rcases le_or_gt 0 ((z : Dyadic) : ℝ) with h | h
+        · exact h
+        · exfalso; nlinarith
+      rw [abs_of_nonneg h_z_nn, abs_of_pos h_x_pos] at hz_bnd
+      rw [abs_of_pos h_m_low_pos, abs_of_nonneg h_z_nn]
+      exact h_F₂_le_x_to_le_m_low z hz hz_bnd
+  · -- Rounds F₁_g RNE m_low y_lo_low.
+    exact rounds_F₁_g_RNE_m_low_y_lo_low p hp_ge_2 e
+  · -- ¬ Rounds F₁_g RNE x y_lo_low: y_lo_g is faithful and strictly closer.
+    intro hr
+    obtain ⟨_, _, h_close, _⟩ := hr
+    have h_2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
+    have h_y_lo_faith : IsFaithfulRound (F₁_g p hp_ge_2 e) x_val (y_lo_g e) := by
+      right
+      refine ⟨h_y_lo_in_F₁, ?_, ?_⟩
+      · rw [h_y_lo_eq, hx_def]; linarith
+      · intro z hz hz_ge
+        obtain ⟨c', hc'⟩ := F₁_g_quantum p hp_ge_2 e hz
+        have h_z_gt_m_low : (m_low : ℝ) < (z : ℝ) := lt_of_lt_of_le h_x_gt_m_low hz_ge
+        rw [hc', h_m_low_coe] at h_z_gt_m_low
+        have h_5_2 : (5 : ℝ) * (2 : ℝ)^(e-1) = (5/2) * (2 : ℝ)^e := by
+          rw [show (e-1 : ℤ) = e + (-1 : ℤ) from by ring,
+              zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+          rw [show (2 : ℝ)^(-1 : ℤ) = 1/2 by
+            rw [show ((-1 : ℤ)) = -(1 : ℤ) from by ring, zpow_neg]; norm_num]
+          ring
+        rw [h_5_2] at h_z_gt_m_low
+        have hc'_r_gt : (5/2 : ℝ) < (c' : ℝ) := lt_of_mul_lt_mul_right h_z_gt_m_low h_2e_pos.le
+        have hc'_gt_2 : (2 : ℝ) < (c' : ℝ) := by linarith
+        have : 2 < c' := by exact_mod_cast hc'_gt_2
+        have hc'_ge_3 : 3 ≤ c' := by omega
+        change ((y_lo_g e : Dyadic) : ℝ) ≤ (z : ℝ)
+        rw [hc', h_y_lo_coe]
+        have : (3 : ℝ) ≤ (c' : ℝ) := by exact_mod_cast hc'_ge_3
+        nlinarith
+    have h_close_lo := h_close (y_lo_g e) h_y_lo_in_F₁ h_y_lo_faith
+    -- |x − y_lo_low| = 2^(e−1) + 2^(f₂−2), |x − y_lo_g| = 2^(e−1) − 2^(f₂−2).
+    rw [h_y_lo_low_eq, h_y_lo_eq, hx_def] at h_close_lo
+    have h_abs_low : |((m_low : ℝ) + (2 : ℝ)^(f₂ - 2)) - ((m_low : ℝ) - (2 : ℝ)^(e - 1))| =
+        (2 : ℝ)^(e - 1) + (2 : ℝ)^(f₂ - 2) := by
+      rw [show (m_low : ℝ) + (2 : ℝ)^(f₂ - 2) - ((m_low : ℝ) - (2 : ℝ)^(e - 1)) =
+          (2 : ℝ)^(e - 1) + (2 : ℝ)^(f₂ - 2) from by ring]
+      exact abs_of_pos (by linarith)
+    have h_abs_hi : |((m_low : ℝ) + (2 : ℝ)^(f₂ - 2)) - ((m_low : ℝ) + (2 : ℝ)^(e - 1))| =
+        (2 : ℝ)^(e - 1) - (2 : ℝ)^(f₂ - 2) := by
+      rw [show (m_low : ℝ) + (2 : ℝ)^(f₂ - 2) - ((m_low : ℝ) + (2 : ℝ)^(e - 1)) =
+          -((2 : ℝ)^(e - 1) - (2 : ℝ)^(f₂ - 2)) from by ring]
+      rw [abs_neg]; exact abs_of_pos (by linarith)
+    rw [h_abs_low, h_abs_hi] at h_close_lo
     linarith
 
 end AbstractFormat
