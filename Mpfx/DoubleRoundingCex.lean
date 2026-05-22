@@ -201,6 +201,53 @@ private theorem two_zpow_split (e f : ℤ) (h : f ≤ e) :
     rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
   rw [h_split, two_zpow_diff_eq e f h]
 
+/-- If `z·x ≥ 0` and `0 < x`, then `0 ≤ z`. The sign-extraction step common to
+all RTZ/RAZ minimality proofs. -/
+private theorem nonneg_of_mul_nonneg_pos {z x : ℝ} (h_sign : z * x ≥ 0) (hx : 0 < x) :
+    0 ≤ z := by
+  rcases le_or_gt 0 z with h | h
+  · exact h
+  · exfalso; nlinarith
+
+/-- **F₂-grid floor.** Given that `target = c_target · 2^f₂` lies on F₂'s
+`f₂`-quantum grid, any `z ∈ F₂` strictly below the *next* grid point
+`target + 2^f₂` is at most `target`. Specialised in two ways throughout the
+file:
+* "`z < target ⇒ z ≤ target − 2^f₂`" (apply with `target' := target − 2^f₂`);
+* "`z ≤ x ⇒ z ≤ target`" when `x < target + 2^f₂`. -/
+private theorem F₂_grid_floor
+    {F₂ : AbstractFormat} {f₂ : ℤ} (hF₂_exp : F₂.exp = (f₂ : WithBot ℤ))
+    {target : ℝ} {c_target : ℤ}
+    (h_target_eq : target = (c_target : ℝ) * (2 : ℝ) ^ f₂) :
+    ∀ z ∈ F₂, ((z : Dyadic) : ℝ) < target + (2 : ℝ)^f₂ →
+      ((z : Dyadic) : ℝ) ≤ target := by
+  intro z hz hz_lt
+  obtain ⟨_, hq, _⟩ := hz
+  rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
+  obtain ⟨c, hc⟩ := hq
+  rw [hc] at hz_lt ⊢
+  have h_2f_pos : (0 : ℝ) < (2 : ℝ)^f₂ := zpow_pos (by norm_num) _
+  rw [h_target_eq, show (c_target : ℝ) * (2 : ℝ)^f₂ + (2 : ℝ)^f₂
+        = ((c_target + 1 : ℤ) : ℝ) * (2 : ℝ)^f₂ from by push_cast; ring] at hz_lt
+  have hc_lt : (c : ℝ) < ((c_target + 1 : ℤ) : ℝ) :=
+    lt_of_mul_lt_mul_right hz_lt h_2f_pos.le
+  have hc_int_lt : c < c_target + 1 := by exact_mod_cast hc_lt
+  have hc_int_le : c ≤ c_target := by omega
+  have hc_real_le : (c : ℝ) ≤ (c_target : ℝ) := by exact_mod_cast hc_int_le
+  have h_mul : (c : ℝ) * (2 : ℝ)^f₂ ≤ (c_target : ℝ) * (2 : ℝ)^f₂ :=
+    mul_le_mul_of_nonneg_right hc_real_le h_2f_pos.le
+  rw [h_target_eq]; exact h_mul
+
+/-- RTO at an F₁-exact value is the identity (vacuous parity clause since
+`x = y`). Used by all `no_rndR*_RTO` counterexamples for the inner step. -/
+private theorem rounds_RTO_self {F : AbstractFormat} {y : Dyadic} (h : y ∈ F) :
+    Rounds F .ToOdd ((y : Dyadic) : ℝ) y := by
+  refine ⟨h, ?_, ?_⟩
+  · left
+    refine ⟨h, le_refl _, ?_⟩
+    intro z _ hz_le; exact hz_le
+  · intro h_ne; exfalso; exact h_ne rfl
+
 private noncomputable def m_g (e : ℤ) : Dyadic := Dyadic.ofIntZpow 7 (e - 1)
 
 private theorem coe_m_g (e : ℤ) : ((m_g e : Dyadic) : ℝ) = 7 * (2 : ℝ)^(e - 1) := by
@@ -1467,22 +1514,10 @@ theorem no_rndRNE_RTZ
   -- Any z ∈ F₂ with z < 2^e satisfies z ≤ 2^e - 2^f₂.
   have h_F₂_lt_2e_bound : ∀ z ∈ F₂, ((z : Dyadic) : ℝ) < (2 : ℝ)^e →
       ((z : Dyadic) : ℝ) ≤ (2 : ℝ)^e - (2 : ℝ)^f₂ := by
+    have h_target_eq : (2 : ℝ)^e - (2 : ℝ)^f₂ = (((2 : ℤ)^n - 1 : ℤ) : ℝ) * (2 : ℝ) ^ f₂ := by
+      push_cast; rw [h_2e_eq]; ring
     intro z hz hz_lt
-    obtain ⟨_, hq, _⟩ := hz
-    rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
-    obtain ⟨c, hc⟩ := hq
-    rw [hc] at hz_lt ⊢
-    -- (c + 1) · 2^f₂ ≤ 2^e.
-    have h_mul_bnd : ((c : ℝ) + 1) * (2 : ℝ)^f₂ ≤ (2 : ℝ)^e := by
-      rw [h_2e_eq] at hz_lt
-      have hc_lt : (c : ℝ) < ((2 : ℤ)^n : ℝ) :=
-        lt_of_mul_lt_mul_right hz_lt h_2f_pos.le
-      have hc_int_lt : c < (2 : ℤ)^n := by exact_mod_cast hc_lt
-      have hc_int_le : c + 1 ≤ (2 : ℤ)^n := by omega
-      have hc_real_le : (c : ℝ) + 1 ≤ ((2 : ℤ)^n : ℝ) := by exact_mod_cast hc_int_le
-      have h_mul : ((c : ℝ) + 1) * (2 : ℝ)^f₂ ≤ ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ :=
-        mul_le_mul_of_nonneg_right hc_real_le h_2f_pos.le
-      rw [← h_2e_eq] at h_mul; exact h_mul
+    apply F₂_grid_floor hF₂_exp h_target_eq z hz
     linarith
   -- Any z ∈ F₂ with z ≥ x satisfies z ≥ 2^e (no F₂-element strictly between x and 2^e).
   have h_F₂_ge_x_to_ge_2e : ∀ z ∈ F₂, x_val ≤ ((z : Dyadic) : ℝ) →
@@ -1672,10 +1707,7 @@ theorem no_rndRTZ_RAZ
     · rw [h_two_e_coe, abs_of_pos h_2e_pos, abs_of_pos h_x_pos]; linarith
     · rw [h_two_e_coe]; positivity
     · intro z hz hz_bnd hz_sign
-      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := by
-        rcases le_or_gt 0 ((z : Dyadic) : ℝ) with h | h
-        · exact h
-        · exfalso; nlinarith
+      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := nonneg_of_mul_nonneg_pos hz_sign h_x_pos
       rw [abs_of_nonneg h_z_nn, abs_of_pos h_x_pos] at hz_bnd
       rw [h_two_e_coe, abs_of_pos h_2e_pos, abs_of_nonneg h_z_nn]
       exact h_F₂_le_x_to_le_2e z hz hz_bnd
@@ -1747,10 +1779,7 @@ theorem no_rndRAZ_RTZ
     · rw [h_two_e_coe, abs_of_pos h_2e_pos, abs_of_pos h_x_pos]; linarith
     · rw [h_two_e_coe]; positivity
     · intro z hz hz_bnd hz_sign
-      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := by
-        rcases le_or_gt 0 ((z : Dyadic) : ℝ) with h | h
-        · exact h
-        · exfalso; nlinarith
+      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := nonneg_of_mul_nonneg_pos hz_sign h_x_pos
       rw [abs_of_nonneg h_z_nn, abs_of_pos h_x_pos] at hz_bnd
       rw [h_two_e_coe, abs_of_pos h_2e_pos, abs_of_nonneg h_z_nn]
       -- z ≥ x > 2^e − 2^f₂, so z ≥ 2^e (no F₂-grid point between).
@@ -1812,31 +1841,18 @@ theorem no_rndRAZ_RTO
   -- Any z ∈ F₂ with z < y_hi = 2^(e+2) satisfies z ≤ y_hi − 2^f₂.
   have h_F₂_lt_y_hi_bound : ∀ z ∈ F₂, ((z : Dyadic) : ℝ) < (2 : ℝ)^(e + 2) →
       ((z : Dyadic) : ℝ) ≤ (2 : ℝ)^(e + 2) - (2 : ℝ)^f₂ := by
+    have h_target_eq : (2 : ℝ)^(e + 2) - (2 : ℝ)^f₂
+        = (((2 : ℤ)^n - 1 : ℤ) : ℝ) * (2 : ℝ) ^ f₂ := by
+      push_cast; rw [h_2e2_eq]; ring
     intro z hz hz_lt
-    obtain ⟨_, hq, _⟩ := hz
-    rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
-    obtain ⟨c, hc⟩ := hq
-    rw [hc] at hz_lt ⊢
-    have h_mul_bnd : ((c : ℝ) + 1) * (2 : ℝ)^f₂ ≤ (2 : ℝ)^(e + 2) := by
-      rw [h_2e2_eq] at hz_lt
-      have hc_lt : (c : ℝ) < ((2 : ℤ)^n : ℝ) :=
-        lt_of_mul_lt_mul_right hz_lt h_2f_pos.le
-      have hc_int_lt : c < (2 : ℤ)^n := by exact_mod_cast hc_lt
-      have hc_int_le : c + 1 ≤ (2 : ℤ)^n := by omega
-      have hc_real_le : (c : ℝ) + 1 ≤ ((2 : ℤ)^n : ℝ) := by exact_mod_cast hc_int_le
-      have h_mul : ((c : ℝ) + 1) * (2 : ℝ)^f₂ ≤ ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ :=
-        mul_le_mul_of_nonneg_right hc_real_le h_2f_pos.le
-      rw [← h_2e2_eq] at h_mul; exact h_mul
+    apply F₂_grid_floor hF₂_exp h_target_eq z hz
     linarith
   refine ⟨x_val, y_hi_g e, y_hi_g e, ?_, ?_, ?_⟩
   · refine ⟨h_y_hi_in_F₂, ?_, ?_, ?_⟩
     · rw [h_y_hi_coe, abs_of_pos h_2e2_pos, abs_of_pos h_x_pos]; linarith
     · rw [h_y_hi_coe]; positivity
     · intro z hz hz_bnd hz_sign
-      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := by
-        rcases le_or_gt 0 ((z : Dyadic) : ℝ) with h | h
-        · exact h
-        · exfalso; nlinarith
+      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := nonneg_of_mul_nonneg_pos hz_sign h_x_pos
       rw [abs_of_nonneg h_z_nn, abs_of_pos h_x_pos] at hz_bnd
       rw [h_y_hi_coe, abs_of_pos h_2e2_pos, abs_of_nonneg h_z_nn]
       -- z ≥ x > y_hi − 2^f₂, so z ≥ y_hi (no F₂-grid point between).
@@ -1901,21 +1917,11 @@ theorem no_rndRNE_RTO
     rw [h_eq, show (2 : ℝ)^(2 : ℤ) = 4 by norm_num]; ring
   have h_F₂_lt_y_hi_bound : ∀ z ∈ F₂, ((z : Dyadic) : ℝ) < (2 : ℝ)^(e + 2) →
       ((z : Dyadic) : ℝ) ≤ (2 : ℝ)^(e + 2) - (2 : ℝ)^f₂ := by
+    have h_target_eq : (2 : ℝ)^(e + 2) - (2 : ℝ)^f₂
+        = (((2 : ℤ)^n - 1 : ℤ) : ℝ) * (2 : ℝ) ^ f₂ := by
+      push_cast; rw [h_2e2_eq]; ring
     intro z hz hz_lt
-    obtain ⟨_, hq, _⟩ := hz
-    rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
-    obtain ⟨c, hc⟩ := hq
-    rw [hc] at hz_lt ⊢
-    have h_mul_bnd : ((c : ℝ) + 1) * (2 : ℝ)^f₂ ≤ (2 : ℝ)^(e + 2) := by
-      rw [h_2e2_eq] at hz_lt
-      have hc_lt : (c : ℝ) < ((2 : ℤ)^n : ℝ) :=
-        lt_of_mul_lt_mul_right hz_lt h_2f_pos.le
-      have hc_int_lt : c < (2 : ℤ)^n := by exact_mod_cast hc_lt
-      have hc_int_le : c + 1 ≤ (2 : ℤ)^n := by omega
-      have hc_real_le : (c : ℝ) + 1 ≤ ((2 : ℤ)^n : ℝ) := by exact_mod_cast hc_int_le
-      have h_mul : ((c : ℝ) + 1) * (2 : ℝ)^f₂ ≤ ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ :=
-        mul_le_mul_of_nonneg_right hc_real_le h_2f_pos.le
-      rw [← h_2e2_eq] at h_mul; exact h_mul
+    apply F₂_grid_floor hF₂_exp h_target_eq z hz
     linarith
   have h_F₂_ge_x_to_ge_y_hi : ∀ z ∈ F₂, x_val ≤ ((z : Dyadic) : ℝ) →
       (2 : ℝ)^(e + 2) ≤ ((z : Dyadic) : ℝ) := by
@@ -1990,11 +1996,7 @@ theorem no_rndRNE_RTO
         rw [abs_of_neg (by rw [hx_def]; linarith : x_val - (2 : ℝ)^(e + 2) < 0), neg_sub] at heq
         rw [abs_of_nonpos (by linarith : x_val - (z : ℝ) ≤ 0), neg_sub] at heq
         rw [hx_def] at heq; linarith
-  · refine ⟨h_y_hi_in_F₁, ?_, ?_⟩
-    · left
-      refine ⟨h_y_hi_in_F₁, le_refl _, ?_⟩
-      intro z _ hz_le; exact hz_le
-    · intro h_ne; exfalso; exact h_ne rfl
+  · exact rounds_RTO_self h_y_hi_in_F₁
   · intro hr
     obtain ⟨_, _, h_parity⟩ := hr
     have h_x_ne_y_hi : x_val ≠ ((y_hi_g e : Dyadic) : ℝ) := by
@@ -2033,47 +2035,26 @@ theorem no_rndRTZ_RTO
   set n : ℕ := (e + 2 - f₂).toNat with hn_def
   have h_2e2_eq : (2 : ℝ)^(e + 2) = ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ :=
     two_zpow_split (e + 2) f₂ hf₂_le_e2
-  -- Any z ∈ F₂ with z ≤ x has z ≤ y_hi (no F₂ grid point strictly between y_hi and x).
+  -- z ≤ x < y_hi + 2^f₂ ⇒ z ≤ y_hi (apply `F₂_grid_floor` with target = y_hi).
   have h_F₂_le_x_to_le_y_hi : ∀ z ∈ F₂, ((z : Dyadic) : ℝ) ≤ x_val →
       ((z : Dyadic) : ℝ) ≤ (2 : ℝ)^(e + 2) := by
-    intro z hz hz_le
-    obtain ⟨_, hq, _⟩ := hz
-    rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
-    obtain ⟨c, hc⟩ := hq
-    rw [hc] at hz_le ⊢
-    by_contra h_gt
-    push Not at h_gt
-    rw [h_2e2_eq] at h_gt
-    have hc_gt : ((2 : ℤ)^n : ℝ) < (c : ℝ) :=
-      lt_of_mul_lt_mul_right h_gt h_2f_pos.le
-    have hc_int_gt : (2 : ℤ)^n < c := by exact_mod_cast hc_gt
-    have hc_int_ge : (2 : ℤ)^n + 1 ≤ c := by omega
-    have hc_real_ge : ((2 : ℤ)^n : ℝ) + 1 ≤ (c : ℝ) := by
-      have h1 : (((2 : ℤ)^n + 1 : ℤ) : ℝ) ≤ ((c : ℤ) : ℝ) := by exact_mod_cast hc_int_ge
-      push_cast at h1; exact h1
-    have h_mul : (((2 : ℤ)^n : ℝ) + 1) * (2 : ℝ)^f₂ ≤ (c : ℝ) * (2 : ℝ)^f₂ :=
-      mul_le_mul_of_nonneg_right hc_real_ge h_2f_pos.le
     have h_2f2_lt_2f : (2 : ℝ)^(f₂ - 2) < (2 : ℝ)^f₂ :=
       zpow_lt_zpow_right₀ (by norm_num : (1 : ℝ) < 2) (by omega : f₂ - 2 < f₂)
-    rw [hx_def, h_2e2_eq] at hz_le
-    linarith
+    have h_target_eq : (2 : ℝ)^(e + 2) = (((2 : ℤ)^n : ℤ) : ℝ) * (2 : ℝ) ^ f₂ := by
+      push_cast; exact h_2e2_eq
+    intro z hz hz_le
+    apply F₂_grid_floor hF₂_exp h_target_eq z hz
+    rw [hx_def] at hz_le; linarith
   refine ⟨x_val, y_hi_g e, y_hi_g e, ?_, ?_, ?_⟩
   · refine ⟨h_y_hi_in_F₂, ?_, ?_, ?_⟩
     · rw [h_y_hi_coe, abs_of_pos h_2e2_pos, abs_of_pos h_x_pos]; linarith
     · rw [h_y_hi_coe]; positivity
     · intro z hz hz_bnd hz_sign
-      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := by
-        rcases le_or_gt 0 ((z : Dyadic) : ℝ) with h | h
-        · exact h
-        · exfalso; nlinarith
+      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := nonneg_of_mul_nonneg_pos hz_sign h_x_pos
       rw [abs_of_nonneg h_z_nn, abs_of_pos h_x_pos] at hz_bnd
       rw [h_y_hi_coe, abs_of_pos h_2e2_pos, abs_of_nonneg h_z_nn]
       exact h_F₂_le_x_to_le_y_hi z hz hz_bnd
-  · refine ⟨h_y_hi_in_F₁, ?_, ?_⟩
-    · left
-      refine ⟨h_y_hi_in_F₁, le_refl _, ?_⟩
-      intro z _ hz_le; exact hz_le
-    · intro h_ne; exfalso; exact h_ne rfl
+  · exact rounds_RTO_self h_y_hi_in_F₁
   · intro hr
     obtain ⟨_, _, h_parity⟩ := hr
     have h_x_ne_y_hi : x_val ≠ ((y_hi_g e : Dyadic) : ℝ) := by
@@ -2159,22 +2140,11 @@ theorem no_rndRAZ_RNE
   -- Any z ∈ F₂ with z < m satisfies z ≤ m - 2^f₂.
   have h_F₂_lt_m_bound : ∀ z ∈ F₂, ((z : Dyadic) : ℝ) < (m : ℝ) →
       ((z : Dyadic) : ℝ) ≤ (m : ℝ) - (2 : ℝ)^f₂ := by
+    have h_target_eq : (m : ℝ) - (2 : ℝ)^f₂
+        = (((7 * (2 : ℤ)^n - 1 : ℤ) : ℤ) : ℝ) * (2 : ℝ) ^ f₂ := by
+      push_cast; rw [h_m_grid]; push_cast; ring
     intro z hz hz_lt
-    obtain ⟨_, hq, _⟩ := hz
-    rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
-    obtain ⟨c, hc⟩ := hq
-    rw [hc] at hz_lt ⊢
-    rw [h_m_grid] at hz_lt
-    have hc_lt : (c : ℝ) < ((7 * (2 : ℤ)^n : ℤ) : ℝ) :=
-      lt_of_mul_lt_mul_right hz_lt h_2f_pos.le
-    have hc_int_lt : c < 7 * (2 : ℤ)^n := by exact_mod_cast hc_lt
-    have hc_int_le : c + 1 ≤ 7 * (2 : ℤ)^n := by omega
-    have hc_real_le : (c : ℝ) + 1 ≤ ((7 * (2 : ℤ)^n : ℤ) : ℝ) := by
-      have h1 : ((c + 1 : ℤ) : ℝ) ≤ ((7 * (2 : ℤ)^n : ℤ) : ℝ) := by exact_mod_cast hc_int_le
-      push_cast at h1 ⊢; linarith
-    have h_mul : ((c : ℝ) + 1) * (2 : ℝ)^f₂ ≤ ((7 * (2 : ℤ)^n : ℤ) : ℝ) * (2 : ℝ)^f₂ :=
-      mul_le_mul_of_nonneg_right hc_real_le h_2f_pos.le
-    rw [h_m_grid]
+    apply F₂_grid_floor hF₂_exp h_target_eq z hz
     linarith
   -- y_lo and y_hi relations to m.
   have h_y_lo_coe : ((y_lo_g e : Dyadic) : ℝ) = 3 * (2 : ℝ)^e := coe_y_lo_g e
@@ -2194,10 +2164,7 @@ theorem no_rndRAZ_RNE
     · rw [abs_of_pos h_m_pos, abs_of_pos h_x_pos]; linarith
     · positivity
     · intro z hz hz_bnd hz_sign
-      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := by
-        rcases le_or_gt 0 ((z : Dyadic) : ℝ) with h | h
-        · exact h
-        · exfalso; nlinarith
+      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := nonneg_of_mul_nonneg_pos hz_sign h_x_pos
       rw [abs_of_nonneg h_z_nn, abs_of_pos h_x_pos] at hz_bnd
       rw [abs_of_pos h_m_pos, abs_of_nonneg h_z_nn]
       by_contra h_lt
@@ -2323,28 +2290,14 @@ theorem no_rndRTZ_RNE
     have h_split : (2 : ℝ)^(e - 1) = ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ :=
       two_zpow_split (e - 1) f₂ hf₂_le_e1
     rw [h_m_low_coe, h_split]; push_cast; ring
-  -- Any z ∈ F₂ with z ≤ x has z ≤ m_low (no F₂ grid point strictly between m_low and x).
+  -- z ≤ x < m_low + 2^f₂ ⇒ z ≤ m_low (apply `F₂_grid_floor` with target = m_low).
   have h_F₂_le_x_to_le_m_low : ∀ z ∈ F₂, ((z : Dyadic) : ℝ) ≤ x_val →
       ((z : Dyadic) : ℝ) ≤ (m_low : ℝ) := by
+    have h_target_eq : (m_low : ℝ) = ((5 * (2 : ℤ)^n : ℤ) : ℝ) * (2 : ℝ) ^ f₂ :=
+      h_m_low_grid
     intro z hz hz_le
-    obtain ⟨_, hq, _⟩ := hz
-    rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
-    obtain ⟨c, hc⟩ := hq
-    rw [hc] at hz_le ⊢
-    by_contra h_gt
-    push Not at h_gt
-    rw [h_m_low_grid] at h_gt
-    have hc_gt : ((5 * (2 : ℤ)^n : ℤ) : ℝ) < (c : ℝ) :=
-      lt_of_mul_lt_mul_right h_gt h_2f_pos.le
-    have hc_int_gt : 5 * (2 : ℤ)^n < c := by exact_mod_cast hc_gt
-    have hc_int_ge : 5 * (2 : ℤ)^n + 1 ≤ c := by omega
-    have hc_real_ge : ((5 * (2 : ℤ)^n : ℤ) : ℝ) + 1 ≤ (c : ℝ) := by
-      have h1 : ((5 * (2 : ℤ)^n + 1 : ℤ) : ℝ) ≤ ((c : ℤ) : ℝ) := by exact_mod_cast hc_int_ge
-      push_cast at h1 ⊢; linarith
-    have h_mul : (((5 * (2 : ℤ)^n : ℤ) : ℝ) + 1) * (2 : ℝ)^f₂ ≤ (c : ℝ) * (2 : ℝ)^f₂ :=
-      mul_le_mul_of_nonneg_right hc_real_ge h_2f_pos.le
-    rw [hx_def, h_m_low_grid] at hz_le
-    linarith
+    apply F₂_grid_floor hF₂_exp h_target_eq z hz
+    rw [hx_def] at hz_le; linarith
   -- y_lo_low and y_lo_g relations to m_low.
   have h_y_lo_low_coe : ((y_lo_low_g e : Dyadic) : ℝ) = 2 * (2 : ℝ)^e := coe_y_lo_low_g e
   have h_y_lo_coe : ((y_lo_g e : Dyadic) : ℝ) = 3 * (2 : ℝ)^e := coe_y_lo_g e
@@ -2364,10 +2317,7 @@ theorem no_rndRTZ_RNE
     · rw [abs_of_pos h_m_low_pos, abs_of_pos h_x_pos]; linarith
     · positivity
     · intro z hz hz_bnd hz_sign
-      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := by
-        rcases le_or_gt 0 ((z : Dyadic) : ℝ) with h | h
-        · exact h
-        · exfalso; nlinarith
+      have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := nonneg_of_mul_nonneg_pos hz_sign h_x_pos
       rw [abs_of_nonneg h_z_nn, abs_of_pos h_x_pos] at hz_bnd
       rw [abs_of_pos h_m_low_pos, abs_of_nonneg h_z_nn]
       exact h_F₂_le_x_to_le_m_low z hz hz_bnd
