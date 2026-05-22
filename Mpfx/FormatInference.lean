@@ -40,9 +40,13 @@ paper doesn't state such a precondition; our formalization makes it
 explicit so the inferred bounding format is itself a valid
 `AbstractFormat`.
 
-The `⊕`-precision matches the paper exactly via `opAddPrec`, which
-implements `⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉` using `Nat.clog 2` (with
-`max 1 …` to satisfy `p_pos` in the degenerate `b₁ = b₂ = 0` case).
+For the `⊕`-precision we use a *slightly tighter* formula than the paper:
+`opAddPrec` returns `⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉` (floor inside),
+matching the actual integer bound on `|c|` rather than the paper's
+real-arithmetic `⌈log₂(N + 1)⌉` (which over-allocates by 1 bit when
+`(b₁+b₂)/2^m` is non-integer).  For practical formats where the bound `b`
+aligns with the exponent — `binary64`, fixed-point, etc. — the two
+formulas agree; ours just doesn't waste a bit in misaligned edge cases.
 -/
 
 namespace Mpfx
@@ -262,16 +266,21 @@ noncomputable def opMul (F₁ F₂ : AbstractFormat)
         push_cast
         exact mul_nonneg (F₁.b_nn_of_coe hF1_b) (F₂.b_nn_of_coe hF2_b)
 
-/-- Paper's tight precision bound for `⊕`:
-`p = ⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉`.  Defined as `⊤` when either of
-the operand bounds or exponents is infinite; otherwise as the `Nat.clog`
-formula matching the paper.  The `max 1 …` ensures `p ≥ 1` (the degenerate
-`b₁ = b₂ = 0` case otherwise gives `Nat.clog 2 1 = 0`, which would
-violate `AbstractFormat.p_pos`). -/
+/-- Tight precision bound for `⊕`, slightly sharper than the paper's:
+`p = ⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉`.  The paper writes the formula
+with `⌈⌉` instead of `⌊⌋` (matching `⌈log₂(N + 1)⌉` in real arithmetic);
+since `|c|` is an integer with `|c| ≤ (b₁+b₂)/2^m`, the floor gives a tight
+bound on the integer significand (`|c| ≤ ⌊(b₁+b₂)/2^m⌋`), saving 1 bit when
+`(b₁+b₂)/2^m` is non-integer (which happens precisely when some `bᵢ` has
+quantum strictly finer than `min(exp₁, exp₂)` — i.e., when `bᵢ`'s
+representation isn't naturally aligned with the inferred quantum).  Defined
+as `⊤` when either of the operand bounds or exponents is infinite.  The
+`max 1 …` ensures `p ≥ 1` (the degenerate `b₁ = b₂ = 0` case otherwise
+gives `Nat.clog 2 1 = 0`, violating `AbstractFormat.p_pos`). -/
 noncomputable def opAddPrec (F₁ F₂ : AbstractFormat) : ℕ∞ :=
   match (F₁.b + F₂.b : WithTop Dyadic), (min F₁.exp F₂.exp : WithBot ℤ) with
   | (b : Dyadic), (m : ℤ) =>
-      ((max 1 (Nat.clog 2 (Int.toNat ⌈((b : ℝ) / (2 : ℝ) ^ m)⌉ + 1)) : ℕ) : ℕ∞)
+      ((max 1 (Nat.clog 2 (Int.toNat ⌊((b : ℝ) / (2 : ℝ) ^ m)⌋ + 1)) : ℕ) : ℕ∞)
   | _, _ => ⊤
 
 /-- Paper's `⊕`: additive format inference.  Returns the inferred
@@ -364,7 +373,8 @@ theorem mul_subset (F₁ F₂ : AbstractFormat)
 
 /-- Precision bound for the tight `opAdd`: if every bound and exponent is
 finite, the specific significand of `x + y` at the finer quantum is bounded
-by `⌈(b₁+b₂)/2^m⌉`, hence its bit-length fits in the paper's tight precision
+by `⌊(b₁+b₂)/2^m⌋` (since `|c|` is an integer and `|c| ≤ (b₁+b₂)/2^m`
+as a real), hence its bit-length fits in the floor-based tight precision
 formula.  This is the technical heart of `add_subset`'s precision claim. -/
 private theorem add_prec_finite {F₁ F₂ : AbstractFormat} {x y : Dyadic}
     {b1 b2 : Dyadic} {e1 e2 : ℤ}
@@ -372,8 +382,8 @@ private theorem add_prec_finite {F₁ F₂ : AbstractFormat} {x y : Dyadic}
     (hF1_exp : F₁.exp = (e1 : WithBot ℤ)) (hF2_exp : F₂.exp = (e2 : WithBot ℤ))
     (hx : x ∈ F₁) (hy : y ∈ F₂) :
     Dyadic.precisionAtMost
-      ((max 1 (Nat.clog 2 (Int.toNat ⌈(((b1 + b2 : Dyadic) : ℝ)) /
-                                         (2 : ℝ) ^ (min e1 e2)⌉ + 1)) : ℕ) : ℕ∞)
+      ((max 1 (Nat.clog 2 (Int.toNat ⌊(((b1 + b2 : Dyadic) : ℝ)) /
+                                         (2 : ℝ) ^ (min e1 e2)⌋ + 1)) : ℕ) : ℕ∞)
       (x + y) := by
   obtain ⟨_, hqx, hbx⟩ := hx
   obtain ⟨_, hqy, hby⟩ := hy
@@ -408,20 +418,17 @@ private theorem add_prec_finite {F₁ F₂ : AbstractFormat} {x y : Dyadic}
   -- Therefore |c| ≤ (b1+b2) / 2^m (as reals).
   have h_c_le_ratio : |(c : ℝ)| ≤ (((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m := by
     rw [le_div_iff₀ h2m_pos]; push_cast at h_c_bound ⊢; linarith
-  -- |c| (as ℤ) ≤ ⌈(b₁+b₂)/2^m⌉.
-  set N : ℕ := Int.toNat ⌈(((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌉ with hN_def
+  -- |c| (as ℤ) ≤ ⌊(b₁+b₂)/2^m⌋ — since |c| is an integer.
+  set N : ℕ := Int.toNat ⌊(((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌋ with hN_def
   have h_ratio_nn : 0 ≤ (((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m :=
     div_nonneg (by push_cast; linarith) (le_of_lt h2m_pos)
-  have h_ceil_nn : 0 ≤ ⌈(((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌉ := Int.ceil_nonneg h_ratio_nn
-  have hN_ceil : (N : ℤ) = ⌈(((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌉ := by
-    rw [hN_def, Int.toNat_of_nonneg h_ceil_nn]
+  have h_floor_nn : 0 ≤ ⌊(((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌋ :=
+    Int.floor_nonneg.mpr h_ratio_nn
+  have hN_floor : (N : ℤ) = ⌊(((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌋ := by
+    rw [hN_def, Int.toNat_of_nonneg h_floor_nn]
   have h_abs_c_le : |c| ≤ (N : ℤ) := by
-    rw [hN_ceil]
-    have h1 : (|c| : ℝ) ≤ (((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m := by
-      push_cast; exact h_c_le_ratio
-    have h2 : (|c| : ℝ) ≤ (⌈(((b1 + b2 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌉ : ℝ) :=
-      h1.trans (Int.le_ceil _)
-    exact_mod_cast h2
+    rw [hN_floor]
+    exact Int.le_floor.mpr (by push_cast; exact h_c_le_ratio)
   -- Build the precisionAtMost witness.
   refine ⟨c, m, h_xy_eq, ?_⟩
   -- Goal: |c| < (2 : ℤ) ^ max 1 (Nat.clog 2 (N + 1)).
