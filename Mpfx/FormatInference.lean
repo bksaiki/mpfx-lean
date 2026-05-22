@@ -7,7 +7,7 @@ import Mathlib.Algebra.Group.Pointwise.Set.Basic
 Section 6.1 of *When Double Rounding is Correct* introduces **format
 inference**: a static analysis bounding the possible values of each
 subexpression by the smallest `AbstractFormat` containing them.  For
-unrounded operations:
+unrounded operations, the paper states:
 
 * `neg` and `abs` preserve the format.
 * `mul`: `𝒜(p₁, exp₁, b₁) ⊗ 𝒜(p₂, exp₂, b₂) ⊆
@@ -15,32 +15,35 @@ unrounded operations:
 * `add`: `𝒜(p₁, exp₁, b₁) ⊕ 𝒜(p₂, exp₂, b₂) ⊆
           𝒜(⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉, min(exp₁, exp₂), b₁ + b₂)`.
 
-The file is in two layers:
+## Top-level statements vs. the paper
 
-**Predicate-level (lower layer)**: `mul_inferred` and `add_inferred` show
-that the result satisfies the three `AbstractFormat` membership predicates
-(`precisionAtMost`, `quantumAtLeast`, `boundOK`) at the inferred
-parameters.  No `AbstractFormat`-validity hypotheses; works unconditionally.
+The public API of this file mirrors the paper:
 
-**`⊆`-level (upper layer)**: `opMul` and `opAdd` construct the actual
-inferred `AbstractFormat`, returning it via the paper's notation.  These
-require both input formats to have finite exponents (`F.exp ≠ ⊥`) to ensure
-the result's `not_degenerate` invariant.  The corresponding `mul_subset`
-and `add_subset` theorems then have the paper's form
-`F₁.toSet * F₂.toSet ⊆ (opMul F₁ F₂ _ _).toSet`.
+| Paper (§6.1)               | Lean (this file)                                         |
+|----------------------------|----------------------------------------------------------|
+| `-A ⊆ A`                   | `neg_subset : -F.toSet ⊆ F.toSet`                       |
+| `|A| ⊆ A`                  | `abs_subset : Dyadic.abs '' F.toSet ⊆ F.toSet`          |
+| `A ⊗ B ⊆ 𝒜(p₁+p₂, …)`     | `mul_subset : F₁.toSet * F₂.toSet ⊆ (opMul F₁ F₂ _ _).toSet` |
+| `A ⊕ B ⊆ 𝒜(⌈log₂…⌉, …)`   | `add_subset : F₁.toSet + F₂.toSet ⊆ (opAdd F₁ F₂ _ _).toSet` |
 
-In the paper, one would write: "The equation applies when the inferred
-bounding number format is itself a valid `AbstractFormat` — namely, when
-both operand formats have finite exponents.  Edge cases like
-`𝒜(⊤, e, b) ⊗ 𝒜(p, ⊥, b')` produce a `(⊤, ⊥, ·)` tuple, which is excluded
-as a degenerate parameterization."
+Two intentional differences from the paper:
 
-The five results:
+1. **Validity hypothesis on `opMul` and `opAdd`.** Returning an
+   `AbstractFormat` requires its `not_degenerate` invariant
+   `(p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥` to hold.  The literal `(p₁+p₂, exp₁+exp₂, …)`
+   tuple can violate this in edge cases (e.g., `F₁.p = ⊤` forces
+   `F₁.exp` finite, but `F₂.exp = ⊥` is allowed if `F₂.p` is finite ≥ 2 —
+   then the sum is `(⊤, ⊥, …)`, degenerate).  We rule this out by
+   requiring `F₁.exp ≠ ⊥` and `F₂.exp ≠ ⊥` in the hypothesis of
+   `opMul`/`opAdd`.  The paper doesn't state such a precondition; our
+   formalization makes it explicit.
 
-* `abs_mem` — `x ∈ F → Dyadic.abs x ∈ F`.
-* `mul_inferred` / `mul_subset` — multiplicative containment (paper's `⊗`).
-* `add_inferred` / `add_subset` — additive containment (paper's `⊕`).
-* `neg_subset` / `abs_subset` — set-level forms of `neg_mem` and `abs_mem`.
+2. **Loose precision in `opAdd`.** The paper gives the *tight* bound
+   `⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉`; we use `⊤` (no precision
+   constraint).  Any precision ≥ the tight one — including `⊤` — gives a
+   valid containing format, so this is sound but not optimal.  Proving
+   the tight bound would require `Nat.clog`-style machinery and is
+   deferred.
 -/
 
 namespace Mpfx
@@ -65,10 +68,12 @@ end Dyadic
 
 namespace AbstractFormat
 
-/-! ## `abs` preserves format (neg is already in `Format.lean`) -/
+/-! ## `abs` preserves format
 
-/-- `Dyadic.abs x ∈ F` whenever `x ∈ F`.  Follows from `neg_mem` (the format
-is closed under negation) and the case analysis in `Dyadic.abs`. -/
+`neg_mem` is already in `Mpfx.Format`; the `abs` analog follows from `neg_mem`
+plus the two-case definition of `Dyadic.abs`. -/
+
+/-- `Dyadic.abs x ∈ F` whenever `x ∈ F`. -/
 theorem abs_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F) :
     Dyadic.abs x ∈ F := by
   unfold Dyadic.abs
@@ -76,12 +81,18 @@ theorem abs_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F) :
   · rw [if_pos h]; exact hx
   · rw [if_neg h]; exact neg_mem hx
 
-/-! ## `mul` containment: predicate-level form of `F₁ ⊗ F₂` -/
+/-! ## Predicate-level helpers (private)
 
-/-- **Mul format inference** (Section 6.1).  If `x ∈ F₁` and `y ∈ F₂`, then
-`x · y` satisfies the inferred parameters of `F₁ ⊗ F₂ = 𝒜(p₁ + p₂,
-exp₁ + exp₂, b₁ × b₂)`: precision adds, quantum adds, bound multiplies. -/
-theorem mul_inferred {F₁ F₂ : AbstractFormat} {x y : Dyadic}
+The two `_inferred` helpers below establish, at the predicate level, that
+every product / sum of representables satisfies the inferred format's
+membership predicates.  They're stated without the `not_degenerate`
+validity hypothesis so they're more general (they don't need to construct
+an `AbstractFormat`).  The public `mul_subset` / `add_subset` theorems
+below specialize them to the `⊆`-form. -/
+
+/-- For `x ∈ F₁, y ∈ F₂`, the product `x · y` satisfies the inferred
+multiplicative parameters (precision sum, quantum sum, bound product). -/
+private theorem mul_inferred {F₁ F₂ : AbstractFormat} {x y : Dyadic}
     (hx : x ∈ F₁) (hy : y ∈ F₂) :
     Dyadic.precisionAtMost (F₁.p + F₂.p) (x * y) ∧
     Dyadic.quantumAtLeast (F₁.exp + F₂.exp) (x * y) ∧
@@ -99,7 +110,6 @@ theorem mul_inferred {F₁ F₂ : AbstractFormat} {x y : Dyadic}
       rw [this]; trivial
     obtain ⟨p1, hp1⟩ := WithTop.ne_top_iff_exists.mp hF1_p
     obtain ⟨p2, hp2⟩ := WithTop.ne_top_iff_exists.mp hF2_p
-    -- hp1 : ↑p1 = F₁.p, hp2 : ↑p2 = F₂.p
     rw [← hp1] at hpx
     rw [← hp2] at hpy
     obtain ⟨c1, e1, hxeq, hc1⟩ := hpx
@@ -123,7 +133,6 @@ theorem mul_inferred {F₁ F₂ : AbstractFormat} {x y : Dyadic}
       rw [this]; trivial
     obtain ⟨e1, he1⟩ := WithBot.ne_bot_iff_exists.mp hF1_exp
     obtain ⟨e2, he2⟩ := WithBot.ne_bot_iff_exists.mp hF2_exp
-    -- he1 : ↑e1 = F₁.exp, he2 : ↑e2 = F₂.exp
     have hqx' : Dyadic.quantumAtLeast (e1 : WithBot ℤ) x := by rw [he1]; exact hqx
     have hqy' : Dyadic.quantumAtLeast (e2 : WithBot ℤ) y := by rw [he2]; exact hqy
     obtain ⟨c1, hxeq⟩ := hqx'
@@ -147,25 +156,10 @@ theorem mul_inferred {F₁ F₂ : AbstractFormat} {x y : Dyadic}
     rw [abs_mul]
     exact mul_le_mul hbx hby (abs_nonneg _) hd1_nn
 
-/-! ## `add` containment: predicate-level form of `F₁ ⊕ F₂`
-
-For addition we prove the quantum and bound parts of the paper's `⊕`
-formula exactly.  The paper also gives a tight precision bound
-`p = ⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉`; we do not yet prove the
-precision part — see the doc on `add_inferred` for details. -/
-
-/-- **Add format inference** (Section 6.1).  If `x ∈ F₁` and `y ∈ F₂`, then
-`x + y` satisfies:
-
-* quantum at least `min(F₁.exp, F₂.exp)`,
-* bound `|x + y| ≤ F₁.b + F₂.b` (when both bounds are finite).
-
-The paper also gives a *tight* precision bound
-`⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉`; that part is omitted here (it would
-require `Nat.clog` machinery and a careful derivation of the sum's
-significand at the finer quantum).  Any precision ≥ this bound, including
-`⊤`, gives a valid containing format. -/
-theorem add_inferred {F₁ F₂ : AbstractFormat} {x y : Dyadic}
+/-- For `x ∈ F₁, y ∈ F₂`, the sum `x + y` satisfies the inferred additive
+parameters: quantum is `min(exp₁, exp₂)`, bound is `b₁ + b₂`.  (Precision
+is left as `⊤`; see this file's doc-block.) -/
+private theorem add_inferred {F₁ F₂ : AbstractFormat} {x y : Dyadic}
     (hx : x ∈ F₁) (hy : y ∈ F₂) :
     Dyadic.quantumAtLeast (min F₁.exp F₂.exp) (x + y) ∧
     (∀ d₁ d₂ : Dyadic, F₁.b = (d₁ : WithTop Dyadic) → F₂.b = (d₂ : WithTop Dyadic) →
@@ -216,82 +210,63 @@ theorem add_inferred {F₁ F₂ : AbstractFormat} {x y : Dyadic}
         ≤ |(x : ℝ)| + |(y : ℝ)| := abs_add_le _ _
       _ ≤ ((d1 : Dyadic) : ℝ) + ((d2 : Dyadic) : ℝ) := add_le_add hbx hby
 
-/-! ## `⊆`-form statements (paper's notation)
+/-! ## Public `⊆`-level API (paper's notation)
 
-The paper writes `A ⊗ B ⊆ A(p₁+p₂, …)` directly between formats.  To produce
-the RHS as a valid `AbstractFormat`, we require the input formats to satisfy
-a precondition ensuring the inferred output's `not_degenerate` invariant
-holds.  The failing edge case is when one operand has `p = ⊤` (forcing its
-`exp` to be finite by its own `not_degenerate`) and the other has `exp = ⊥`
-with finite `p ≥ 2`: the natural `(p₁+p₂, exp₁+exp₂, …)` formula then
-produces `(⊤, ⊥, …)`, which violates `not_degenerate`.  A simple sufficient
-precondition is that *both* operand formats have finite exponents — this
-ensures the inferred output's `exp` is finite, satisfying `not_degenerate`'s
-second disjunct.  In writing this up, one would say "the equation applies
-when the inferred bounding format is itself a valid `AbstractFormat`."  -/
+This is the layer that downstream users should interact with.  Each
+theorem here mirrors the paper's `⊆` form between formats. -/
 
 open scoped Pointwise
 
 /-- Coerce an `AbstractFormat` to its underlying set of representable
-Dyadics.  Lets us use set-level `⊆` between abstract formats. -/
+Dyadics.  Used to express `⊆` between formats at the `Set Dyadic` level. -/
 def toSet (F : AbstractFormat) : Set Dyadic := {x | x ∈ F}
 
 @[simp] theorem mem_toSet {F : AbstractFormat} {x : Dyadic} :
     x ∈ F.toSet ↔ x ∈ F := Iff.rfl
 
-/-- Multiplicative format inference (paper's `⊗`).  Returns the inferred
-`AbstractFormat` `𝒜(p₁ + p₂, exp₁ + exp₂, b₁ × b₂)`.  Requires both inputs
-to have finite exponents so the result satisfies `not_degenerate`. -/
+/-- Paper's `⊗`: multiplicative format inference.  Returns
+`𝒜(p₁ + p₂, exp₁ + exp₂, b₁ × b₂)`.  The `F.exp ≠ ⊥` hypotheses ensure
+the result satisfies `not_degenerate`. -/
 noncomputable def opMul (F₁ F₂ : AbstractFormat)
     (h₁ : F₁.exp ≠ ⊥) (h₂ : F₂.exp ≠ ⊥) : AbstractFormat where
   p := F₁.p + F₂.p
   exp := F₁.exp + F₂.exp
   b := F₁.b * F₂.b
   p_pos := by
-    -- 1 + 1 ≤ F₁.p + F₂.p, hence 1 ≤ F₁.p + F₂.p.
     calc (1 : ℕ∞) ≤ 1 + 1 := by norm_num
       _ ≤ F₁.p + F₂.p := add_le_add F₁.p_pos F₂.p_pos
   not_degenerate := by
-    -- F₁.exp ≠ ⊥ and F₂.exp ≠ ⊥ ⇒ sum ≠ ⊥.  Use second disjunct.
     refine Or.inr ?_
     obtain ⟨e₁, he₁⟩ := WithBot.ne_bot_iff_exists.mp h₁
     obtain ⟨e₂, he₂⟩ := WithBot.ne_bot_iff_exists.mp h₂
-    have h_sum : F₁.exp + F₂.exp = ((e₁ + e₂ : ℤ) : WithBot ℤ) := by
+    have : F₁.exp + F₂.exp = ((e₁ + e₂ : ℤ) : WithBot ℤ) := by
       rw [← he₁, ← he₂]; push_cast; rfl
-    rw [h_sum]
+    rw [this]
     exact WithBot.coe_ne_bot
   b_nn := by
-    -- 0 ≤ F₁.b * F₂.b.  Casework on whether each bound is ⊤.
     cases hF1_b : F₁.b with
     | top => cases hF2_b : F₂.b with
       | top => simp
       | coe d2 =>
-        have hd2_nn := F₂.b_nn_of_coe hF2_b
         by_cases hd2_zero : (d2 : Dyadic) = 0
         · rw [hd2_zero, WithTop.coe_zero, mul_zero]
-        · rw [WithTop.top_mul (by exact_mod_cast hd2_zero)]
-          exact le_top
-    | coe d1 =>
-      have hd1_nn := F₁.b_nn_of_coe hF1_b
-      cases hF2_b : F₂.b with
+        · rw [WithTop.top_mul (by exact_mod_cast hd2_zero)]; exact le_top
+    | coe d1 => cases hF2_b : F₂.b with
       | top =>
         by_cases hd1_zero : (d1 : Dyadic) = 0
         · rw [hd1_zero, WithTop.coe_zero, zero_mul]
-        · rw [WithTop.mul_top (by exact_mod_cast hd1_zero)]
-          exact le_top
+        · rw [WithTop.mul_top (by exact_mod_cast hd1_zero)]; exact le_top
       | coe d2 =>
-        have hd2_nn := F₂.b_nn_of_coe hF2_b
         rw [← WithTop.coe_mul]
         refine WithTop.coe_le_coe.mpr ?_
         change (0 : ℝ) ≤ ((d1 * d2 : Dyadic) : ℝ)
         push_cast
-        exact mul_nonneg hd1_nn hd2_nn
+        exact mul_nonneg (F₁.b_nn_of_coe hF1_b) (F₂.b_nn_of_coe hF2_b)
 
-/-- Additive format inference (paper's `⊕`, with loose precision `⊤`).
-Returns the inferred `AbstractFormat` `𝒜(⊤, min(exp₁, exp₂), b₁ + b₂)`.
-Requires both inputs to have finite exponents so the result satisfies
-`not_degenerate`.  The paper's tighter precision
-`⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉` is deferred. -/
+/-- Paper's `⊕`: additive format inference.  Returns
+`𝒜(⊤, min(exp₁, exp₂), b₁ + b₂)` — *loose* precision; the paper's
+`⌈log₂(…)⌉` precision is left as future work.  The `F.exp ≠ ⊥` hypotheses
+ensure the result satisfies `not_degenerate`. -/
 noncomputable def opAdd (F₁ F₂ : AbstractFormat)
     (h₁ : F₁.exp ≠ ⊥) (h₂ : F₂.exp ≠ ⊥) : AbstractFormat where
   p := ⊤
@@ -300,37 +275,31 @@ noncomputable def opAdd (F₁ F₂ : AbstractFormat)
   p_pos := le_top
   not_degenerate := by
     refine Or.inr ?_
-    -- min ≠ ⊥ since both are ≠ ⊥.
     obtain ⟨e₁, he₁⟩ := WithBot.ne_bot_iff_exists.mp h₁
     obtain ⟨e₂, he₂⟩ := WithBot.ne_bot_iff_exists.mp h₂
-    have h_min : min F₁.exp F₂.exp = ((min e₁ e₂ : ℤ) : WithBot ℤ) := by
+    have : min F₁.exp F₂.exp = ((min e₁ e₂ : ℤ) : WithBot ℤ) := by
       rw [← he₁, ← he₂]
       rcases le_total e₁ e₂ with hle | hle
       · rw [min_eq_left (by exact_mod_cast hle : (e₁ : WithBot ℤ) ≤ (e₂ : WithBot ℤ))]
         rw [min_eq_left hle]
       · rw [min_eq_right (by exact_mod_cast hle : (e₂ : WithBot ℤ) ≤ (e₁ : WithBot ℤ))]
         rw [min_eq_right hle]
-    rw [h_min]
+    rw [this]
     exact WithBot.coe_ne_bot
   b_nn := by
     cases hF1_b : F₁.b with
     | top => rw [WithTop.top_add]; exact le_top
-    | coe d1 =>
-      cases hF2_b : F₂.b with
+    | coe d1 => cases hF2_b : F₂.b with
       | top => rw [WithTop.add_top]; exact le_top
       | coe d2 =>
         rw [← WithTop.coe_add]
         refine WithTop.coe_le_coe.mpr ?_
         change (0 : ℝ) ≤ ((d1 + d2 : Dyadic) : ℝ)
-        have hd1_nn := F₁.b_nn_of_coe hF1_b
-        have hd2_nn := F₂.b_nn_of_coe hF2_b
         push_cast
-        linarith
+        linarith [F₁.b_nn_of_coe hF1_b, F₂.b_nn_of_coe hF2_b]
 
-/-- **Mul ⊆ inferred** (Section 6.1, paper's `⊗`): under the validity
-precondition that both operand formats have finite exponents, the set of
-products `{x · y | x ∈ F₁, y ∈ F₂}` is contained in the inferred
-`AbstractFormat`. -/
+/-- **Mul ⊆ inferred** — paper's `⊗`-containment:
+`{x · y | x ∈ F₁, y ∈ F₂} ⊆ opMul F₁ F₂`. -/
 theorem mul_subset (F₁ F₂ : AbstractFormat)
     (h₁ : F₁.exp ≠ ⊥) (h₂ : F₂.exp ≠ ⊥) :
     F₁.toSet * F₂.toSet ⊆ (opMul F₁ F₂ h₁ h₂).toSet := by
@@ -338,14 +307,14 @@ theorem mul_subset (F₁ F₂ : AbstractFormat)
   obtain ⟨h_prec, h_quant, h_bnd⟩ :=
     mul_inferred (mem_toSet.mp hx) (mem_toSet.mp hy)
   refine ⟨h_prec, h_quant, ?_⟩
-  -- boundOK: |x*y| ≤ (opMul ...).b = F₁.b * F₂.b.
   change AbstractFormat.boundOK (F₁.b * F₂.b) (x * y)
+  -- Casework on the bounds, using the zero-degenerate cases when needed.
   cases hF1_b : F₁.b with
   | top => cases hF2_b : F₂.b with
     | top => simp
     | coe d2 =>
       by_cases hd2_zero : (d2 : Dyadic) = 0
-      · -- F₂.b = 0 ⇒ y = 0 ⇒ x*y = 0.
+      · -- F₂.b = 0 forces y = 0, so x*y = 0.
         rw [hd2_zero, WithTop.coe_zero, mul_zero]
         have hy_bnd := (mem_toSet.mp hy).2.2
         rw [hF2_b] at hy_bnd
@@ -356,8 +325,7 @@ theorem mul_subset (F₁ F₂ : AbstractFormat)
         change |((x * y : Dyadic) : ℝ)| ≤ ((0 : Dyadic) : ℝ)
         push_cast
         rw [hy_zero, mul_zero, abs_zero]
-      · rw [WithTop.top_mul (by exact_mod_cast hd2_zero)]
-        trivial
+      · rw [WithTop.top_mul (by exact_mod_cast hd2_zero)]; trivial
   | coe d1 => cases hF2_b : F₂.b with
     | top =>
       by_cases hd1_zero : (d1 : Dyadic) = 0
@@ -371,16 +339,13 @@ theorem mul_subset (F₁ F₂ : AbstractFormat)
         change |((x * y : Dyadic) : ℝ)| ≤ ((0 : Dyadic) : ℝ)
         push_cast
         rw [hx_zero, zero_mul, abs_zero]
-      · rw [WithTop.mul_top (by exact_mod_cast hd1_zero)]
-        trivial
+      · rw [WithTop.mul_top (by exact_mod_cast hd1_zero)]; trivial
     | coe d2 =>
       rw [← WithTop.coe_mul]
       exact h_bnd d1 d2 hF1_b hF2_b
 
-/-- **Add ⊆ inferred** (Section 6.1, paper's `⊕`): under the validity
-precondition that both operand formats have finite exponents, the set of
-sums `{x + y | x ∈ F₁, y ∈ F₂}` is contained in the inferred
-`AbstractFormat`. -/
+/-- **Add ⊆ inferred** — paper's `⊕`-containment:
+`{x + y | x ∈ F₁, y ∈ F₂} ⊆ opAdd F₁ F₂`. -/
 theorem add_subset (F₁ F₂ : AbstractFormat)
     (h₁ : F₁.exp ≠ ⊥) (h₂ : F₂.exp ≠ ⊥) :
     F₁.toSet + F₂.toSet ⊆ (opAdd F₁ F₂ h₁ h₂).toSet := by
@@ -388,18 +353,16 @@ theorem add_subset (F₁ F₂ : AbstractFormat)
   obtain ⟨h_quant, h_bnd⟩ :=
     add_inferred (mem_toSet.mp hx) (mem_toSet.mp hy)
   refine ⟨trivial, h_quant, ?_⟩
-  -- boundOK: |x+y| ≤ F₁.b + F₂.b.
   change AbstractFormat.boundOK (F₁.b + F₂.b) (x + y)
   cases hF1_b : F₁.b with
   | top => rw [WithTop.top_add]; trivial
-  | coe d1 =>
-    cases hF2_b : F₂.b with
+  | coe d1 => cases hF2_b : F₂.b with
     | top => rw [WithTop.add_top]; trivial
     | coe d2 =>
       rw [← WithTop.coe_add]
       exact h_bnd d1 d2 hF1_b hF2_b
 
-/-- **Neg ⊆ self** (Section 6.1): set-level form of `neg_mem`. -/
+/-- **Neg ⊆ self** — paper: `format(neg(e)) = format(e)`. -/
 theorem neg_subset (F : AbstractFormat) : -F.toSet ⊆ F.toSet := by
   intro z hz
   have h_neg_z : -z ∈ F := mem_toSet.mp hz
@@ -407,7 +370,7 @@ theorem neg_subset (F : AbstractFormat) : -F.toSet ⊆ F.toSet := by
   rw [neg_neg] at h
   exact mem_toSet.mpr h
 
-/-- **Abs ⊆ self** (Section 6.1): set-level form of `abs_mem`. -/
+/-- **Abs ⊆ self** — paper: `format(abs(e)) = format(e)`. -/
 theorem abs_subset (F : AbstractFormat) :
     (Dyadic.abs '' F.toSet) ⊆ F.toSet := by
   rintro z ⟨x, hx, rfl⟩
