@@ -434,7 +434,7 @@ theorem exists_grid_rep (F : AbstractFormat) {p : ℕ} {exp : ℤ}
     push_cast; ring
 
 /-- For a representation `y = c·2^k` with `y > 0`, the integer `c > 0`. -/
-private theorem grid_rep_c_pos {y : Dyadic} (hy_pos : 0 < ((y : Dyadic) : ℝ))
+theorem grid_rep_c_pos {y : Dyadic} (hy_pos : 0 < ((y : Dyadic) : ℝ))
     {k c : ℤ}
     (h : ((y : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ k) :
     0 < c := by
@@ -558,7 +558,7 @@ theorem exists_grid_rep_exp_bot (F : AbstractFormat) {p : ℕ}
 This is the key F-adjacency lemma: applying `exists_grid_rep` to a putative
 `y ∈ F` strictly in the interval forces `y` to have grid-exp `k' = k`, making
 `y/2^k` an integer strictly between `c` and `c+1`, a contradiction. -/
-private theorem no_F_element_in_step_interval (F : AbstractFormat) {p : ℕ} {exp : ℤ}
+theorem no_F_element_in_step_interval (F : AbstractFormat) {p : ℕ} {exp : ℤ}
     (hp : F.p = (p : ℕ∞)) (he : F.exp = (exp : WithBot ℤ))
     {c : ℤ} (hc_pos : 0 < c) (hc_lt : c < (2 : ℤ) ^ p)
     {k : ℤ} (hk : k ≥ exp)
@@ -983,6 +983,82 @@ theorem F_adjacent_step_form_exp_bot (F : AbstractFormat) {p : ℕ}
     h_adj z hzF h_z_gt_y₁
   rw [hz_eq] at h_y₂_le_z
   linarith
+
+/-- **F-predecessor of `m`** for the finite-precision finite-exp case.
+
+Given `m ∈ F` positive with grid representation `(c, k)` where `c ≥ 2` and
+`(c-1)·2^k` lies in the same magnitude class as `m` (`Int.log 2` equal),
+the predecessor `(c-1)·2^k` is in `F` and is F-adjacent to `m` (no F-element
+strictly between).
+
+Used to extract the F-predecessor of a midpoint at proof time when the exact
+F-structure is hypothesized only as a containment. -/
+theorem prev_F_adjacent_of_log_eq (F : AbstractFormat) {p : ℕ} {exp : ℤ}
+    (hp : F.p = (p : ℕ∞)) (he : F.exp = (exp : WithBot ℤ))
+    {m : Dyadic} (hmF : m ∈ F) (hm_pos : 0 < ((m : Dyadic) : ℝ))
+    {k c : ℤ} (hk : k ≥ exp) (hc_ge_2 : 2 ≤ c) (hc_lt : c < (2 : ℤ) ^ p)
+    (hm_eq : ((m : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ k)
+    (hk_max : k = max exp (Int.log 2 ((c : ℝ) * (2 : ℝ) ^ k) - (p : ℤ) + 1))
+    (h_log_eq : Int.log 2 (((c - 1 : ℤ) : ℝ) * (2 : ℝ) ^ k) =
+                Int.log 2 ((c : ℝ) * (2 : ℝ) ^ k)) :
+    Dyadic.ofIntZpow (c - 1) k ∈ F ∧
+    ((Dyadic.ofIntZpow (c - 1) k : Dyadic) : ℝ) < ((m : Dyadic) : ℝ) ∧
+    ∀ z : Dyadic, z ∈ F → ((z : Dyadic) : ℝ) < ((m : Dyadic) : ℝ) →
+      ((z : Dyadic) : ℝ) ≤ ((Dyadic.ofIntZpow (c - 1) k : Dyadic) : ℝ) := by
+  have h_2k_pos : (0 : ℝ) < (2 : ℝ) ^ k := zpow_pos (by norm_num) _
+  have hc_1_pos : 0 < c - 1 := by omega
+  have hc_1_pos_real : (0 : ℝ) < ((c - 1 : ℤ) : ℝ) := by exact_mod_cast hc_1_pos
+  have hc_1_lt : c - 1 < (2 : ℤ) ^ p := by omega
+  have h_prev_pos : 0 < ((Dyadic.ofIntZpow (c - 1) k : Dyadic) : ℝ) := by
+    rw [Dyadic.coe_ofIntZpow]; exact mul_pos hc_1_pos_real h_2k_pos
+  have h_prev_lt_m : ((Dyadic.ofIntZpow (c - 1) k : Dyadic) : ℝ) < ((m : Dyadic) : ℝ) := by
+    rw [Dyadic.coe_ofIntZpow, hm_eq]
+    have : ((c - 1 : ℤ) : ℝ) < (c : ℝ) := by push_cast; linarith
+    nlinarith
+  refine ⟨?_, h_prev_lt_m, ?_⟩
+  · -- (c-1)·2^k ∈ F.
+    refine ⟨?_, ?_, ?_⟩
+    · -- precisionAtMost p
+      rw [hp]
+      refine ⟨c - 1, k, ?_, ?_⟩
+      · rw [Dyadic.coe_ofIntZpow]
+      · have h_abs : |c - 1| = c - 1 := abs_of_pos hc_1_pos
+        rw [h_abs]; exact hc_1_lt
+    · -- quantumAtLeast exp
+      rw [he]
+      rw [Dyadic.quantumAtLeast_coe]
+      refine ⟨(c - 1) * (2 : ℤ) ^ (k - exp).toNat, ?_⟩
+      rw [Dyadic.coe_ofIntZpow]
+      have h_diff_nn : 0 ≤ k - exp := by omega
+      have h_split : (2 : ℝ) ^ k = (2 : ℝ) ^ ((k - exp).toNat : ℤ) * (2 : ℝ) ^ exp := by
+        rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+        congr 1; rw [Int.toNat_of_nonneg h_diff_nn]; ring
+      rw [h_split, zpow_natCast]; push_cast; ring
+    · -- boundOK F.b: |prev| ≤ |m| ≤ b.
+      have hb_m : boundOK F.b m := hmF.2.2
+      cases hF_b : F.b with
+      | top => trivial
+      | coe b =>
+        rw [hF_b] at hb_m
+        change |((m : Dyadic) : ℝ)| ≤ ((b : Dyadic) : ℝ) at hb_m
+        rw [abs_of_pos hm_pos] at hb_m
+        change |((Dyadic.ofIntZpow (c - 1) k : Dyadic) : ℝ)| ≤ ((b : Dyadic) : ℝ)
+        rw [abs_of_pos h_prev_pos]
+        exact le_of_lt (lt_of_lt_of_le h_prev_lt_m hb_m)
+  · -- F-adjacency: no F-element z with prev < z < m.
+    intro z hzF hz_lt
+    by_contra h_gt
+    push Not at h_gt
+    rw [Dyadic.coe_ofIntZpow] at h_gt
+    -- z lies in ((c-1)·2^k, c·2^k = m). Apply no_F_element_in_step_interval with c-1.
+    have h_z_lt_c : ((z : Dyadic) : ℝ) < (((c - 1 : ℤ) + 1 : ℤ) : ℝ) * (2 : ℝ) ^ k := by
+      have h_simp : ((c - 1 : ℤ) + 1 : ℤ) = c := by ring
+      rw [h_simp, ← hm_eq]; exact hz_lt
+    have hk_max_c1 : k = max exp
+        (Int.log 2 (((c - 1 : ℤ) : ℝ) * (2 : ℝ) ^ k) - (p : ℤ) + 1) := by
+      rw [h_log_eq]; exact hk_max
+    exact no_F_element_in_step_interval F hp he hc_1_pos hc_1_lt hk hk_max_c1
+      hzF.1 hzF.2.1 h_gt h_z_lt_c
 
 /-- Midpoint of F-adjacent values lies in `F.extend 1`. The midpoint computes
 to `(2c+1)·2^(k-1)` where `(c, k)` is `y₁`'s grid rep and `y₂ = (c+1)·2^k`,
