@@ -75,21 +75,25 @@ def Format.IsUndefined (F : Format) (rm : RoundingMode) : Prop :=
   (F.p = (1 : ℕ+) ∧ F.exp = ⊥ ∧
     (rm = .toOdd ∨ rm = .nearest .toEven))
 
-/-- `x` overflows `F.b`: `F.b` is finite and `|x|` strictly exceeds it. -/
-def Format.IsOverflow (F : Format) (x : ℝ) : Prop :=
-  match F.b with
-  | ⊤ => False
-  | (b : NonNegDyadic) => ((b.val : Dyadic) : ℝ) < |x|
-
--- `Decidable` instances on these predicates would be computable iff
--- equality on `ℝ` were, which it isn't.  We use `Classical.dec` at call
--- sites in `rnd` (which is itself `noncomputable`).
-
 /-! ### The specification relation `Rounds`
 
-For each mode, `Rounds F rm x y` is a `Prop` asserting that `y : Dyadic`
-is *the* rounding of `x : ℝ` in `F` under mode `rm`. This is the
-*reference* against which the constructive `rnd` is verified. -/
+`Rounds F rm x r : Prop` asserts that `r : RoundResult` is *the* answer
+that mode `rm` gives for input `x : ℝ` in format `F`:
+
+* `Rounds F rm x .undefined`  ↔  `F.IsUndefined rm`.
+* `Rounds F rm x .overflow`   ↔  not undefined *and* the unbounded
+                                 rounding produces a value that
+                                 violates `F.b`. (IEEE-style overflow.)
+* `Rounds F rm x (.finite y)` ↔  not undefined *and* `y` is the
+                                 unbounded rounding *and* `y` fits the
+                                 bound `F.b`.
+
+The mode-specific rounding spec `RoundsFinite` is evaluated against
+`F.unbounded` (i.e., `F` with `b := ⊤`) — the bound check is a
+*separate* conjunct, applied to the value chosen by the unbounded
+spec. This ensures IEEE-style overflow: saturation isn't a "valid
+answer" — the only candidate is the unbounded rounding, and overflow
+fires if and only if that candidate is out of range. -/
 
 /-- A *faithful* rounding of `x`: `y ∈ F` is either the largest F-element
 ≤ `x` (RTN) or the smallest F-element ≥ `x` (RTP). All of RTO, RNE, RNA
@@ -102,57 +106,55 @@ def IsFaithfulRound (F : Format) (x : ℝ) (y : Dyadic) : Prop :=
 -- `Mpfx2/Format.lean`, built on `Format.numDigits` (Lemma 5.1) +
 -- `Dyadic.IsRepresentableAtP`.
 
-/-- Per-mode, per-result rounding-specification predicate. The
-`RoundResult`-typed conclusion folds in the `.undefined` and `.overflow`
-cases uniformly:
+/-- The finite-result rounding spec: when `r = .finite y`, this is the
+mode-specific condition `y` must satisfy. Lifted out of `Rounds` so the
+`.overflow` clause can quantify over its negation. -/
+def RoundsFinite (F : Format) (rm : RoundingMode) (x : ℝ) (y : Dyadic) : Prop :=
+  y ∈ F ∧
+  match rm with
+  | .toNegative =>
+      (y : ℝ) ≤ x ∧
+      ∀ z : Dyadic, z ∈ F → (z : ℝ) ≤ x → (z : ℝ) ≤ (y : ℝ)
+  | .toPositive =>
+      x ≤ (y : ℝ) ∧
+      ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ)
+  | .toZero =>
+      |(y : ℝ)| ≤ |x| ∧ (y : ℝ) * x ≥ 0 ∧
+      ∀ z : Dyadic, z ∈ F → |(z : ℝ)| ≤ |x| → (z : ℝ) * x ≥ 0 →
+        |(z : ℝ)| ≤ |(y : ℝ)|
+  | .awayZero =>
+      |x| ≤ |(y : ℝ)| ∧ (y : ℝ) * x ≥ 0 ∧
+      ∀ z : Dyadic, z ∈ F → |x| ≤ |(z : ℝ)| → (z : ℝ) * x ≥ 0 →
+        |(y : ℝ)| ≤ |(z : ℝ)|
+  | .toOdd =>
+      IsFaithfulRound F x y ∧
+      (x ≠ (y : ℝ) →
+        ∃ F' : ParityFormat, F'.toFormat = F ∧ F'.IsOdd y)
+  | .nearest .toEven =>
+      IsFaithfulRound F x y ∧
+      (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
+        |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
+      ((∃ z : Dyadic, z ∈ F ∧ IsFaithfulRound F x z ∧
+          z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
+        ∃ F' : ParityFormat, F'.toFormat = F ∧ F'.IsEven y)
+  | .nearest .awayZero =>
+      IsFaithfulRound F x y ∧
+      (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
+        |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
+      (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
+          z ≠ y → |x - (y : ℝ)| = |x - (z : ℝ)| → |(z : ℝ)| ≤ |(y : ℝ)|)
 
-* `Rounds F rm x .undefined`  iff  `F.IsUndefined rm`.
-* `Rounds F rm x .overflow`   iff  `¬ IsUndefined ∧ IsOverflow`.
-* `Rounds F rm x (.finite y)` iff  `¬ IsUndefined ∧ ¬ IsOverflow ∧
-                                    y ∈ F ∧ <mode-specific spec on y>`.
-
-For the parity modes (`.toOdd`, `.nearest .toEven`), the `IsOdd`/`IsEven`
-predicates require a `ParityFormat`. Inside the `.finite` branch we
-have `¬ F.IsUndefined rm` in scope, which is exactly the `ParityFormat`
-invariant for those modes — so we use an existential `∃ F' : ParityFormat`
-to bring the strengthened structure into the spec. -/
+/-- Per-mode, per-result rounding-specification predicate. Dispatches on
+the `RoundResult` constructor; the mode-spec is always against
+`F.unbounded` and the bound `F.b` is checked separately. -/
 def Rounds (F : Format) (rm : RoundingMode) (x : ℝ) (r : RoundResult) : Prop :=
   match r with
   | .undefined => F.IsUndefined rm
-  | .overflow  => ¬ F.IsUndefined rm ∧ F.IsOverflow x
+  | .overflow  =>
+      ¬ F.IsUndefined rm ∧
+      ∃ y, RoundsFinite F.unbounded rm x y ∧ ¬ Format.boundOK F.b y
   | .finite y  =>
-      ¬ F.IsUndefined rm ∧ ¬ F.IsOverflow x ∧ y ∈ F ∧
-      match rm with
-      | .toNegative =>
-          (y : ℝ) ≤ x ∧
-          ∀ z : Dyadic, z ∈ F → (z : ℝ) ≤ x → (z : ℝ) ≤ (y : ℝ)
-      | .toPositive =>
-          x ≤ (y : ℝ) ∧
-          ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ)
-      | .toZero =>
-          |(y : ℝ)| ≤ |x| ∧ (y : ℝ) * x ≥ 0 ∧
-          ∀ z : Dyadic, z ∈ F → |(z : ℝ)| ≤ |x| → (z : ℝ) * x ≥ 0 →
-            |(z : ℝ)| ≤ |(y : ℝ)|
-      | .awayZero =>
-          |x| ≤ |(y : ℝ)| ∧ (y : ℝ) * x ≥ 0 ∧
-          ∀ z : Dyadic, z ∈ F → |x| ≤ |(z : ℝ)| → (z : ℝ) * x ≥ 0 →
-            |(y : ℝ)| ≤ |(z : ℝ)|
-      | .toOdd =>
-          IsFaithfulRound F x y ∧
-          (x ≠ (y : ℝ) →
-            ∃ F' : ParityFormat, F'.toFormat = F ∧ F'.IsOdd y)
-      | .nearest .toEven =>
-          IsFaithfulRound F x y ∧
-          (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
-            |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
-          ((∃ z : Dyadic, z ∈ F ∧ IsFaithfulRound F x z ∧
-              z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
-            ∃ F' : ParityFormat, F'.toFormat = F ∧ F'.IsEven y)
-      | .nearest .awayZero =>
-          IsFaithfulRound F x y ∧
-          (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
-            |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
-          (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
-              z ≠ y → |x - (y : ℝ)| = |x - (z : ℝ)| → |(z : ℝ)| ≤ |(y : ℝ)|)
+      ¬ F.IsUndefined rm ∧
+      RoundsFinite F.unbounded rm x y ∧ Format.boundOK F.b y
 
 end Mpfx2

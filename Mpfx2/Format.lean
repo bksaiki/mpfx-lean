@@ -34,6 +34,15 @@ def Mem (F : Format) (d : Dyadic) : Prop :=
   Dyadic.quantumAtLeast F.exp d ∧
   boundOK F.b d
 
+/-- `F` with the magnitude bound removed (`b := ⊤`). Used by the
+rounding spec to express "round without the bound, then check the
+bound separately" — the IEEE-style overflow semantics. -/
+def unbounded (F : Format) : Format := { F with b := ⊤ }
+
+@[simp] theorem unbounded_p (F : Format) : F.unbounded.p = F.p := rfl
+@[simp] theorem unbounded_exp (F : Format) : F.unbounded.exp = F.exp := rfl
+@[simp] theorem unbounded_b (F : Format) : F.unbounded.b = ⊤ := rfl
+
 end Format
 
 instance : Membership Dyadic Format := ⟨Format.Mem⟩

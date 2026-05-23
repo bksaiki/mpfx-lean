@@ -98,40 +98,112 @@ private def Format.toParityFormatOfNearestEven
   · by_contra h_neg; push Not at h_neg
     exact h (Or.inr ⟨h_neg.1, h_neg.2, Or.inr rfl⟩)
 
+/-- The unbounded rounding step: produce a `Dyadic` per `rm`, *without*
+checking `F.b`. Used by `rnd` as the candidate value that the bound check
+filters. -/
+noncomputable def rndUnbounded (F : Format) (rm : RoundingMode) (x : ℝ)
+    (h_undef : ¬ F.IsUndefined rm) : Dyadic :=
+  if h1 : rm = .toOdd then
+    rndParity (F.toParityFormatOfToOdd (h1 ▸ h_undef)) .toOdd x (F.canonicalExp x)
+  else if h2 : rm = .nearest .toEven then
+    rndParity (F.toParityFormatOfNearestEven (h2 ▸ h_undef))
+      (.nearest .toEven) x (F.canonicalExp x)
+  else
+    Dyadic.ofIntZpow (rndInt rm x (F.canonicalExp x)) (F.canonicalExp x)
+
 /-- The rounded value of `x` in `F` under mode `rm`, as a `RoundResult`.
-Dispatches between `rndInt` (format-agnostic) and `rndParity`
-(parity-aware) based on `rm`. -/
+Dispatches to `rndUnbounded` for the round-without-bound value, then
+checks the format's magnitude bound: if the rounded result fits, return
+`.finite y`; otherwise `.overflow`. -/
 noncomputable def rnd (F : Format) (rm : RoundingMode) (x : ℝ) : RoundResult :=
   if h_undef : F.IsUndefined rm then
     .undefined
-  else if F.IsOverflow x then
-    .overflow
   else
-    let e := F.canonicalExp x
-    .finite (
-      if h1 : rm = .toOdd then
-        rndParity (F.toParityFormatOfToOdd (h1 ▸ h_undef)) .toOdd x e
-      else if h2 : rm = .nearest .toEven then
-        rndParity (F.toParityFormatOfNearestEven (h2 ▸ h_undef))
-          (.nearest .toEven) x e
-      else
-        Dyadic.ofIntZpow (rndInt rm x e) e
-    )
+    let y := rndUnbounded F rm x h_undef
+    if Format.boundOK F.b y then .finite y else .overflow
+
+/-! ### Soundness of `rndUnbounded`
+
+The two key obligations linking `rnd` and `Rounds`:
+
+* `rndUnbounded_satisfies` — `rndUnbounded F rm x h` is a value
+  satisfying `RoundsFinite F.unbounded rm x`.
+* `rndUnbounded_unique` — uniquely so: any `y` satisfying that spec
+  equals `rndUnbounded F rm x h`.
+
+Together these say `rndUnbounded` *is* the unbounded rounding. They
+are mode-specific arithmetic obligations; deferred. -/
+
+/-- The constructive `rndUnbounded` satisfies the unbounded rounding spec. -/
+theorem rndUnbounded_satisfies (F : Format) (rm : RoundingMode) (x : ℝ)
+    (h : ¬ F.IsUndefined rm) :
+    RoundsFinite F.unbounded rm x (rndUnbounded F rm x h) := by
+  sorry
+
+/-- Uniqueness: any `y` satisfying the unbounded rounding spec equals
+`rndUnbounded F rm x h`. -/
+theorem rndUnbounded_unique (F : Format) (rm : RoundingMode) (x : ℝ)
+    (h : ¬ F.IsUndefined rm) {y : Dyadic}
+    (hy : RoundsFinite F.unbounded rm x y) :
+    y = rndUnbounded F rm x h := by
+  sorry
 
 /-! ### Bridge lemma
 
 The `RoundResult`-typed `Rounds` collapses the per-mode bridges to one
-uniform statement: `rnd` and `Rounds` agree on the same `RoundResult`.
-
-The proof is a 3 × 6 case analysis (three result constructors × six
-modes), discharging each case by computation on `rnd` plus a
-mode-specific minimality argument. Currently deferred. -/
+uniform statement: `rnd` and `Rounds` agree on the same `RoundResult`. -/
 
 theorem rnd_iff_rounds (F : Format) (rm : RoundingMode) (x : ℝ) (r : RoundResult) :
     rnd F rm x = r ↔ Rounds F rm x r := by
-  -- TODO: case-analyze on `r` and `rm`. The `.undefined` and `.overflow`
-  -- branches reduce to unfolding `rnd`. The `.finite y` branches need
-  -- the mode-specific membership + minimality reasoning.
-  sorry
+  cases r with
+  | undefined =>
+    -- `Rounds F rm x .undefined` reduces to `F.IsUndefined rm` by definition.
+    -- `rnd F rm x = .undefined` is true iff the outer `if` of `rnd` fires,
+    -- i.e., iff `F.IsUndefined rm` holds.
+    change rnd F rm x = .undefined ↔ F.IsUndefined rm
+    constructor
+    · intro h_eq
+      by_contra h_undef
+      unfold rnd at h_eq
+      rw [dif_neg h_undef] at h_eq
+      -- `let y := rndUnbounded ...; if boundOK ... then .finite y else .overflow`
+      -- doesn't auto-reduce; force it with `dsimp only` so `split_ifs`
+      -- can see the inner conditional and decompose to constructor-mismatch.
+      dsimp only at h_eq
+      split_ifs at h_eq
+    · intro h_undef
+      unfold rnd
+      rw [dif_pos h_undef]
+  | overflow =>
+    change rnd F rm x = .overflow ↔
+      ¬ F.IsUndefined rm ∧
+      ∃ y, RoundsFinite F.unbounded rm x y ∧ ¬ Format.boundOK F.b y
+    constructor
+    · -- Forward: rnd = .overflow ⇒ ¬ IsUndefined ∧ witness via rndUnbounded.
+      intro h_eq
+      have h_undef : ¬ F.IsUndefined rm := by
+        intro h
+        unfold rnd at h_eq
+        rw [dif_pos h] at h_eq
+        exact RoundResult.noConfusion h_eq
+      refine ⟨h_undef, rndUnbounded F rm x h_undef,
+              rndUnbounded_satisfies F rm x h_undef, ?_⟩
+      -- Show ¬ boundOK F.b (rndUnbounded ...) from h_eq.
+      intro hb
+      unfold rnd at h_eq
+      rw [dif_neg h_undef] at h_eq
+      dsimp only at h_eq
+      rw [if_pos hb] at h_eq
+      exact RoundResult.noConfusion h_eq
+    · -- Reverse: ⟨h_undef, y, RoundsFinite y, ¬ boundOK y⟩ ⇒ rnd = .overflow.
+      -- By uniqueness, y = rndUnbounded; transport ¬ boundOK to rndUnbounded.
+      rintro ⟨h_undef, y, hRF, hBN⟩
+      have h_y_eq : y = rndUnbounded F rm x h_undef :=
+        rndUnbounded_unique F rm x h_undef hRF
+      unfold rnd
+      rw [dif_neg h_undef]
+      dsimp only
+      rw [if_neg (h_y_eq ▸ hBN)]
+  | finite y => sorry
 
 end Mpfx2
