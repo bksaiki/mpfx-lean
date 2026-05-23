@@ -91,6 +91,13 @@ theorem quantumAtLeast_coe (e : ℤ) (x : Dyadic) :
     quantumAtLeast (e : WithBot ℤ) x ↔
       ∃ c : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := Iff.rfl
 
+/-- `(c, e)` is a representation of `y` at *exactly* `p` binary digits:
+`y = c · 2^e` with `2^(p-1) ≤ |c| < 2^p`. For nonzero `y` representable
+at `p` bits, the `(c, e)` pair is unique. -/
+def IsRepresentableAtP (p : ℕ) (c e : ℤ) (y : Dyadic) : Prop :=
+  (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧
+  (2 : ℤ) ^ (p - 1) ≤ |c| ∧ |c| < (2 : ℤ) ^ p
+
 end Dyadic
 
 /-- Non-negative dyadics: a `Dyadic` whose underlying real is `≥ 0`. Used as
