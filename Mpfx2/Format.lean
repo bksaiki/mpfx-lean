@@ -47,6 +47,28 @@ end Format
 
 instance : Membership Dyadic Format := ⟨Format.Mem⟩
 
+namespace Format
+
+/-- Zero is in every format. -/
+theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
+  refine ⟨?_, ?_, ?_⟩
+  · change Dyadic.precisionAtMost F.p (0 : Dyadic)
+    cases F.p with
+    | top => trivial
+    | coe p => exact ⟨0, 0, by simp, by simp⟩
+  · change Dyadic.quantumAtLeast F.exp (0 : Dyadic)
+    cases F.exp with
+    | bot => trivial
+    | coe e => exact ⟨0, by simp⟩
+  · change boundOK F.b (0 : Dyadic)
+    cases F.b with
+    | top => trivial
+    | coe b =>
+      change |((0 : Dyadic) : ℝ)| ≤ ((b.val : Dyadic) : ℝ)
+      simpa using b.property
+
+end Format
+
 /-! ### Subtype hierarchy
 
 Two stronger tiers stack on top of `Format`, each adding exactly one
