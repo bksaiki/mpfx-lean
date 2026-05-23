@@ -248,6 +248,53 @@ private theorem rounds_RTO_self {F : AbstractFormat} {y : Dyadic} (h : y ∈ F) 
     intro z _ hz_le; exact hz_le
   · intro h_ne; exfalso; exact h_ne rfl
 
+/-- `2^f = 4 · 2^(f − 2)`. Splitting helper used in the RNE-counterexamples
+to bound the distance from `x` to an F₂-predecessor. -/
+private theorem two_zpow_split_minus_two (f : ℤ) :
+    (2 : ℝ)^f = 4 * (2 : ℝ)^(f - 2) := by
+  have h_eq : (2 : ℝ)^f = (2 : ℝ)^(f - 2) * (2 : ℝ)^(2 : ℤ) := by
+    rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
+  rw [h_eq, show (2 : ℝ)^(2 : ℤ) = 4 by norm_num]; ring
+
+/-- If an F₂-element `y` equals `odd_c · 2^(e−1)` with `odd_c` odd, then
+`F₂`'s quantum exponent `f₂` satisfies `f₂ ≤ e − 1`. Otherwise `2^f₂`
+would divide `2^(e−1) · odd_c` more than `2^(e−1)` does, forcing
+`odd_c` to be even. Used in `no_rndRAZ_RNE` (constant `7`) and
+`no_rndRTZ_RNE` (constant `5`). -/
+private theorem f₂_le_e_sub_one_of_odd_in_F₂
+    {F₂ : AbstractFormat} {f₂ e : ℤ}
+    (hF₂_exp : F₂.exp = (f₂ : WithBot ℤ))
+    {y : Dyadic} (hy_in_F₂ : y ∈ F₂)
+    {odd_c : ℤ} (h_odd : Odd odd_c)
+    (h_y_eq : ((y : Dyadic) : ℝ) = (odd_c : ℝ) * (2 : ℝ) ^ (e - 1)) :
+    f₂ ≤ e - 1 := by
+  obtain ⟨_, hq, _⟩ := hy_in_F₂
+  rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
+  obtain ⟨c, hc⟩ := hq
+  by_contra h_gt
+  push Not at h_gt
+  rw [h_y_eq] at hc
+  set k : ℕ := (f₂ - (e - 1)).toNat with hk_def
+  have h_kn : (k : ℤ) = f₂ - (e - 1) := Int.toNat_of_nonneg (by omega)
+  have h_k_pos : 1 ≤ k := by
+    have : (1 : ℤ) ≤ (k : ℤ) := by rw [h_kn]; omega
+    exact_mod_cast this
+  have h_2e1_ne : (2 : ℝ)^(e - 1) ≠ 0 := ne_of_gt (zpow_pos (by norm_num) _)
+  have h_split : (2 : ℝ)^f₂ = (2 : ℝ)^(k : ℤ) * (2 : ℝ)^(e - 1) := by
+    rw [show (f₂ : ℤ) = (k : ℤ) + (e - 1) from by linarith [h_kn],
+        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+  rw [h_split, ← mul_assoc, zpow_natCast] at hc
+  have h_eq : (odd_c : ℝ) = (c : ℝ) * (2 : ℝ)^k :=
+    mul_right_cancel₀ h_2e1_ne hc
+  have h_int : odd_c = c * (2 : ℤ)^k := by
+    have h1 : ((odd_c : ℤ) : ℝ) = ((c * (2 : ℤ)^k : ℤ) : ℝ) := by
+      push_cast; exact h_eq
+    exact_mod_cast h1
+  have h_even : Even odd_c := by
+    rw [h_int, show k = (k - 1) + 1 from by omega, pow_succ]
+    refine ⟨c * 2^(k - 1), ?_⟩; ring
+  exact (Int.not_even_iff_odd.mpr h_odd) h_even
+
 private noncomputable def m_g (e : ℤ) : Dyadic := Dyadic.ofIntZpow 7 (e - 1)
 
 private theorem coe_m_g (e : ℤ) : ((m_g e : Dyadic) : ℝ) = 7 * (2 : ℝ)^(e - 1) := by
@@ -1507,10 +1554,7 @@ theorem no_rndRNE_RTZ
   set n : ℕ := (e - f₂).toNat with hn_def
   have h_2e_eq : (2 : ℝ)^e = ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ := two_zpow_split e f₂ hf₂_le_e
   -- 2^f₂ = 4 · 2^(f₂-2) (split helper).
-  have h_2f_split : (2 : ℝ)^f₂ = 4 * (2 : ℝ)^(f₂ - 2) := by
-    have h_eq : (2 : ℝ)^f₂ = (2 : ℝ)^(f₂ - 2) * (2 : ℝ)^(2 : ℤ) := by
-      rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
-    rw [h_eq, show (2 : ℝ)^(2 : ℤ) = 4 by norm_num]; ring
+  have h_2f_split : (2 : ℝ)^f₂ = 4 * (2 : ℝ)^(f₂ - 2) := two_zpow_split_minus_two f₂
   -- Any z ∈ F₂ with z < 2^e satisfies z ≤ 2^e - 2^f₂.
   have h_F₂_lt_2e_bound : ∀ z ∈ F₂, ((z : Dyadic) : ℝ) < (2 : ℝ)^e →
       ((z : Dyadic) : ℝ) ≤ (2 : ℝ)^e - (2 : ℝ)^f₂ := by
@@ -1911,10 +1955,7 @@ theorem no_rndRNE_RTO
   set n : ℕ := (e + 2 - f₂).toNat with hn_def
   have h_2e2_eq : (2 : ℝ)^(e + 2) = ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ :=
     two_zpow_split (e + 2) f₂ hf₂_le_e2
-  have h_2f_split : (2 : ℝ)^f₂ = 4 * (2 : ℝ)^(f₂ - 2) := by
-    have h_eq : (2 : ℝ)^f₂ = (2 : ℝ)^(f₂ - 2) * (2 : ℝ)^(2 : ℤ) := by
-      rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
-    rw [h_eq, show (2 : ℝ)^(2 : ℤ) = 4 by norm_num]; ring
+  have h_2f_split : (2 : ℝ)^f₂ = 4 * (2 : ℝ)^(f₂ - 2) := two_zpow_split_minus_two f₂
   have h_F₂_lt_y_hi_bound : ∀ z ∈ F₂, ((z : Dyadic) : ℝ) < (2 : ℝ)^(e + 2) →
       ((z : Dyadic) : ℝ) ≤ (2 : ℝ)^(e + 2) - (2 : ℝ)^f₂ := by
     have h_target_eq : (2 : ℝ)^(e + 2) - (2 : ℝ)^f₂
@@ -2083,36 +2124,9 @@ theorem no_rndRAZ_RNE
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
   have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
   -- m has quantum e - 1, so m ∈ F₂ forces f₂ ≤ e - 1.
-  have hf₂_le_e1 : f₂ ≤ e - 1 := by
-    obtain ⟨_, hq, _⟩ := hm_in_F₂
-    rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
-    obtain ⟨c, hc⟩ := hq
-    have h_m_coe : ((m_g e : Dyadic) : ℝ) = 7 * (2 : ℝ)^(e - 1) := coe_m_g e
-    -- 7·2^(e-1) = c·2^f₂. If f₂ > e - 1, divide both sides by 2^(e-1) to get
-    -- 7 = c·2^(f₂-(e-1)) with positive exponent, forcing c even, but 7 odd.
-    by_contra h_gt
-    push Not at h_gt
-    rw [h_m_coe] at hc
-    set k : ℕ := (f₂ - (e - 1)).toNat with hk_def
-    have h_kn : (k : ℤ) = f₂ - (e - 1) := Int.toNat_of_nonneg (by omega)
-    have h_k_pos : 1 ≤ k := by
-      have : (1 : ℤ) ≤ (k : ℤ) := by rw [h_kn]; omega
-      exact_mod_cast this
-    have h_2e1_ne : (2 : ℝ)^(e - 1) ≠ 0 := ne_of_gt (zpow_pos (by norm_num) _)
-    have h_split : (2 : ℝ)^f₂ = (2 : ℝ)^(k : ℤ) * (2 : ℝ)^(e - 1) := by
-      rw [show (f₂ : ℤ) = (k : ℤ) + (e - 1) from by linarith [h_kn],
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-    rw [h_split, ← mul_assoc, zpow_natCast] at hc
-    have h_eq : (7 : ℝ) = (c : ℝ) * (2 : ℝ)^k :=
-      mul_right_cancel₀ h_2e1_ne hc
-    have h_int : (7 : ℤ) = c * (2 : ℤ)^k := by
-      have h1 : ((7 : ℤ) : ℝ) = ((c * (2 : ℤ)^k : ℤ) : ℝ) := by
-        push_cast; exact h_eq
-      exact_mod_cast h1
-    have h_even : Even (7 : ℤ) := by
-      rw [h_int, show k = (k - 1) + 1 from by omega, pow_succ]
-      refine ⟨c * 2^(k - 1), ?_⟩; ring
-    exact (Int.not_even_iff_odd.mpr (by decide : Odd (7 : ℤ))) h_even
+  have hf₂_le_e1 : f₂ ≤ e - 1 :=
+    f₂_le_e_sub_one_of_odd_in_F₂ hF₂_exp hm_in_F₂ (by decide : Odd (7 : ℤ))
+      (by rw [coe_m_g]; push_cast; ring)
   have h_y_lo_in_F₁ := y_lo_mem_F₁_g p hp_ge_2 e
   have h_y_hi_in_F₁ := y_hi_mem_F₁_g p hp_ge_2 e
   set m : Dyadic := m_g e with hm_def
@@ -2239,35 +2253,11 @@ theorem no_rndRTZ_RNE
       ¬ Rounds (F₁_g p hp_ge_2 e) (.Nearest .ToEven) x w := by
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
   have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
-  -- m_low has quantum e - 1, so m_low ∈ F₂ forces f₂ ≤ e - 1 (same parity argument
-  -- as in `no_rndRAZ_RNE`, applied to the odd integer `5`).
-  have hf₂_le_e1 : f₂ ≤ e - 1 := by
-    obtain ⟨_, hq, _⟩ := hm_low_in_F₂
-    rw [hF₂_exp, Dyadic.quantumAtLeast_coe] at hq
-    obtain ⟨c, hc⟩ := hq
-    have h_m_coe : ((m_low_g e : Dyadic) : ℝ) = 5 * (2 : ℝ)^(e - 1) := coe_m_low_g e
-    by_contra h_gt
-    push Not at h_gt
-    rw [h_m_coe] at hc
-    set k : ℕ := (f₂ - (e - 1)).toNat with hk_def
-    have h_kn : (k : ℤ) = f₂ - (e - 1) := Int.toNat_of_nonneg (by omega)
-    have h_k_pos : 1 ≤ k := by
-      have : (1 : ℤ) ≤ (k : ℤ) := by rw [h_kn]; omega
-      exact_mod_cast this
-    have h_2e1_ne : (2 : ℝ)^(e - 1) ≠ 0 := ne_of_gt (zpow_pos (by norm_num) _)
-    have h_split : (2 : ℝ)^f₂ = (2 : ℝ)^(k : ℤ) * (2 : ℝ)^(e - 1) := by
-      rw [show (f₂ : ℤ) = (k : ℤ) + (e - 1) from by linarith [h_kn],
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-    rw [h_split, ← mul_assoc, zpow_natCast] at hc
-    have h_eq : (5 : ℝ) = (c : ℝ) * (2 : ℝ)^k :=
-      mul_right_cancel₀ h_2e1_ne hc
-    have h_int : (5 : ℤ) = c * (2 : ℤ)^k := by
-      have h1 : ((5 : ℤ) : ℝ) = ((c * (2 : ℤ)^k : ℤ) : ℝ) := by push_cast; exact h_eq
-      exact_mod_cast h1
-    have h_even : Even (5 : ℤ) := by
-      rw [h_int, show k = (k - 1) + 1 from by omega, pow_succ]
-      refine ⟨c * 2^(k - 1), ?_⟩; ring
-    exact (Int.not_even_iff_odd.mpr (by decide : Odd (5 : ℤ))) h_even
+  -- m_low has quantum e - 1, so m_low ∈ F₂ forces f₂ ≤ e - 1 (mirror of
+  -- `no_rndRAZ_RNE` with odd constant `5`).
+  have hf₂_le_e1 : f₂ ≤ e - 1 :=
+    f₂_le_e_sub_one_of_odd_in_F₂ hF₂_exp hm_low_in_F₂ (by decide : Odd (5 : ℤ))
+      (by rw [coe_m_low_g]; push_cast; ring)
   have h_y_lo_low_in_F₁ := y_lo_low_mem_F₁_g p hp_ge_2 e
   have h_y_lo_in_F₁ := y_lo_mem_F₁_g p hp_ge_2 e
   set m_low : Dyadic := m_low_g e with hm_low_def
