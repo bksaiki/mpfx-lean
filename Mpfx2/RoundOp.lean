@@ -36,6 +36,64 @@ noncomputable def Format.canonicalExp (F : Format) (x : ℝ) : ℤ :=
       if x = 0 then e
       else max (Int.log 2 |x| + 1 - (p : ℤ)) e
 
+/-- The canonical exponent dominates `F.exp` whenever `F.exp` is finite.
+Needed to discharge `quantumAtLeast F.exp` for the rounded value. -/
+theorem Format.exp_le_canonicalExp (F : Format) (x : ℝ)
+    {e' : ℤ} (hexp : F.exp = (e' : WithBot ℤ)) :
+    e' ≤ F.canonicalExp x := by
+  unfold canonicalExp
+  cases hp : F.p with
+  | top => simp [hexp]
+  | coe p =>
+    simp only [hexp]
+    split_ifs
+    · exact le_refl _
+    · exact le_max_right _ _
+
+/-- The canonical exponent dominates `Int.log 2 |x| + 1 - p` whenever
+`F.p` is finite and `x ≠ 0`. Needed to bound `|⌊x · 2^(-e)⌋| ≤ 2^p`. -/
+theorem Format.log_sub_p_le_canonicalExp (F : Format) {x : ℝ} (hx : x ≠ 0)
+    {p : ℕ+} (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) :
+    Int.log 2 |x| + 1 - (p : ℤ) ≤ F.canonicalExp x := by
+  unfold canonicalExp
+  cases F.exp with
+  | bot => simp [hp, hx]
+  | coe e' => simp [hp, hx]
+
+/-- For `r` with `|r| < N`, the floor `⌊r⌋` has `|⌊r⌋| ≤ N`. The
+asymmetry: negative floors can saturate (e.g. `⌊-1.5⌋ = -2` with
+`|-1.5| < 2` but `|⌊-1.5⌋| = 2`). -/
+private theorem abs_floor_le_of_abs_lt {r : ℝ} {N : ℤ} (h : |r| < (N : ℝ)) :
+    |⌊r⌋| ≤ N := by
+  obtain ⟨h_neg, h_pos⟩ := abs_lt.mp h
+  rw [abs_le]
+  refine ⟨?_, ?_⟩
+  · have h_lt : (-N - 1 : ℝ) < (⌊r⌋ : ℝ) := by
+      have := Int.sub_one_lt_floor r
+      linarith
+    have : (-N - 1 : ℤ) < ⌊r⌋ := by exact_mod_cast h_lt
+    omega
+  · have h_lt : (⌊r⌋ : ℝ) < (N : ℝ) :=
+      lt_of_le_of_lt (Int.floor_le r) h_pos
+    exact_mod_cast h_lt.le
+
+/-- Mirror of `abs_floor_le_of_abs_lt` for the ceiling: positive ceilings
+can saturate (e.g. `⌈1.5⌉ = 2` with `|1.5| < 2` but `|⌈1.5⌉| = 2`). -/
+private theorem abs_ceil_le_of_abs_lt {r : ℝ} {N : ℤ} (h : |r| < (N : ℝ)) :
+    |⌈r⌉| ≤ N := by
+  obtain ⟨h_neg, h_pos⟩ := abs_lt.mp h
+  rw [abs_le]
+  refine ⟨?_, ?_⟩
+  · have h_lt : (-N : ℝ) < (⌈r⌉ : ℝ) :=
+      lt_of_lt_of_le h_neg (Int.le_ceil r)
+    have : (-N : ℤ) < ⌈r⌉ := by exact_mod_cast h_lt
+    omega
+  · have h_lt : (⌈r⌉ : ℝ) < (N : ℝ) + 1 := by
+      have := Int.ceil_lt_add_one r
+      linarith
+    have : (⌈r⌉ : ℤ) < N + 1 := by exact_mod_cast h_lt
+    omega
+
 /-- Integer-rounding step for the format-agnostic modes. Picks the
 integer `c` for which `c · 2^e` is the F-grid value selected by mode
 `rm` from input `x`. Parity-aware modes (`.toOdd`, `.nearest .toEven`)
@@ -153,10 +211,60 @@ theorem rndUnbounded_satisfies_toNegative (F : Format) (x : ℝ)
   set y : Dyadic := Dyadic.ofIntZpow c e
   have h_y_real : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow c e
   have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-  refine ⟨?_, ?_, ?_⟩
-  · -- TODO: y ∈ F.unbounded (precisionAtMost ∧ quantumAtLeast ∧ trivial bound).
-    sorry
-  · -- (y : ℝ) ≤ x: the floor of `x · 2^(-e)`, rescaled by `2^e`, is ≤ x.
+  refine ⟨⟨?_, ?_, ?_⟩, ?_, ?_⟩
+  · -- precisionAtMost F.unbounded.p y; via the canonical-mantissa range.
+    change Dyadic.precisionAtMost F.p y
+    cases hp : F.p with
+    | top => trivial
+    | coe p =>
+      apply Dyadic.precisionAtMost_of_abs_le c e h_y_real
+      apply abs_floor_le_of_abs_lt
+      push_cast
+      by_cases hx : x = 0
+      · subst hx
+        simp
+      · have h_e_ge : Int.log 2 |x| + 1 - (p : ℤ) ≤ e :=
+          F.log_sub_p_le_canonicalExp hx hp
+        have h_x_lt : |x| < (2 : ℝ) ^ (Int.log 2 |x| + 1) := by
+          have hlt := Int.lt_zpow_succ_log_self (b := 2)
+            (by norm_num : (1 : ℕ) < 2) |x|
+          exact_mod_cast hlt
+        have h_abs : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
+          rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
+        have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
+        have hle : Int.log 2 |x| + 1 + (-e) ≤ ((p : ℕ) : ℤ) := by
+          linarith [h_e_ge, h_pcast]
+        rw [h_abs]
+        calc |x| * (2 : ℝ) ^ (-e)
+            < (2 : ℝ) ^ (Int.log 2 |x| + 1) * (2 : ℝ) ^ (-e) :=
+              mul_lt_mul_of_pos_right h_x_lt (zpow_pos (by norm_num) _)
+          _ = (2 : ℝ) ^ (Int.log 2 |x| + 1 + (-e)) := by
+              rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+          _ ≤ (2 : ℝ) ^ ((p : ℕ) : ℤ) := zpow_le_zpow_right₀ (by norm_num) hle
+          _ = (2 : ℝ) ^ (p : ℕ) := by rw [zpow_natCast]
+  · -- quantumAtLeast F.unbounded.exp y; uses `exp_le_canonicalExp`.
+    change Dyadic.quantumAtLeast F.exp y
+    cases hexp : F.exp with
+    | bot => trivial
+    | coe e' =>
+      rw [Dyadic.quantumAtLeast_coe]
+      have h_e_ge : e' ≤ e := F.exp_le_canonicalExp x hexp
+      refine ⟨c * 2 ^ (e - e').toNat, ?_⟩
+      rw [h_y_real]
+      have h_diff_nn : 0 ≤ e - e' := by omega
+      have h_split : (2 : ℝ) ^ e = (2 : ℝ) ^ (e - e').toNat * (2 : ℝ) ^ e' := by
+        rw [show ((2 : ℝ) ^ (e - e').toNat : ℝ) = (2 : ℝ) ^ ((e - e').toNat : ℤ)
+            from (zpow_natCast _ _).symm, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0),
+            Int.toNat_of_nonneg h_diff_nn]
+        congr 1; ring
+      rw [h_split, ← mul_assoc]
+      push_cast
+      ring
+  · -- boundOK F.unbounded.b y = boundOK ⊤ y (trivial)
+    change Format.boundOK F.unbounded.b y
+    rw [Format.unbounded_b]
+    trivial
+  · -- (y : ℝ) ≤ x
     rw [h_y_real]
     have hfl_le : (c : ℝ) ≤ x * (2 : ℝ) ^ (-e) := Int.floor_le _
     have hmul : (c : ℝ) * (2 : ℝ) ^ e ≤ x * (2 : ℝ) ^ (-e) * (2 : ℝ) ^ e :=
@@ -181,9 +289,57 @@ theorem rndUnbounded_satisfies_toPositive (F : Format) (x : ℝ)
   set y : Dyadic := Dyadic.ofIntZpow c e
   have h_y_real : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow c e
   have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-  refine ⟨?_, ?_, ?_⟩
-  · -- TODO: y ∈ F.unbounded.
-    sorry
+  refine ⟨⟨?_, ?_, ?_⟩, ?_, ?_⟩
+  · -- precisionAtMost; via abs_ceil_le_of_abs_lt, same template as toNegative.
+    change Dyadic.precisionAtMost F.p y
+    cases hp : F.p with
+    | top => trivial
+    | coe p =>
+      apply Dyadic.precisionAtMost_of_abs_le c e h_y_real
+      apply abs_ceil_le_of_abs_lt
+      push_cast
+      by_cases hx : x = 0
+      · subst hx; simp
+      · have h_e_ge : Int.log 2 |x| + 1 - (p : ℤ) ≤ e :=
+          F.log_sub_p_le_canonicalExp hx hp
+        have h_x_lt : |x| < (2 : ℝ) ^ (Int.log 2 |x| + 1) := by
+          exact_mod_cast Int.lt_zpow_succ_log_self (b := 2)
+            (by norm_num : (1 : ℕ) < 2) |x|
+        have h_abs : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
+          rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
+        have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
+        have hle : Int.log 2 |x| + 1 + (-e) ≤ ((p : ℕ) : ℤ) := by
+          linarith [h_e_ge, h_pcast]
+        rw [h_abs]
+        calc |x| * (2 : ℝ) ^ (-e)
+            < (2 : ℝ) ^ (Int.log 2 |x| + 1) * (2 : ℝ) ^ (-e) :=
+              mul_lt_mul_of_pos_right h_x_lt (zpow_pos (by norm_num) _)
+          _ = (2 : ℝ) ^ (Int.log 2 |x| + 1 + (-e)) := by
+              rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+          _ ≤ (2 : ℝ) ^ ((p : ℕ) : ℤ) := zpow_le_zpow_right₀ (by norm_num) hle
+          _ = (2 : ℝ) ^ (p : ℕ) := by rw [zpow_natCast]
+  · -- quantumAtLeast (mirror of toNegative).
+    change Dyadic.quantumAtLeast F.exp y
+    cases hexp : F.exp with
+    | bot => trivial
+    | coe e' =>
+      rw [Dyadic.quantumAtLeast_coe]
+      have h_e_ge : e' ≤ e := F.exp_le_canonicalExp x hexp
+      refine ⟨c * 2 ^ (e - e').toNat, ?_⟩
+      rw [h_y_real]
+      have h_diff_nn : 0 ≤ e - e' := by omega
+      have h_split : (2 : ℝ) ^ e = (2 : ℝ) ^ (e - e').toNat * (2 : ℝ) ^ e' := by
+        rw [show ((2 : ℝ) ^ (e - e').toNat : ℝ) = (2 : ℝ) ^ ((e - e').toNat : ℤ)
+            from (zpow_natCast _ _).symm, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0),
+            Int.toNat_of_nonneg h_diff_nn]
+        congr 1; ring
+      rw [h_split, ← mul_assoc]
+      push_cast
+      ring
+  · -- boundOK trivially via F.unbounded.b = ⊤.
+    change Format.boundOK F.unbounded.b y
+    rw [Format.unbounded_b]
+    trivial
   · -- x ≤ (y : ℝ): the ceiling of `x · 2^(-e)`, rescaled by `2^e`, is ≥ x.
     rw [h_y_real]
     have hce_le : x * (2 : ℝ) ^ (-e) ≤ (c : ℝ) := Int.le_ceil _
@@ -197,12 +353,268 @@ theorem rndUnbounded_satisfies_toPositive (F : Format) (x : ℝ)
 theorem rndUnbounded_satisfies_toZero (F : Format) (x : ℝ)
     (h : ¬ F.IsUndefined .toZero) :
     RoundsFinite F.unbounded .toZero x (rndUnbounded F .toZero x h) := by
-  sorry
+  have h_rnd_eq : rndUnbounded F .toZero x h =
+      Dyadic.ofIntZpow (rndInt .toZero x (F.canonicalExp x)) (F.canonicalExp x) := by
+    unfold rndUnbounded
+    rw [dif_neg (by decide : (RoundingMode.toZero : RoundingMode) ≠ .toOdd)]
+    rw [dif_neg (by decide : (RoundingMode.toZero : RoundingMode) ≠ .nearest .toEven)]
+  rw [h_rnd_eq]
+  set e := F.canonicalExp x
+  set c := rndInt .toZero x e
+  set y : Dyadic := Dyadic.ofIntZpow c e
+  have h_y_real : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow c e
+  have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
+  have h_c_eq : c = if 0 ≤ x then ⌊x * (2 : ℝ) ^ (-e)⌋ else ⌈x * (2 : ℝ) ^ (-e)⌉ := by
+    change rndInt .toZero x e = _
+    rfl
+  -- Reusable: |x · 2^(-e)| bound from the canonical exponent.
+  have h_scaled_lt_when_finite_p {p : ℕ+} (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) :
+      |x * (2 : ℝ) ^ (-e)| < (2 : ℝ) ^ (p : ℕ) := by
+    by_cases hx : x = 0
+    · subst hx; simp
+    · have h_e_ge : Int.log 2 |x| + 1 - (p : ℤ) ≤ e :=
+        F.log_sub_p_le_canonicalExp hx hp
+      have h_x_lt : |x| < (2 : ℝ) ^ (Int.log 2 |x| + 1) := by
+        exact_mod_cast Int.lt_zpow_succ_log_self (b := 2)
+          (by norm_num : (1 : ℕ) < 2) |x|
+      have h_abs : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
+        rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
+      have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
+      have hle : Int.log 2 |x| + 1 + (-e) ≤ ((p : ℕ) : ℤ) := by
+        linarith [h_e_ge, h_pcast]
+      rw [h_abs]
+      calc |x| * (2 : ℝ) ^ (-e)
+          < (2 : ℝ) ^ (Int.log 2 |x| + 1) * (2 : ℝ) ^ (-e) :=
+            mul_lt_mul_of_pos_right h_x_lt (zpow_pos (by norm_num) _)
+        _ = (2 : ℝ) ^ (Int.log 2 |x| + 1 + (-e)) := by
+            rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+        _ ≤ (2 : ℝ) ^ ((p : ℕ) : ℤ) := zpow_le_zpow_right₀ (by norm_num) hle
+        _ = (2 : ℝ) ^ (p : ℕ) := by rw [zpow_natCast]
+  refine ⟨⟨?_, ?_, ?_⟩, ?_, ?_, ?_⟩
+  · -- precisionAtMost
+    change Dyadic.precisionAtMost F.p y
+    cases hp : F.p with
+    | top => trivial
+    | coe p =>
+      apply Dyadic.precisionAtMost_of_abs_le c e h_y_real
+      rw [h_c_eq]
+      by_cases hx_nn : 0 ≤ x
+      · rw [if_pos hx_nn]
+        apply abs_floor_le_of_abs_lt
+        push_cast
+        exact h_scaled_lt_when_finite_p hp
+      · rw [if_neg hx_nn]
+        apply abs_ceil_le_of_abs_lt
+        push_cast
+        exact h_scaled_lt_when_finite_p hp
+  · -- quantumAtLeast (same template as toNegative)
+    change Dyadic.quantumAtLeast F.exp y
+    cases hexp : F.exp with
+    | bot => trivial
+    | coe e' =>
+      rw [Dyadic.quantumAtLeast_coe]
+      have h_e_ge : e' ≤ e := F.exp_le_canonicalExp x hexp
+      refine ⟨c * 2 ^ (e - e').toNat, ?_⟩
+      rw [h_y_real]
+      have h_diff_nn : 0 ≤ e - e' := by omega
+      have h_split : (2 : ℝ) ^ e = (2 : ℝ) ^ (e - e').toNat * (2 : ℝ) ^ e' := by
+        rw [show ((2 : ℝ) ^ (e - e').toNat : ℝ) = (2 : ℝ) ^ ((e - e').toNat : ℤ)
+            from (zpow_natCast _ _).symm, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0),
+            Int.toNat_of_nonneg h_diff_nn]
+        congr 1; ring
+      rw [h_split, ← mul_assoc]
+      push_cast
+      ring
+  · -- boundOK trivial
+    change Format.boundOK F.unbounded.b y
+    rw [Format.unbounded_b]
+    trivial
+  · -- |y| ≤ |x|: sign-split.
+    rw [h_y_real]
+    rw [show (c : ℝ) * (2 : ℝ) ^ e = (c : ℝ) * (2 : ℝ) ^ e from rfl]
+    by_cases hx_nn : 0 ≤ x
+    · -- x ≥ 0: c = ⌊s⌋, c · 2^e ≤ x, also c · 2^e ≥ 0.
+      have h_c : c = ⌊x * (2 : ℝ) ^ (-e)⌋ := by rw [h_c_eq, if_pos hx_nn]
+      have h_floor_le : (c : ℝ) ≤ x * (2 : ℝ) ^ (-e) := by rw [h_c]; exact Int.floor_le _
+      have h_floor_nn : 0 ≤ c := by
+        rw [h_c]; exact Int.floor_nonneg.mpr (mul_nonneg hx_nn (zpow_pos (by norm_num) _).le)
+      have hy_nn : 0 ≤ (c : ℝ) * (2 : ℝ) ^ e :=
+        mul_nonneg (by exact_mod_cast h_floor_nn) h_2e_pos.le
+      rw [abs_of_nonneg hy_nn, abs_of_nonneg hx_nn]
+      have hmul : (c : ℝ) * (2 : ℝ) ^ e ≤ x * (2 : ℝ) ^ (-e) * (2 : ℝ) ^ e :=
+        mul_le_mul_of_nonneg_right h_floor_le h_2e_pos.le
+      rwa [mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), neg_add_cancel,
+           zpow_zero, mul_one] at hmul
+    · -- x < 0: c = ⌈s⌉, x ≤ c · 2^e ≤ 0.
+      push Not at hx_nn
+      have h_c : c = ⌈x * (2 : ℝ) ^ (-e)⌉ := by rw [h_c_eq, if_neg (not_le.mpr hx_nn)]
+      have h_s_neg : x * (2 : ℝ) ^ (-e) < 0 :=
+        mul_neg_of_neg_of_pos hx_nn (zpow_pos (by norm_num) _)
+      have h_ceil_le : x * (2 : ℝ) ^ (-e) ≤ (c : ℝ) := by rw [h_c]; exact Int.le_ceil _
+      have h_ceil_np : c ≤ 0 := by
+        rw [h_c]
+        exact Int.ceil_le.mpr (by push_cast; exact h_s_neg.le)
+      have hy_np : (c : ℝ) * (2 : ℝ) ^ e ≤ 0 :=
+        mul_nonpos_iff.mpr (Or.inr ⟨by exact_mod_cast h_ceil_np, h_2e_pos.le⟩)
+      rw [abs_of_nonpos hy_np, abs_of_neg hx_nn]
+      have hmul : x * (2 : ℝ) ^ (-e) * (2 : ℝ) ^ e ≤ (c : ℝ) * (2 : ℝ) ^ e :=
+        mul_le_mul_of_nonneg_right h_ceil_le h_2e_pos.le
+      rw [mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), neg_add_cancel,
+           zpow_zero, mul_one] at hmul
+      linarith
+  · -- y · x ≥ 0: sign-split.
+    rw [h_y_real]
+    by_cases hx_nn : 0 ≤ x
+    · -- x ≥ 0: c ≥ 0 (floor of nonneg), so c · 2^e · x ≥ 0.
+      have h_c : c = ⌊x * (2 : ℝ) ^ (-e)⌋ := by rw [h_c_eq, if_pos hx_nn]
+      have h_c_nn : 0 ≤ c := by
+        rw [h_c]; exact Int.floor_nonneg.mpr (mul_nonneg hx_nn (zpow_pos (by norm_num) _).le)
+      have h_y_nn : 0 ≤ (c : ℝ) * (2 : ℝ) ^ e :=
+        mul_nonneg (by exact_mod_cast h_c_nn) h_2e_pos.le
+      exact mul_nonneg h_y_nn hx_nn
+    · -- x < 0: c ≤ 0 (ceil of nonpos), so c · 2^e ≤ 0 and x < 0, product ≥ 0.
+      push Not at hx_nn
+      have h_c : c = ⌈x * (2 : ℝ) ^ (-e)⌉ := by rw [h_c_eq, if_neg (not_le.mpr hx_nn)]
+      have h_s_neg : x * (2 : ℝ) ^ (-e) < 0 :=
+        mul_neg_of_neg_of_pos hx_nn (zpow_pos (by norm_num) _)
+      have h_c_np : c ≤ 0 := by
+        rw [h_c]
+        exact Int.ceil_le.mpr (by push_cast; exact h_s_neg.le)
+      have h_y_np : (c : ℝ) * (2 : ℝ) ^ e ≤ 0 :=
+        mul_nonpos_iff.mpr (Or.inr ⟨by exact_mod_cast h_c_np, h_2e_pos.le⟩)
+      exact mul_nonneg_iff.mpr (Or.inr ⟨h_y_np, hx_nn.le⟩)
+  · -- TODO: minimality.
+    sorry
 
 theorem rndUnbounded_satisfies_awayZero (F : Format) (x : ℝ)
     (h : ¬ F.IsUndefined .awayZero) :
     RoundsFinite F.unbounded .awayZero x (rndUnbounded F .awayZero x h) := by
-  sorry
+  have h_rnd_eq : rndUnbounded F .awayZero x h =
+      Dyadic.ofIntZpow (rndInt .awayZero x (F.canonicalExp x)) (F.canonicalExp x) := by
+    unfold rndUnbounded
+    rw [dif_neg (by decide : (RoundingMode.awayZero : RoundingMode) ≠ .toOdd)]
+    rw [dif_neg (by decide : (RoundingMode.awayZero : RoundingMode) ≠ .nearest .toEven)]
+  rw [h_rnd_eq]
+  set e := F.canonicalExp x
+  set c := rndInt .awayZero x e
+  set y : Dyadic := Dyadic.ofIntZpow c e
+  have h_y_real : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow c e
+  have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
+  have h_c_eq : c = if 0 ≤ x then ⌈x * (2 : ℝ) ^ (-e)⌉ else ⌊x * (2 : ℝ) ^ (-e)⌋ := by
+    change rndInt .awayZero x e = _
+    rfl
+  have h_scaled_lt_when_finite_p {p : ℕ+} (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) :
+      |x * (2 : ℝ) ^ (-e)| < (2 : ℝ) ^ (p : ℕ) := by
+    by_cases hx : x = 0
+    · subst hx; simp
+    · have h_e_ge : Int.log 2 |x| + 1 - (p : ℤ) ≤ e :=
+        F.log_sub_p_le_canonicalExp hx hp
+      have h_x_lt : |x| < (2 : ℝ) ^ (Int.log 2 |x| + 1) := by
+        exact_mod_cast Int.lt_zpow_succ_log_self (b := 2)
+          (by norm_num : (1 : ℕ) < 2) |x|
+      have h_abs : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
+        rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
+      have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
+      have hle : Int.log 2 |x| + 1 + (-e) ≤ ((p : ℕ) : ℤ) := by
+        linarith [h_e_ge, h_pcast]
+      rw [h_abs]
+      calc |x| * (2 : ℝ) ^ (-e)
+          < (2 : ℝ) ^ (Int.log 2 |x| + 1) * (2 : ℝ) ^ (-e) :=
+            mul_lt_mul_of_pos_right h_x_lt (zpow_pos (by norm_num) _)
+        _ = (2 : ℝ) ^ (Int.log 2 |x| + 1 + (-e)) := by
+            rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+        _ ≤ (2 : ℝ) ^ ((p : ℕ) : ℤ) := zpow_le_zpow_right₀ (by norm_num) hle
+        _ = (2 : ℝ) ^ (p : ℕ) := by rw [zpow_natCast]
+  refine ⟨⟨?_, ?_, ?_⟩, ?_, ?_, ?_⟩
+  · -- precisionAtMost
+    change Dyadic.precisionAtMost F.p y
+    cases hp : F.p with
+    | top => trivial
+    | coe p =>
+      apply Dyadic.precisionAtMost_of_abs_le c e h_y_real
+      rw [h_c_eq]
+      by_cases hx_nn : 0 ≤ x
+      · rw [if_pos hx_nn]
+        apply abs_ceil_le_of_abs_lt
+        push_cast
+        exact h_scaled_lt_when_finite_p hp
+      · rw [if_neg hx_nn]
+        apply abs_floor_le_of_abs_lt
+        push_cast
+        exact h_scaled_lt_when_finite_p hp
+  · -- quantumAtLeast
+    change Dyadic.quantumAtLeast F.exp y
+    cases hexp : F.exp with
+    | bot => trivial
+    | coe e' =>
+      rw [Dyadic.quantumAtLeast_coe]
+      have h_e_ge : e' ≤ e := F.exp_le_canonicalExp x hexp
+      refine ⟨c * 2 ^ (e - e').toNat, ?_⟩
+      rw [h_y_real]
+      have h_diff_nn : 0 ≤ e - e' := by omega
+      have h_split : (2 : ℝ) ^ e = (2 : ℝ) ^ (e - e').toNat * (2 : ℝ) ^ e' := by
+        rw [show ((2 : ℝ) ^ (e - e').toNat : ℝ) = (2 : ℝ) ^ ((e - e').toNat : ℤ)
+            from (zpow_natCast _ _).symm, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0),
+            Int.toNat_of_nonneg h_diff_nn]
+        congr 1; ring
+      rw [h_split, ← mul_assoc]
+      push_cast
+      ring
+  · change Format.boundOK F.unbounded.b y
+    rw [Format.unbounded_b]
+    trivial
+  · -- |x| ≤ |y|: sign-split. RAZ rounds away from zero, so |y| ≥ |x|.
+    rw [h_y_real]
+    by_cases hx_nn : 0 ≤ x
+    · -- x ≥ 0: c = ⌈s⌉, c · 2^e ≥ x ≥ 0.
+      have h_c : c = ⌈x * (2 : ℝ) ^ (-e)⌉ := by rw [h_c_eq, if_pos hx_nn]
+      have h_ceil_ge : x * (2 : ℝ) ^ (-e) ≤ (c : ℝ) := by rw [h_c]; exact Int.le_ceil _
+      have h_ceil_nn : 0 ≤ c := by
+        rw [h_c]; exact Int.ceil_nonneg (mul_nonneg hx_nn (zpow_pos (by norm_num) _).le)
+      have hy_nn : 0 ≤ (c : ℝ) * (2 : ℝ) ^ e :=
+        mul_nonneg (by exact_mod_cast h_ceil_nn) h_2e_pos.le
+      rw [abs_of_nonneg hy_nn, abs_of_nonneg hx_nn]
+      have hmul : x * (2 : ℝ) ^ (-e) * (2 : ℝ) ^ e ≤ (c : ℝ) * (2 : ℝ) ^ e :=
+        mul_le_mul_of_nonneg_right h_ceil_ge h_2e_pos.le
+      rwa [mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), neg_add_cancel,
+           zpow_zero, mul_one] at hmul
+    · -- x < 0: c = ⌊s⌋, c · 2^e ≤ x < 0.
+      push Not at hx_nn
+      have h_c : c = ⌊x * (2 : ℝ) ^ (-e)⌋ := by rw [h_c_eq, if_neg (not_le.mpr hx_nn)]
+      have h_s_neg : x * (2 : ℝ) ^ (-e) < 0 :=
+        mul_neg_of_neg_of_pos hx_nn (zpow_pos (by norm_num) _)
+      have h_floor_le : (c : ℝ) ≤ x * (2 : ℝ) ^ (-e) := by rw [h_c]; exact Int.floor_le _
+      have h_c_neg : c < 0 := by
+        rw [h_c]
+        exact Int.floor_lt.mpr (by push_cast; exact h_s_neg)
+      have hy_np : (c : ℝ) * (2 : ℝ) ^ e ≤ 0 :=
+        mul_nonpos_iff.mpr (Or.inr ⟨by exact_mod_cast h_c_neg.le, h_2e_pos.le⟩)
+      rw [abs_of_nonpos hy_np, abs_of_neg hx_nn]
+      have hmul : (c : ℝ) * (2 : ℝ) ^ e ≤ x * (2 : ℝ) ^ (-e) * (2 : ℝ) ^ e :=
+        mul_le_mul_of_nonneg_right h_floor_le h_2e_pos.le
+      rw [mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), neg_add_cancel,
+           zpow_zero, mul_one] at hmul
+      linarith
+  · -- y · x ≥ 0
+    rw [h_y_real]
+    by_cases hx_nn : 0 ≤ x
+    · have h_c : c = ⌈x * (2 : ℝ) ^ (-e)⌉ := by rw [h_c_eq, if_pos hx_nn]
+      have h_c_nn : 0 ≤ c := by
+        rw [h_c]; exact Int.ceil_nonneg (mul_nonneg hx_nn (zpow_pos (by norm_num) _).le)
+      have h_y_nn : 0 ≤ (c : ℝ) * (2 : ℝ) ^ e :=
+        mul_nonneg (by exact_mod_cast h_c_nn) h_2e_pos.le
+      exact mul_nonneg h_y_nn hx_nn
+    · push Not at hx_nn
+      have h_c : c = ⌊x * (2 : ℝ) ^ (-e)⌋ := by rw [h_c_eq, if_neg (not_le.mpr hx_nn)]
+      have h_s_neg : x * (2 : ℝ) ^ (-e) < 0 :=
+        mul_neg_of_neg_of_pos hx_nn (zpow_pos (by norm_num) _)
+      have h_c_neg : c < 0 := by
+        rw [h_c]
+        exact Int.floor_lt.mpr (by push_cast; exact h_s_neg)
+      have h_y_np : (c : ℝ) * (2 : ℝ) ^ e ≤ 0 :=
+        mul_nonpos_iff.mpr (Or.inr ⟨by exact_mod_cast h_c_neg.le, h_2e_pos.le⟩)
+      exact mul_nonneg_iff.mpr (Or.inr ⟨h_y_np, hx_nn.le⟩)
+  · sorry
 
 theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
     (h : ¬ F.IsUndefined .toOdd) :

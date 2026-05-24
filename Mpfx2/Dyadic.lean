@@ -98,6 +98,38 @@ def IsRepresentableAtP (p : ℕ) (c e : ℤ) (y : Dyadic) : Prop :=
   (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧
   (2 : ℤ) ^ (p - 1) ≤ |c| ∧ |c| < (2 : ℤ) ^ p
 
+/-- If `y = c · 2^e` with `|c| ≤ 2^p`, then `precisionAtMost p y`. The
+boundary case `|c| = 2^p` forces `c = ±2^p`; renormalize to
+`y = ±1 · 2^(e+p)` to recover a strict-inequality witness. -/
+theorem precisionAtMost_of_abs_le {p : ℕ+} {x : Dyadic} (c e : ℤ)
+    (hx : (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e) (hc : |c| ≤ (2 : ℤ) ^ (p : ℕ)) :
+    precisionAtMost ((p : ℕ+) : WithTop ℕ+) x := by
+  rw [precisionAtMost_coe]
+  rcases lt_or_eq_of_le hc with hlt | heq
+  · exact ⟨c, e, hx, hlt⟩
+  · have h2p_nonneg : (0 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by positivity
+    have hsign : c = (2 : ℤ) ^ (p : ℕ) ∨ c = -((2 : ℤ) ^ (p : ℕ)) :=
+      (abs_eq h2p_nonneg).mp heq
+    have hp_pos : 1 ≤ (p : ℕ) := p.pos
+    have hone_lt : (1 : ℤ) < (2 : ℤ) ^ (p : ℕ) := by
+      have : (2 : ℤ) ^ 0 < (2 : ℤ) ^ (p : ℕ) := pow_lt_pow_right₀ (by norm_num) hp_pos
+      simpa using this
+    have h2ne : (2 : ℝ) ≠ 0 := two_ne_zero
+    rcases hsign with hpos | hneg
+    · refine ⟨1, e + (p : ℤ), ?_, ?_⟩
+      · rw [hx, hpos, zpow_add₀ h2ne]
+        push_cast
+        simp only [← zpow_natCast (2 : ℝ) (p : ℕ)]
+        ring
+      · simpa using hone_lt
+    · refine ⟨-1, e + (p : ℤ), ?_, ?_⟩
+      · rw [hx, hneg, zpow_add₀ h2ne]
+        push_cast
+        simp only [← zpow_natCast (2 : ℝ) (p : ℕ)]
+        ring
+      · have habs : |(-1 : ℤ)| = 1 := by decide
+        rw [habs]; exact hone_lt
+
 end Dyadic
 
 /-- Non-negative dyadics: a `Dyadic` whose underlying real is `≥ 0`. Used as
