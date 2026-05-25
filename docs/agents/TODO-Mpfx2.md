@@ -100,24 +100,88 @@ All structural plumbing (helpers, canonical-exponent inequalities,
 - [x] `rndUnbounded_satisfies_awayZero` — membership + `|x| ≤ |y| ∧ y·x ≥ 0`
       done; *minimality remaining*.
 
-**Per-mode obligations** still open (8 total `sorry`s):
+**Per-mode obligations** still open (4 total `sorry`s):
 
-- [ ] `rndUnbounded_satisfies_toNegative` minimality clause —
-      argument: case-split on whether `z`'s canonical exponent is ≥ `e`
-      (then `z` is a multiple of `2^e` and `z · 2^(-e)` is an integer
-      ≤ `⌊x · 2^(-e)⌋ = c`, so `z ≤ y`); or `< e` (then `z`'s binade
-      is strictly smaller than `x`'s, and `y ≥ 2^(Int.log 2 x) > z`).
-- [ ] `rndUnbounded_satisfies_toPositive` minimality — mirror.
-- [ ] `rndUnbounded_satisfies_toZero` minimality — sign-split version.
-- [ ] `rndUnbounded_satisfies_awayZero` minimality — mirror sign-split.
+All directed-mode minimality clauses are now done via two top-level
+helpers `floor_minimality` and `ceil_minimality` (built on the
+lower-level `binade_le_floor` / `ceil_le_binade` arithmetic):
+
+- [x] `rndUnbounded_satisfies_toNegative` minimality — `floor_minimality`.
+- [x] `rndUnbounded_satisfies_toPositive` minimality — `ceil_minimality`.
+- [x] `rndUnbounded_satisfies_toZero` minimality — sign-split:
+      `floor_minimality` for `0 ≤ x`, `ceil_minimality` for `x < 0`.
+- [x] `rndUnbounded_satisfies_awayZero` minimality — sign-split mirror:
+      `ceil_minimality` for `0 < x`, `floor_minimality` for `x < 0`,
+      `x = 0` short-circuits to `y = 0 ≤ |z|`.
 - [ ] `rndUnbounded_satisfies_toOdd` — faithful (RoundDown ∨ RoundUp)
-      + parity tie-break via `ParityFormat.IsOdd`. Needs port of
-      `IsRepresentableAtP` uniqueness from `Mpfx/Digits.lean`.
+      + parity tie-break via `ParityFormat.IsOdd`. Proof outline
+      sketched in the theorem body. **Blockers** (each ≥ 50 LoC):
+      (a) port of `numDigits_*` evaluator lemmas from
+      `Mpfx/Digits.lean`; (b) port of `mem_imp_precisionAtMost_numDigits`;
+      (c) `IsRepresentableAtP` uniqueness; (d) "alternating parity"
+      (`¬ IsOdd dlo → IsOdd dhi`) which uses (c).
+      Also: `F.toFormat`-vs-`F.unbounded` ParityFormat bridge needed
+      since `RoundsFinite F.unbounded` asks for `F'.toFormat = F.unbounded`
+      while `rndUnbounded` uses `F.toParityFormatOfToOdd` (toFormat = F).
 - [ ] `rndUnbounded_satisfies_nearest` — faithful + closeness +
-      tie-break by `tb`.
+      tie-break by `tb`. Tie-break case needs (a)–(d) above for `.toEven`.
 - [ ] `rndUnbounded_unique_toOdd` — needs faithful-uniqueness + parity
       uniqueness (`IsOdd y` distinguishes the two F-adjacents).
+      Same blockers as satisfies.
 - [ ] `rndUnbounded_unique_nearest` — closeness + tie-break uniqueness.
+      Same blockers.
+
+**Helpers + infrastructure added** (this session):
+- In `Mpfx2/RoundOp.lean`:
+  - `ofIntZpow_mem_unbounded` — `Dyadic.ofIntZpow k e ∈ F.unbounded`.
+  - `floor_mantissa_lt` — `|x · 2^(-canonicalExp x)| < 2^p`.
+- In `Mpfx2/Format.lean`:
+  - `numDigits_zero`, `numDigits_neg`, `numDigits_top_coe`,
+    `numDigits_coe_bot`, `numDigits_coe_coe` — evaluators.
+  - `numDigits_nonneg` — `numDigits y ≥ 1` for nonzero `y ∈ F`.
+  - `mem_imp_precisionAtMost_numDigits` — existence of `(c, e)`
+    representation at `numDigits y` bits for nonzero `y ∈ F`.
+  - `IsOdd.neg`, `IsEven.neg`, `IsOdd.numDigits_pos`, `IsOdd.ne_zero`.
+- In `Mpfx2/Dyadic.lean`:
+  - `IsRepresentableAtP.unique` — uniqueness of canonical form.
+    The keystone for parity-uniqueness arguments.
+  - `IsRepresentableAtP.ne_zero` — having a witness implies `y ≠ 0`.
+  - `isRepresentableAtP_of_bounds` — constructor wrapper.
+- In `Mpfx2/Format.lean`:
+  - `isOdd_iff_odd_of_canonical`, `isEven_iff_even_of_canonical` —
+    given an `IsRepresentableAtP` witness at `numDigits y`, parity
+    reduces to `Odd c` / `Even c`.
+- In `Mpfx2/Rounding.lean`:
+  - `Format.unbounded_isUndefined` — `F.unbounded.IsUndefined rm =
+    F.IsUndefined rm` (by `rfl`). Resolves the F-vs-F.unbounded
+    bridge issue cleanly.
+
+**Parity infrastructure now complete for floating-point case
+(`F.exp = ⊥`)**:
+- `Dyadic.two_pow_succ_pred` — `2^p = 2 · 2^(p-1)` for `p ≥ 1`.
+- `Dyadic.isRepresentableAtP_of_saturation` — renormalize `|c| = 2^p`
+  to canonical `(c/2, e+1)` form.
+- `isOdd_iff_odd_at_canonical_floating` — `F.IsOdd (k · 2^e) ↔ Odd k`
+  when `|k| ∈ [2^(p-1), 2^p)` (non-saturation).
+- `not_isOdd_at_saturation` — `¬ F.IsOdd (k · 2^e)` when `|k| = 2^p`.
+- `alternating_parity_floating` — `¬ F.IsOdd dlo → F.IsOdd dhi`
+  at canonical exponent for `F.exp = ⊥, F.p ≠ 1`. **Keystone**.
+
+**Now needed to finish `_toOdd` satisfies**:
+1. Alternating-parity lemma: at canonical `e`, exactly one of
+   `IsOdd dlo`, `IsOdd dhi` holds. Proof structure:
+   - Non-saturation case (`|lo| < 2^p` AND `|lo+1| < 2^p`):
+     `isRepresentableAtP_of_bounds` gives canonical forms.
+     `isOdd_iff_odd_of_canonical` reduces to `Odd lo` vs
+     `Odd (lo+1)` — these alternate trivially.
+   - Saturation case (`|lo| = 2^p` for `x < 0`; `|lo+1| = 2^p`
+     for `x > 0`): need renormalization
+     (`y = c · 2^e = (c/2) · 2^(e+1)`) — the `c/2` has even
+     significand (`±2^(p-1)`), so the saturated side is Even.
+     The non-saturated side (`lo = ±(2^p − 1)`) is Odd.
+2. Handling for `F.p = ⊤` (`F.exp = (e' : ℤ)`) case — different
+   `numDigits` formula.
+3. Handling for `F.p = 1` parity case (exponent-index parity).
 
 ## Open: theorems to port from `Mpfx/`
 

@@ -75,6 +75,11 @@ def Format.IsUndefined (F : Format) (rm : RoundingMode) : Prop :=
   (F.p = (1 : ℕ+) ∧ F.exp = ⊥ ∧
     (rm = .toOdd ∨ rm = .nearest .toEven))
 
+/-- `IsUndefined` depends only on `(F.p, F.exp)`, both preserved by
+`F.unbounded`. So `F.unbounded.IsUndefined rm = F.IsUndefined rm`. -/
+@[simp] theorem Format.unbounded_isUndefined (F : Format) (rm : RoundingMode) :
+    F.unbounded.IsUndefined rm = F.IsUndefined rm := rfl
+
 /-! ### The specification relation `Rounds`
 
 `Rounds F rm x r : Prop` asserts that `r : RoundResult` is *the* answer

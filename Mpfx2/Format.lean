@@ -42,6 +42,8 @@ def unbounded (F : Format) : Format := { F with b := ⊤ }
 @[simp] theorem unbounded_p (F : Format) : F.unbounded.p = F.p := rfl
 @[simp] theorem unbounded_exp (F : Format) : F.unbounded.exp = F.exp := rfl
 @[simp] theorem unbounded_b (F : Format) : F.unbounded.b = ⊤ := rfl
+@[simp] theorem unbounded_unbounded (F : Format) :
+    F.unbounded.unbounded = F.unbounded := rfl
 
 end Format
 
@@ -117,6 +119,210 @@ noncomputable def numDigits (F : FiniteFormat) (x : ℝ) : ℤ :=
     | ((p : ℕ+) : WithTop ℕ+), ⊥ => (p : ℤ)
     | ((p : ℕ+) : WithTop ℕ+), ((e' : ℤ) : WithBot ℤ) => min ((p : ℕ) : ℤ) (e - e' + 1)
 
+@[simp] theorem numDigits_zero (F : FiniteFormat) : F.numDigits 0 = 0 := by
+  unfold numDigits; simp
+
+theorem numDigits_neg (F : FiniteFormat) (x : ℝ) :
+    F.numDigits (-x) = F.numDigits x := by
+  unfold numDigits
+  by_cases hx : x = 0
+  · subst hx; simp
+  · have hxne' : -x ≠ 0 := neg_ne_zero.mpr hx
+    have habs : |(-x)| = |x| := abs_neg x
+    simp only [hx, hxne', ↓reduceIte, habs]
+
+/-- `numDigits` evaluator: `F.p = ⊤`, `F.exp = (e' : ℤ)`, `x ≠ 0`. -/
+theorem numDigits_top_coe (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {e' : ℤ}
+    (hexp : F.toFormat.exp = (e' : WithBot ℤ)) (hp : F.toFormat.p = ⊤) :
+    F.numDigits x = Int.log 2 |x| - e' + 1 := by
+  unfold numDigits
+  simp only [hx, ↓reduceIte, hp, hexp]
+
+/-- `numDigits` evaluator: `F.p = (p : ℕ+)`, `F.exp = ⊥`, `x ≠ 0`. -/
+theorem numDigits_coe_bot (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {p : ℕ+}
+    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+)) (hexp : F.toFormat.exp = ⊥) :
+    F.numDigits x = (p : ℤ) := by
+  unfold numDigits
+  simp only [hx, ↓reduceIte, hp, hexp]
+
+/-- `numDigits` evaluator: `F.p = (p : ℕ+)`, `F.exp = (e' : ℤ)`, `x ≠ 0`. -/
+theorem numDigits_coe_coe (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {p : ℕ+} {e' : ℤ}
+    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hexp : F.toFormat.exp = (e' : WithBot ℤ)) :
+    F.numDigits x = min ((p : ℕ) : ℤ) (Int.log 2 |x| - e' + 1) := by
+  unfold numDigits
+  simp only [hx, ↓reduceIte, hp, hexp]
+
+/-- Extract `y = c · 2^e'` from `quantumAtLeast (e' : ℤ)`, handling both
+the `(e' : WithBot ℤ)` and `some e'` displayed forms. -/
+private theorem quantumAtLeast_extract {y : Dyadic} {e' : ℤ}
+    (hQ : Dyadic.quantumAtLeast (e' : WithBot ℤ) y) :
+    ∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e' := hQ
+
+/-- Extract precisionAtMost witness from `(p : WithTop ℕ+)` form. -/
+private theorem precisionAtMost_extract {y : Dyadic} {p : ℕ+}
+    (hP : Dyadic.precisionAtMost ((p : ℕ+) : WithTop ℕ+) y) :
+    ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ) := hP
+
+/-- For nonzero `y ≠ 0` with `y = c · 2^e'` and `c ≠ 0`, we have `e' ≤ log|y|`. -/
+private theorem quantum_exp_le_log {y : Dyadic} {e' : ℤ} {c : ℤ}
+    (hy_ne : (y : ℝ) ≠ 0) (hyeq : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') :
+    e' ≤ Int.log 2 |(y : ℝ)| := by
+  have hc_ne : c ≠ 0 := by
+    intro hc0; rw [hc0] at hyeq; push_cast at hyeq
+    rw [zero_mul] at hyeq; exact hy_ne hyeq
+  have hc_abs_ge : (1 : ℤ) ≤ |c| := Int.one_le_abs hc_ne
+  have habs_lo : (2 : ℝ) ^ e' ≤ |(y : ℝ)| := by
+    rw [hyeq, abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
+    calc (2 : ℝ) ^ e'
+        = 1 * (2 : ℝ) ^ e' := (one_mul _).symm
+      _ ≤ |(c : ℝ)| * (2 : ℝ) ^ e' := by
+          apply mul_le_mul_of_nonneg_right _ (zpow_pos (by norm_num) _).le
+          exact_mod_cast hc_abs_ge
+  have he_y_hi : |(y : ℝ)| < (2 : ℝ) ^ (Int.log 2 |(y : ℝ)| + 1) :=
+    Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
+  by_contra h_lt
+  push Not at h_lt
+  have h_step : Int.log 2 |(y : ℝ)| + 1 ≤ e' := by omega
+  have h_pow_le : (2 : ℝ) ^ (Int.log 2 |(y : ℝ)| + 1) ≤ (2 : ℝ) ^ e' :=
+    zpow_le_zpow_right₀ (by norm_num) h_step
+  linarith
+
+/-- `numDigits` is non-negative for nonzero `y ∈ F`. -/
+theorem numDigits_nonneg (F : FiniteFormat) (y : Dyadic) (hy : y ∈ F.toFormat)
+    (hy_ne : (y : ℝ) ≠ 0) : 1 ≤ F.numDigits (y : ℝ) := by
+  obtain ⟨hP, hQ, _⟩ := hy
+  cases hp : F.toFormat.p with
+  | top =>
+    cases hexp : F.toFormat.exp with
+    | bot =>
+      exfalso; rcases F.finite with h_p_ne | h_exp_ne
+      · exact h_p_ne hp
+      · exact h_exp_ne hexp
+    | coe e' =>
+      rw [numDigits_top_coe F hy_ne hexp hp]
+      rw [hexp] at hQ
+      obtain ⟨c, hyeq⟩ := quantumAtLeast_extract hQ
+      have h_log_ge := quantum_exp_le_log hy_ne hyeq
+      omega
+  | coe p =>
+    cases hexp : F.toFormat.exp with
+    | bot =>
+      rw [numDigits_coe_bot F hy_ne hp hexp]
+      exact_mod_cast p.pos
+    | coe e' =>
+      rw [numDigits_coe_coe F hy_ne hp hexp]
+      rw [hexp] at hQ
+      obtain ⟨c, hyeq⟩ := quantumAtLeast_extract hQ
+      have h_log_ge := quantum_exp_le_log hy_ne hyeq
+      have hpp : 1 ≤ ((p : ℕ) : ℤ) := by exact_mod_cast p.pos
+      exact le_min hpp (by omega)
+
+/-- The key existence lemma: for nonzero `y ∈ F`, there exist `(c, e)`
+representing `y` with `|c| < 2^numDigits F y`. Combined with the analogous
+lower-bound argument (`mem_imp_isRepresentableAtP_numDigits`, future), this
+pins down the canonical form. -/
+theorem mem_imp_precisionAtMost_numDigits {F : FiniteFormat} {y : Dyadic}
+    (hy : y ∈ F.toFormat) (hy_ne : (y : ℝ) ≠ 0) :
+    ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧
+                |c| < (2 : ℤ) ^ (F.numDigits (y : ℝ)).toNat := by
+  obtain ⟨hP, hQ, _⟩ := hy
+  change Dyadic.precisionAtMost F.toFormat.p y at hP
+  change Dyadic.quantumAtLeast F.toFormat.exp y at hQ
+  set e_y : ℤ := Int.log 2 |(y : ℝ)| with he_y_def
+  have habs_pos : 0 < |(y : ℝ)| := abs_pos.mpr hy_ne
+  have he_y_hi : |(y : ℝ)| < (2 : ℝ) ^ (e_y + 1) :=
+    Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
+  -- "Quantum case": from y = c·2^e' (with e' ≤ e_y), derive |c| < 2^(e_y - e' + 1).
+  have quantum_case : ∀ e' : ℤ,
+      (∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') →
+      e' ≤ e_y →
+      ∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e' ∧
+                |c| < (2 : ℤ) ^ (e_y - e' + 1).toNat := by
+    intro e' ⟨c, hyeq⟩ he_y_ge
+    refine ⟨c, hyeq, ?_⟩
+    have h_real : (|c| : ℝ) < (2 : ℝ) ^ (e_y - e' + 1) := by
+      have h_y_eq : |(y : ℝ)| = |(c : ℝ)| * (2 : ℝ) ^ e' := by
+        rw [hyeq, abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
+      have hsplit : (2 : ℝ) ^ (e_y + 1) =
+          (2 : ℝ) ^ (e_y - e' + 1) * (2 : ℝ) ^ e' := by
+        rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+        congr 1; ring
+      have key : |(c : ℝ)| * (2 : ℝ) ^ e' < (2 : ℝ) ^ (e_y - e' + 1) * (2 : ℝ) ^ e' := by
+        rw [← hsplit, ← h_y_eq]; exact he_y_hi
+      exact lt_of_mul_lt_mul_right key (le_of_lt (zpow_pos (by norm_num) _))
+    have h_nat : ((e_y - e' + 1).toNat : ℤ) = e_y - e' + 1 :=
+      Int.toNat_of_nonneg (by omega)
+    have h_cast : ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) =
+        (2 : ℝ) ^ (e_y - e' + 1) := by
+      rw [show ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) =
+          (2 : ℝ) ^ ((e_y - e' + 1).toNat : ℤ) from by push_cast; rfl, h_nat]
+    have : (|c| : ℝ) < ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) := by
+      rw [h_cast]; exact h_real
+    exact_mod_cast this
+  -- For any e' with y = c·2^e' (c ≠ 0), we have e' ≤ e_y.
+  have e'_le_e_y : ∀ e' : ℤ,
+      (∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') → e' ≤ e_y := by
+    intro e' ⟨c, hyeq⟩
+    have hc_ne : c ≠ 0 := by
+      intro hc0; rw [hc0] at hyeq; push_cast at hyeq
+      rw [zero_mul] at hyeq; exact hy_ne hyeq
+    have hc_abs_ge : (1 : ℤ) ≤ |c| := Int.one_le_abs hc_ne
+    have habs_lo : (2 : ℝ) ^ e' ≤ |(y : ℝ)| := by
+      rw [hyeq, abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
+      calc (2 : ℝ) ^ e'
+          = 1 * (2 : ℝ) ^ e' := (one_mul _).symm
+        _ ≤ |(c : ℝ)| * (2 : ℝ) ^ e' := by
+            apply mul_le_mul_of_nonneg_right _ (zpow_pos (by norm_num) _).le
+            exact_mod_cast hc_abs_ge
+    by_contra h_lt
+    push Not at h_lt
+    have h_step : e_y + 1 ≤ e' := by omega
+    have h_pow_le : (2 : ℝ) ^ (e_y + 1) ≤ (2 : ℝ) ^ e' :=
+      zpow_le_zpow_right₀ (by norm_num) h_step
+    linarith [habs_lo, he_y_hi]
+  -- Case analysis on (F.p, F.exp).
+  cases hp : F.toFormat.p with
+  | top =>
+    cases hexp : F.toFormat.exp with
+    | bot =>
+      exfalso; rcases F.finite with h_p_ne | h_exp_ne
+      · exact h_p_ne hp
+      · exact h_exp_ne hexp
+    | coe e' =>
+      rw [numDigits_top_coe F hy_ne hexp hp]
+      rw [hexp] at hQ
+      obtain ⟨c, hyeq, hc_lt⟩ :=
+        quantum_case e' (quantumAtLeast_extract hQ)
+          (e'_le_e_y e' (quantumAtLeast_extract hQ))
+      exact ⟨c, e', hyeq, hc_lt⟩
+  | coe p =>
+    cases hexp : F.toFormat.exp with
+    | bot =>
+      rw [numDigits_coe_bot F hy_ne hp hexp]
+      rw [hp] at hP
+      obtain ⟨c, e, hyeq, hc_lt⟩ := precisionAtMost_extract hP
+      refine ⟨c, e, hyeq, ?_⟩
+      have h_toNat : ((p : ℕ+) : ℤ).toNat = (p : ℕ) := by simp
+      rw [h_toNat]
+      exact hc_lt
+    | coe e' =>
+      rw [numDigits_coe_coe F hy_ne hp hexp]
+      rw [hp] at hP
+      rw [hexp] at hQ
+      rcases le_or_gt ((p : ℕ+) : ℤ) (e_y - e' + 1) with hcase | hcase
+      · rw [show min (((p : ℕ+) : ℕ) : ℤ) (e_y - e' + 1) = ((p : ℕ+) : ℤ) from
+              min_eq_left hcase]
+        have h_toNat : ((p : ℕ+) : ℤ).toNat = (p : ℕ) := by simp
+        rw [h_toNat]
+        exact precisionAtMost_extract hP
+      · rw [show min (((p : ℕ+) : ℕ) : ℤ) (e_y - e' + 1)
+              = e_y - e' + 1 from min_eq_right (le_of_lt hcase)]
+        obtain ⟨c, hyeq, hc_lt⟩ :=
+          quantum_case e' (quantumAtLeast_extract hQ)
+            (e'_le_e_y e' (quantumAtLeast_extract hQ))
+        exact ⟨c, e', hyeq, hc_lt⟩
+
 end FiniteFormat
 
 /-- A `FiniteFormat` where parity is well-defined: `p ≠ 1` whenever
@@ -161,6 +367,270 @@ def IsEven (F : ParityFormat) (y : Dyadic) : Prop :=
         Even c)
 
 @[simp] theorem isEven_zero (F : ParityFormat) : IsEven F 0 := Or.inl rfl
+
+/-- `IsOdd` is invariant under negation. -/
+theorem IsOdd.neg {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
+    IsOdd F (-y) := by
+  obtain ⟨c, e, ⟨hyeq, hlow, hhigh⟩, hp⟩ := h
+  have h_nd : F.toFiniteFormat.numDigits ((-y : Dyadic) : ℝ) =
+      F.toFiniteFormat.numDigits (y : ℝ) := by
+    change F.toFiniteFormat.numDigits (-(y : ℝ)) = _
+    exact F.toFiniteFormat.numDigits_neg (y : ℝ)
+  refine ⟨-c, e, ⟨?_, ?_, ?_⟩, ?_⟩
+  · change ((-y : Dyadic) : ℝ) = _
+    push_cast
+    rw [hyeq]; ring
+  · rw [h_nd]; simpa using hlow
+  · rw [h_nd]; simpa using hhigh
+  · by_cases hp1 : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+)
+    · rw [if_pos hp1]; rw [if_pos hp1] at hp; exact hp
+    · rw [if_neg hp1]; rw [if_neg hp1] at hp; exact Odd.neg hp
+
+/-- `IsEven` is invariant under negation. -/
+theorem IsEven.neg {F : ParityFormat} {y : Dyadic} (h : IsEven F y) :
+    IsEven F (-y) := by
+  rcases h with hy0 | ⟨c, e, ⟨hyeq, hlow, hhigh⟩, hp⟩
+  · left; rw [hy0]; simp
+  · right
+    have h_nd : F.toFiniteFormat.numDigits ((-y : Dyadic) : ℝ) =
+        F.toFiniteFormat.numDigits (y : ℝ) := by
+      change F.toFiniteFormat.numDigits (-(y : ℝ)) = _
+      exact F.toFiniteFormat.numDigits_neg (y : ℝ)
+    refine ⟨-c, e, ⟨?_, ?_, ?_⟩, ?_⟩
+    · change ((-y : Dyadic) : ℝ) = _
+      push_cast
+      rw [hyeq]; ring
+    · rw [h_nd]; simpa using hlow
+    · rw [h_nd]; simpa using hhigh
+    · by_cases hp1 : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+)
+      · rw [if_pos hp1]; rw [if_pos hp1] at hp; exact hp
+      · rw [if_neg hp1]; rw [if_neg hp1] at hp; exact Even.neg hp
+
+/-- `IsOdd F y` implies `numDigits ≥ 1`. -/
+theorem IsOdd.numDigits_pos {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
+    0 < F.toFiniteFormat.numDigits (y : ℝ) := by
+  obtain ⟨c, _, ⟨_, hlow, hhigh⟩, _⟩ := h
+  by_contra h_le
+  push Not at h_le
+  have h_toNat : (F.toFiniteFormat.numDigits ((y : Dyadic) : ℝ)).toNat = 0 :=
+    Int.toNat_of_nonpos h_le
+  rw [h_toNat] at hlow hhigh
+  have h1 : (1 : ℤ) ≤ |c| := by simpa using hlow
+  have h2 : |c| < (1 : ℤ) := by simpa using hhigh
+  omega
+
+/-- If `(c, e)` is a canonical-form representation at `F`'s `numDigits y`
+precision and `F.p ≠ 1`, then `F.IsOdd y ↔ Odd c`. The forward direction
+uses `IsRepresentableAtP.unique` to pin the canonical form, then reads off
+the parity. -/
+theorem isOdd_iff_odd_of_canonical {F : ParityFormat} {y : Dyadic}
+    {c e : ℤ}
+    (h_rep : Dyadic.IsRepresentableAtP (F.toFiniteFormat.numDigits (y : ℝ)).toNat
+      c e y)
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+)) :
+    F.IsOdd y ↔ Odd c := by
+  constructor
+  · rintro ⟨c', e', h_rep', h_odd⟩
+    rw [if_neg hp_ne_1] at h_odd
+    obtain ⟨h_c, _⟩ := h_rep'.unique h_rep
+    rw [← h_c]; exact h_odd
+  · intro h_odd
+    exact ⟨c, e, h_rep, by rw [if_neg hp_ne_1]; exact h_odd⟩
+
+/-- Dual of `isOdd_iff_odd_of_canonical` for `IsEven`. -/
+theorem isEven_iff_even_of_canonical {F : ParityFormat} {y : Dyadic}
+    {c e : ℤ}
+    (h_rep : Dyadic.IsRepresentableAtP (F.toFiniteFormat.numDigits (y : ℝ)).toNat
+      c e y)
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+)) :
+    F.IsEven y ↔ Even c := by
+  constructor
+  · rintro (rfl | ⟨c', e', h_rep', h_even⟩)
+    · -- y = 0: IsRepresentableAtP at any precision forces |c| ≥ 1,
+      -- but y = 0 forces c = 0. Contradiction.
+      obtain ⟨hyeq, h_lo, _⟩ := h_rep
+      have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
+      have hc_zero : (c : ℝ) = 0 := by
+        push_cast at hyeq
+        rcases mul_eq_zero.mp hyeq.symm with h | h
+        · exact h
+        · linarith
+      have hc_zero_int : c = 0 := by exact_mod_cast hc_zero
+      rw [hc_zero_int]
+      exact Even.zero
+    · rw [if_neg hp_ne_1] at h_even
+      obtain ⟨h_c, _⟩ := h_rep'.unique h_rep
+      rw [← h_c]; exact h_even
+  · intro h_even
+    right; exact ⟨c, e, h_rep, by rw [if_neg hp_ne_1]; exact h_even⟩
+
+/-- Floating-point characterization (non-saturation): when `F.p = (p:ℕ+)`,
+`F.p ≠ 1`, `F.exp = ⊥`, and `|k| ∈ [2^(p-1), 2^p)`, then
+`F.IsOdd (Dyadic.ofIntZpow k e) ↔ Odd k`. -/
+theorem isOdd_iff_odd_at_canonical_floating {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
+    (hexp_bot : F.toFormat.exp = ⊥) {k e : ℤ}
+    (hk_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |k|)
+    (hk_hi : |k| < (2 : ℤ) ^ (p : ℕ)) :
+    F.IsOdd (Dyadic.ofIntZpow k e) ↔ Odd k := by
+  set y : Dyadic := Dyadic.ofIntZpow k e
+  have h_y_real : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow k e
+  have hk_ne : k ≠ 0 := by
+    intro h0; rw [h0, abs_zero] at hk_lo
+    have hpos : (1 : ℤ) ≤ (2 : ℤ) ^ ((p : ℕ) - 1) := one_le_pow₀ (by norm_num)
+    linarith
+  have h_y_ne : (y : ℝ) ≠ 0 := by
+    rw [h_y_real]
+    have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
+    exact mul_ne_zero (Int.cast_ne_zero.mpr hk_ne) (ne_of_gt h_2e_pos)
+  have h_nd_toNat : (F.toFiniteFormat.numDigits (y : ℝ)).toNat = (p : ℕ) := by
+    rw [F.toFiniteFormat.numDigits_coe_bot h_y_ne hp_eq hexp_bot]; simp
+  have h_rep : Dyadic.IsRepresentableAtP
+      (F.toFiniteFormat.numDigits (y : ℝ)).toNat k e y := by
+    rw [h_nd_toNat]
+    exact Dyadic.isRepresentableAtP_of_bounds h_y_real hk_lo hk_hi
+  exact isOdd_iff_odd_of_canonical h_rep hp_ne_1
+
+/-- Floating-point saturation case: `|k| = 2^p` forces `F.IsOdd (k·2^e) = False`
+(via renormalization, the canonical significand is `±2^(p-1)`, which is even). -/
+theorem not_isOdd_at_saturation {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
+    (hexp_bot : F.toFormat.exp = ⊥) {k e : ℤ}
+    (hk_eq : |k| = (2 : ℤ) ^ (p : ℕ)) :
+    ¬ F.IsOdd (Dyadic.ofIntZpow k e) := by
+  set y : Dyadic := Dyadic.ofIntZpow k e
+  have h_y_real : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow k e
+  have hp_pos : 1 ≤ (p : ℕ) := p.pos
+  have hp_ge_2 : 2 ≤ (p : ℕ) := by
+    by_contra h_neg
+    push Not at h_neg
+    have hp_one : (p : ℕ) = 1 := by omega
+    have : p = 1 := Subtype.ext hp_one
+    exact hp_ne_1 (by rw [hp_eq, this])
+  have hk_ne : k ≠ 0 := by
+    intro h0; rw [h0, abs_zero] at hk_eq
+    have hpos : (1 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := one_le_pow₀ (by norm_num)
+    linarith
+  have h_y_ne : (y : ℝ) ≠ 0 := by
+    rw [h_y_real]
+    have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
+    exact mul_ne_zero (Int.cast_ne_zero.mpr hk_ne) (ne_of_gt h_2e_pos)
+  have h_nd_toNat : (F.toFiniteFormat.numDigits (y : ℝ)).toNat = (p : ℕ) := by
+    rw [F.toFiniteFormat.numDigits_coe_bot h_y_ne hp_eq hexp_bot]; simp
+  have h_rep : Dyadic.IsRepresentableAtP
+      (F.toFiniteFormat.numDigits (y : ℝ)).toNat (k / 2) (e + 1) y := by
+    rw [h_nd_toNat]
+    exact Dyadic.isRepresentableAtP_of_saturation hp_pos h_y_real hk_eq
+  rw [isOdd_iff_odd_of_canonical h_rep hp_ne_1]
+  -- Need: ¬ Odd (k/2). k/2 = ±2^(p-1), and p-1 ≥ 1, so 2 ∣ 2^(p-1).
+  intro h_odd
+  have h_4_dvd_k : (4 : ℤ) ∣ k := by
+    have h4 : (4 : ℤ) = (2 : ℤ) ^ 2 := by norm_num
+    rw [h4]
+    rcases (abs_eq (by positivity : (0 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ))).mp hk_eq
+      with hk | hk
+    · rw [hk]; exact pow_dvd_pow 2 hp_ge_2
+    · rw [hk]; exact Dvd.dvd.neg_right (pow_dvd_pow 2 hp_ge_2)
+  obtain ⟨c, hc⟩ := h_4_dvd_k
+  have h_k_div_2 : k / 2 = 2 * c := by
+    rw [hc, show (4 : ℤ) * c = 2 * (2 * c) by ring,
+        Int.mul_ediv_cancel_left _ (by norm_num : (2 : ℤ) ≠ 0)]
+  rw [h_k_div_2] at h_odd
+  obtain ⟨m, hm⟩ := h_odd
+  omega
+
+/-- Alternating parity at the canonical exponent (floating-point case):
+if `dlo = lo · 2^e` is not `F.IsOdd`, then `dhi = (lo+1) · 2^e` is.
+Requires `lo` and `lo+1` to both lie in the canonical mantissa range
+`[2^(p-1), 2^p]`. -/
+theorem alternating_parity_floating {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
+    (hexp_bot : F.toFormat.exp = ⊥) {lo e : ℤ}
+    (hlo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo|)
+    (hlo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ))
+    (hlop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1|)
+    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ)) :
+    ¬ F.IsOdd (Dyadic.ofIntZpow lo e) →
+    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e) := by
+  intro h_not_odd
+  have h2p_nn : (0 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by positivity
+  -- Case on dlo's saturation.
+  rcases lt_or_eq_of_le hlo_hi with hlo_lt | hlo_sat
+  · -- dlo non-saturated.
+    rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlo_lo hlo_lt]
+      at h_not_odd
+    have h_even_lo : Even lo := Int.not_odd_iff_even.mp h_not_odd
+    have h_odd_lop1 : Odd (lo + 1) := Even.add_one h_even_lo
+    -- Case on dhi's saturation.
+    rcases lt_or_eq_of_le hlop1_hi with hlop1_lt | hlop1_sat
+    · rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlop1_lo hlop1_lt]
+      exact h_odd_lop1
+    · -- |lo+1| = 2^p: 2^p is even, so lo+1 is even, contradicting h_odd_lop1.
+      exfalso
+      have h_even_lop1 : Even (lo + 1) := by
+        rcases (abs_eq h2p_nn).mp hlop1_sat with h | h
+        · rw [h]
+          refine ⟨(2 : ℤ) ^ ((p : ℕ) - 1), ?_⟩
+          have := Dyadic.two_pow_succ_pred p.pos
+          linarith
+        · rw [h]
+          refine ⟨-((2 : ℤ) ^ ((p : ℕ) - 1)), ?_⟩
+          have := Dyadic.two_pow_succ_pred p.pos
+          linarith
+      exact (Int.not_odd_iff_even.mpr h_even_lop1) h_odd_lop1
+  · -- dlo saturated: |lo| = 2^p. Need IsOdd dhi.
+    -- lo = ±2^p. lo + 1 = ±2^p + 1.
+    rcases (abs_eq h2p_nn).mp hlo_sat with hlo_pos | hlo_neg
+    · -- lo = 2^p: lo + 1 = 2^p + 1, |lo+1| = 2^p+1, but hlop1_hi says ≤ 2^p. Contradiction.
+      exfalso
+      rw [hlo_pos] at hlop1_hi
+      have : (2 : ℤ) ^ (p : ℕ) + 1 > 0 := by positivity
+      have h_abs : |(2 : ℤ) ^ (p : ℕ) + 1| = (2 : ℤ) ^ (p : ℕ) + 1 :=
+        abs_of_pos this
+      linarith
+    · -- lo = -2^p: lo + 1 = -2^p + 1 = -(2^p - 1). |lo+1| = 2^p - 1.
+      have h_lop1_lt : |lo + 1| < (2 : ℤ) ^ (p : ℕ) := by
+        rw [hlo_neg]
+        have h_pos_inner : (0 : ℤ) < (2 : ℤ) ^ (p : ℕ) - 1 := by
+          have : (1 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := one_le_pow₀ (by norm_num)
+          have h_two_le : (2 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by
+            calc (2 : ℤ) = (2 : ℤ) ^ 1 := by ring
+              _ ≤ (2 : ℤ) ^ (p : ℕ) := pow_le_pow_right₀ (by norm_num) p.pos
+          linarith
+        have h_eq : -((2 : ℤ) ^ (p : ℕ)) + 1 = -((2 : ℤ) ^ (p : ℕ) - 1) := by ring
+        rw [h_eq, abs_neg, abs_of_pos h_pos_inner]
+        linarith
+      rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlop1_lo h_lop1_lt]
+      -- Show Odd (lo + 1) = Odd (-2^p + 1).
+      rw [hlo_neg]
+      -- -2^p + 1: 2^p is even, -2^p is even, -2^p + 1 is odd.
+      have h_2p_even : Even ((2 : ℤ) ^ (p : ℕ)) := by
+        refine ⟨(2 : ℤ) ^ ((p : ℕ) - 1), ?_⟩
+        have := Dyadic.two_pow_succ_pred p.pos
+        linarith
+      have h_neg_2p_even : Even (-((2 : ℤ) ^ (p : ℕ))) := h_2p_even.neg
+      exact h_neg_2p_even.add_one
+
+/-- An `IsOdd` value is nonzero. -/
+theorem IsOdd.ne_zero {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
+    y ≠ 0 := by
+  intro hy0
+  obtain ⟨c, e, ⟨hyeq, hlow, _⟩, _⟩ := h
+  rw [hy0] at hyeq
+  have h2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
+  have hc_zero : (c : ℝ) = 0 := by
+    push_cast at hyeq
+    rcases mul_eq_zero.mp hyeq.symm with h | h
+    · exact h
+    · linarith
+  have hc_zero_int : c = 0 := by exact_mod_cast hc_zero
+  rw [hc_zero_int, abs_zero] at hlow
+  have : (1 : ℤ) ≤ (2 : ℤ) ^ ((F.toFiniteFormat.numDigits ((y : Dyadic) : ℝ)).toNat - 1) :=
+    one_le_pow₀ (by norm_num)
+  linarith
 
 end ParityFormat
 
