@@ -135,6 +135,11 @@ lower-level `binade_le_floor` / `ceil_le_binade` arithmetic):
 - In `Mpfx2/RoundOp.lean`:
   - `ofIntZpow_mem_unbounded` — `Dyadic.ofIntZpow k e ∈ F.unbounded`.
   - `floor_mantissa_lt` — `|x · 2^(-canonicalExp x)| < 2^p`.
+  - **Refactoring**: `_toNegative`, `_toPositive`, `_toZero`,
+    `_awayZero` `_satisfies` proofs now use `ofIntZpow_mem_unbounded`
+    + `floor_mantissa_lt` for membership (~180 LoC removed from
+    duplicated inline mantissa-bound and quantum-shift proofs).
+    File reduced from 1589 → 1412 lines.
 - In `Mpfx2/Format.lean`:
   - `numDigits_zero`, `numDigits_neg`, `numDigits_top_coe`,
     `numDigits_coe_bot`, `numDigits_coe_coe` — evaluators.
@@ -155,6 +160,67 @@ lower-level `binade_le_floor` / `ceil_le_binade` arithmetic):
   - `Format.unbounded_isUndefined` — `F.unbounded.IsUndefined rm =
     F.IsUndefined rm` (by `rfl`). Resolves the F-vs-F.unbounded
     bridge issue cleanly.
+
+**`_toOdd` satisfies — structural proof complete; floating-point
+case fully discharged**:
+- Full structural assembly of `_toOdd` satisfies (~150 LoC).
+- Exact case (`(lo : ℝ) = s`): ✓ vacuous parity.
+- `IsOdd dlo` case: ✓ direct via bridge.
+- `¬ IsOdd dlo` case, `F.p = (p:ℕ+) ≠ 1, F.exp = ⊥`: ✓ uses
+  `alternating_parity_floating` with bounds derived from canonical
+  exponent (~80 LoC of bounds derivation).
+- Remaining sub-sorries in `_toOdd` satisfies:
+  - `F.p = ⊤, F.exp = (e' : ℤ)` case.
+  - `F.p = (p:ℕ+), F.exp = (e' : ℤ)` case.
+
+**`_toOdd_unique` — floating-point case fully proven**:
+- `h_mixed_eq` helper: handles "y RoundDown, y' RoundUp" via case-split.
+- **`y = x` and `y' = x` sub-cases**: ✓ proven via min/max property.
+- **Strict sub-case (`y < x < y'`)**:
+  - **F.p = (p:ℕ+), F.exp = ⊥** (floating-point): ✓ fully proven.
+    Identifies `y = dlo` (via `_satisfies_toNegative` + uniqueness) and
+    `y' = dhi` (via `_satisfies_toPositive` + `⌈⌉ = ⌊⌋+1` in non-exact),
+    bridges `F_y.IsOdd ↔ F''.IsOdd` via `IsOdd_iff_of_toFormat_eq`,
+    derives `2^(p-1) ≤ |lo|, |lo+1|` from canonical exponent + strict
+    inequality, applies `not_both_isOdd_floating` → contradiction.
+  - **F.p = ⊤** (fixed-point): sub-sorry. Needs analog of
+    `not_both_isOdd_floating` for fixed-point case.
+  - **F.exp = (e':ℤ)** (mixed): sub-sorry. Same.
+- Both RoundDown / Both RoundUp cases: ✓ fully proved.
+
+**New keystone**: `IsOdd_iff_of_toFormat_eq` (in `Format.lean`):
+`F1.IsOdd y ↔ F2.IsOdd y` when `F1.toFormat = F2.toFormat`.
+Proven via destructuring + `cases h; rfl` using Lean's proof
+irrelevance for ParityFormat's Prop fields. This unblocks all
+parity-mode proofs that need to bridge between different ParityFormat
+witnesses.
+
+**Mixed case (`F.p = (p:ℕ+), F.exp = (e':ℤ)`) — scope clarified, deferred**:
+The mixed case has **three** sub-cases:
+1. `F.p ≠ 1`, normal regime (`e = log|x|+1-p > e'`): like floating-point.
+   `numDigits y = min(p, log|y|-e'+1) = p`. Saturation at `|c| = 2^p` possible.
+2. `F.p ≠ 1`, subnormal regime (`e = e' ≥ log|x|+1-p`): like fixed-point.
+   `numDigits y = log|y|-e'+1`. No saturation.
+3. **`F.p = 1`**: critical insight — `(p = 1, exp = (e':ℤ))` is NOT undefined
+   (the undefined clause requires `exp = ⊥`). So `p = 1` must be handled, and
+   it uses **exponent-index parity** (the second branch of `IsOdd`'s `if`),
+   fundamentally different from significand-c parity.
+
+Each sub-case needs analog of `alternating_parity_*` / `not_both_isOdd_*`:
+- Sub-cases 1, 2: analogous to existing floating/fixed lemmas; case-split
+  on regime, then derive bounds + apply IsRepresentableAtP characterization.
+- Sub-case 3 (`p = 1`): requires new infrastructure for exponent-index
+  parity in `IsOdd` (the `Odd (e - e' + 1)` branch).
+
+**Fixed-point parity infrastructure complete** (`F.p = ⊤, F.exp = (e':ℤ)`):
+- `log_abs_mul_zpow` — `Int.log 2 |k·2^e'| = Int.log 2 |k| + e'`.
+- `isOdd_iff_odd_at_canonical_fixedpoint` — `IsOdd (k·2^e') ↔ Odd k`.
+  No saturation since `numDigits = log|k| + 1` adapts to `|k|`.
+- `alternating_parity_fixedpoint` — `¬ IsOdd dlo → IsOdd dhi`.
+  Handles `lo = 0` (dlo = 0) and `lo = -1` (lo+1 = 0) edge cases.
+- `not_both_isOdd_fixedpoint` — XOR direction.
+- **Applied in `_toOdd_satisfies` F.p = ⊤ case** ✓ closed.
+- **Applied in `_toOdd_unique` F.p = ⊤ case** ✓ closed.
 
 **Parity infrastructure now complete for floating-point case
 (`F.exp = ⊥`)**:
