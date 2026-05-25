@@ -195,7 +195,22 @@ irrelevance for ParityFormat's Prop fields. This unblocks all
 parity-mode proofs that need to bridge between different ParityFormat
 witnesses.
 
-**Mixed case (`F.p = (p:ℕ+), F.exp = (e':ℤ)`) — scope clarified, deferred**:
+**Mixed case (`F.p = (p:ℕ+), F.exp = (e':ℤ)`) — IsOdd characterizations done, application pending**:
+- ✅ **`isOdd_iff_odd_at_canonical_mixed_normal`** (Format.lean): For
+  `p ≤ log|y|-e'+1` (normal regime), `numDigits = p`, IsOdd ↔ Odd k
+  via IsRepresentableAtP at p bits.
+- ✅ **`isOdd_iff_odd_at_canonical_mixed_subnormal`** (Format.lean): For
+  `p ≥ log|y|-e'+1` (subnormal regime), `numDigits = log|y|-e'+1`,
+  IsOdd ↔ Odd k via IsRepresentableAtP at the variable precision.
+- ⏳ **Pending**: unified `alternating_parity_mixed_pne1` /
+  `not_both_isOdd_mixed_pne1` that case-split on regime, derive
+  appropriate mantissa bounds (`|lo|, |lo+1| ≤ 2^p` upper, varying
+  lower depending on regime), and apply the characterizations. ~150 LoC.
+- ⏳ **`F.p = 1` sub-case**: separate infrastructure for the
+  exponent-index parity branch of `IsOdd` (the `Odd (e - e' + 1)`
+  case). Different proof structure entirely.
+
+
 The mixed case has **three** sub-cases:
 1. `F.p ≠ 1`, normal regime (`e = log|x|+1-p > e'`): like floating-point.
    `numDigits y = min(p, log|y|-e'+1) = p`. Saturation at `|c| = 2^p` possible.
