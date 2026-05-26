@@ -99,6 +99,126 @@ theorem containsSub {F₁ F₂ : Format}
   · exact Dyadic.quantumAtLeast_anti he hex
   · exact boundOK_mono hb hbx
 
+/-! ### Format extension
+
+`F.extend k` adds `k` bits of precision and lowers the minimum quantum by
+`k` (bound unchanged). Used by §5.2 to phrase the double-rounding rules'
+intermediate formats `A(p₁ + k, exp₁ − k, b₁)`. -/
+
+/-- Extend `F` by `k` bits: `p ↦ p + k`, `exp ↦ exp − k`, `b` unchanged. -/
+def extend (F : Format) (k : ℕ+) : Format where
+  p := F.p.map (· + k)
+  exp := F.exp.map (· - (k : ℤ))
+  b := F.b
+
+@[simp] theorem extend_b (F : Format) (k : ℕ+) : (F.extend k).b = F.b := rfl
+
+/-- `F ⊆ F.extend k`: extending only relaxes the precision and quantum
+constraints. -/
+theorem self_subset_extend (F : Format) (k : ℕ+) : F ⊆ F.extend k := by
+  apply containsPrec
+  · change F.p ≤ F.p.map (· + k)
+    cases F.p with
+    | top => simp
+    | coe n =>
+      rw [WithTop.map_coe]
+      exact WithTop.coe_le_coe.mpr (by exact_mod_cast Nat.le_add_right (n : ℕ) (k : ℕ))
+  · change F.exp.map (· - (k : ℤ)) ≤ F.exp
+    cases F.exp with
+    | bot => simp
+    | coe e =>
+      rw [WithBot.map_coe]
+      exact WithBot.coe_le_coe.mpr (sub_le_self e (by positivity))
+  · exact le_refl _
+
+/-- `extend` is monotone in the bit count: `F.extend j ⊆ F.extend k` when `j ≤ k`. -/
+theorem extend_mono (F : Format) {j k : ℕ+} (h : j ≤ k) :
+    F.extend j ⊆ F.extend k := by
+  apply containsPrec
+  · change F.p.map (· + j) ≤ F.p.map (· + k)
+    cases F.p with
+    | top => simp
+    | coe n =>
+      rw [WithTop.map_coe, WithTop.map_coe]
+      refine WithTop.coe_le_coe.mpr ?_
+      have hjk : (j : ℕ) ≤ (k : ℕ) := by exact_mod_cast h
+      exact_mod_cast Nat.add_le_add_left hjk (n : ℕ)
+  · change F.exp.map (· - (k : ℤ)) ≤ F.exp.map (· - (j : ℤ))
+    cases F.exp with
+    | bot => simp
+    | coe e =>
+      rw [WithBot.map_coe, WithBot.map_coe]
+      have hjk : (j : ℤ) ≤ (k : ℤ) := by exact_mod_cast h
+      exact WithBot.coe_le_coe.mpr (by omega)
+  · exact le_refl _
+
 end Format
+
+namespace FiniteFormat
+
+/-- Extend a `FiniteFormat` by `k` bits. The `finite` invariant is preserved:
+`extend` only grows `p` (a finite `p` stays finite) and only shrinks `exp`
+(a finite `exp` stays finite). -/
+def extend (F : FiniteFormat) (k : ℕ+) : FiniteFormat where
+  toFormat := F.toFormat.extend k
+  finite := by
+    rcases F.finite with hp | he
+    · left
+      change F.toFormat.p.map (· + k) ≠ ⊤
+      cases hF : F.toFormat.p with
+      | top => exact absurd hF hp
+      | coe n => rw [WithTop.map_coe]; exact WithTop.coe_ne_top
+    · right
+      change F.toFormat.exp.map (· - (k : ℤ)) ≠ ⊥
+      cases hF : F.toFormat.exp with
+      | bot => exact absurd hF he
+      | coe e => rw [WithBot.map_coe]; exact WithBot.coe_ne_bot
+
+@[simp] theorem extend_toFormat (F : FiniteFormat) (k : ℕ+) :
+    (F.extend k).toFormat = F.toFormat.extend k := rfl
+
+/-- **Lemma 5.2**: extending `F` by `k` increases the digit count of every
+nonzero `x` by exactly `k`. -/
+theorem numDigits_extend (F : FiniteFormat) (k : ℕ+) {x : ℝ} (hx : x ≠ 0) :
+    (F.extend k).numDigits x = F.numDigits x + k := by
+  have hp_ext : (F.extend k).toFormat.p = F.toFormat.p.map (· + k) := rfl
+  have he_ext : (F.extend k).toFormat.exp = F.toFormat.exp.map (· - (k : ℤ)) := rfl
+  cases hp : F.toFormat.p with
+  | top =>
+    cases hexp : F.toFormat.exp with
+    | bot =>
+      exfalso; rcases F.finite with h | h
+      · exact h hp
+      · exact h hexp
+    | coe e' =>
+      have hpe : (F.extend k).toFormat.p = ⊤ := by rw [hp_ext, hp]; rfl
+      have hee : (F.extend k).toFormat.exp = ((e' - (k : ℤ) : ℤ) : WithBot ℤ) := by
+        rw [he_ext, hexp, WithBot.map_coe]
+      rw [F.numDigits_top_coe hx hexp hp,
+          (F.extend k).numDigits_top_coe hx hee hpe]
+      ring
+  | coe n =>
+    cases hexp : F.toFormat.exp with
+    | bot =>
+      have hpe : (F.extend k).toFormat.p = (((n + k : ℕ+)) : WithTop ℕ+) := by
+        rw [hp_ext, hp, WithTop.map_coe]
+      have hee : (F.extend k).toFormat.exp = ⊥ := by rw [he_ext, hexp]; rfl
+      rw [F.numDigits_coe_bot hx hp hexp,
+          (F.extend k).numDigits_coe_bot hx hpe hee]
+      push_cast; ring
+    | coe e' =>
+      have hpe : (F.extend k).toFormat.p = (((n + k : ℕ+)) : WithTop ℕ+) := by
+        rw [hp_ext, hp, WithTop.map_coe]
+      have hee : (F.extend k).toFormat.exp = ((e' - (k : ℤ) : ℤ) : WithBot ℤ) := by
+        rw [he_ext, hexp, WithBot.map_coe]
+      rw [F.numDigits_coe_coe hx hp hexp,
+          (F.extend k).numDigits_coe_coe hx hpe hee]
+      have hnk : (((n + k : ℕ+) : ℕ) : ℤ) = (n : ℤ) + (k : ℤ) := by push_cast; ring
+      rw [hnk]
+      have hlog : Int.log 2 |x| - (e' - (k : ℤ)) + 1
+          = Int.log 2 |x| - e' + 1 + (k : ℤ) := by ring
+      rw [hlog]; omega
+
+end FiniteFormat
 
 end Mpfx2

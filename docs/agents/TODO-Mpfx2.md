@@ -80,8 +80,13 @@ Mpfx2/
 │                   FiniteFormat.toParityFormatOf{ToOdd,NearestEven},
 │                   rndUnbounded, rnd (with overflow-sign computation),
 │                   rnd_iff_rounds
-└── Containment.lean §5.1 / Fig. 8: Format.Subset + HasSubset,
-                    boundOK_mono, nnPow, containsPrec, containsSub
+├── Containment.lean §5.1 / Fig. 8: Format.Subset + HasSubset,
+│                   boundOK_mono, nnPow, containsPrec, containsSub,
+│                   Format.extend + self_subset_extend + extend_mono,
+│                   FiniteFormat.extend + numDigits_extend (Lemma 5.2)
+└── Digits.lean     §5.1-supporting digit/parity-transfer lemmas:
+                    numDigits_le_one_of_p_one, precisionAtMost_not_IsOdd
+                    (Lemma 5.3 corollary); main Lemma 5.3 (RTO padding) TBD
 ```
 
 ## Substrate (done)
@@ -211,22 +216,33 @@ In `Mpfx2/Containment.lean` (proved entirely over `ℚ`):
       `b₁ ≤ b₂` ⟹ `F₁ ⊆ F₂`.
 - [x] `containsSub` — `𝒜-Contains-Sub`: degenerate case where `F₁`'s bound
       `≤ 2^(exp₁+p₂)` lets `F₁.p > F₂.p`. Uses `nnPow` helper.
+- [x] **Format-extension API**: `Format.extend k` (`p ↦ p+k`, `exp ↦ exp−k`,
+      `b` unchanged; `k : ℕ+`), `self_subset_extend` (`F ⊆ F.extend k`),
+      `extend_mono` (`j ≤ k → F.extend j ⊆ F.extend k`). All via `containsPrec`.
+- [x] `FiniteFormat.extend` lift (preserves the `finite` invariant) +
+      `extend_toFormat` simp lemma.
 
 Still open:
 
-- [ ] Format-extension API (`F.extend k` and `self_subset_extend`,
-      `extend_mono`). Needed for the §5.2 double-rounding rules' phrasing
-      `A(p₁+k, exp₁−k, …) ⊆ F₂`.
+- [ ] Bound-changing API (`withBound` / `next`) used by the RTO-composition
+      rules' `A(p₁+1, exp₁−1, next b₁) ⊆ F₂` phrasing.
 
 ## Open: Digits + parity (§5.1 supporting)
 
-- [ ] `numDigits_shift` — Lemma 5.2: shifting `(p, exp)` by `(+k, -k)`
-      shifts digit count by `+k`.
-- [ ] `numDigits_extend` — Lemma 5.2 applied to `F.extend`.
-- [ ] `precisionAtMost_not_IsOdd` — Lemma 5.3 corollary: low-precision
-      values can't be `IsOdd` at higher numDigits.
+- [x] **Lemma 5.2** (`FiniteFormat.numDigits_extend`): extending `F` by `k`
+      increases `numDigits x` by exactly `k` (for `x ≠ 0`). In
+      `Containment.lean`. (No separate raw-`(p,exp)` `numDigits_shift` —
+      `numDigits` is keyed on `FiniteFormat`, so `numDigits_extend` *is* the
+      Lemma 5.2 statement.)
+- [x] **Lemma 5.3 corollary** — `ParityFormat.precisionAtMost_not_IsOdd`
+      (+ prereq `FiniteFormat.numDigits_le_one_of_p_one`): if `y` has
+      precision `≤ w` and `numDigits F y > w`, then `¬ F.IsOdd y`. In
+      `Mpfx2/Digits.lean`; ported over ℚ (cleaner than the ℝ original).
 - [ ] Lemma 5.3 itself (RTO digit-padding preserves representability) —
       the pivotal lemma for all RTO-composition double-rounding rules.
+      The main transfer lemmas (`numDigits_eq_of_subset_of_isOdd`,
+      `IsOdd.transfer_of_numDigits_eq`) take `F₁ ⊆ F₂`, so they depend on
+      `Containment` — natural home is `Digits.lean` (imports Containment).
 
 ## Rounding API extensions (done)
 
