@@ -638,33 +638,34 @@ theorem RoundsFinite.toPositive_iff_awayZero_of_nonneg
     · rw [abs_of_nonneg hx, abs_of_nonneg hy_nn]; exact hxy
     · intro z hz hxz hzx
       rw [abs_of_nonneg hx] at hxz
-      rcases eq_or_lt_of_le hx with hx0 | hx_pos
+      rcases eq_or_lt_of_le hx with rfl | hx_pos
       · have h_zero_in : (0 : Dyadic) ∈ F := FiniteFormat.zero_mem F
-        have hy_le_zero := h_min 0 h_zero_in (by rw [dyadic_coe_zero, ← hx0])
+        have hy_le_zero := h_min 0 h_zero_in (by rw [dyadic_coe_zero])
         rw [dyadic_coe_zero] at hy_le_zero
         have hy_eq : (y : ℝ) = 0 := le_antisymm hy_le_zero hy_nn
         rw [hy_eq, abs_zero]; exact abs_nonneg _
       · have hz_nn : (0 : ℝ) ≤ (z : ℝ) := by
           by_contra hz_neg
-          push_neg at hz_neg
+          rw [not_le] at hz_neg
           linarith [mul_neg_of_neg_of_pos hz_neg hx_pos]
         rw [abs_of_nonneg hz_nn] at hxz
         rw [abs_of_nonneg hy_nn, abs_of_nonneg hz_nn]
         exact h_min z hz hxz
   · rintro ⟨h_xa, h_zx, h_min⟩
     rw [abs_of_nonneg hx] at h_xa
-    rcases eq_or_lt_of_le hx with hx0 | hx_pos
+    rcases eq_or_lt_of_le hx with rfl | hx_pos
     · have h_zero_in : (0 : Dyadic) ∈ F := FiniteFormat.zero_mem F
       have h := h_min 0 h_zero_in
-        (by rw [dyadic_coe_zero, abs_zero, ← hx0]; exact abs_nonneg _)
-        (by rw [dyadic_coe_zero]; linarith)
+        (by rw [dyadic_coe_zero])
+        (by rw [dyadic_coe_zero]; simp)
       rw [dyadic_coe_zero, abs_zero] at h
       have hy_abs_zero : |(y : ℝ)| = 0 := le_antisymm h (abs_nonneg _)
       have hy_eq : (y : ℝ) = 0 := abs_eq_zero.mp hy_abs_zero
-      refine ⟨by rw [hy_eq, ← hx0], ?_⟩
+      refine ⟨by rw [hy_eq], ?_⟩
       intro z hz hxz
       rw [hy_eq]; exact hxz
-    · have hy_nn : (0 : ℝ) ≤ (y : ℝ) := (mul_nonneg_iff_of_pos_right hx_pos).mp h_zx
+    · have hy_nn : (0 : ℝ) ≤ (y : ℝ) :=
+        (mul_nonneg_iff_of_pos_right hx_pos).mp h_zx
       rw [abs_of_nonneg hy_nn] at h_xa
       refine ⟨h_xa, ?_⟩
       intro z hz hxz
@@ -674,5 +675,135 @@ theorem RoundsFinite.toPositive_iff_awayZero_of_nonneg
         (mul_nonneg hz_nn hx_pos.le)
       rw [abs_of_nonneg hy_nn, abs_of_nonneg hz_nn] at h
       exact h
+
+theorem RoundsFinite.toPositive_iff_toZero_of_nonpos
+    (F : FiniteFormat) {x : ℝ} (hx : x ≤ 0) (y : Dyadic) :
+    RoundsFinite F .toPositive x y ↔ RoundsFinite F .toZero x y := by
+  unfold RoundsFinite
+  refine and_congr_right' ?_
+  constructor
+  · rintro ⟨hxy, h_min⟩
+    have h_zero_in : (0 : Dyadic) ∈ F := FiniteFormat.zero_mem F
+    have hy_le_zero : (y : ℝ) ≤ 0 := by
+      have := h_min 0 h_zero_in (by rw [dyadic_coe_zero]; exact hx)
+      rwa [dyadic_coe_zero] at this
+    refine ⟨?_, ?_, ?_⟩
+    · rw [abs_of_nonpos hx, abs_of_nonpos hy_le_zero]; linarith
+    · nlinarith
+    · intro z hz hzabs hzx
+      rw [abs_of_nonpos hx] at hzabs
+      rcases eq_or_lt_of_le hx with hx0 | hx_neg
+      · subst hx0
+        have hxy' : (y : ℝ) ≥ 0 := hxy
+        have hy_eq : (y : ℝ) = 0 := le_antisymm hy_le_zero hxy'
+        rw [hy_eq, abs_zero]
+        have h_z_zero : (z : ℝ) = 0 := by
+          have : |(z : ℝ)| ≤ 0 := by linarith
+          have := abs_nonneg (z : ℝ)
+          have : |(z : ℝ)| = 0 := by linarith
+          exact abs_eq_zero.mp this
+        rw [h_z_zero, abs_zero]
+      · have hz_nonpos : (z : ℝ) ≤ 0 := by
+          by_contra hz_pos
+          rw [not_le] at hz_pos
+          have : (z : ℝ) * x < 0 := mul_neg_of_pos_of_neg hz_pos hx_neg
+          linarith
+        rw [abs_of_nonpos hz_nonpos] at hzabs
+        have hxz : x ≤ (z : ℝ) := by linarith
+        have h_y_le_z := h_min z hz hxz
+        rw [abs_of_nonpos hy_le_zero, abs_of_nonpos hz_nonpos]
+        linarith
+  · rintro ⟨hya, h_yx, h_min⟩
+    rw [abs_of_nonpos hx] at hya
+    rcases eq_or_lt_of_le hx with hx0 | hx_neg
+    · subst hx0
+      have hy_abs_zero : |(y : ℝ)| ≤ 0 := by linarith
+      have hy_eq : (y : ℝ) = 0 := by
+        have hnn := abs_nonneg (y : ℝ)
+        have habs : |(y : ℝ)| = 0 := le_antisymm hy_abs_zero hnn
+        exact abs_eq_zero.mp habs
+      refine ⟨by rw [hy_eq], ?_⟩
+      intro z hz hxz
+      rw [hy_eq]; exact hxz
+    · have hy_le_zero : (y : ℝ) ≤ 0 := by
+        by_contra h_pos
+        rw [not_le] at h_pos
+        have : (y : ℝ) * x < 0 := mul_neg_of_pos_of_neg h_pos hx_neg
+        linarith
+      rw [abs_of_nonpos hy_le_zero] at hya
+      refine ⟨by linarith, ?_⟩
+      intro z hz hxz
+      by_cases hz_np : (z : ℝ) ≤ 0
+      · have hzabs : |(z : ℝ)| ≤ |x| := by
+          rw [abs_of_nonpos hx, abs_of_nonpos hz_np]; linarith
+        have hzx : (z : ℝ) * x ≥ 0 := by
+          have : (z : ℝ) * x = (-(z : ℝ)) * (-x) := by ring
+          rw [this]
+          exact mul_nonneg (neg_nonneg.mpr hz_np) (neg_nonneg.mpr hx_neg.le)
+        have h := h_min z hz hzabs hzx
+        rw [abs_of_nonpos hy_le_zero, abs_of_nonpos hz_np] at h
+        linarith
+      · push Not at hz_np
+        linarith
+
+theorem Rounds.toPositive_iff_awayZero_of_nonneg
+    (F : FiniteFormat) {x : ℝ} (hx : 0 ≤ x) (r : RoundResult) :
+    Rounds F .toPositive x r ↔ Rounds F .awayZero x r := by
+  have hu : F.IsUndefined .toPositive ↔ F.IsUndefined .awayZero := by
+    simp [FiniteFormat.IsUndefined]
+  cases r with
+  | undefined => simpa [Rounds] using hu
+  | overflow b =>
+      simp only [Rounds]
+      refine and_congr (not_congr hu) ?_
+      refine ⟨fun ⟨y, h_rf, rest⟩ => ⟨y,
+        (RoundsFinite.toPositive_iff_awayZero_of_nonneg F.unbounded hx y).mp h_rf, rest⟩,
+              fun ⟨y, h_rf, rest⟩ => ⟨y,
+        (RoundsFinite.toPositive_iff_awayZero_of_nonneg F.unbounded hx y).mpr h_rf, rest⟩⟩
+  | finite y =>
+      simp only [Rounds]
+      refine and_congr (not_congr hu) (and_congr ?_ Iff.rfl)
+      exact RoundsFinite.toPositive_iff_awayZero_of_nonneg F.unbounded hx y
+
+theorem Rounds.toPositive_iff_toZero_of_nonpos
+    (F : FiniteFormat) {x : ℝ} (hx : x ≤ 0) (r : RoundResult) :
+    Rounds F .toPositive x r ↔ Rounds F .toZero x r := by
+  have hu : F.IsUndefined .toPositive ↔ F.IsUndefined .toZero := by
+    simp [FiniteFormat.IsUndefined]
+  cases r with
+  | undefined => simpa [Rounds] using hu
+  | overflow b =>
+      simp only [Rounds]
+      refine and_congr (not_congr hu) ?_
+      refine ⟨fun ⟨y, h_rf, rest⟩ => ⟨y,
+        (RoundsFinite.toPositive_iff_toZero_of_nonpos F.unbounded hx y).mp h_rf, rest⟩,
+              fun ⟨y, h_rf, rest⟩ => ⟨y,
+        (RoundsFinite.toPositive_iff_toZero_of_nonpos F.unbounded hx y).mpr h_rf, rest⟩⟩
+  | finite y =>
+      simp only [Rounds]
+      refine and_congr (not_congr hu) (and_congr ?_ Iff.rfl)
+      exact RoundsFinite.toPositive_iff_toZero_of_nonpos F.unbounded hx y
+
+/-- Derived from `toPositive_iff_toZero_of_nonpos` via the RTN↔RTP and
+RTZ self-symmetry theorems. -/
+theorem Rounds.toNegative_iff_toZero_of_nonneg
+    (F : FiniteFormat) {x : ℝ} (hx : 0 ≤ x) (r : RoundResult) :
+    Rounds F .toNegative x r ↔ Rounds F .toZero x r := by
+  have h1 := Rounds.neg_toNegative_iff_toPositive F x r
+  have h2 :=
+    Rounds.toPositive_iff_toZero_of_nonpos F (neg_nonpos.mpr hx) r.neg
+  have h3 := (Rounds.neg_toZero F x r).symm
+  exact h1.trans (h2.trans h3)
+
+/-- Derived from `toPositive_iff_awayZero_of_nonneg` via the RTN↔RTP and
+RAZ self-symmetry theorems. -/
+theorem Rounds.toNegative_iff_awayZero_of_nonpos
+    (F : FiniteFormat) {x : ℝ} (hx : x ≤ 0) (r : RoundResult) :
+    Rounds F .toNegative x r ↔ Rounds F .awayZero x r := by
+  have h1 := Rounds.neg_toNegative_iff_toPositive F x r
+  have h2 :=
+    Rounds.toPositive_iff_awayZero_of_nonneg F (neg_nonneg.mpr hx) r.neg
+  have h3 := (Rounds.neg_awayZero F x r).symm
+  exact h1.trans (h2.trans h3)
 
 end Mpfx2
