@@ -69,6 +69,42 @@ theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
       change |((0 : Dyadic) : ℝ)| ≤ ((b.val : Dyadic) : ℝ)
       simpa using b.property
 
+/-- Canonical exponent for representing `x` in `F`. Junk value `0` when
+`Format.IsUndefined F _` (those cases are filtered earlier). -/
+noncomputable def canonicalExp (F : Format) (x : ℝ) : ℤ :=
+  match F.p, F.exp with
+  | ⊤, ⊥ => 0  -- junk; never used (filtered by IsUndefined)
+  | ⊤, (e : ℤ) => e
+  | (p : ℕ+), ⊥ =>
+      if x = 0 then 0 else Int.log 2 |x| + 1 - (p : ℤ)
+  | (p : ℕ+), (e : ℤ) =>
+      if x = 0 then e
+      else max (Int.log 2 |x| + 1 - (p : ℤ)) e
+
+/-- The canonical exponent dominates `F.exp` whenever `F.exp` is finite.
+Needed to discharge `quantumAtLeast F.exp` for the rounded value. -/
+theorem exp_le_canonicalExp (F : Format) (x : ℝ)
+    {e' : ℤ} (hexp : F.exp = (e' : WithBot ℤ)) :
+    e' ≤ F.canonicalExp x := by
+  unfold canonicalExp
+  cases hp : F.p with
+  | top => simp [hexp]
+  | coe p =>
+    simp only [hexp]
+    split_ifs
+    · exact le_refl _
+    · exact le_max_right _ _
+
+/-- The canonical exponent dominates `Int.log 2 |x| + 1 - p` whenever
+`F.p` is finite and `x ≠ 0`. Needed to bound `|⌊x · 2^(-e)⌋| ≤ 2^p`. -/
+theorem log_sub_p_le_canonicalExp (F : Format) {x : ℝ} (hx : x ≠ 0)
+    {p : ℕ+} (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) :
+    Int.log 2 |x| + 1 - (p : ℤ) ≤ F.canonicalExp x := by
+  unfold canonicalExp
+  cases F.exp with
+  | bot => simp [hp, hx]
+  | coe e' => simp [hp, hx]
+
 end Format
 
 /-! ### Subtype hierarchy
@@ -95,7 +131,27 @@ one of `p`, `exp` is finite. Equivalently `¬ (p = ⊤ ∧ exp = ⊥)`. -/
 structure FiniteFormat extends Format where
   finite : toFormat.p ≠ ⊤ ∨ toFormat.exp ≠ ⊥
 
+instance : Membership Dyadic FiniteFormat := ⟨fun F d => d ∈ F.toFormat⟩
+
 namespace FiniteFormat
+
+/-- Zero is in every (finite) format. -/
+theorem zero_mem (F : FiniteFormat) : (0 : Dyadic) ∈ F := Format.zero_mem F.toFormat
+
+/-- `F` with the magnitude bound removed (`b := ⊤`). Used by the
+satisfies-spec to define the unbounded rounding. The `finite` invariant
+depends only on `(p, exp)`, so it's preserved. -/
+def unbounded (F : FiniteFormat) : FiniteFormat where
+  toFormat := F.toFormat.unbounded
+  finite := F.finite
+
+@[simp] theorem unbounded_toFormat (F : FiniteFormat) :
+    F.unbounded.toFormat = F.toFormat.unbounded := rfl
+@[simp] theorem unbounded_p (F : FiniteFormat) : F.unbounded.p = F.p := rfl
+@[simp] theorem unbounded_exp (F : FiniteFormat) : F.unbounded.exp = F.exp := rfl
+@[simp] theorem unbounded_b (F : FiniteFormat) : F.unbounded.b = ⊤ := rfl
+@[simp] theorem unbounded_unbounded (F : FiniteFormat) :
+    F.unbounded.unbounded = F.unbounded := rfl
 
 /-- **Lemma 5.1**: number of binary digits the format rounds `x` to.
 Case analysis on `(F.p, F.exp)`:

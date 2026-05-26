@@ -63,21 +63,20 @@ inductive RoundResult where
   | undefined : RoundResult
 
 /-- The format/mode pair is degenerate (no meaningful rounding):
+`(1, ⊥, rm)` for `rm ∈ {.toOdd, .nearest .toEven}` — precision `1` with
+no quantum has no anchor for parity, so the modes that consult
+`IsOdd`/`IsEven` are meaningless.
 
-* `(⊤, ⊥, _)` — fully unconstrained; for non-dyadic `x` there is no
-  canonical exponent, since dyadics are dense in `ℝ` but not closed
-  under limits.
-* `(1, ⊥, rm)` for `rm ∈ {.toOdd, .nearest .toEven}` — precision `1`
-  with no quantum has no anchor for parity, so the modes that consult
-  `IsOdd`/`IsEven` are meaningless. -/
-def Format.IsUndefined (F : Format) (rm : RoundingMode) : Prop :=
-  (F.p = ⊤ ∧ F.exp = ⊥) ∨
-  (F.p = (1 : ℕ+) ∧ F.exp = ⊥ ∧
-    (rm = .toOdd ∨ rm = .nearest .toEven))
+The `(⊤, ⊥)` case (fully unconstrained) is structurally excluded by
+`FiniteFormat`'s `finite` invariant. -/
+def FiniteFormat.IsUndefined (F : FiniteFormat) (rm : RoundingMode) : Prop :=
+  F.p = (1 : ℕ+) ∧ F.exp = ⊥ ∧
+    (rm = .toOdd ∨ rm = .nearest .toEven)
 
 /-- `IsUndefined` depends only on `(F.p, F.exp)`, both preserved by
-`F.unbounded`. So `F.unbounded.IsUndefined rm = F.IsUndefined rm`. -/
-@[simp] theorem Format.unbounded_isUndefined (F : Format) (rm : RoundingMode) :
+`F.unbounded`. -/
+@[simp] theorem FiniteFormat.unbounded_isUndefined (F : FiniteFormat)
+    (rm : RoundingMode) :
     F.unbounded.IsUndefined rm = F.IsUndefined rm := rfl
 
 /-! ### The specification relation `Rounds`
@@ -103,7 +102,7 @@ fires if and only if that candidate is out of range. -/
 /-- A *faithful* rounding of `x`: `y ∈ F` is either the largest F-element
 ≤ `x` (RTN) or the smallest F-element ≥ `x` (RTP). All of RTO, RNE, RNA
 require their result to be faithful. -/
-def IsFaithfulRound (F : Format) (x : ℝ) (y : Dyadic) : Prop :=
+def IsFaithfulRound (F : FiniteFormat) (x : ℝ) (y : Dyadic) : Prop :=
   (y ∈ F ∧ (y : ℝ) ≤ x ∧ ∀ z : Dyadic, z ∈ F → (z : ℝ) ≤ x → (z : ℝ) ≤ (y : ℝ)) ∨
   (y ∈ F ∧ x ≤ (y : ℝ) ∧ ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ))
 
@@ -114,7 +113,8 @@ def IsFaithfulRound (F : Format) (x : ℝ) (y : Dyadic) : Prop :=
 /-- The finite-result rounding spec: when `r = .finite y`, this is the
 mode-specific condition `y` must satisfy. Lifted out of `Rounds` so the
 `.overflow` clause can quantify over its negation. -/
-def RoundsFinite (F : Format) (rm : RoundingMode) (x : ℝ) (y : Dyadic) : Prop :=
+def RoundsFinite (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) :
+    Prop :=
   y ∈ F ∧
   match rm with
   | .toNegative =>
@@ -134,14 +134,14 @@ def RoundsFinite (F : Format) (rm : RoundingMode) (x : ℝ) (y : Dyadic) : Prop 
   | .toOdd =>
       IsFaithfulRound F x y ∧
       (x ≠ (y : ℝ) →
-        ∃ F' : ParityFormat, F'.toFormat = F ∧ F'.IsOdd y)
+        ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsOdd y)
   | .nearest .toEven =>
       IsFaithfulRound F x y ∧
       (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
         |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
       ((∃ z : Dyadic, z ∈ F ∧ IsFaithfulRound F x z ∧
           z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
-        ∃ F' : ParityFormat, F'.toFormat = F ∧ F'.IsEven y)
+        ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsEven y)
   | .nearest .awayZero =>
       IsFaithfulRound F x y ∧
       (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
@@ -152,7 +152,8 @@ def RoundsFinite (F : Format) (rm : RoundingMode) (x : ℝ) (y : Dyadic) : Prop 
 /-- Per-mode, per-result rounding-specification predicate. Dispatches on
 the `RoundResult` constructor; the mode-spec is always against
 `F.unbounded` and the bound `F.b` is checked separately. -/
-def Rounds (F : Format) (rm : RoundingMode) (x : ℝ) (r : RoundResult) : Prop :=
+def Rounds (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (r : RoundResult) :
+    Prop :=
   match r with
   | .undefined => F.IsUndefined rm
   | .overflow  =>

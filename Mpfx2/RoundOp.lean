@@ -24,42 +24,6 @@ namespace Mpfx2
 -- `local` so this taint is scoped to `RoundOp.lean`.
 attribute [local instance] Classical.propDecidable
 
-/-- Canonical exponent for representing `x` in `F`. Junk value `0` when
-`Format.IsUndefined F _` (those cases are filtered earlier). -/
-noncomputable def Format.canonicalExp (F : Format) (x : ℝ) : ℤ :=
-  match F.p, F.exp with
-  | ⊤, ⊥ => 0  -- junk; never used (filtered by IsUndefined)
-  | ⊤, (e : ℤ) => e
-  | (p : ℕ+), ⊥ =>
-      if x = 0 then 0 else Int.log 2 |x| + 1 - (p : ℤ)
-  | (p : ℕ+), (e : ℤ) =>
-      if x = 0 then e
-      else max (Int.log 2 |x| + 1 - (p : ℤ)) e
-
-/-- The canonical exponent dominates `F.exp` whenever `F.exp` is finite.
-Needed to discharge `quantumAtLeast F.exp` for the rounded value. -/
-theorem Format.exp_le_canonicalExp (F : Format) (x : ℝ)
-    {e' : ℤ} (hexp : F.exp = (e' : WithBot ℤ)) :
-    e' ≤ F.canonicalExp x := by
-  unfold canonicalExp
-  cases hp : F.p with
-  | top => simp [hexp]
-  | coe p =>
-    simp only [hexp]
-    split_ifs
-    · exact le_refl _
-    · exact le_max_right _ _
-
-/-- The canonical exponent dominates `Int.log 2 |x| + 1 - p` whenever
-`F.p` is finite and `x ≠ 0`. Needed to bound `|⌊x · 2^(-e)⌋| ≤ 2^p`. -/
-theorem Format.log_sub_p_le_canonicalExp (F : Format) {x : ℝ} (hx : x ≠ 0)
-    {p : ℕ+} (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) :
-    Int.log 2 |x| + 1 - (p : ℤ) ≤ F.canonicalExp x := by
-  unfold canonicalExp
-  cases F.exp with
-  | bot => simp [hp, hx]
-  | coe e' => simp [hp, hx]
-
 /-- For `r` with `|r| < N`, the floor `⌊r⌋` has `|⌊r⌋| ≤ N`. The
 asymmetry: negative floors can saturate (e.g. `⌊-1.5⌋ = -2` with
 `|-1.5| < 2` but `|⌊-1.5⌋| = 2`). -/
@@ -135,31 +99,26 @@ noncomputable def rndParity (F : ParityFormat) (rm : RoundingMode)
       else if F.IsEven dlo then dlo else dhi    -- tie → even
   | _ => dlo   -- unreachable: `rndParity` only called for parity modes
 
-/-- Promote `F : Format` to `ParityFormat` from a `¬ IsUndefined .toOdd`
-witness. The two non-degeneracy invariants both fall out of the
-negation. -/
-private def Format.toParityFormatOfToOdd
-    (F : Format) (h : ¬ F.IsUndefined .toOdd) : ParityFormat := by
-  refine ⟨⟨F, ?_⟩, ?_⟩
-  · by_contra h_neg; push Not at h_neg
-    exact h (Or.inl ⟨h_neg.1, h_neg.2⟩)
-  · by_contra h_neg; push Not at h_neg
-    exact h (Or.inr ⟨h_neg.1, h_neg.2, Or.inl rfl⟩)
+/-- Promote `F : FiniteFormat` to `ParityFormat` from a
+`¬ IsUndefined .toOdd` witness. -/
+private def FiniteFormat.toParityFormatOfToOdd
+    (F : FiniteFormat) (h : ¬ F.IsUndefined .toOdd) : ParityFormat := by
+  refine ⟨F, ?_⟩
+  by_contra h_neg; push Not at h_neg
+  exact h ⟨h_neg.1, h_neg.2, Or.inl rfl⟩
 
-/-- Promote `F : Format` to `ParityFormat` from a
+/-- Promote `F : FiniteFormat` to `ParityFormat` from a
 `¬ IsUndefined (.nearest .toEven)` witness. -/
-private def Format.toParityFormatOfNearestEven
-    (F : Format) (h : ¬ F.IsUndefined (.nearest .toEven)) : ParityFormat := by
-  refine ⟨⟨F, ?_⟩, ?_⟩
-  · by_contra h_neg; push Not at h_neg
-    exact h (Or.inl ⟨h_neg.1, h_neg.2⟩)
-  · by_contra h_neg; push Not at h_neg
-    exact h (Or.inr ⟨h_neg.1, h_neg.2, Or.inr rfl⟩)
+private def FiniteFormat.toParityFormatOfNearestEven
+    (F : FiniteFormat) (h : ¬ F.IsUndefined (.nearest .toEven)) : ParityFormat := by
+  refine ⟨F, ?_⟩
+  by_contra h_neg; push Not at h_neg
+  exact h ⟨h_neg.1, h_neg.2, Or.inr rfl⟩
 
 /-- The unbounded rounding step: produce a `Dyadic` per `rm`, *without*
 checking `F.b`. Used by `rnd` as the candidate value that the bound check
 filters. -/
-noncomputable def rndUnbounded (F : Format) (rm : RoundingMode) (x : ℝ)
+noncomputable def rndUnbounded (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
     (h_undef : ¬ F.IsUndefined rm) : Dyadic :=
   if h1 : rm = .toOdd then
     rndParity (F.toParityFormatOfToOdd (h1 ▸ h_undef)) .toOdd x (F.canonicalExp x)
@@ -173,7 +132,7 @@ noncomputable def rndUnbounded (F : Format) (rm : RoundingMode) (x : ℝ)
 Dispatches to `rndUnbounded` for the round-without-bound value, then
 checks the format's magnitude bound: if the rounded result fits, return
 `.finite y`; otherwise `.overflow`. -/
-noncomputable def rnd (F : Format) (rm : RoundingMode) (x : ℝ) : RoundResult :=
+noncomputable def rnd (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) : RoundResult :=
   if h_undef : F.IsUndefined rm then
     .undefined
   else
@@ -314,8 +273,7 @@ private theorem ceil_le_binade {p : ℕ+} {x : ℝ} (hx : x ≠ 0)
 /-- Generic floor-minimality: if `z ∈ F.unbounded` and `z ≤ x`, then `z` is
 ≤ the floor-projection of `x` at the canonical exponent. Used by `_toNegative`
 (directly) and by `_toZero` (for the `0 ≤ x` branch). -/
-private theorem floor_minimality (F : Format)
-    (h_not_undef : ¬ (F.p = ⊤ ∧ F.exp = ⊥)) (x : ℝ) {z : Dyadic}
+private theorem floor_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
     (hz_prec : Dyadic.precisionAtMost F.p z)
     (hz_quant : Dyadic.quantumAtLeast F.exp z) (hz_le_x : (z : ℝ) ≤ x) :
     (z : ℝ) ≤ (⌊x * (2 : ℝ) ^ (-(F.canonicalExp x))⌋ : ℝ) *
@@ -326,7 +284,11 @@ private theorem floor_minimality (F : Format)
   cases hp : F.p with
   | top =>
     cases hexp : F.exp with
-    | bot => exact absurd ⟨hp, hexp⟩ h_not_undef
+    | bot =>
+      exfalso
+      rcases F.finite with h | h
+      · exact h hp
+      · exact h hexp
     | coe e' =>
       have h_e_eq : e = e' := by
         change F.canonicalExp x = e'
@@ -449,8 +411,7 @@ private theorem floor_minimality (F : Format)
 
 /-- Mirror of `floor_minimality`: ceil-projection is the smallest F-element
 ≥ x. Used by `_toPositive` (directly) and by `_toZero` (`x ≤ 0` branch). -/
-private theorem ceil_minimality (F : Format)
-    (h_not_undef : ¬ (F.p = ⊤ ∧ F.exp = ⊥)) (x : ℝ) {z : Dyadic}
+private theorem ceil_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
     (hz_prec : Dyadic.precisionAtMost F.p z)
     (hz_quant : Dyadic.quantumAtLeast F.exp z) (hx_le_z : x ≤ (z : ℝ)) :
     (⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ : ℝ) *
@@ -485,7 +446,7 @@ private theorem ceil_minimality (F : Format)
       refine ⟨-k, ?_⟩
       push_cast; rw [hk]; ring
   have h_neg_le : ((-z : Dyadic) : ℝ) ≤ -x := by push_cast; linarith
-  have hh := floor_minimality F h_not_undef (-x)
+  have hh := floor_minimality F (-x)
     h_neg_z_prec h_neg_z_quant h_neg_le
   rw [h_neg_canon] at hh
   -- hh : (-z) ≤ ⌊-x · 2^(-e)⌋ · 2^e. Now invert.
@@ -499,7 +460,7 @@ private theorem ceil_minimality (F : Format)
 /-- `Dyadic.ofIntZpow k e` is in `F.unbounded` provided `e ≥ F.exp` and (when
 `F.p` is finite) `|k| ≤ 2^p`. The mantissa-bound boundary case `|k| = 2^p`
 is handled by `precisionAtMost_of_abs_le`. -/
-private theorem ofIntZpow_mem_unbounded (F : Format) {k e : ℤ}
+private theorem ofIntZpow_mem_unbounded (F : FiniteFormat) {k e : ℤ}
     (he_ge : ∀ {e' : ℤ}, F.exp = (e' : WithBot ℤ) → e' ≤ e)
     (hk_bound : ∀ {p : ℕ+}, F.p = ((p : ℕ+) : WithTop ℕ+) →
       |k| ≤ (2 : ℤ) ^ (p : ℕ)) :
@@ -529,7 +490,7 @@ private theorem ofIntZpow_mem_unbounded (F : Format) {k e : ℤ}
       push_cast
       ring
   · change Format.boundOK F.unbounded.b (Dyadic.ofIntZpow k e)
-    rw [Format.unbounded_b]; trivial
+    rw [FiniteFormat.unbounded_b]; trivial
 
 /-- The "rescale back" identity: `x · 2^(-e) · 2^e = x`. Used pervasively
 to lift `c ≤ x · 2^(-e)` to `c · 2^e ≤ x` (and similar). -/
@@ -560,7 +521,7 @@ private theorem abs_floor_add_one_le_of_abs_lt {r : ℝ} {p : ℕ+}
 /-- Canonical-mantissa bound: `|x · 2^(-canonicalExp x)| < 2^p` when `F.p`
 is finite. Drives the membership proofs for `floor`/`ceil`/`toZero`/`awayZero`
 results across the satisfies theorems. -/
-private theorem floor_mantissa_lt {F : Format} {x : ℝ}
+private theorem floor_mantissa_lt {F : FiniteFormat} {x : ℝ}
     {p : ℕ+} (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) :
     |x * (2 : ℝ) ^ (-(F.canonicalExp x))| < (2 : ℝ) ^ (p : ℕ) := by
   set e := F.canonicalExp x
@@ -690,7 +651,7 @@ private theorem two_pow_pred_le_scaled {p : ℕ+} {x : ℝ} (hx : x ≠ 0) {e : 
     _ ≤ |x| * (2 : ℝ) ^ (-e) :=
         mul_le_mul_of_nonneg_right h_x_ge h_2neg_pos.le
 
-theorem rndUnbounded_satisfies_toNegative (F : Format) (x : ℝ)
+theorem rndUnbounded_satisfies_toNegative (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toNegative) :
     RoundsFinite F.unbounded .toNegative x (rndUnbounded F .toNegative x h) := by
   have h_rnd_eq : rndUnbounded F .toNegative x h =
@@ -721,10 +682,10 @@ theorem rndUnbounded_satisfies_toNegative (F : Format) (x : ℝ)
     intro z hz_mem hz_le_x
     obtain ⟨hz_prec, hz_quant, _⟩ := hz_mem
     rw [h_y_real]
-    exact floor_minimality F (fun ⟨hp, hexp⟩ => h (Or.inl ⟨hp, hexp⟩))
+    exact floor_minimality F
       x hz_prec hz_quant hz_le_x
 
-theorem rndUnbounded_satisfies_toPositive (F : Format) (x : ℝ)
+theorem rndUnbounded_satisfies_toPositive (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toPositive) :
     RoundsFinite F.unbounded .toPositive x (rndUnbounded F .toPositive x h) := by
   have h_rnd_eq : rndUnbounded F .toPositive x h =
@@ -754,10 +715,10 @@ theorem rndUnbounded_satisfies_toPositive (F : Format) (x : ℝ)
     intro z hz_mem hx_le_z
     obtain ⟨hz_prec, hz_quant, _⟩ := hz_mem
     rw [h_y_real]
-    exact ceil_minimality F (fun ⟨hp, hexp⟩ => h (Or.inl ⟨hp, hexp⟩))
+    exact ceil_minimality F
       x hz_prec hz_quant hx_le_z
 
-theorem rndUnbounded_satisfies_toZero (F : Format) (x : ℝ)
+theorem rndUnbounded_satisfies_toZero (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toZero) :
     RoundsFinite F.unbounded .toZero x (rndUnbounded F .toZero x h) := by
   have h_rnd_eq : rndUnbounded F .toZero x h =
@@ -841,8 +802,6 @@ theorem rndUnbounded_satisfies_toZero (F : Format) (x : ℝ)
   · -- minimality: sign-split, reduce to floor/ceil minimality.
     intro z hz_mem hz_abs_le hz_mul_x
     obtain ⟨hz_prec, hz_quant, _⟩ := hz_mem
-    have h_not_undef : ¬ (F.p = ⊤ ∧ F.exp = ⊥) :=
-      fun ⟨hp, hexp⟩ => h (Or.inl ⟨hp, hexp⟩)
     rw [h_y_real]
     by_cases hx_nn : 0 ≤ x
     · -- x ≥ 0: y = ⌊x · 2^(-e)⌋ · 2^e ≥ 0, z ≥ 0; reduce to `floor_minimality`.
@@ -869,7 +828,7 @@ theorem rndUnbounded_satisfies_toZero (F : Format) (x : ℝ)
         linarith [hz_abs_le, h1, h2]
       rw [abs_of_nonneg hz_nn, abs_of_nonneg hy_nn]
       rw [show (c : ℝ) = (⌊x * (2 : ℝ) ^ (-e)⌋ : ℝ) from by exact_mod_cast h_c_int]
-      exact floor_minimality F h_not_undef x hz_prec hz_quant hz_le_x
+      exact floor_minimality F x hz_prec hz_quant hz_le_x
     · -- x < 0: y = ⌈x · 2^(-e)⌉ · 2^e ≤ 0, z ≤ 0; reduce to `ceil_minimality`.
       push Not at hx_nn
       have h_c_int : c = ⌈x * (2 : ℝ) ^ (-e)⌉ := by
@@ -892,10 +851,10 @@ theorem rndUnbounded_satisfies_toZero (F : Format) (x : ℝ)
         linarith [hz_abs_le, h1, h2]
       rw [abs_of_nonpos hz_np, abs_of_nonpos hy_np]
       rw [show (c : ℝ) = (⌈x * (2 : ℝ) ^ (-e)⌉ : ℝ) from by exact_mod_cast h_c_int]
-      have := ceil_minimality F h_not_undef x hz_prec hz_quant hx_le_z
+      have := ceil_minimality F x hz_prec hz_quant hx_le_z
       linarith
 
-theorem rndUnbounded_satisfies_awayZero (F : Format) (x : ℝ)
+theorem rndUnbounded_satisfies_awayZero (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .awayZero) :
     RoundsFinite F.unbounded .awayZero x (rndUnbounded F .awayZero x h) := by
   have h_rnd_eq : rndUnbounded F .awayZero x h =
@@ -976,8 +935,6 @@ theorem rndUnbounded_satisfies_awayZero (F : Format) (x : ℝ)
   · -- minimality: sign-split, reduce to ceil/floor minimality (mirror of `_toZero`).
     intro z hz_mem hz_abs_ge hz_mul_x
     obtain ⟨hz_prec, hz_quant, _⟩ := hz_mem
-    have h_not_undef : ¬ (F.p = ⊤ ∧ F.exp = ⊥) :=
-      fun ⟨hp, hexp⟩ => h (Or.inl ⟨hp, hexp⟩)
     rw [h_y_real]
     by_cases hx0 : x = 0
     · -- x = 0: c = ⌈0⌉ = 0, y = 0. Need |y| = 0 ≤ |z| (always true).
@@ -1007,7 +964,7 @@ theorem rndUnbounded_satisfies_awayZero (F : Format) (x : ℝ)
         linarith [hz_abs_ge, h1, h2]
       rw [abs_of_nonneg hy_nn, abs_of_nonneg hz_nn]
       rw [show (c : ℝ) = (⌈x * (2 : ℝ) ^ (-e)⌉ : ℝ) from by exact_mod_cast h_c_int]
-      exact ceil_minimality F h_not_undef x hz_prec hz_quant hx_le_z
+      exact ceil_minimality F x hz_prec hz_quant hx_le_z
     · -- x < 0: y = ⌊⌋ · 2^e ≤ 0, |x| ≤ |z| ⟹ z ≤ x; apply `floor_minimality`.
       push Not at hx_nn
       have h_c_int : c = ⌊x * (2 : ℝ) ^ (-e)⌋ := by
@@ -1030,22 +987,20 @@ theorem rndUnbounded_satisfies_awayZero (F : Format) (x : ℝ)
         linarith [hz_abs_ge, h1, h2]
       rw [abs_of_nonpos hy_np, abs_of_nonpos hz_np]
       rw [show (c : ℝ) = (⌊x * (2 : ℝ) ^ (-e)⌋ : ℝ) from by exact_mod_cast h_c_int]
-      have := floor_minimality F h_not_undef x hz_prec hz_quant hz_le_x
+      have := floor_minimality F x hz_prec hz_quant hz_le_x
       linarith
 
 /-- `Dyadic.ofIntZpow k e` is in `F.unbounded` provided `e ≥ F.exp` and (when
 `F.p` is finite) `|k| ≤ 2^p`. The mantissa-bound boundary case `|k| = 2^p`
 is handled by `precisionAtMost_of_abs_le`. -/
-theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
+theorem rndUnbounded_satisfies_toOdd (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toOdd) :
     RoundsFinite F.unbounded .toOdd x (rndUnbounded F .toOdd x h) := by
   have h_unb : ¬ F.unbounded.IsUndefined .toOdd := by
-    rw [Format.unbounded_isUndefined]; exact h
-  have h_not_undef : ¬ (F.p = ⊤ ∧ F.exp = ⊥) :=
-    fun ⟨hp, hexp⟩ => h (Or.inl ⟨hp, hexp⟩)
+    rw [FiniteFormat.unbounded_isUndefined]; exact h
   set F'' := F.toParityFormatOfToOdd h with hF''_def
   set F' := F.unbounded.toParityFormatOfToOdd h_unb with hF'_def
-  have h_F'_eq : F'.toFormat = F.unbounded := rfl
+  have h_F'_eq : F'.toFormat = F.unbounded.toFormat := rfl
   -- IsOdd-bridge: same predicate value for F and F.unbounded
   -- since both ParityFormats share `p` and `exp` definitionally.
   have h_isOdd_bridge : ∀ (y : Dyadic), F''.IsOdd y ↔ F'.IsOdd y := fun y => Iff.rfl
@@ -1094,7 +1049,7 @@ theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
     intro z hz hz_le_x
     obtain ⟨hz_prec, hz_quant, _⟩ := hz
     rw [h_dlo_real]
-    exact floor_minimality F h_not_undef x hz_prec hz_quant hz_le_x
+    exact floor_minimality F x hz_prec hz_quant hz_le_x
   have h_dhi_round_up : (lo : ℝ) ≠ s →
       ∀ z : Dyadic, z ∈ F.unbounded → x ≤ (z : ℝ) → (dhi : ℝ) ≤ (z : ℝ) := by
     intro hs_ne z hz hx_le_z
@@ -1110,7 +1065,7 @@ theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
         have : lo < ⌈s⌉ := by exact_mod_cast h_lt_ceil
         omega
       omega
-    have hh := ceil_minimality F h_not_undef x hz_prec hz_quant hx_le_z
+    have hh := ceil_minimality F x hz_prec hz_quant hx_le_z
     have h_subst : ((lo + 1 : ℤ) : ℝ) = ((⌈s⌉ : ℤ) : ℝ) := by exact_mod_cast h_ceil_eq.symm
     rw [h_subst]
     convert hh using 2
@@ -1160,7 +1115,11 @@ theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
         cases hp_F : F.p with
         | top =>
           cases hexp_F : F.exp with
-          | bot => exact absurd (Or.inl ⟨hp_F, hexp_F⟩) h
+          | bot =>
+            exfalso
+            rcases F.finite with hf | hf
+            · exact hf hp_F
+            · exact hf hexp_F
           | coe e' =>
             -- F.p = ⊤, F.exp = (e' : ℤ). canonicalExp x = e'.
             have h_e_eq : e = e' := by
@@ -1192,7 +1151,6 @@ theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
               change F.p ≠ ((1 : ℕ+) : WithTop ℕ+)
               intro h_eq
               apply h
-              right
               exact ⟨h_eq, hexp_F, Or.inl rfl⟩
             have h_e_eq_log : e = Int.log 2 |x| + 1 - (p : ℤ) := by
               change F.canonicalExp x = _
@@ -1654,12 +1612,10 @@ theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
                   h_dlo_real h_dhi_real h_lo_lo h_lo_hi h_lop1_lo h_lop1_hi
                 exact hodd
 
-theorem rndUnbounded_satisfies_nearest (F : Format) (tb : TieBreak) (x : ℝ)
+theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
     (h : ¬ F.IsUndefined (.nearest tb)) :
     RoundsFinite F.unbounded (.nearest tb) x (rndUnbounded F (.nearest tb) x h) := by
   -- Setup mirrors `rndUnbounded_satisfies_toOdd`.
-  have h_not_undef : ¬ (F.p = ⊤ ∧ F.exp = ⊥) :=
-    fun ⟨hp, hexp⟩ => h (Or.inl ⟨hp, hexp⟩)
   set e := F.canonicalExp x with h_e_def
   set s := x * (2 : ℝ) ^ (-e)
   set lo : ℤ := ⌊s⌋ with h_lo_def
@@ -1700,7 +1656,7 @@ theorem rndUnbounded_satisfies_nearest (F : Format) (tb : TieBreak) (x : ℝ)
     intro z hz hz_le_x
     obtain ⟨hz_prec, hz_quant, _⟩ := hz
     rw [h_dlo_real]
-    exact floor_minimality F h_not_undef x hz_prec hz_quant hz_le_x
+    exact floor_minimality F x hz_prec hz_quant hz_le_x
   have h_dhi_round_up : (lo : ℝ) ≠ s →
       ∀ z : Dyadic, z ∈ F.unbounded → x ≤ (z : ℝ) → (dhi : ℝ) ≤ (z : ℝ) := by
     intro hs_ne z hz hx_le_z
@@ -1716,7 +1672,7 @@ theorem rndUnbounded_satisfies_nearest (F : Format) (tb : TieBreak) (x : ℝ)
         have : lo < ⌈s⌉ := by exact_mod_cast h_lt_ceil
         omega
       omega
-    have hh := ceil_minimality F h_not_undef x hz_prec hz_quant hx_le_z
+    have hh := ceil_minimality F x hz_prec hz_quant hx_le_z
     have h_subst : ((lo + 1 : ℤ) : ℝ) = ((⌈s⌉ : ℤ) : ℝ) := by exact_mod_cast h_ceil_eq.symm
     rw [h_subst]
     convert hh using 2
@@ -1914,10 +1870,10 @@ theorem rndUnbounded_satisfies_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                 linarith
   | toEven =>
     have h_unb : ¬ F.unbounded.IsUndefined (.nearest .toEven) := by
-      rw [Format.unbounded_isUndefined]; exact h
+      rw [FiniteFormat.unbounded_isUndefined]; exact h
     set F'' := F.toParityFormatOfNearestEven h with hF''_def
     set F' := F.unbounded.toParityFormatOfNearestEven h_unb with hF'_def
-    have h_F'_eq : F'.toFormat = F.unbounded := rfl
+    have h_F'_eq : F'.toFormat = F.unbounded.toFormat := rfl
     -- Bridge: F'' and F' agree on IsEven (same p, exp).
     have h_isEven_bridge : ∀ (y : Dyadic), F''.IsEven y ↔ F'.IsEven y :=
       fun y => Iff.rfl
@@ -2010,7 +1966,11 @@ theorem rndUnbounded_satisfies_nearest (F : Format) (tb : TieBreak) (x : ℝ)
             cases hp_F : F.p with
             | top =>
               cases hexp_F : F.exp with
-              | bot => exact absurd (Or.inl ⟨hp_F, hexp_F⟩) h
+              | bot =>
+                exfalso
+                rcases F.finite with hf | hf
+                · exact hf hp_F
+                · exact hf hexp_F
               | coe e'' =>
                 -- Fixedpoint case.
                 have h_e_eq : e = e'' := by
@@ -2038,7 +1998,7 @@ theorem rndUnbounded_satisfies_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                   rw [hp_F]
                   intro h_eq
                   have h_eq' : p = (1 : ℕ+) := by exact_mod_cast h_eq
-                  exact h (Or.inr ⟨by rw [hp_F, h_eq'], hexp_F, Or.inr rfl⟩)
+                  exact h ⟨by rw [hp_F, h_eq'], hexp_F, Or.inr rfl⟩
                 -- Derive x ≠ 0 from δ = 1/2 (s = lo + 1/2 ≠ 0).
                 have hx_ne : x ≠ 0 := by
                   intro hx0
@@ -2456,7 +2416,7 @@ theorem rndUnbounded_satisfies_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                       h_even_dlo
 
 /-- The constructive `rndUnbounded` satisfies the unbounded rounding spec. -/
-theorem rndUnbounded_satisfies (F : Format) (rm : RoundingMode) (x : ℝ)
+theorem rndUnbounded_satisfies (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
     (h : ¬ F.IsUndefined rm) :
     RoundsFinite F.unbounded rm x (rndUnbounded F rm x h) := by
   cases rm with
@@ -2470,7 +2430,7 @@ theorem rndUnbounded_satisfies (F : Format) (rm : RoundingMode) (x : ℝ)
 /-! Per-mode uniqueness obligations. The pattern follows the spec:
 two values agreeing on the mode-spec must equal each other. -/
 
-theorem rndUnbounded_unique_toNegative (F : Format) (x : ℝ)
+theorem rndUnbounded_unique_toNegative (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toNegative) {y : Dyadic}
     (hy : RoundsFinite F.unbounded .toNegative x y) :
     y = rndUnbounded F .toNegative x h := by
@@ -2483,7 +2443,7 @@ theorem rndUnbounded_unique_toNegative (F : Format) (x : ℝ)
   have h2 : (y : ℝ) ≤ (y' : ℝ) := hy'_max y hy_mem hy_le
   exact Subtype.ext (le_antisymm h2 h1)
 
-theorem rndUnbounded_unique_toPositive (F : Format) (x : ℝ)
+theorem rndUnbounded_unique_toPositive (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toPositive) {y : Dyadic}
     (hy : RoundsFinite F.unbounded .toPositive x y) :
     y = rndUnbounded F .toPositive x h := by
@@ -2496,7 +2456,7 @@ theorem rndUnbounded_unique_toPositive (F : Format) (x : ℝ)
   have h2 : (y' : ℝ) ≤ (y : ℝ) := hy'_min y hy_mem hy_ge
   exact Subtype.ext (le_antisymm h1 h2)
 
-theorem rndUnbounded_unique_toZero (F : Format) (x : ℝ)
+theorem rndUnbounded_unique_toZero (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toZero) {y : Dyadic}
     (hy : RoundsFinite F.unbounded .toZero x y) :
     y = rndUnbounded F .toZero x h := by
@@ -2527,7 +2487,7 @@ theorem rndUnbounded_unique_toZero (F : Format) (x : ℝ)
         exact abs_eq_zero.mp (le_antisymm this (abs_nonneg _))
       rw [hy0, hy'0]
 
-theorem rndUnbounded_unique_awayZero (F : Format) (x : ℝ)
+theorem rndUnbounded_unique_awayZero (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .awayZero) {y : Dyadic}
     (hy : RoundsFinite F.unbounded .awayZero x y) :
     y = rndUnbounded F .awayZero x h := by
@@ -2548,7 +2508,7 @@ theorem rndUnbounded_unique_awayZero (F : Format) (x : ℝ)
     rcases mul_eq_zero.mp h_prod_zero with h' | hx0
     · rw [hneg, h']; ring
     · -- x = 0: RAZ's bound clause is vacuous; min-clause via `0 ∈ F` pins y = y' = 0.
-      have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := Format.zero_mem F.unbounded
+      have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := FiniteFormat.zero_mem F.unbounded
       have h_zero_bnd : |x| ≤ |((0 : Dyadic) : ℝ)| := by rw [hx0]; simp
       have h_zero_sign : ((0 : Dyadic) : ℝ) * x ≥ 0 := by simp
       have hy_le_0 : |(y : ℝ)| ≤ |((0 : Dyadic) : ℝ)| :=
@@ -2563,7 +2523,7 @@ theorem rndUnbounded_unique_awayZero (F : Format) (x : ℝ)
         exact abs_eq_zero.mp (le_antisymm this (abs_nonneg _))
       linarith
 
-theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
+theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toOdd) {y : Dyadic}
     (hy : RoundsFinite F.unbounded .toOdd x y) :
     y = rndUnbounded F .toOdd x h := by
@@ -2582,8 +2542,8 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
         (z : ℝ) ≤ (y : ℝ)) →
       x ≤ (y' : ℝ) → (∀ z : Dyadic, z ∈ F.unbounded → x ≤ (z : ℝ) →
         (y' : ℝ) ≤ (z : ℝ)) →
-      (x ≠ (y : ℝ) → ∃ F' : ParityFormat, F'.toFormat = F.unbounded ∧ F'.IsOdd y) →
-      (x ≠ (y' : ℝ) → ∃ F' : ParityFormat, F'.toFormat = F.unbounded ∧ F'.IsOdd y') →
+      (x ≠ (y : ℝ) → ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsOdd y) →
+      (x ≠ (y' : ℝ) → ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsOdd y') →
       (y : ℝ) = (y' : ℝ) := by
     intro y y' hy_mem hy'_mem hy_le hy_max hy'_ge hy'_min hy_par hy'_par
     by_cases h_yx : (y : ℝ) = x
@@ -2605,14 +2565,8 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
     set lo := ⌊x * (2 : ℝ) ^ (-e)⌋ with h_lo_def
     set dlo : Dyadic := Dyadic.ofIntZpow lo e with h_dlo_def
     set dhi : Dyadic := Dyadic.ofIntZpow (lo + 1) e with h_dhi_def
-    have h_not_neg : ¬ F.IsUndefined .toNegative := fun h_undef => by
-      rcases h_undef with ⟨hp, hexp⟩ | ⟨_, _, hrm⟩
-      · exact h (Or.inl ⟨hp, hexp⟩)
-      · simp at hrm
-    have h_not_pos : ¬ F.IsUndefined .toPositive := fun h_undef => by
-      rcases h_undef with ⟨hp, hexp⟩ | ⟨_, _, hrm⟩
-      · exact h (Or.inl ⟨hp, hexp⟩)
-      · simp at hrm
+    have h_not_neg : ¬ F.IsUndefined .toNegative := fun ⟨_, _, hrm⟩ => by simp at hrm
+    have h_not_pos : ¬ F.IsUndefined .toPositive := fun ⟨_, _, hrm⟩ => by simp at hrm
     -- y = dlo via uniqueness of RoundDown.
     have h_dlo_RD : RoundsFinite F.unbounded .toNegative x dlo := by
       have h_eq : rndUnbounded F .toNegative x h_not_neg = dlo := by
@@ -2675,7 +2629,11 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
     cases hp_F : F.p with
     | top =>
       cases hexp_F : F.exp with
-      | bot => exact h (Or.inl ⟨hp_F, hexp_F⟩)
+      | bot =>
+        exfalso
+        rcases F.finite with hf | hf
+        · exact hf hp_F
+        · exact hf hexp_F
       | coe e'' =>
         -- F.p = ⊤, F.exp = (e'' : ℤ). Apply not_both_isOdd_fixedpoint.
         have h_e_eq : e = e'' := by
@@ -2688,7 +2646,7 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
           rw [h_dhi_def, h_e_eq]
         -- F_y, F_y' both have toFormat = F.unbounded, with .p = ⊤, .exp = e''.
         have h_unb : ¬ F.unbounded.IsUndefined .toOdd := by
-          rw [Format.unbounded_isUndefined]; exact h
+          rw [FiniteFormat.unbounded_isUndefined]; exact h
         set F'' := F.unbounded.toParityFormatOfToOdd h_unb with hF''_def
         have hF_y_eq_F'' : F_y.toFormat = F''.toFormat := by
           rw [hF_y_eq]; rfl
@@ -2710,9 +2668,9 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
       cases hexp_F : F.exp with
       | bot =>
         have h_unb : ¬ F.unbounded.IsUndefined .toOdd := by
-          rw [Format.unbounded_isUndefined]; exact h
+          rw [FiniteFormat.unbounded_isUndefined]; exact h
         set F'' := F.unbounded.toParityFormatOfToOdd h_unb with h_F''_def
-        have hF''_eq : F''.toFormat = F.unbounded := rfl
+        have hF''_eq : F''.toFormat = F.unbounded.toFormat := rfl
         have hF_y_eq_F'' : F_y.toFormat = F''.toFormat := by
           rw [hF_y_eq, hF''_eq]
         have hF_y'_eq_F'' : F_y'.toFormat = F''.toFormat := by
@@ -2728,7 +2686,7 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
         have hp_ne_1 : F''.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
           change F.p ≠ ((1 : ℕ+) : WithTop ℕ+)
           intro h_eq
-          exact h (Or.inr ⟨h_eq, hexp_F, Or.inl rfl⟩)
+          exact h ⟨h_eq, hexp_F, Or.inl rfl⟩
         have h_s_lt_p : |x * (2 : ℝ) ^ (-e)| < (2 : ℝ) ^ (p : ℕ) :=
           floor_mantissa_lt hp_F
         have h_lo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ) := by
@@ -2743,7 +2701,7 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
           subst hx0
           -- y is RoundDown of 0; 0 ∈ F.unbounded so y ≥ 0. Combined with y ≤ 0:
           -- y = 0. But hy_lt : y < 0. Contradiction.
-          have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := Format.zero_mem F.unbounded
+          have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := FiniteFormat.zero_mem F.unbounded
           have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) :=
             hy_max 0 h_zero_mem (by simp)
           simp at h_zero_le_y
@@ -2811,9 +2769,9 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
       | coe e'' =>
         -- F.p = (p : ℕ+), F.exp = (e'' : ℤ). Mixed case.
         have h_unb : ¬ F.unbounded.IsUndefined .toOdd := by
-          rw [Format.unbounded_isUndefined]; exact h
+          rw [FiniteFormat.unbounded_isUndefined]; exact h
         set F'' := F.unbounded.toParityFormatOfToOdd h_unb with hF''_def
-        have hF''_eq : F''.toFormat = F.unbounded := rfl
+        have hF''_eq : F''.toFormat = F.unbounded.toFormat := rfl
         have hF_y_eq_F'' : F_y.toFormat = F''.toFormat := by rw [hF_y_eq, hF''_eq]
         have hF_y'_eq_F'' : F_y'.toFormat = F''.toFormat := by rw [hF_y'_eq, hF''_eq]
         have h_F''_isOdd_dlo : F''.IsOdd dlo :=
@@ -2833,7 +2791,7 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
             intro hx0
             subst hx0
             have h_zero_mem : (0 : Dyadic) ∈ F.unbounded :=
-              Format.zero_mem F.unbounded
+              FiniteFormat.zero_mem F.unbounded
             have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) :=
               hy_max 0 h_zero_mem (by simp)
             simp at h_zero_le_y
@@ -2964,7 +2922,7 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
           have hx_ne : x ≠ 0 := by
             intro hx0
             subst hx0
-            have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := Format.zero_mem F.unbounded
+            have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := FiniteFormat.zero_mem F.unbounded
             have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) :=
               hy_max 0 h_zero_mem (by simp)
             simp at h_zero_le_y
@@ -3232,7 +3190,7 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
     · -- Both RoundUp.
       exact le_antisymm (hy_min y' hy'_mem hy'_ge) (hy'_min y hy_mem hy_ge)
 
-theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
+theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
     (h : ¬ F.IsUndefined (.nearest tb)) {y : Dyadic}
     (hy : RoundsFinite F.unbounded (.nearest tb) x y) :
     y = rndUnbounded F (.nearest tb) x h := by
@@ -3279,7 +3237,7 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
           exact this h_expand
         linarith
       -- At x = 0, faithful round of 0 must be 0 (since 0 ∈ F). So y = y' = 0.
-      have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := Format.zero_mem F.unbounded
+      have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := FiniteFormat.zero_mem F.unbounded
       have h_y_eq_zero : (y : ℝ) = 0 := by
         rcases hy_faith with ⟨_, hy_le, hy_max⟩ | ⟨_, hy_ge, hy_min'⟩
         · -- y ≤ x = 0 and 0 ∈ F means y is max F-elt ≤ 0, hence y = 0.
@@ -3323,17 +3281,17 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
       -- But here we have y ≠ y'. Derive that both are IsEven and arrive at
       -- contradiction via parity dichotomy + alternating.
       exfalso
-      have h_F_y_even : ∃ F' : ParityFormat, F'.toFormat = F.unbounded ∧ F'.IsEven y :=
+      have h_F_y_even : ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsEven y :=
         hy_tie ⟨y', hy'_mem, hy'_faith, fun heq => h_yy heq.symm, h_dist_eq⟩
-      have h_F_y'_even : ∃ F' : ParityFormat, F'.toFormat = F.unbounded ∧ F'.IsEven y' :=
+      have h_F_y'_even : ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsEven y' :=
         hy'_tie ⟨y, hy_mem, hy_faith, h_yy, h_dist_eq.symm⟩
       obtain ⟨F_y, hF_y_eq, hF_y_even⟩ := h_F_y_even
       obtain ⟨F_y', hF_y'_eq, hF_y'_even⟩ := h_F_y'_even
       -- Bridge via IsEven_iff_of_toFormat_eq to a common ParityFormat F''.
       have h_unb : ¬ F.unbounded.IsUndefined (.nearest .toEven) := by
-        rw [Format.unbounded_isUndefined]; exact h
+        rw [FiniteFormat.unbounded_isUndefined]; exact h
       set F'' := F.unbounded.toParityFormatOfNearestEven h_unb with hF''_def
-      have hF''_eq : F''.toFormat = F.unbounded := rfl
+      have hF''_eq : F''.toFormat = F.unbounded.toFormat := rfl
       have hF_y_eq_F'' : F_y.toFormat = F''.toFormat := by rw [hF_y_eq, hF''_eq]
       have hF_y'_eq_F'' : F_y'.toFormat = F''.toFormat := by rw [hF_y'_eq, hF''_eq]
       have hF''_even_y : F''.IsEven y :=
@@ -3342,7 +3300,7 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
         ((ParityFormat.IsEven_iff_of_toFormat_eq hF_y'_eq_F'' y').mp hF_y'_even)
       -- Setup canonical-exp infrastructure (mirroring _nearest_satisfies).
       have h_not_undef : ¬ (F.p = ⊤ ∧ F.exp = ⊥) :=
-        fun ⟨hp, hexp⟩ => h (Or.inl ⟨hp, hexp⟩)
+        fun ⟨hp, hexp⟩ => F.finite.elim (fun h => h hp) (fun h => h hexp)
       set e := F.canonicalExp x with h_e_def
       set s := x * (2 : ℝ) ^ (-e)
       set lo : ℤ := ⌊s⌋ with h_lo_def
@@ -3381,7 +3339,7 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
         intro z hz hz_le_x
         obtain ⟨hz_prec, hz_quant, _⟩ := hz
         rw [h_dlo_real]
-        exact floor_minimality F h_not_undef x hz_prec hz_quant hz_le_x
+        exact floor_minimality F x hz_prec hz_quant hz_le_x
       have h_dhi_round_up : (lo : ℝ) ≠ s →
           ∀ z : Dyadic, z ∈ F.unbounded → x ≤ (z : ℝ) → (dhi : ℝ) ≤ (z : ℝ) := by
         intro hs_ne z hz hx_le_z
@@ -3397,7 +3355,7 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
             have : lo < ⌈s⌉ := by exact_mod_cast h_lt_ceil
             omega
           omega
-        have hh := ceil_minimality F h_not_undef x hz_prec hz_quant hx_le_z
+        have hh := ceil_minimality F x hz_prec hz_quant hx_le_z
         have h_subst : ((lo + 1 : ℤ) : ℝ) = ((⌈s⌉ : ℤ) : ℝ) := by
           exact_mod_cast h_ceil_eq.symm
         rw [h_subst]
@@ -3467,7 +3425,7 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
           | bot =>
             -- Floating. p ≠ 1 (else .nearest .toEven undefined).
             have hp_ne_1 : F.p ≠ ((1 : ℕ+) : WithTop ℕ+) := fun h_eq =>
-              h (Or.inr ⟨h_eq, hexp_F, Or.inr rfl⟩)
+              h ⟨h_eq, hexp_F, Or.inr rfl⟩
             have h_s_lt_p : |x * (2 : ℝ) ^ (-e)| < (2 : ℝ) ^ (p : ℕ) :=
               floor_mantissa_lt hp_F
             have h_lo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ) := by
@@ -3479,7 +3437,7 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
               intro hx0
               subst hx0
               have h_zero_mem : (0 : Dyadic) ∈ F.unbounded :=
-                Format.zero_mem F.unbounded
+                FiniteFormat.zero_mem F.unbounded
               have h_y_eq_z : (y : ℝ) = 0 := by
                 rcases hy_faith with ⟨_, hy_le, hy_max⟩ | ⟨_, hy_ge, hy_min'⟩
                 · have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) := by
@@ -3557,7 +3515,7 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
               intro hx0
               subst hx0
               have h_zero_mem : (0 : Dyadic) ∈ F.unbounded :=
-                Format.zero_mem F.unbounded
+                FiniteFormat.zero_mem F.unbounded
               have h_y_eq_z : (y : ℝ) = 0 := by
                 rcases hy_faith with ⟨_, hy_le, hy_max⟩ | ⟨_, hy_ge, hy_min'⟩
                 · have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) := by
@@ -3930,7 +3888,7 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
 
 /-- Uniqueness: any `y` satisfying the unbounded rounding spec equals
 `rndUnbounded F rm x h`. -/
-theorem rndUnbounded_unique (F : Format) (rm : RoundingMode) (x : ℝ)
+theorem rndUnbounded_unique (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
     (h : ¬ F.IsUndefined rm) {y : Dyadic}
     (hy : RoundsFinite F.unbounded rm x y) :
     y = rndUnbounded F rm x h := by
@@ -3947,7 +3905,7 @@ theorem rndUnbounded_unique (F : Format) (rm : RoundingMode) (x : ℝ)
 The `RoundResult`-typed `Rounds` collapses the per-mode bridges to one
 uniform statement: `rnd` and `Rounds` agree on the same `RoundResult`. -/
 
-theorem rnd_iff_rounds (F : Format) (rm : RoundingMode) (x : ℝ) (r : RoundResult) :
+theorem rnd_iff_rounds (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (r : RoundResult) :
     rnd F rm x = r ↔ Rounds F rm x r := by
   cases r with
   | undefined =>
