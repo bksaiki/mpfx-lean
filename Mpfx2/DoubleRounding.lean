@@ -154,4 +154,214 @@ theorem rndRAZ_RAZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
       rwa [Dyadic.coe_real_neg, abs_neg] at key
   · exact rndRAZ_RAZ_pos hsub hx_pos hz hw
 
+/-- Promote `F : FiniteFormat` to `ParityFormat` from a
+`¬ IsUndefined .toOdd` witness. (Local replica of the `private` definition
+in `Mpfx2/RoundOp.lean`.) -/
+private def FiniteFormat.toParityFormatOfToOdd
+    (F : FiniteFormat) (h : ¬ F.IsUndefined .toOdd) : ParityFormat := by
+  refine ⟨F, ?_⟩
+  by_contra h_neg; push Not at h_neg
+  exact h ⟨h_neg.1, h_neg.2, Or.inl rfl⟩
+
+/-- If `F₁ ⊆ F₂`, `F₁.exp = ⊥`, and `F₁` contains a nonzero element `z`, then
+`F₂.exp = ⊥` as well: an `exp = ⊥` (unbounded-quantum) format embeds values of
+arbitrarily small quantum, which a finite-`exp` `F₂` cannot represent. -/
+private theorem exp_bot_of_subset {F₁ F₂ : FiniteFormat}
+    (hsub : F₁.toFormat ⊆ F₂.toFormat) (hexp₁ : F₁.toFormat.exp = ⊥)
+    {z : Dyadic} (hzF₁ : z ∈ F₁) (hz_ne : z ≠ 0) :
+    F₂.toFormat.exp = ⊥ := by
+  by_contra hF₂_exp
+  -- F₂.exp = (e' : ℤ).
+  obtain ⟨e', he'⟩ : ∃ e' : ℤ, F₂.toFormat.exp = (e' : WithBot ℤ) := by
+    cases hc : F₂.toFormat.exp with
+    | bot => exact absurd hc hF₂_exp
+    | coe e' => exact ⟨e', rfl⟩
+  -- A bound `2^k ≤ |z|` on the witness magnitude (so it stays within F₁.b).
+  have hz_ne_q : (z : ℚ) ≠ 0 := by
+    intro h; exact hz_ne (Subtype.ext (by rw [h]; rfl))
+  set k : ℤ := min (e' - 1) (Int.log 2 |(z : ℚ)|) with hk_def
+  have hk_le_e' : k ≤ e' - 1 := min_le_left _ _
+  have hk_le_log : k ≤ Int.log 2 |(z : ℚ)| := min_le_right _ _
+  -- The witness `w = 2^k`.
+  set w : Dyadic := Dyadic.ofIntZpow 1 k with hw_def
+  have hw_q : (w : ℚ) = (2 : ℚ) ^ k := by
+    rw [hw_def, Dyadic.coe_rat_ofIntZpow]; push_cast; ring
+  have h2k_pos : (0 : ℚ) < (2 : ℚ) ^ k := zpow_pos (by norm_num) _
+  -- `w ∈ F₁`.
+  have hwF₁ : w ∈ F₁ := by
+    refine ⟨?_, ?_, ?_⟩
+    · -- precision: c = 1, |1| < 2^p₁.
+      cases hp₁ : F₁.toFormat.p with
+      | top => exact trivial
+      | coe p₁ =>
+        rw [Dyadic.precisionAtMost_coe]
+        refine ⟨1, k, by rw [hw_q]; push_cast; ring, ?_⟩
+        have hp_pos : 1 ≤ (p₁ : ℕ) := p₁.pos
+        have : (2 : ℤ) ^ 1 ≤ (2 : ℤ) ^ (p₁ : ℕ) :=
+          pow_le_pow_right₀ (by norm_num) hp_pos
+        simp only [abs_one]
+        omega
+    · rw [hexp₁]; exact trivial
+    · -- bound: |w| = 2^k ≤ |z| ≤ F₁.b.
+      have hzbnd : Format.boundOK F₁.toFormat.b z := hzF₁.2.2
+      have h2k_le_z : (2 : ℚ) ^ k ≤ |(z : ℚ)| := by
+        have hlog_le : (2 : ℚ) ^ (Int.log 2 |(z : ℚ)|) ≤ |(z : ℚ)| :=
+          Int.zpow_log_le_self (by norm_num) (abs_pos.mpr hz_ne_q)
+        calc (2 : ℚ) ^ k ≤ (2 : ℚ) ^ (Int.log 2 |(z : ℚ)|) :=
+              zpow_le_zpow_right₀ (by norm_num) hk_le_log
+          _ ≤ |(z : ℚ)| := hlog_le
+      have hzbnd' : Format.boundOK F₁.toFormat.b z := hzbnd
+      rcases hb : F₁.toFormat.b with _ | b
+      · trivial
+      · rw [hb] at hzbnd'
+        change |(w : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
+        simp only [Format.boundOK] at hzbnd'
+        rw [hw_q, abs_of_pos h2k_pos]
+        linarith
+  -- But `w ∉ F₂`: quantum constraint fails since `k < e'`.
+  have hwF₂ := hsub w hwF₁
+  have hwq₂ : Dyadic.quantumAtLeast F₂.toFormat.exp w := hwF₂.2.1
+  rw [he', Dyadic.quantumAtLeast_coe] at hwq₂
+  obtain ⟨c, hc⟩ := hwq₂
+  rw [hw_q] at hc
+  -- `2^k = c · 2^{e'}` ⇒ `c = 2^{k - e'}`, impossible for `k - e' < 0`.
+  have h2e'_pos : (0 : ℚ) < (2 : ℚ) ^ e' := zpow_pos (by norm_num) _
+  have hc_eq : (c : ℚ) = (2 : ℚ) ^ (k - e') := by
+    rw [zpow_sub₀ (by norm_num : (2 : ℚ) ≠ 0)]
+    rw [eq_div_iff (ne_of_gt h2e'_pos)]
+    linarith [hc]
+  have hk_lt_e' : k - e' < 0 := by omega
+  have h_lt_one : (2 : ℚ) ^ (k - e') < 1 :=
+    zpow_lt_one_of_neg₀ (a := (2 : ℚ)) (by norm_num) hk_lt_e'
+  have h_pos : (0 : ℚ) < (2 : ℚ) ^ (k - e') := zpow_pos (by norm_num) _
+  have hc_pos : (0 : ℚ) < (c : ℚ) := hc_eq ▸ h_pos
+  have hc_lt1 : (c : ℚ) < 1 := hc_eq ▸ h_lt_one
+  have hc_pos_int : (0 : ℤ) < c := by exact_mod_cast hc_pos
+  have hc_lt1_int : c < 1 := by exact_mod_cast hc_lt1
+  omega
+
+/-- **rnd-RTO-RTO** (Fig. 9), general case `x ∈ ℝ`.
+
+Restricted to `F₂.p ≥ 2`. -/
+theorem rndRTO_RTO {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.toFormat.p)
+    {x : ℝ} {z w' : Dyadic}
+    (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .toOdd (z : ℝ) w') :
+    RoundsFinite F₁ .toOdd x w' := by
+  obtain ⟨hzF₂, hz_faithful, hz_odd_imp⟩ := hz
+  obtain ⟨hw'F₁, hw_faithful, hw_odd_imp⟩ := hw
+  rcases eq_or_ne ((z : ℝ)) x with hzx | hzx
+  · -- z = x: hw is essentially the goal.
+    rw [hzx] at hw_faithful hw_odd_imp
+    exact ⟨hw'F₁, hw_faithful, hw_odd_imp⟩
+  · -- z ≠ x: split on z = w' vs z ≠ w'.
+    have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
+    rcases eq_or_ne z w' with hzw | hzw
+    · -- z = w': w' is x's F₁-rounding directly via hz's faithfulness, and
+      -- its F₁-oddness comes from F₂-oddness via Lemma 5.3 transfer.
+      subst hzw
+      refine ⟨hw'F₁, ?_, ?_⟩
+      · -- Faithfulness: z is x's F₁-faithful rounding because z ∈ F₁ ⊆ F₂
+        -- and z is x's F₂-faithful rounding.
+        rcases hz_faithful with hRD | hRU
+        · left
+          obtain ⟨_, hzx_le, hz_max⟩ := hRD
+          refine ⟨hw'F₁, hzx_le, ?_⟩
+          intro v hvF₁ hvx
+          exact hz_max v (hsub _ hvF₁) hvx
+        · right
+          obtain ⟨_, hxz, hz_min⟩ := hRU
+          refine ⟨hw'F₁, hxz, ?_⟩
+          intro v hvF₁ hxv
+          exact hz_min v (hsub _ hvF₁) hxv
+      · -- Parity: produce a `ParityFormat` over `F₁.toFormat` and transfer
+        -- F₂-oddness of z into F₁-oddness of z.
+        intro _
+        obtain ⟨F₂', hF₂'eq, hF₂'odd⟩ := hz_odd_imp hxne
+        -- `¬ F₁.IsUndefined .toOdd`, so a `ParityFormat` over `F₁` exists.
+        have h_not_undef : ¬ F₁.IsUndefined .toOdd := by
+          rintro ⟨hp1, hexp_bot, _⟩
+          have hz_ne : z ≠ 0 := hF₂'odd.ne_zero
+          have hz_ne_real : (z : ℝ) ≠ 0 := by
+            rw [← Dyadic.coe_real_zero]; exact fun h => hz_ne (Dyadic.coe_real_inj z 0 |>.mp h)
+          -- `F₁.exp = ⊥` + subset forces `F₂.exp = ⊥`, hence `numDigits = p₂ ≥ 2`.
+          have hF₂'_exp_bot : F₂'.toFormat.exp = ⊥ :=
+            exp_bot_of_subset (hF₂'eq ▸ hsub) hexp_bot hw'F₁ hz_ne
+          obtain ⟨p₂, hp₂⟩ : ∃ p₂ : ℕ+, F₂'.toFormat.p = ((p₂ : ℕ+) : WithTop ℕ+) := by
+            cases hc : F₂'.toFormat.p with
+            | top =>
+              -- `(⊤, ⊥)` is excluded by `FiniteFormat.finite`.
+              exact absurd (F₂'.finite) (by push Not; exact ⟨hc, hF₂'_exp_bot⟩)
+            | coe p₂ => exact ⟨p₂, rfl⟩
+          -- numDigits agreement.
+          have h_eq : F₁.numDigits (z : ℝ) = F₂'.toFiniteFormat.numDigits (z : ℝ) :=
+            numDigits_eq_of_subset_of_isOdd (hF₂'eq ▸ hsub) (hF₂'eq ▸ hp_F₂) hw'F₁ hF₂'odd
+          have h_F₁_eq_1 : F₁.numDigits (z : ℝ) = 1 :=
+            F₁.numDigits_coe_bot hz_ne_real hp1 hexp_bot
+          have h_F₂_eq_p₂ : F₂'.toFiniteFormat.numDigits (z : ℝ) = (p₂ : ℤ) :=
+            F₂'.toFiniteFormat.numDigits_coe_bot hz_ne_real hp₂ hF₂'_exp_bot
+          have hp₂_ge_2 : (2 : ℤ) ≤ (p₂ : ℤ) := by
+            have : ((2 : ℕ+) : WithTop ℕ+) ≤ ((p₂ : ℕ+) : WithTop ℕ+) := hp₂ ▸ (hF₂'eq ▸ hp_F₂)
+            have h2 : ((2 : ℕ+) : ℕ) ≤ ((p₂ : ℕ+) : ℕ) := by exact_mod_cast this
+            simpa using (by exact_mod_cast h2 : (2 : ℤ) ≤ (p₂ : ℤ))
+          rw [h_F₁_eq_1, h_F₂_eq_p₂] at h_eq
+          omega
+        set F₁' := F₁.toParityFormatOfToOdd h_not_undef with hF₁'_def
+        have hF₁'eq : F₁'.toFormat = F₁.toFormat := rfl
+        have hF₁'odd : F₁'.IsOdd z := by
+          have h_iod_F₂' : F₂'.IsOdd z := hF₂'odd
+          have h_F₁'F₂' : F₁'.toFormat ⊆ F₂'.toFormat := by
+            rw [hF₁'eq, hF₂'eq]; exact hsub
+          have h_p_F₂' : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂'.toFormat.p := by
+            rw [hF₂'eq]; exact hp_F₂
+          have hz_mem : z ∈ F₁'.toFiniteFormat := hw'F₁
+          exact IsOdd.transfer_of_subset h_F₁'F₂' h_p_F₂' hz_mem h_iod_F₂'
+        exact ⟨F₁', hF₁'eq, hF₁'odd⟩
+    · -- z ≠ w': standard 4-way faithfulness case split.
+      have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := fun h_eq => hzw (Dyadic.coe_real_inj z w' |>.mp h_eq)
+      refine ⟨hw'F₁, ?_, ?_⟩
+      · rcases hz_faithful with hzRD | hzRU
+        · rcases hw_faithful with hwRD | hwRU
+          · left
+            obtain ⟨_, hwz, hw_max⟩ := hwRD
+            have hzx_le := hzRD.2.1
+            refine ⟨hw'F₁, le_trans hwz hzx_le, ?_⟩
+            intro v hvF₁ hvx
+            have hv_le_z : (v : ℝ) ≤ (z : ℝ) := hzRD.2.2 v (hsub _ hvF₁) hvx
+            exact hw_max v hvF₁ hv_le_z
+          · obtain ⟨_, hzw_le, hw_min⟩ := hwRU
+            by_cases hw'_le_x : (w' : ℝ) ≤ x
+            · exfalso
+              have hw_le_z : (w' : ℝ) ≤ (z : ℝ) := hzRD.2.2 w' (hsub _ hw'F₁) hw'_le_x
+              have : (w' : ℝ) = (z : ℝ) := le_antisymm hw_le_z hzw_le
+              exact hz_ne_w' this.symm
+            · push Not at hw'_le_x
+              right
+              refine ⟨hw'F₁, hw'_le_x.le, ?_⟩
+              intro v hvF₁ hxv
+              exact hw_min v hvF₁ (le_trans hzRD.2.1 hxv)
+        · rcases hw_faithful with hwRD | hwRU
+          · obtain ⟨_, hwz, hw_max⟩ := hwRD
+            by_cases hw'_le_x : (w' : ℝ) ≤ x
+            · left
+              refine ⟨hw'F₁, hw'_le_x, ?_⟩
+              intro v hvF₁ hvx
+              exact hw_max v hvF₁ (le_trans hvx hzRU.2.1)
+            · exfalso
+              push Not at hw'_le_x
+              have hw_ge_z : (z : ℝ) ≤ (w' : ℝ) :=
+                hzRU.2.2 w' (hsub _ hw'F₁) hw'_le_x.le
+              have : (w' : ℝ) = (z : ℝ) := le_antisymm hwz hw_ge_z
+              exact hz_ne_w' this.symm
+          · right
+            obtain ⟨_, hzw_le, hw_min⟩ := hwRU
+            have hxz := hzRU.2.1
+            refine ⟨hw'F₁, le_trans hxz hzw_le, ?_⟩
+            intro v hvF₁ hxv
+            have hzv : (z : ℝ) ≤ (v : ℝ) := hzRU.2.2 v (hsub _ hvF₁) hxv
+            exact hw_min v hvF₁ hzv
+      · -- Parity: from `hw`'s own parity clause (z ≠ w').
+        intro _
+        exact hw_odd_imp hz_ne_w'
+
 end Mpfx2

@@ -91,7 +91,8 @@ Mpfx2/
 │                   odd_index_of_p_one_corner, IsOdd.transfer_of_numDigits_eq,
 │                   IsOdd.transfer_of_subset (capstone Lemma 5.3)
 └── DoubleRounding.lean §5.2 / Fig. 9 rules (spec-relational over
-                    RoundsFinite): rndRTZ_RTZ, rndRAZ_RAZ(_pos); RTO rules TBD
+                    RoundsFinite): rndRTZ_RTZ, rndRAZ_RAZ(_pos), rndRTO_RTO
+                    (+ exp_bot_of_subset helper); rndRTO_{RTZ,RAZ,RN} TBD
 ```
 
 ## Substrate (done)
@@ -300,8 +301,11 @@ spec-relationally over `RoundsFinite` (membership + mode condition):
       transfer through `hsub`. No Lemma 5.3 needed.
 - [x] `rndRAZ_RAZ` (+ `rndRAZ_RAZ_pos`) — chained round-away-zero. Positive
       case + sign-symmetry (`RoundsFinite.neg_awayZero`) + `x = 0` case.
-- [ ] `rndRTO_RTO` (both `_O` and `_E` clauses). Needs Lemma 5.3
-      (`IsOdd.transfer_of_subset`) + the bound-changing API.
+- [x] `rndRTO_RTO` — chained round-to-odd. Uses Lemma 5.3
+      (`IsOdd.transfer_of_subset`) for the `z = w'` parity case; 4-way
+      `IsFaithfulRound` adjacency split otherwise. Helper `exp_bot_of_subset`
+      (an `exp = ⊥` format can't embed in a finite-`exp` one) discharges the
+      non-degeneracy needed to build the `∃ ParityFormat` witness.
 - [ ] `rndRTO_RTZ`.
 - [ ] `rndRTO_RAZ`.
 - [ ] `rndRTO_RN` (both tie-breaks).
