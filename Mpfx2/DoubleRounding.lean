@@ -586,4 +586,117 @@ theorem rndRTO_RTZ {F₁ F₂ : FiniteFormat}
   · -- x > 0
     exact rndRTO_RTZ_pos hsub hp_F₂ hx_pos hz hw
 
+/-- **rnd-RTO-RAZ** (Fig. 9), positive case `0 < x`. Symmetric to
+`rndRTO_RTZ_pos` but for round-away-from-zero. The key Lemma 5.3 application
+(`toOdd_notMem_of_extend_subset`) happens in the ToNegative (RTN / round-down)
+branch of `z` rather than the ToPositive (RTP) branch. -/
+private theorem rndRTO_RAZ_pos {F₁ F₂ : FiniteFormat}
+    (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
+    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.toFormat.p)
+    {x : ℝ} (hx_pos : 0 < x) {z w' : Dyadic}
+    (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .awayZero (z : ℝ) w') :
+    RoundsFinite F₁ .awayZero x w' := by
+  -- `F₁ ⊆ F₁.extend 1 ⊆ F₂`.
+  have hsub' : F₁.toFormat ⊆ F₂.toFormat := fun y hy =>
+    hsub y (Format.self_subset_extend F₁.toFormat 1 y hy)
+  have hz_nn : 0 ≤ (z : ℝ) := toOdd_nonneg_of_nn hx_pos.le hz
+  obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
+  obtain ⟨hw'F₁, hw'_bnd_z, hw'_sign_z, hw'_min⟩ := hw
+  have hx_abs : |x| = x := abs_of_pos hx_pos
+  have hz_abs : |(z : ℝ)| = (z : ℝ) := abs_of_nonneg hz_nn
+  rw [hz_abs] at hw'_bnd_z
+  -- |w'| ≥ |x| via the contradiction in the ToNegative (RTN) branch using
+  -- `toOdd_notMem_of_extend_subset`.
+  have hw'_nn : 0 ≤ (w' : ℝ) := by
+    rcases lt_or_eq_of_le hz_nn with hzpos | hzeq
+    · nlinarith [hw'_sign_z]
+    · -- z = 0, so |w'| ≥ 0 trivially; we still need a sign. From hw'_sign_z,
+      -- w' * z ≥ 0 with z = 0 gives nothing, but |x| ≤ |w'| forces nothing either.
+      -- Use the min clause: 0 ∈ F₁ with |z| = 0 ≤ |0| and 0 * z ≥ 0.
+      have h0 : |(w' : ℝ)| ≤ |((0 : Dyadic) : ℝ)| :=
+        hw'_min 0 F₁.zero_mem (by rw [Dyadic.coe_real_zero, abs_zero]; rw [← hzeq]; simp)
+          (by rw [Dyadic.coe_real_zero]; ring_nf; rfl)
+      rw [Dyadic.coe_real_zero, abs_zero] at h0
+      have : (w' : ℝ) = 0 := abs_nonpos_iff.mp h0
+      linarith
+  have hw'_abs : |(w' : ℝ)| = (w' : ℝ) := abs_of_nonneg hw'_nn
+  have hx_le_w' : x ≤ (w' : ℝ) := by
+    rcases hz_adj with hRD | hRU
+    · by_contra h_w_lt
+      push Not at h_w_lt
+      have hz_max := hRD.2.2
+      have hw'F₂ : w' ∈ F₂ := hsub' _ hw'F₁
+      have hw'_le_z : (w' : ℝ) ≤ (z : ℝ) := hz_max w' hw'F₂ h_w_lt.le
+      have hz_le_w' : (z : ℝ) ≤ (w' : ℝ) := by
+        have := hw'_bnd_z; rw [hw'_abs] at this; exact this
+      have hw'_eq_z : (w' : ℝ) = (z : ℝ) := le_antisymm hw'_le_z hz_le_w'
+      have hxne : x ≠ (z : ℝ) := by
+        intro hxz_eq
+        rw [← hxz_eq] at hw'_eq_z
+        linarith
+      have hz_full : RoundsFinite F₂ .toOdd x z := ⟨hzF₂, Or.inl hRD, hz_odd_imp⟩
+      have hzF₁ : z ∈ F₁ := by
+        rw [show z = w' from (Dyadic.coe_real_inj z w').mp hw'_eq_z.symm]
+        exact hw'F₁
+      exact (toOdd_notMem_of_extend_subset hsub hp_F₂ hz_full hxne) hzF₁
+    · have hxz := hRU.2.1
+      have hz_le_w' : (z : ℝ) ≤ (w' : ℝ) := by
+        have := hw'_bnd_z; rw [hw'_abs] at this; exact this
+      linarith
+  refine ⟨hw'F₁, ?_, ?_, ?_⟩
+  · rw [hx_abs, hw'_abs]; exact hx_le_w'
+  · exact mul_nonneg hw'_nn hx_pos.le
+  · intro v hvF₁ hv_bnd_x hv_sign_x
+    rw [hx_abs] at hv_bnd_x
+    have hv_nn : 0 ≤ (v : ℝ) := by nlinarith [hv_sign_x]
+    have hv_abs : |(v : ℝ)| = (v : ℝ) := abs_of_nonneg hv_nn
+    have hx_le_v : x ≤ (v : ℝ) := by rw [← hv_abs]; exact hv_bnd_x
+    have hz_le_v : (z : ℝ) ≤ (v : ℝ) := by
+      rcases hz_adj with hRD | hRU
+      · have hzx := hRD.2.1
+        linarith
+      · have hz_min := hRU.2.2
+        have hvF₂ : v ∈ F₂ := hsub' _ hvF₁
+        exact hz_min v hvF₂ hx_le_v
+    have hv_bnd_z : |(z : ℝ)| ≤ |(v : ℝ)| := by rw [hz_abs, hv_abs]; exact hz_le_v
+    have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
+    exact hw'_min v hvF₁ hv_bnd_z hv_z_sign
+
+/-- **rnd-RTO-RAZ** (Fig. 9), general case. An RTO rounding `z` of `x` in
+`F₂` followed by an RAZ (away-from-zero) rounding `w'` of `z` in `F₁`
+collapses to an RAZ rounding of `x` in `F₁`. Uses the simpler hypothesis
+form `F₁.extend 1 ⊆ F₂` together with `2 ≤ F₂.p`. -/
+theorem rndRTO_RAZ {F₁ F₂ : FiniteFormat}
+    (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
+    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.toFormat.p)
+    {x : ℝ} {z w' : Dyadic}
+    (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .awayZero (z : ℝ) w') :
+    RoundsFinite F₁ .awayZero x w' := by
+  rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
+  · -- x < 0: negate, apply the positive case, negate back.
+    have hx_pos' : 0 < (-x) := by linarith
+    have hz' : RoundsFinite F₂ .toOdd (-x) (-z) :=
+      (RoundsFinite.neg_toOdd F₂ x z).mp hz
+    have hw' : RoundsFinite F₁ .awayZero ((-z : Dyadic) : ℝ) (-w') := by
+      rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_awayZero F₁ (z : ℝ) w').mp hw
+    have h_result := rndRTO_RAZ_pos hsub hp_F₂ hx_pos' hz' hw'
+    have hfinal := (RoundsFinite.neg_awayZero F₁ (-x) (-w')).mp h_result
+    rwa [neg_neg, neg_neg] at hfinal
+  · -- x = 0: forces z = 0 and w' = 0.
+    subst hx_zero
+    have hz_zero : z = 0 := toOdd_eq_zero_of_zero hz
+    rw [hz_zero] at hw
+    obtain ⟨hw'F₁, _, _, hw'_min⟩ := hw
+    have h_min := hw'_min 0 F₁.zero_mem (le_refl _) (by simp)
+    have hw'_zero : (w' : ℝ) = 0 := by
+      rw [Dyadic.coe_real_zero, abs_zero] at h_min
+      exact abs_nonpos_iff.mp h_min
+    refine ⟨hw'F₁, ?_, ?_, ?_⟩
+    · simp [hw'_zero]
+    · simp [hw'_zero]
+    · intro v _ _ _
+      simp [hw'_zero, abs_nonneg]
+  · -- x > 0
+    exact rndRTO_RAZ_pos hsub hp_F₂ hx_pos hz hw
+
 end Mpfx2

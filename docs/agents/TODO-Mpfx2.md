@@ -92,7 +92,7 @@ Mpfx2/
 │                   IsOdd.transfer_of_subset (capstone Lemma 5.3)
 └── DoubleRounding.lean §5.2 / Fig. 9 rules (spec-relational over
                     RoundsFinite): rndRTZ_RTZ, rndRAZ_RAZ(_pos), rndRTO_RTO,
-                    rndRTO_RTZ (+ RTO helper chain: toOdd_nonneg_of_nn,
+                    rndRTO_RTZ, rndRTO_RAZ (+ RTO helper chain); rndRTO_RN TBD
                     toOdd_notMem_of_extend_subset, …); rndRTO_{RAZ,RN} TBD
 ```
 
@@ -312,8 +312,11 @@ spec-relationally over `RoundsFinite` (membership + mode condition):
       `toOdd_eq_zero_of_zero`, `toOdd_nonneg_of_nn`,
       `toOdd_notMem_of_lower_numDigits`, `toOdd_notMem_of_extend_subset`
       (Lemma 5.2 + 5.3), `rndRTO_RTZ_pos`.
-- [ ] `rndRTO_RAZ` — should reuse the RTO helper chain (symmetric to RTZ).
-- [ ] `rndRTO_RN` (both tie-breaks).
+- [x] `rndRTO_RAZ` (+ `rndRTO_RAZ_pos`) — RTO then RAZ; away-zero mirror of
+      RTZ. Lemma 5.3 application sits in the RTN branch (vs RTP for RTZ).
+      Reuses the RTO helper chain.
+- [ ] `rndRTO_RN` (both tie-breaks) — the last positive; RTO then
+      round-to-nearest. Hardest: uses `F₁.extend 2` + nearest machinery.
 - (NB: the old "paper-aligned" form derives `hp_F₂` from a `withBound`/`next`
   containment via `hp_F₂_or_F₁_trivial` (~675 lines); deferred — our rules
   take `hp_F₂` + `F₁.extend 1 ⊆ F₂` directly.)
