@@ -1,7 +1,7 @@
 # Mpfx2 TODO
 
 A parallel re-implementation of the formalization in `Mpfx2/`, exploring
-two design changes from `Mpfx/`:
+three design changes from `Mpfx/`:
 
 1. **Looser top-level type, layered subtypes.** `Format` encodes only
    the natural type-level constraints (`p ≥ 1` via `WithTop ℕ+`, `b ≥ 0`
@@ -15,6 +15,25 @@ two design changes from `Mpfx/`:
    `noncomputable` only because real comparisons aren't computably
    decidable. The constructive / classical boundary is at the file
    level: `Rounding.lean` is constructive, `RoundOp.lean` is classical.
+3. **ℚ substrate.** `Dyadic` is a subring of `ℚ` (not `ℝ`), giving
+   `DecidableEq` and a decidable `LinearOrder` for free from `ℚ`, while
+   keeping the full Mathlib algebra/tactic suite. `ℝ` is confined to
+   exactly where it is intrinsic: the real input `x`, the
+   `Int.log`/`Int.floor`/`numDigits` machinery, `IsRepresentableAtP`
+   (bridges to `numDigits`), and the `Rounds` spec (compares dyadics to
+   real `x`). The `Dyadic → ℝ` coercion factors as `Dyadic → ℚ → ℝ`; the
+   `ℚ↔ℝ` boundary is localized to named bridge lemmas
+   (`coe_real_*`, `precisionAtMost_coe_real`, `quantumAtLeast_coe_real`,
+   `*_extract`). `rnd` is still `noncomputable` (real input `x`), but the
+   overflow **sign bit** is now a decidable `ℚ` comparison.
+
+   Aside: Lean 4 core has its own `Dyadic` (`Init.Data.Dyadic`, canonical
+   `ofOdd n k` form). We do *not* use it as the substrate — it lacks
+   Mathlib `CommRing`/`LinearOrder` instances (only `Std.IsLinearOrder` +
+   `toRat`), and its `roundDown`/`toDyadic` don't match the `𝒜(p, exp, b)`
+   model. It remains a candidate for `native_decide` smoke tests only
+   (see "New features"). The root-level name collision with
+   `Mpfx2.Dyadic` is accepted (we always work inside `namespace Mpfx2`).
 
 `rnd` and `Rounds` are parameterized over `FiniteFormat` — the
 `(p = ⊤, exp = ⊥)` case is structurally excluded rather than being
@@ -27,9 +46,12 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 ```
 Mpfx2/
 ├── Utils.lean      project-agnostic helpers (two_zpow_pos, etc.)
-├── Dyadic.lean     IsDyadic, Dyadic subring, ofIntZpow,
-│                   precisionAtMost, quantumAtLeast,
-│                   IsRepresentableAtP, IsRepresentableAtP.unique,
+├── Dyadic.lean     IsDyadic (ℚ), Dyadic := subring of ℚ, ofIntZpow,
+│                   coe_real_* / coe_rat_ofIntZpow / ext_real bridge lemmas,
+│                   DecidableEq instance,
+│                   precisionAtMost, quantumAtLeast (both ℚ-valued),
+│                   precisionAtMost_coe_real / quantumAtLeast_coe_real (ℝ bridges),
+│                   IsRepresentableAtP (ℝ), IsRepresentableAtP.unique,
 │                   precisionAtMost_of_abs_le (saturation renormalization),
 │                   isRepresentableAtP_of_saturation, two_pow_succ_pred
 ├── Format.lean     Format / FiniteFormat / ParityFormat hierarchy,
@@ -60,18 +82,24 @@ Mpfx2/
 
 ## Substrate (done)
 
-- [x] `IsDyadic` predicate + closure (`zero`, `one`, `add`, `neg`, `mul`).
-- [x] `dyadicSubring`, `Dyadic` abbrev.
-- [x] `Dyadic.ofIntZpow`, `coe_ofIntZpow`.
-- [x] `Dyadic.precisionAtMost`, `Dyadic.quantumAtLeast`.
-- [x] `Dyadic.IsRepresentableAtP` + `unique` + `ne_zero`.
-- [x] `Dyadic.precisionAtMost_of_abs_le` (renormalization for saturation).
+- [x] `IsDyadic` predicate (over `ℚ`) + closure (`zero`, `one`, `add`,
+      `neg`, `mul`).
+- [x] `dyadicSubring : Subring ℚ`, `Dyadic` abbrev, `instance : DecidableEq Dyadic`.
+- [x] **ℚ-coercion bridge lemmas**: `coe_real_eq_ratCast`, `ext_real`,
+      `coe_real_injective`/`coe_real_inj`, `coe_real_{neg,zero,add,sub,mul}`
+      (`@[simp, norm_cast]`), `coe_rat_ofIntZpow`.
+- [x] `Dyadic.ofIntZpow`, `coe_ofIntZpow` (ℝ), `coe_rat_ofIntZpow` (ℚ).
+- [x] `Dyadic.precisionAtMost`, `Dyadic.quantumAtLeast` (ℚ-valued bodies),
+      with `precisionAtMost_coe_real` / `quantumAtLeast_coe_real` ℝ bridges.
+- [x] `Dyadic.IsRepresentableAtP` (ℝ body — aligned with `numDigits`)
+      + `unique` + `ne_zero`.
+- [x] `Dyadic.precisionAtMost_of_abs_le` (renormalization for saturation; ℚ).
 - [x] `Dyadic.isRepresentableAtP_of_saturation`, `isRepresentableAtP_of_bounds`.
 - [x] `Dyadic.two_pow_succ_pred`.
-- [x] `NonNegDyadic := { d : Dyadic // 0 ≤ (d : ℝ) }`.
+- [x] `NonNegDyadic := { d : Dyadic // 0 ≤ (d : ℚ) }`.
 - [x] `Format` (`p : WithTop ℕ+`, `exp : WithBot ℤ`, `b : WithTop NonNegDyadic`).
-- [x] `Format.boundOK`, `Format.Mem`, `Membership Dyadic Format`,
-      `Format.zero_mem`, `Format.unbounded`.
+- [x] `Format.boundOK` (ℚ comparison `|d| ≤ b`), `Format.Mem`,
+      `Membership Dyadic Format`, `Format.zero_mem`, `Format.unbounded`.
 - [x] `FiniteFormat extends Format` with `finite : p ≠ ⊤ ∨ exp ≠ ⊥`,
       `Membership Dyadic FiniteFormat`, `FiniteFormat.unbounded`
       (returns FiniteFormat), `FiniteFormat.zero_mem`,
@@ -149,7 +177,7 @@ mixed-normal-pne1, mixed-subnormal-p1, mixed-normal-p1), all of:
 - [x] `Rounds : FiniteFormat → RoundingMode → ℝ → RoundResult → Prop`
       (IEEE-style overflow via `F.unbounded` + separate `boundOK`;
       `.overflow b` clause adds the sign constraint
-      `(b ↔ 0 < (y : ℝ))` on the overflowing witness).
+      `(b ↔ 0 < (y : ℚ))` — decidable ℚ sign — on the overflowing witness).
 - [x] `rndInt`, `rndParity`.
 - [x] `FiniteFormat.toParityFormatOfToOdd`, `toParityFormatOfNearestEven`.
 - [x] `rndUnbounded`, `rnd` (computes overflow sign from the unbounded
@@ -242,6 +270,12 @@ These are the headline application. Each is stated against `Rounds`
 - [ ] **Smoke tests** (`Mpfx2/Tests.lean`): concrete
       `rnd F rm x = .finite y` proofs. Since `rnd` is `noncomputable`,
       these are `rfl`/`decide`-style equational proofs, not `#eval`.
+      *Computable-mirror option*: define `rndQ : FiniteFormat → RoundingMode
+      → ℚ → RoundResult` for rational inputs and prove
+      `rndQ F rm q = rnd F rm (q : ℝ)`, then close concrete tests by
+      `decide`/`native_decide`. The `ℚ` substrate (decidable eq/order)
+      makes this viable; Lean-core `Dyadic` could back the `native_decide`
+      kernel via `toRat` if raw speed is ever needed.
 - [ ] **Cross-references** to the paper: `binary32 ⊆ binary64` via
       `containsPrec`; `E5M2 ⊆ binary64` via `containsSub`.
 - [ ] **§3.5 numeric example**: `rnd_{E5M2,RNE}(1.26)` evaluates as

@@ -139,7 +139,7 @@ noncomputable def rnd (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) : RoundRe
   else
     let y := rndUnbounded F rm x h_undef
     if Format.boundOK F.b y then .finite y
-    else .overflow (if (0 : ℝ) < (y : ℝ) then true else false)
+    else .overflow (if (0 : ℚ) < (y : ℚ) then true else false)
 
 /-! ### Soundness of `rndUnbounded`
 
@@ -296,7 +296,7 @@ private theorem floor_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
         change F.canonicalExp x = e'
         unfold FiniteFormat.canonicalExp
         simp [hp, hexp]
-      rw [hexp, Dyadic.quantumAtLeast_coe] at hz_quant
+      rw [hexp, Dyadic.quantumAtLeast_coe_real] at hz_quant
       obtain ⟨k, hk⟩ := hz_quant
       have h_2e'_pos : (0 : ℝ) < (2 : ℝ) ^ e' := zpow_pos (by norm_num) _
       rw [hk] at hz_le_x
@@ -319,7 +319,7 @@ private theorem floor_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
       apply mul_le_mul_of_nonneg_right _ h_2e'_pos.le
       exact_mod_cast h_k_le_floor
   | coe p =>
-    rw [hp, Dyadic.precisionAtMost_coe] at hz_prec
+    rw [hp, Dyadic.precisionAtMost_coe_real] at hz_prec
     obtain ⟨a, e_a, hz_repr, ha_bound⟩ := hz_prec
     by_cases h_ea_ge : e ≤ e_a
     · -- integer factor argument
@@ -363,7 +363,7 @@ private theorem floor_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
       · cases hexp : F.exp with
         | coe e' =>
           by_cases h_e'_eq : e' = e
-          · rw [hexp, Dyadic.quantumAtLeast_coe] at hz_quant
+          · rw [hexp, Dyadic.quantumAtLeast_coe_real] at hz_quant
             obtain ⟨k, hk⟩ := hz_quant
             rw [hk]
             have h_2neg_pos : (0 : ℝ) < (2 : ℝ) ^ (-e) :=
@@ -432,8 +432,8 @@ private theorem ceil_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
     | top => trivial
     | coe p =>
       rw [hp] at hz_prec
-      rw [Dyadic.precisionAtMost_coe] at hz_prec
-      rw [Dyadic.precisionAtMost_coe]
+      rw [Dyadic.precisionAtMost_coe_real] at hz_prec
+      rw [Dyadic.precisionAtMost_coe_real]
       obtain ⟨a, e_a, hz_repr, ha_bound⟩ := hz_prec
       refine ⟨-a, e_a, ?_, ?_⟩
       · push_cast; rw [hz_repr]; ring
@@ -442,9 +442,9 @@ private theorem ceil_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
     cases hexp : F.exp with
     | bot => trivial
     | coe e' =>
-      rw [hexp, Dyadic.quantumAtLeast_coe] at hz_quant
+      rw [hexp, Dyadic.quantumAtLeast_coe_real] at hz_quant
       obtain ⟨k, hk⟩ := hz_quant
-      rw [Dyadic.quantumAtLeast_coe]
+      rw [Dyadic.quantumAtLeast_coe_real]
       refine ⟨-k, ?_⟩
       push_cast; rw [hk]; ring
   have h_neg_le : ((-z : Dyadic) : ℝ) ≤ -x := by push_cast; linarith
@@ -472,13 +472,13 @@ private theorem ofIntZpow_mem_unbounded (F : FiniteFormat) {k e : ℤ}
     cases hp : F.p with
     | top => trivial
     | coe p =>
-      exact Dyadic.precisionAtMost_of_abs_le k e (Dyadic.coe_ofIntZpow k e)
+      exact Dyadic.precisionAtMost_of_abs_le k e (Dyadic.coe_rat_ofIntZpow k e)
         (hk_bound hp)
   · change Dyadic.quantumAtLeast F.exp (Dyadic.ofIntZpow k e)
     cases hexp : F.exp with
     | bot => trivial
     | coe e' =>
-      rw [Dyadic.quantumAtLeast_coe]
+      rw [Dyadic.quantumAtLeast_coe_real]
       have h_e_ge : e' ≤ e := he_ge hexp
       have h_diff_nn : 0 ≤ e - e' := by omega
       refine ⟨k * 2 ^ (e - e').toNat, ?_⟩
@@ -1683,12 +1683,12 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
     intro y hf
     rcases hf with ⟨hy_mem, hy_le, hy_max⟩ | ⟨hy_mem, hy_ge, hy_min⟩
     · left
-      apply Subtype.ext
+      apply Dyadic.ext_real
       exact le_antisymm (h_dlo_round_down y hy_mem hy_le)
         (hy_max dlo h_dlo_mem h_dlo_le_x)
     · by_cases hs_eq : (lo : ℝ) = s
       · -- Exact: x = dlo. y ≥ x = dlo and y ≤ dlo (via hy_min applied to dlo).
-        left; apply Subtype.ext
+        left; apply Dyadic.ext_real
         have hx_eq_dlo : x = (dlo : ℝ) := by
           rw [h_dlo_real]
           have h_x_eq : x = s * (2 : ℝ) ^ e := by
@@ -1700,7 +1700,7 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
           hy_min dlo h_dlo_mem (le_of_eq hx_eq_dlo)
         have h_y_ge_dlo : (dlo : ℝ) ≤ (y : ℝ) := hx_eq_dlo ▸ hy_ge
         exact le_antisymm h_y_le_dlo h_y_ge_dlo
-      · right; apply Subtype.ext
+      · right; apply Dyadic.ext_real
         exact le_antisymm (hy_min dhi h_dhi_mem h_x_le_dhi)
           (h_dhi_round_up hs_eq y hy_mem hy_ge)
   -- Distances |x - dlo| = δ · 2^e and |x - dhi| = (1 - δ) · 2^e.
@@ -2441,7 +2441,7 @@ theorem rndUnbounded_unique_toNegative (F : FiniteFormat) (x : ℝ)
   obtain ⟨hy'_mem, hy'_le, hy'_max⟩ := hy'
   have h1 : (y' : ℝ) ≤ (y : ℝ) := hy_max y' hy'_mem hy'_le
   have h2 : (y : ℝ) ≤ (y' : ℝ) := hy'_max y hy_mem hy_le
-  exact Subtype.ext (le_antisymm h2 h1)
+  exact Dyadic.ext_real (le_antisymm h2 h1)
 
 theorem rndUnbounded_unique_toPositive (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toPositive) {y : Dyadic}
@@ -2454,7 +2454,7 @@ theorem rndUnbounded_unique_toPositive (F : FiniteFormat) (x : ℝ)
   obtain ⟨hy'_mem, hy'_ge, hy'_min⟩ := hy'
   have h1 : (y : ℝ) ≤ (y' : ℝ) := hy_min y' hy'_mem hy'_ge
   have h2 : (y' : ℝ) ≤ (y : ℝ) := hy'_min y hy_mem hy_ge
-  exact Subtype.ext (le_antisymm h1 h2)
+  exact Dyadic.ext_real (le_antisymm h1 h2)
 
 theorem rndUnbounded_unique_toZero (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toZero) {y : Dyadic}
@@ -2468,7 +2468,7 @@ theorem rndUnbounded_unique_toZero (F : FiniteFormat) (x : ℝ)
   have h1 : |(y' : ℝ)| ≤ |(y : ℝ)| := hy_max y' hy'_mem hy'_bnd hy'_sign
   have h2 : |(y : ℝ)| ≤ |(y' : ℝ)| := hy'_max y hy_mem hy_bnd hy_sign
   have habs : |(y : ℝ)| = |(y' : ℝ)| := le_antisymm h2 h1
-  apply Subtype.ext
+  apply Dyadic.ext_real
   rcases abs_eq_abs.mp habs with heq | hneg
   · exact heq
   · -- y = -y': combine the two `* x ≥ 0` constraints to force y'·x = 0.
@@ -2499,7 +2499,7 @@ theorem rndUnbounded_unique_awayZero (F : FiniteFormat) (x : ℝ)
   have h1 : |(y : ℝ)| ≤ |(y' : ℝ)| := hy_min y' hy'_mem hy'_bnd hy'_sign
   have h2 : |(y' : ℝ)| ≤ |(y : ℝ)| := hy'_min y hy_mem hy_bnd hy_sign
   have habs : |(y : ℝ)| = |(y' : ℝ)| := le_antisymm h1 h2
-  apply Subtype.ext
+  apply Dyadic.ext_real
   rcases abs_eq_abs.mp habs with heq | hneg
   · exact heq
   · have h_prod_zero : (y' : ℝ) * x = 0 := by
@@ -2532,7 +2532,7 @@ theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
     rndUnbounded_satisfies_toOdd F x h
   obtain ⟨hy_mem, hy_faith, hy_par⟩ := hy
   obtain ⟨hy'_mem, hy'_faith, hy'_par⟩ := hy'
-  apply Subtype.ext
+  apply Dyadic.ext_real
   -- Mixed-case helper: given `y` is RoundDown, `y'` is RoundUp, show `y = y'`.
   -- This is the asymmetric case; the symmetric one is identical with `y` and
   -- `y'` swapped.
@@ -2623,8 +2623,8 @@ theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
     have h_y'_eq_dhi_r : (y' : ℝ) = (dhi : ℝ) :=
       le_antisymm (hy'_min dhi h_dhi_mem h_x_le_dhi)
         (h_dhi_min y' hy'_mem hy'_ge)
-    have h_y_eq_dlo : y = dlo := Subtype.ext h_y_eq_dlo_r
-    have h_y'_eq_dhi : y' = dhi := Subtype.ext h_y'_eq_dhi_r
+    have h_y_eq_dlo : y = dlo := Dyadic.ext_real h_y_eq_dlo_r
+    have h_y'_eq_dhi : y' = dhi := Dyadic.ext_real h_y'_eq_dhi_r
     -- Transfer IsOdd via the F_y → F'' bridge.
     cases hp_F : F.p with
     | top =>
@@ -2701,8 +2701,8 @@ theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
           -- y = 0. But hy_lt : y < 0. Contradiction.
           have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := FiniteFormat.zero_mem F.unbounded
           have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) :=
-            hy_max 0 h_zero_mem (by simp)
-          simp at h_zero_le_y
+            hy_max 0 h_zero_mem (by rw [Dyadic.coe_real_zero])
+          rw [Dyadic.coe_real_zero] at h_zero_le_y
           linarith
         -- e = log|x|+1-p from canonicalExp formula (F.exp = ⊥, x ≠ 0).
         have h_e_eq_log : e = Int.log 2 |x| + 1 - (p : ℤ) := by
@@ -2790,8 +2790,8 @@ theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
             have h_zero_mem : (0 : Dyadic) ∈ F.unbounded :=
               FiniteFormat.zero_mem F.unbounded
             have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) :=
-              hy_max 0 h_zero_mem (by simp)
-            simp at h_zero_le_y
+              hy_max 0 h_zero_mem (by rw [Dyadic.coe_real_zero])
+            rw [Dyadic.coe_real_zero] at h_zero_le_y
             linarith
           have h_e_ge : e'' ≤ e := F.exp_le_canonicalExp x hexp_F
           have h_s_lt : |x * (2 : ℝ) ^ (-e)| < (2 : ℝ) ^ ((1 : ℕ+) : ℕ) :=
@@ -2921,8 +2921,8 @@ theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
             subst hx0
             have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := FiniteFormat.zero_mem F.unbounded
             have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) :=
-              hy_max 0 h_zero_mem (by simp)
-            simp at h_zero_le_y
+              hy_max 0 h_zero_mem (by rw [Dyadic.coe_real_zero])
+            rw [Dyadic.coe_real_zero] at h_zero_le_y
             linarith
           by_cases h_regime : Int.log 2 |x| + 1 - ((p : ℕ+) : ℤ) ≤ e''
           · -- Subnormal: e = e''.
@@ -3204,7 +3204,7 @@ theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
       le_antisymm (hy_min y' hy'_mem hy'_faith) (hy'_min y hy_mem hy_faith)
     by_cases h_yy : y = y'
     · exact h_yy
-    · apply Subtype.ext
+    · apply Dyadic.ext_real
       have h_y_le_y' : |(y : ℝ)| ≤ |(y' : ℝ)| :=
         hy'_tie y hy_mem hy_faith h_yy h_dist_eq.symm
       have h_y'_le_y : |(y' : ℝ)| ≤ |(y : ℝ)| :=
@@ -3226,7 +3226,7 @@ theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
             ring_nf; ring_nf at this; linarith
           linarith [h_sq]
         have h_y_ne_y' : (y : ℝ) ≠ (y' : ℝ) := fun heq =>
-          h_yy (Subtype.ext heq)
+          h_yy (Dyadic.ext_real heq)
         have h_diff_ne : (y : ℝ) - (y' : ℝ) ≠ 0 := sub_ne_zero.mpr h_y_ne_y'
         have h_2x : 2 * x = 0 := by
           by_contra h2x
@@ -3242,13 +3242,13 @@ theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
           have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) := by
             have := hy_max 0 h_zero_mem (by rw [h_x_zero]; simp)
             simpa using this
-          simp at h_zero_le_y
+          rw [Dyadic.coe_real_zero] at h_zero_le_y
           linarith
         · rw [h_x_zero] at hy_ge
           have h_y_le_zero : (y : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
             have := hy_min' 0 h_zero_mem (by rw [h_x_zero]; simp)
             simpa using this
-          simp at h_y_le_zero
+          rw [Dyadic.coe_real_zero] at h_y_le_zero
           linarith
       have h_y'_eq_zero : (y' : ℝ) = 0 := by
         rcases hy'_faith with ⟨_, hy'_le, hy'_max⟩ | ⟨_, hy'_ge, hy'_min'⟩
@@ -3256,13 +3256,13 @@ theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
           have h_zero_le_y' : ((0 : Dyadic) : ℝ) ≤ (y' : ℝ) := by
             have := hy'_max 0 h_zero_mem (by rw [h_x_zero]; simp)
             simpa using this
-          simp at h_zero_le_y'
+          rw [Dyadic.coe_real_zero] at h_zero_le_y'
           linarith
         · rw [h_x_zero] at hy'_ge
           have h_y'_le_zero : (y' : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
             have := hy'_min' 0 h_zero_mem (by rw [h_x_zero]; simp)
             simpa using this
-          simp at h_y'_le_zero
+          rw [Dyadic.coe_real_zero] at h_y'_le_zero
           linarith
       rw [h_y_eq_zero, h_y'_eq_zero]
   | toEven =>
@@ -3361,11 +3361,11 @@ theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
         intro z hf
         rcases hf with ⟨hz_mem, hz_le, hz_max⟩ | ⟨hz_mem, hz_ge, hz_min⟩
         · left
-          apply Subtype.ext
+          apply Dyadic.ext_real
           exact le_antisymm (h_dlo_round_down z hz_mem hz_le)
             (hz_max dlo h_dlo_mem h_dlo_le_x)
         · by_cases hs_eq : (lo : ℝ) = s
-          · left; apply Subtype.ext
+          · left; apply Dyadic.ext_real
             have hx_eq_dlo : x = (dlo : ℝ) := by
               rw [h_dlo_real]
               have h_x_eq : x = s * (2 : ℝ) ^ e := by
@@ -3377,7 +3377,7 @@ theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
               hz_min dlo h_dlo_mem (le_of_eq hx_eq_dlo)
             have h_z_ge_dlo : (dlo : ℝ) ≤ (z : ℝ) := hx_eq_dlo ▸ hz_ge
             exact le_antisymm h_z_le_dlo h_z_ge_dlo
-          · right; apply Subtype.ext
+          · right; apply Dyadic.ext_real
             exact le_antisymm (hz_min dhi h_dhi_mem h_x_le_dhi)
               (h_dhi_round_up hs_eq z hz_mem hz_ge)
       -- y, y' ∈ {dlo, dhi}.
@@ -3439,22 +3439,22 @@ theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
                 · have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) := by
                     have := hy_max 0 h_zero_mem (by simp)
                     simpa using this
-                  simp at h_zero_le_y; linarith
+                  rw [Dyadic.coe_real_zero] at h_zero_le_y; linarith
                 · have h_y_le_z : (y : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
                     have := hy_min' 0 h_zero_mem (by simp)
                     simpa using this
-                  simp at h_y_le_z; linarith
+                  rw [Dyadic.coe_real_zero] at h_y_le_z; linarith
               have h_y'_eq_z : (y' : ℝ) = 0 := by
                 rcases hy'_faith with ⟨_, hy'_le, hy'_max⟩ | ⟨_, hy'_ge, hy'_min'⟩
                 · have h_zero_le_y' : ((0 : Dyadic) : ℝ) ≤ (y' : ℝ) := by
                     have := hy'_max 0 h_zero_mem (by simp)
                     simpa using this
-                  simp at h_zero_le_y'; linarith
+                  rw [Dyadic.coe_real_zero] at h_zero_le_y'; linarith
                 · have h_y'_le_z : (y' : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
                     have := hy'_min' 0 h_zero_mem (by simp)
                     simpa using this
-                  simp at h_y'_le_z; linarith
-              exact h_yy (Subtype.ext (h_y_eq_z.trans h_y'_eq_z.symm))
+                  rw [Dyadic.coe_real_zero] at h_y'_le_z; linarith
+              exact h_yy (Dyadic.ext_real (h_y_eq_z.trans h_y'_eq_z.symm))
             have h_e_eq_log : e = Int.log 2 |x| + 1 - (p : ℤ) := by
               change F.canonicalExp x = _
               unfold FiniteFormat.canonicalExp
@@ -3483,7 +3483,7 @@ theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
                     (hy'_max dlo h_dlo_mem h_dlo_le_x)
                 · exact le_antisymm (hy'_min' dlo h_dlo_mem (le_of_eq h_x_eq_dlo))
                     (h_x_eq_dlo ▸ hy'_ge)
-              exact h_yy (Subtype.ext (h_y_eq_dlo'.trans h_y'_eq_dlo'.symm))
+              exact h_yy (Dyadic.ext_real (h_y_eq_dlo'.trans h_y'_eq_dlo'.symm))
             have h_lop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1| := by
               by_cases hs_nn : 0 ≤ s
               · have h_lo_nn : 0 ≤ lo := Int.floor_nonneg.mpr hs_nn
@@ -3516,19 +3516,19 @@ theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
                 rcases hy_faith with ⟨_, hy_le, hy_max⟩ | ⟨_, hy_ge, hy_min'⟩
                 · have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) := by
                     have := hy_max 0 h_zero_mem (by simp); simpa using this
-                  simp at h_zero_le_y; linarith
+                  rw [Dyadic.coe_real_zero] at h_zero_le_y; linarith
                 · have h_y_le_z : (y : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
                     have := hy_min' 0 h_zero_mem (by simp); simpa using this
-                  simp at h_y_le_z; linarith
+                  rw [Dyadic.coe_real_zero] at h_y_le_z; linarith
               have h_y'_eq_z : (y' : ℝ) = 0 := by
                 rcases hy'_faith with ⟨_, hy'_le, hy'_max⟩ | ⟨_, hy'_ge, hy'_min'⟩
                 · have h_zero_le_y' : ((0 : Dyadic) : ℝ) ≤ (y' : ℝ) := by
                     have := hy'_max 0 h_zero_mem (by simp); simpa using this
-                  simp at h_zero_le_y'; linarith
+                  rw [Dyadic.coe_real_zero] at h_zero_le_y'; linarith
                 · have h_y'_le_z : (y' : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
                     have := hy'_min' 0 h_zero_mem (by simp); simpa using this
-                  simp at h_y'_le_z; linarith
-              exact h_yy (Subtype.ext (h_y_eq_z.trans h_y'_eq_z.symm))
+                  rw [Dyadic.coe_real_zero] at h_y'_le_z; linarith
+              exact h_yy (Dyadic.ext_real (h_y_eq_z.trans h_y'_eq_z.symm))
             -- h_lo_ne_s from tie (same as floating case).
             have h_lo_ne_s : (lo : ℝ) ≠ s := by
               intro h_eq
@@ -3548,7 +3548,7 @@ theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
                     (hy'_max dlo h_dlo_mem h_dlo_le_x)
                 · exact le_antisymm (hy'_min' dlo h_dlo_mem (le_of_eq h_x_eq_dlo))
                     (h_x_eq_dlo ▸ hy'_ge)
-              exact h_yy (Subtype.ext (h_y_eq_dlo'.trans h_y'_eq_dlo'.symm))
+              exact h_yy (Dyadic.ext_real (h_y_eq_dlo'.trans h_y'_eq_dlo'.symm))
             by_cases hp_eq_1 : p = (1 : ℕ+)
             · -- p = 1.
               subst hp_eq_1
@@ -3926,7 +3926,7 @@ theorem rnd_iff_rounds (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (r : Rou
     change rnd F rm x = .overflow b ↔
       ¬ F.IsUndefined rm ∧
       ∃ y, RoundsFinite F.unbounded rm x y ∧ ¬ Format.boundOK F.b y ∧
-           (b ↔ (0 : ℝ) < (y : ℝ))
+           (b ↔ (0 : ℚ) < (y : ℚ))
     constructor
     · intro h_eq
       have h_undef : ¬ F.IsUndefined rm := by
@@ -3960,12 +3960,12 @@ theorem rnd_iff_rounds (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (r : Rou
       dsimp only
       rw [if_neg (h_y_eq ▸ hBN)]
       congr 1
-      by_cases hpos : (0 : ℝ) < (rndUnbounded F rm x h_undef : ℝ)
+      by_cases hpos : (0 : ℚ) < (rndUnbounded F rm x h_undef : ℚ)
       · rw [if_pos hpos]
-        have hy_pos : (0 : ℝ) < (y : ℝ) := h_y_eq ▸ hpos
+        have hy_pos : (0 : ℚ) < (y : ℚ) := h_y_eq ▸ hpos
         exact (hSign.mpr hy_pos).symm
       · rw [if_neg hpos]
-        have hy_npos : ¬ (0 : ℝ) < (y : ℝ) := fun h => hpos (h_y_eq ▸ h)
+        have hy_npos : ¬ (0 : ℚ) < (y : ℚ) := fun h => hpos (h_y_eq ▸ h)
         cases hb : b
         · rfl
         · exfalso

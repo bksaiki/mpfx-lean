@@ -1,4 +1,6 @@
 import Mathlib.Data.Real.Basic
+import Mathlib.Data.Rat.Cast.Defs
+import Mathlib.Data.Rat.Cast.Order
 import Mathlib.Algebra.Ring.Subring.Basic
 import Mathlib.Data.Int.Log
 import Mathlib.Tactic
@@ -6,34 +8,39 @@ import Mpfx2.Utils
 
 namespace Mpfx2
 
-/-- A real number is *dyadic* if it has the form `c · 2^e` for some integers `c, e`.
+/-- A rational number is *dyadic* if it has the form `c · 2^e` for some integers `c, e`.
 The decomposition is not unique: `c · 2^e = (2c) · 2^(e − 1)`. -/
-def IsDyadic (x : ℝ) : Prop := ∃ c e : ℤ, x = (c : ℝ) * (2 : ℝ) ^ e
+def IsDyadic (x : ℚ) : Prop := ∃ c e : ℤ, x = (c : ℚ) * (2 : ℚ) ^ e
 
 namespace IsDyadic
 
 private theorem add_aux (c₁ c₂ e₁ e₂ : ℤ) (h : e₁ ≤ e₂) :
-    (c₁ : ℝ) * (2 : ℝ) ^ e₁ + (c₂ : ℝ) * (2 : ℝ) ^ e₂
-      = ((c₁ + c₂ * 2 ^ (e₂ - e₁).toNat : ℤ) : ℝ) * (2 : ℝ) ^ e₁ := by
-  rw [two_zpow_split_toNat h]
-  push_cast; ring
+    (c₁ : ℚ) * (2 : ℚ) ^ e₁ + (c₂ : ℚ) * (2 : ℚ) ^ e₂
+      = ((c₁ + c₂ * 2 ^ (e₂ - e₁).toNat : ℤ) : ℚ) * (2 : ℚ) ^ e₁ := by
+  have h2 : (2 : ℚ) ≠ 0 := by norm_num
+  have hsub : ((e₂ - e₁).toNat : ℤ) = e₂ - e₁ := Int.toNat_of_nonneg (by omega)
+  have hpow : (2 : ℚ) ^ e₂ = (2 : ℚ) ^ (e₂ - e₁).toNat * (2 : ℚ) ^ e₁ := by
+    rw [show ((2 : ℚ) ^ (e₂ - e₁).toNat : ℚ) = (2 : ℚ) ^ ((e₂ - e₁).toNat : ℤ) from
+        (zpow_natCast _ _).symm, ← zpow_add₀ h2, hsub]
+    congr 1; ring
+  rw [hpow]; push_cast; ring
 
 theorem zero : IsDyadic 0 := ⟨0, 0, by simp⟩
 
 theorem one : IsDyadic 1 := ⟨1, 0, by simp⟩
 
-theorem neg {x : ℝ} (h : IsDyadic x) : IsDyadic (-x) := by
+theorem neg {x : ℚ} (h : IsDyadic x) : IsDyadic (-x) := by
   obtain ⟨c, e, rfl⟩ := h
   exact ⟨-c, e, by push_cast; ring⟩
 
-theorem mul {x y : ℝ} (hx : IsDyadic x) (hy : IsDyadic y) : IsDyadic (x * y) := by
+theorem mul {x y : ℚ} (hx : IsDyadic x) (hy : IsDyadic y) : IsDyadic (x * y) := by
   obtain ⟨c₁, e₁, rfl⟩ := hx
   obtain ⟨c₂, e₂, rfl⟩ := hy
   refine ⟨c₁ * c₂, e₁ + e₂, ?_⟩
-  rw [zpow_add₀ two_ne_zero]
+  rw [zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0)]
   push_cast; ring
 
-theorem add {x y : ℝ} (hx : IsDyadic x) (hy : IsDyadic y) : IsDyadic (x + y) := by
+theorem add {x y : ℚ} (hx : IsDyadic x) (hy : IsDyadic y) : IsDyadic (x + y) := by
   obtain ⟨c₁, e₁, rfl⟩ := hx
   obtain ⟨c₂, e₂, rfl⟩ := hy
   rcases le_total e₁ e₂ with h | h
@@ -44,8 +51,8 @@ theorem add {x y : ℝ} (hx : IsDyadic x) (hy : IsDyadic y) : IsDyadic (x + y) :
 
 end IsDyadic
 
-/-- The subring of dyadic reals. -/
-def dyadicSubring : Subring ℝ where
+/-- The subring of dyadic rationals. -/
+def dyadicSubring : Subring ℚ where
   carrier := { x | IsDyadic x }
   zero_mem' := IsDyadic.zero
   one_mem' := IsDyadic.one
@@ -53,31 +60,77 @@ def dyadicSubring : Subring ℝ where
   neg_mem' := IsDyadic.neg
   mul_mem' := IsDyadic.mul
 
-/-- The type of dyadic numbers, as a subtype of ℝ.
+/-- The type of dyadic numbers, as a subtype of ℚ.
 
 Defined in §3.1. -/
 abbrev Dyadic : Type := dyadicSubring
 
 namespace Dyadic
 
+/-- The composite coercion `Dyadic → ℚ → ℝ` is just `((d : ℚ) : ℝ)`. -/
+theorem coe_real_eq_ratCast (d : Dyadic) :
+    ((d : Dyadic) : ℝ) = ((d : ℚ) : ℝ) := rfl
+
+/-- Extensionality through the real coercion: equal reals ⟹ equal dyadics. -/
+theorem ext_real {a b : Dyadic} (h : ((a : Dyadic) : ℝ) = ((b : Dyadic) : ℝ)) : a = b := by
+  apply Subtype.ext
+  exact_mod_cast h
+
+/-- The composite coercion `Dyadic → ℚ → ℝ` is injective. -/
+theorem coe_real_injective : Function.Injective (fun d : Dyadic => ((d : Dyadic) : ℝ)) :=
+  fun _ _ h => ext_real h
+
+@[simp, norm_cast] theorem coe_real_inj (a b : Dyadic) :
+    ((a : Dyadic) : ℝ) = ((b : Dyadic) : ℝ) ↔ a = b :=
+  ⟨ext_real, fun h => by rw [h]⟩
+
+/-- Coercion of negation, all the way to ℝ. -/
+@[simp, norm_cast] theorem coe_real_neg (d : Dyadic) :
+    ((-d : Dyadic) : ℝ) = -((d : Dyadic) : ℝ) := by
+  push_cast; ring
+
+/-- Coercion of zero, all the way to ℝ. -/
+@[simp, norm_cast] theorem coe_real_zero :
+    ((0 : Dyadic) : ℝ) = 0 := by push_cast; ring
+
+/-- Coercion of addition, all the way to ℝ. -/
+@[simp, norm_cast] theorem coe_real_add (d₁ d₂ : Dyadic) :
+    ((d₁ + d₂ : Dyadic) : ℝ) = ((d₁ : Dyadic) : ℝ) + ((d₂ : Dyadic) : ℝ) := by
+  push_cast; ring
+
+/-- Coercion of subtraction, all the way to ℝ. -/
+@[simp, norm_cast] theorem coe_real_sub (d₁ d₂ : Dyadic) :
+    ((d₁ - d₂ : Dyadic) : ℝ) = ((d₁ : Dyadic) : ℝ) - ((d₂ : Dyadic) : ℝ) := by
+  push_cast; ring
+
+/-- Coercion of multiplication, all the way to ℝ. -/
+@[simp, norm_cast] theorem coe_real_mul (d₁ d₂ : Dyadic) :
+    ((d₁ * d₂ : Dyadic) : ℝ) = ((d₁ : Dyadic) : ℝ) * ((d₂ : Dyadic) : ℝ) := by
+  push_cast; ring
+
 /-- Build a dyadic from `(c, e) : ℤ × ℤ`: the value `c · 2^e`. -/
 noncomputable def ofIntZpow (c e : ℤ) : Dyadic :=
-  ⟨(c : ℝ) * (2 : ℝ) ^ e, c, e, rfl⟩
+  ⟨(c : ℚ) * (2 : ℚ) ^ e, c, e, rfl⟩
+
+@[simp] theorem coe_rat_ofIntZpow (c e : ℤ) :
+    ((ofIntZpow c e : Dyadic) : ℚ) = (c : ℚ) * (2 : ℚ) ^ e := rfl
 
 @[simp] theorem coe_ofIntZpow (c e : ℤ) :
-    ((ofIntZpow c e : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := rfl
+    ((ofIntZpow c e : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := by
+  change ((((c : ℚ) * (2 : ℚ) ^ e : ℚ) : ℝ)) = (c : ℝ) * (2 : ℝ) ^ e
+  push_cast; ring
 
 /-- `x` has precision at most `p` (`⊤` = no constraint): there exist `c, e : ℤ`
 with `x = c · 2^e` and `|c| < 2^p`. -/
 def precisionAtMost : WithTop ℕ+ → Dyadic → Prop
   | ⊤, _ => True
-  | (p : ℕ+), x => ∃ c e : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ)
+  | (p : ℕ+), x => ∃ c e : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ)
 
 /-- `x` has quantum at least `2^e` (`⊥` = no constraint): there exists `c : ℤ`
 with `x = c · 2^e`. -/
 def quantumAtLeast : WithBot ℤ → Dyadic → Prop
   | ⊥, _ => True
-  | (e : ℤ), x => ∃ c : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e
+  | (e : ℤ), x => ∃ c : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e
 
 @[simp] theorem precisionAtMost_top (x : Dyadic) : precisionAtMost ⊤ x := trivial
 
@@ -85,11 +138,34 @@ def quantumAtLeast : WithBot ℤ → Dyadic → Prop
 
 theorem precisionAtMost_coe (p : ℕ+) (x : Dyadic) :
     precisionAtMost (p : WithTop ℕ+) x ↔
-      ∃ c e : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ) := Iff.rfl
+      ∃ c e : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ) := Iff.rfl
 
 theorem quantumAtLeast_coe (e : ℤ) (x : Dyadic) :
     quantumAtLeast (e : WithBot ℤ) x ↔
-      ∃ c : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := Iff.rfl
+      ∃ c : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e := Iff.rfl
+
+/-- `ℝ`-stated companion to `precisionAtMost_coe`. The substrate predicate is
+`ℚ`-valued; this bridges to `ℝ` for the `Int.log`/`Int.floor` rounding proofs. -/
+theorem precisionAtMost_coe_real (p : ℕ+) (x : Dyadic) :
+    precisionAtMost (p : WithTop ℕ+) x ↔
+      ∃ c e : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ) := by
+  rw [precisionAtMost_coe]
+  refine ⟨fun ⟨c, e, hc, hb⟩ => ⟨c, e, ?_, hb⟩, fun ⟨c, e, hc, hb⟩ => ⟨c, e, ?_, hb⟩⟩
+  · rw [coe_real_eq_ratCast, hc]; push_cast; ring
+  · have h : ((x : ℚ) : ℝ) = (((c : ℚ) * (2 : ℚ) ^ e : ℚ) : ℝ) := by
+      rw [← coe_real_eq_ratCast, hc]; push_cast; ring
+    exact_mod_cast h
+
+/-- `ℝ`-stated companion to `quantumAtLeast_coe`. -/
+theorem quantumAtLeast_coe_real (e : ℤ) (x : Dyadic) :
+    quantumAtLeast (e : WithBot ℤ) x ↔
+      ∃ c : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := by
+  rw [quantumAtLeast_coe]
+  refine ⟨fun ⟨c, hc⟩ => ⟨c, ?_⟩, fun ⟨c, hc⟩ => ⟨c, ?_⟩⟩
+  · rw [coe_real_eq_ratCast, hc]; push_cast; ring
+  · have h : ((x : ℚ) : ℝ) = (((c : ℚ) * (2 : ℚ) ^ e : ℚ) : ℝ) := by
+      rw [← coe_real_eq_ratCast, hc]; push_cast; ring
+    exact_mod_cast h
 
 theorem precisionAtMost_neg {p : WithTop ℕ+} {x : Dyadic} (h : precisionAtMost p x) :
     precisionAtMost p (-x) := by
@@ -129,7 +205,7 @@ def IsRepresentableAtP (p : ℕ) (c e : ℤ) (y : Dyadic) : Prop :=
 boundary case `|c| = 2^p` forces `c = ±2^p`; renormalize to
 `y = ±1 · 2^(e+p)` to recover a strict-inequality witness. -/
 theorem precisionAtMost_of_abs_le {p : ℕ+} {x : Dyadic} (c e : ℤ)
-    (hx : (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e) (hc : |c| ≤ (2 : ℤ) ^ (p : ℕ)) :
+    (hx : (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e) (hc : |c| ≤ (2 : ℤ) ^ (p : ℕ)) :
     precisionAtMost ((p : ℕ+) : WithTop ℕ+) x := by
   rw [precisionAtMost_coe]
   rcases lt_or_eq_of_le hc with hlt | heq
@@ -141,18 +217,18 @@ theorem precisionAtMost_of_abs_le {p : ℕ+} {x : Dyadic} (c e : ℤ)
     have hone_lt : (1 : ℤ) < (2 : ℤ) ^ (p : ℕ) := by
       have : (2 : ℤ) ^ 0 < (2 : ℤ) ^ (p : ℕ) := pow_lt_pow_right₀ (by norm_num) hp_pos
       simpa using this
-    have h2ne : (2 : ℝ) ≠ 0 := two_ne_zero
+    have h2ne : (2 : ℚ) ≠ 0 := two_ne_zero
     rcases hsign with hpos | hneg
     · refine ⟨1, e + (p : ℤ), ?_, ?_⟩
       · rw [hx, hpos, zpow_add₀ h2ne]
         push_cast
-        simp only [← zpow_natCast (2 : ℝ) (p : ℕ)]
+        simp only [← zpow_natCast (2 : ℚ) (p : ℕ)]
         ring
       · simpa using hone_lt
     · refine ⟨-1, e + (p : ℤ), ?_, ?_⟩
       · rw [hx, hneg, zpow_add₀ h2ne]
         push_cast
-        simp only [← zpow_natCast (2 : ℝ) (p : ℕ)]
+        simp only [← zpow_natCast (2 : ℚ) (p : ℕ)]
         ring
       · have habs : |(-1 : ℤ)| = 1 := by decide
         rw [habs]; exact hone_lt
@@ -313,10 +389,14 @@ theorem IsRepresentableAtP.unique {p : ℕ} {y : Dyadic}
   have : (c₁ : ℝ) = (c₂ : ℝ) := mul_right_cancel₀ (ne_of_gt h_2e2_pos) h_eq
   exact_mod_cast this
 
+/-- Dyadics have decidable equality (inherited from `ℚ`) — a payoff of the
+rational substrate. -/
+instance : DecidableEq Dyadic := Subtype.instDecidableEq
+
 end Dyadic
 
-/-- Non-negative dyadics: a `Dyadic` whose underlying real is `≥ 0`. Used as
+/-- Non-negative dyadics: a `Dyadic` whose underlying rational is `≥ 0`. Used as
 the carrier of magnitude bounds in `Format`. -/
-abbrev NonNegDyadic : Type := { d : Dyadic // 0 ≤ (d : ℝ) }
+abbrev NonNegDyadic : Type := { d : Dyadic // 0 ≤ (d : ℚ) }
 
 end Mpfx2

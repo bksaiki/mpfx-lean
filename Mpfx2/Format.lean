@@ -25,7 +25,7 @@ namespace Format
 a finite `b` is interpreted as `|d.val| ≤ b.val`. -/
 def boundOK : WithTop NonNegDyadic → Dyadic → Prop
   | ⊤, _ => True
-  | (b : NonNegDyadic), d => |(d : ℝ)| ≤ ((b.val : Dyadic) : ℝ)
+  | (b : NonNegDyadic), d => |(d : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
 
 /-- Membership of `d : Dyadic` in `F : Format`: `d` satisfies all three
 constraints (precision, quantum, bound). -/
@@ -57,7 +57,7 @@ namespace Format
   cases b with
   | top => trivial
   | coe b =>
-    change |((0 : Dyadic) : ℝ)| ≤ _
+    change |((0 : Dyadic) : ℚ)| ≤ _
     simpa using b.property
 
 /-- The bound `|·| ≤ b` is symmetric under negation. -/
@@ -66,7 +66,7 @@ theorem boundOK_neg {b : WithTop NonNegDyadic} {d : Dyadic} (h : boundOK b d) :
   cases b with
   | top => trivial
   | coe b =>
-    change |((-d : Dyadic) : ℝ)| ≤ _
+    change |((-d : Dyadic) : ℚ)| ≤ _
     rw [Subring.coe_neg, abs_neg]
     exact h
 
@@ -97,7 +97,7 @@ theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
     cases F.b with
     | top => trivial
     | coe b =>
-      change |((0 : Dyadic) : ℝ)| ≤ ((b.val : Dyadic) : ℝ)
+      change |((0 : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
       simpa using b.property
 
 end Format
@@ -251,12 +251,19 @@ theorem numDigits_coe_coe (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {p : ℕ+}
 the `(e' : WithBot ℤ)` and `some e'` displayed forms. -/
 private theorem quantumAtLeast_extract {y : Dyadic} {e' : ℤ}
     (hQ : Dyadic.quantumAtLeast (e' : WithBot ℤ) y) :
-    ∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e' := hQ
+    ∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e' := by
+  obtain ⟨c, hc⟩ := hQ
+  refine ⟨c, ?_⟩
+  rw [Dyadic.coe_real_eq_ratCast, hc]; push_cast; ring
 
-/-- Extract precisionAtMost witness from `(p : WithTop ℕ+)` form. -/
+/-- Extract precisionAtMost witness from `(p : WithTop ℕ+)` form. The
+substrate predicate is stated over `ℚ`; this casts the witness equation
+to `ℝ` for the downstream `Int.log`-based reasoning. -/
 private theorem precisionAtMost_extract {y : Dyadic} {p : ℕ+}
     (hP : Dyadic.precisionAtMost ((p : ℕ+) : WithTop ℕ+) y) :
-    ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ) := hP
+    ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ) := by
+  obtain ⟨c, e, hc, hbound⟩ := hP
+  exact ⟨c, e, by rw [Dyadic.coe_real_eq_ratCast, hc]; push_cast; ring, hbound⟩
 
 /-- For nonzero `y ≠ 0` with `y = c · 2^e'` and `c ≠ 0`, we have `e' ≤ log|y|`. -/
 private theorem quantum_exp_le_log {y : Dyadic} {e' : ℤ} {c : ℤ}
@@ -468,12 +475,10 @@ theorem IsOdd.neg {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
   obtain ⟨c, e, ⟨hyeq, hlow, hhigh⟩, hp⟩ := h
   have h_nd : F.toFiniteFormat.numDigits ((-y : Dyadic) : ℝ) =
       F.toFiniteFormat.numDigits (y : ℝ) := by
-    change F.toFiniteFormat.numDigits (-(y : ℝ)) = _
+    rw [Dyadic.coe_real_neg]
     exact F.toFiniteFormat.numDigits_neg (y : ℝ)
   refine ⟨-c, e, ⟨?_, ?_, ?_⟩, ?_⟩
-  · change ((-y : Dyadic) : ℝ) = _
-    push_cast
-    rw [hyeq]; ring
+  · rw [Dyadic.coe_real_neg, hyeq]; push_cast; ring
   · rw [h_nd]; simpa using hlow
   · rw [h_nd]; simpa using hhigh
   · by_cases hp1 : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+)
@@ -493,12 +498,10 @@ theorem IsEven.neg {F : ParityFormat} {y : Dyadic} (h : IsEven F y) :
   · right
     have h_nd : F.toFiniteFormat.numDigits ((-y : Dyadic) : ℝ) =
         F.toFiniteFormat.numDigits (y : ℝ) := by
-      change F.toFiniteFormat.numDigits (-(y : ℝ)) = _
+      rw [Dyadic.coe_real_neg]
       exact F.toFiniteFormat.numDigits_neg (y : ℝ)
     refine ⟨-c, e, ⟨?_, ?_, ?_⟩, ?_⟩
-    · change ((-y : Dyadic) : ℝ) = _
-      push_cast
-      rw [hyeq]; ring
+    · rw [Dyadic.coe_real_neg, hyeq]; push_cast; ring
     · rw [h_nd]; simpa using hlow
     · rw [h_nd]; simpa using hhigh
     · by_cases hp1 : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+)
@@ -616,7 +619,7 @@ theorem isEven_iff_not_isOdd_of_canonical {F : ParityFormat} {y : Dyadic}
   by_cases hp1 : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+)
   · constructor
     · rintro (h_y0 | ⟨c', e', h_rep', h_par⟩) ⟨c'', e'', h_rep'', h_par_odd⟩
-      · exact hy_ne (congrArg Subtype.val h_y0)
+      · exact hy_ne (by rw [h_y0]; push_cast; rfl)
       · rw [if_pos hp1] at h_par h_par_odd
         obtain ⟨_, h_e_eq⟩ := h_rep'.unique h_rep''
         rw [← h_e_eq] at h_par_odd
@@ -1092,7 +1095,8 @@ theorem isEven_p1_iff_at_canonical_mixed {F : ParityFormat}
   have h_unbot : WithBot.unbotD 0 F.toFormat.exp = e' := by rw [hexp]; rfl
   refine ⟨?_, ?_⟩
   · rintro (h_y0 | ⟨c', e'', h_rep', h_par⟩)
-    · exact absurd (congrArg Subtype.val h_y0) h_y_ne
+    · exact absurd (show ((Dyadic.ofIntZpow k e_c : Dyadic) : ℝ) = 0 by
+        rw [h_y0]; push_cast; rfl) h_y_ne
     · rw [if_pos hp_eq] at h_par
       obtain ⟨_, h_e_eq⟩ := h_rep'.unique h_rep
       rw [h_e_eq, h_unbot] at h_par
@@ -1129,7 +1133,7 @@ theorem alternating_parity_mixed_subnormal_pne1_iff {F : ParityFormat}
     have h_not_odd_dlo : ¬ F.IsOdd (Dyadic.ofIntZpow (0 : ℤ) e') := by
       intro h
       have h_zero : Dyadic.ofIntZpow (0 : ℤ) e' = 0 :=
-        Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)
+        Subtype.ext (by rw [Dyadic.coe_rat_ofIntZpow]; simp)
       exact IsOdd.ne_zero h h_zero
     exact ⟨fun _ => h_not_odd_dlo, fun _ => h_dhi_odd⟩
   by_cases hlop1_zero : lo + 1 = 0
@@ -1139,7 +1143,7 @@ theorem alternating_parity_mixed_subnormal_pne1_iff {F : ParityFormat}
     have h_not_odd_dhi : ¬ F.IsOdd (Dyadic.ofIntZpow (0 : ℤ) e') := by
       intro h
       have h_zero : Dyadic.ofIntZpow (0 : ℤ) e' = 0 :=
-        Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)
+        Subtype.ext (by rw [Dyadic.coe_rat_ofIntZpow]; simp)
       exact IsOdd.ne_zero h h_zero
     have h_odd_dlo : F.IsOdd (Dyadic.ofIntZpow (-1 : ℤ) e') := by
       rw [isOdd_iff_odd_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
@@ -1199,7 +1203,7 @@ theorem alternating_isEven_mixed_subnormal_pne1 {F : ParityFormat}
   -- Reduce IsEven_iff to the canonical rep at numDigits; both sides either
   -- equal 0 (and isEven trivially) or have a canonical representation.
   have h_zero_rep : ∀ k : ℤ, k = 0 → Dyadic.ofIntZpow k e' = 0 := fun k hk =>
-    Subtype.ext (by rw [Dyadic.coe_ofIntZpow, hk]; push_cast; ring)
+    Subtype.ext (by rw [Dyadic.coe_rat_ofIntZpow, hk]; push_cast; ring)
   have h_lop1_lt' : Int.log 2 (|((lo + 1 : ℤ) : ℝ)|) + 1 ≤ ((p : ℕ) : ℤ) := by
     have h_cast : ((lo + 1 : ℤ) : ℝ) = (lo : ℝ) + 1 := by push_cast; ring
     rw [h_cast]; exact h_lop1_lt
@@ -1372,18 +1376,18 @@ theorem alternating_parity_mixed_subnormal_p1_iff {F : ParityFormat}
   have h_lop1_le : lo + 1 ≤ 2 := (abs_le.mp hlop1_hi).2
   have h_lo_le_1 : lo ≤ 1 := by linarith
   have h_zero_eq : ∀ (e_c : ℤ), Dyadic.ofIntZpow (0 : ℤ) e_c = 0 := fun e_c =>
-    Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)
+    Subtype.ext (by rw [Dyadic.coe_rat_ofIntZpow]; simp)
   have h_neg2_canon : Dyadic.ofIntZpow (-2 : ℤ) e' =
       Dyadic.ofIntZpow (-1 : ℤ) (e' + 1) := by
     apply Subtype.ext
-    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    rw [Dyadic.coe_rat_ofIntZpow, Dyadic.coe_rat_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), zpow_one]
     push_cast; ring
   have h_2_canon : Dyadic.ofIntZpow (2 : ℤ) e' =
       Dyadic.ofIntZpow (1 : ℤ) (e' + 1) := by
     apply Subtype.ext
-    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    rw [Dyadic.coe_rat_ofIntZpow, Dyadic.coe_rat_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), zpow_one]
     push_cast; ring
   have h_odd2_false : ¬ Odd ((e' + 1) - e' + 1) := by
     rw [show (e' + 1) - e' + 1 = 2 by ring]
@@ -1449,18 +1453,18 @@ theorem alternating_isEven_mixed_subnormal_p1 {F : ParityFormat}
   have h_lop1_le : lo + 1 ≤ 2 := (abs_le.mp hlop1_hi).2
   have h_lo_le_1 : lo ≤ 1 := by linarith
   have h_zero_eq : ∀ (e_c : ℤ), Dyadic.ofIntZpow (0 : ℤ) e_c = 0 := fun e_c =>
-    Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)
+    Subtype.ext (by rw [Dyadic.coe_rat_ofIntZpow]; simp)
   have h_neg2_canon : Dyadic.ofIntZpow (-2 : ℤ) e' =
       Dyadic.ofIntZpow (-1 : ℤ) (e' + 1) := by
     apply Subtype.ext
-    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    rw [Dyadic.coe_rat_ofIntZpow, Dyadic.coe_rat_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), zpow_one]
     push_cast; ring
   have h_2_canon : Dyadic.ofIntZpow (2 : ℤ) e' =
       Dyadic.ofIntZpow (1 : ℤ) (e' + 1) := by
     apply Subtype.ext
-    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    rw [Dyadic.coe_rat_ofIntZpow, Dyadic.coe_rat_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), zpow_one]
     push_cast; ring
   have h_even2 : Even ((e' + 1) - e' + 1) := by
     rw [show (e' + 1) - e' + 1 = 2 by ring]; exact ⟨1, by ring⟩
@@ -1505,14 +1509,14 @@ theorem alternating_parity_mixed_normal_p1_iff {F : ParityFormat}
   have h_neg2_canon : Dyadic.ofIntZpow (-2 : ℤ) e =
       Dyadic.ofIntZpow (-1 : ℤ) (e + 1) := by
     apply Subtype.ext
-    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    rw [Dyadic.coe_rat_ofIntZpow, Dyadic.coe_rat_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), zpow_one]
     push_cast; ring
   have h_2_canon : Dyadic.ofIntZpow (2 : ℤ) e =
       Dyadic.ofIntZpow (1 : ℤ) (e + 1) := by
     apply Subtype.ext
-    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    rw [Dyadic.coe_rat_ofIntZpow, Dyadic.coe_rat_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), zpow_one]
     push_cast; ring
   interval_cases lo
   · -- lo = -2: dlo = -1·2^(e+1), Odd(e+1-e'+1) = Odd(e-e'+2);
@@ -1590,14 +1594,14 @@ theorem alternating_isEven_mixed_normal_p1 {F : ParityFormat}
   have h_neg2_canon : Dyadic.ofIntZpow (-2 : ℤ) e =
       Dyadic.ofIntZpow (-1 : ℤ) (e + 1) := by
     apply Subtype.ext
-    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    rw [Dyadic.coe_rat_ofIntZpow, Dyadic.coe_rat_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), zpow_one]
     push_cast; ring
   have h_2_canon : Dyadic.ofIntZpow (2 : ℤ) e =
       Dyadic.ofIntZpow (1 : ℤ) (e + 1) := by
     apply Subtype.ext
-    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    rw [Dyadic.coe_rat_ofIntZpow, Dyadic.coe_rat_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), zpow_one]
     push_cast; ring
   interval_cases lo
   · rw [h_neg2_canon, show ((-2 : ℤ) + 1) = (-1 : ℤ) by ring] at *
@@ -1740,8 +1744,8 @@ theorem alternating_parity_fixedpoint_iff {F : ParityFormat}
       exact ⟨0, by ring⟩
     have h_not_odd_dlo : ¬ F.IsOdd (Dyadic.ofIntZpow (0 : ℤ) e') := by
       intro h
-      have h_zero : (Dyadic.ofIntZpow (0 : ℤ) e' : ℝ) = 0 := by
-        rw [Dyadic.coe_ofIntZpow]; ring
+      have h_zero : (Dyadic.ofIntZpow (0 : ℤ) e' : ℚ) = 0 := by
+        rw [Dyadic.coe_rat_ofIntZpow]; ring
       exact (IsOdd.ne_zero h) (by apply Subtype.ext; exact h_zero)
     exact ⟨fun _ => h_not_odd_dlo, fun _ => h_dhi_odd⟩
   by_cases hlop1_zero : lo + 1 = 0
@@ -1750,8 +1754,8 @@ theorem alternating_parity_fixedpoint_iff {F : ParityFormat}
     rw [show (-1 : ℤ) + 1 = 0 by ring]
     have h_not_odd_dhi : ¬ F.IsOdd (Dyadic.ofIntZpow (0 : ℤ) e') := by
       intro h
-      have h_zero : (Dyadic.ofIntZpow (0 : ℤ) e' : ℝ) = 0 := by
-        rw [Dyadic.coe_ofIntZpow]; ring
+      have h_zero : (Dyadic.ofIntZpow (0 : ℤ) e' : ℚ) = 0 := by
+        rw [Dyadic.coe_rat_ofIntZpow]; ring
       exact (IsOdd.ne_zero h) (by apply Subtype.ext; exact h_zero)
     have h_odd_dlo : F.IsOdd (Dyadic.ofIntZpow (-1 : ℤ) e') := by
       rw [isOdd_iff_odd_at_canonical_fixedpoint hp_top hexp (by norm_num : (-1 : ℤ) ≠ 0)]
@@ -1793,11 +1797,11 @@ theorem alternating_isEven_fixedpoint {F : ParityFormat}
     (alternating_parity_fixedpoint_iff hp_top hexp)
   · by_cases h : lo = 0
     · left; apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, h]; push_cast; ring
+      rw [Dyadic.coe_rat_ofIntZpow, h]; push_cast; ring
     · right; exact canonical_rep_fixedpoint hp_top hexp h
   · by_cases h : lo + 1 = 0
     · left; apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, h]; push_cast; ring
+      rw [Dyadic.coe_rat_ofIntZpow, h]; push_cast; ring
     · right; exact canonical_rep_fixedpoint hp_top hexp h
 
 /-- Alternating parity iff (floating-point):
