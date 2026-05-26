@@ -91,8 +91,9 @@ Mpfx2/
 │                   odd_index_of_p_one_corner, IsOdd.transfer_of_numDigits_eq,
 │                   IsOdd.transfer_of_subset (capstone Lemma 5.3)
 └── DoubleRounding.lean §5.2 / Fig. 9 rules (spec-relational over
-                    RoundsFinite): rndRTZ_RTZ, rndRAZ_RAZ(_pos), rndRTO_RTO
-                    (+ exp_bot_of_subset helper); rndRTO_{RTZ,RAZ,RN} TBD
+                    RoundsFinite): rndRTZ_RTZ, rndRAZ_RAZ(_pos), rndRTO_RTO,
+                    rndRTO_RTZ (+ RTO helper chain: toOdd_nonneg_of_nn,
+                    toOdd_notMem_of_extend_subset, …); rndRTO_{RAZ,RN} TBD
 ```
 
 ## Substrate (done)
@@ -306,9 +307,16 @@ spec-relationally over `RoundsFinite` (membership + mode condition):
       `IsFaithfulRound` adjacency split otherwise. Helper `exp_bot_of_subset`
       (an `exp = ⊥` format can't embed in a finite-`exp` one) discharges the
       non-degeneracy needed to build the `∃ ParityFormat` witness.
-- [ ] `rndRTO_RTZ`.
-- [ ] `rndRTO_RAZ`.
+- [x] `rndRTO_RTZ` — RTO (in `F₂`) then RTZ (in `F₁`). Simpler-hypothesis
+      form (`F₁.extend 1 ⊆ F₂` + explicit `hp_F₂`). Added RTO helper chain:
+      `toOdd_eq_zero_of_zero`, `toOdd_nonneg_of_nn`,
+      `toOdd_notMem_of_lower_numDigits`, `toOdd_notMem_of_extend_subset`
+      (Lemma 5.2 + 5.3), `rndRTO_RTZ_pos`.
+- [ ] `rndRTO_RAZ` — should reuse the RTO helper chain (symmetric to RTZ).
 - [ ] `rndRTO_RN` (both tie-breaks).
+- (NB: the old "paper-aligned" form derives `hp_F₂` from a `withBound`/`next`
+  containment via `hp_F₂_or_F₁_trivial` (~675 lines); deferred — our rules
+  take `hp_F₂` + `F₁.extend 1 ⊆ F₂` directly.)
 - (also available in old `Mpfx/`: `rndRTP_RTP`, `rndRTN_RTN` — directed-mode
   chains that reduce to RTZ/RAZ via sign-bridges; easy follow-ons.)
 
