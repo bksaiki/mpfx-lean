@@ -84,9 +84,10 @@ Mpfx2/
 │                   boundOK_mono, nnPow, containsPrec, containsSub,
 │                   Format.extend + self_subset_extend + extend_mono,
 │                   FiniteFormat.extend + numDigits_extend (Lemma 5.2)
-└── Digits.lean     §5.1-supporting digit/parity-transfer lemmas:
+└── Digits.lean     §5.1-supporting digit/parity-transfer lemmas (Lemma 5.3):
                     numDigits_le_one_of_p_one, precisionAtMost_not_IsOdd
-                    (Lemma 5.3 corollary); main Lemma 5.3 (RTO padding) TBD
+                    (corollary), numDigits_eq_of_subset_of_isOdd(_aux),
+                    odd_index_of_p_one_corner, IsOdd.transfer_of_numDigits_eq
 ```
 
 ## Substrate (done)
@@ -238,11 +239,20 @@ Still open:
       (+ prereq `FiniteFormat.numDigits_le_one_of_p_one`): if `y` has
       precision `≤ w` and `numDigits F y > w`, then `¬ F.IsOdd y`. In
       `Mpfx2/Digits.lean`; ported over ℚ (cleaner than the ℝ original).
-- [ ] Lemma 5.3 itself (RTO digit-padding preserves representability) —
+- [x] **Lemma 5.3** (RTO digit-padding preserves representability) —
       the pivotal lemma for all RTO-composition double-rounding rules.
-      The main transfer lemmas (`numDigits_eq_of_subset_of_isOdd`,
-      `IsOdd.transfer_of_numDigits_eq`) take `F₁ ⊆ F₂`, so they depend on
-      `Containment` — natural home is `Digits.lean` (imports Containment).
+      In `Mpfx2/Digits.lean`, ~750 lines total:
+  - [x] `numDigits_eq_of_subset_of_isOdd_aux` — the "≤" direction, the
+        ~370-line finer-grid witness core. Hardest proof in the project.
+  - [x] `numDigits_eq_of_subset_of_isOdd` — combines corollary (≥) + `_aux`
+        (≤). Uses `FiniteFormat.numDigits_nonneg` for the `ℕ+` witness.
+  - [x] `odd_index_of_p_one_corner` — the `F₁.p = 1` corner (~227 lines).
+  - [x] `IsOdd.transfer_of_numDigits_eq` — `F₁ ⊆ F₂`, `F₂.IsOdd y`,
+        `y ∈ F₁`, equal numDigits ⟹ `F₁.IsOdd y`.
+  - [x] `IsOdd.transfer_of_subset` — **the capstone Lemma 5.3** (one line,
+        composes the digit-count agreement + parity transfer): `F₁ ⊆ F₂`,
+        `2 ≤ F₂.p`, `y ∈ F₁`, `F₂.IsOdd y` ⟹ `F₁.IsOdd y`. Consumed by the
+        RTO-composition double-rounding rules.
 
 ## Rounding API extensions (done)
 
