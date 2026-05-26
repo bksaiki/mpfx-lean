@@ -152,6 +152,151 @@ theorem extend_mono (F : Format) {j k : ℕ+} (h : j ≤ k) :
       exact WithBot.coe_le_coe.mpr (by omega)
   · exact le_refl _
 
+/-! ### Bound replacement and the `next` operator
+
+`F.withBound b'` swaps out `F`'s magnitude bound for `b'`. `F.next b` is the
+paper's `next_{F.p, F.exp}(b)` from §5.2 / Fig. 9: the smallest Dyadic in the
+grid `A(F.p, F.exp, ∞)` strictly above `b`. -/
+
+/-- Replace `F`'s bound with `b'`, keeping precision and quantum. Unlike the old
+`AbstractFormat` API, no non-negativity witness is needed: `NonNegDyadic`
+already carries `0 ≤ d`. -/
+def withBound (F : Format) (b' : WithTop NonNegDyadic) : Format := { F with b := b' }
+
+@[simp] theorem withBound_p (F : Format) (b' : WithTop NonNegDyadic) :
+    (F.withBound b').p = F.p := rfl
+
+@[simp] theorem withBound_exp (F : Format) (b' : WithTop NonNegDyadic) :
+    (F.withBound b').exp = F.exp := rfl
+
+@[simp] theorem withBound_b (F : Format) (b' : WithTop NonNegDyadic) :
+    (F.withBound b').b = b' := rfl
+
+/-- The paper's `next_{F.p, F.exp}(b)` from §5.2 / Fig. 9: the smallest Dyadic
+in the grid `A(F.p, F.exp, ∞)` strictly above `b`.
+
+For `b ≥ 0` with finite `(F.p, F.exp)`, computed as `b + step` where the grid
+step depends on `b`'s magnitude:
+- **Subnormal regime** (`|b| < 2^(F.exp + F.p − 1)`): step = `2^F.exp`.
+- **Normal regime**: step = `2^(⌊log₂ b⌋ − F.p + 1)` (binade-dependent).
+- Unified: step exponent = `max(F.exp, ⌊log₂ b⌋ − F.p + 1)`.
+
+For `F.p = ⊤` and `F.exp = (e : ℤ)`: `A(⊤, e, ∞)` is all dyadics with quantum
+≥ e, so the smallest value strictly above `b` is `b + 2^e`.
+
+For `F.exp = ⊥` (degenerate corner): returns `b + 1` as a placeholder; not used
+by the paper's RTO rules. -/
+noncomputable def next (F : Format) (b : Dyadic) : Dyadic :=
+  match F.exp, F.p with
+  | (e : ℤ), ((p : ℕ+) : WithTop ℕ+) =>
+    if (b : ℝ) ≤ 0 then
+      Dyadic.ofIntZpow 1 e
+    else
+      let logB : ℤ := Int.log 2 ((b : Dyadic) : ℝ)
+      let stepExp : ℤ := max e (logB - ((p : ℕ) : ℤ) + 1)
+      b + Dyadic.ofIntZpow 1 stepExp
+  | (e : ℤ), ⊤ => b + Dyadic.ofIntZpow 1 e
+  | ⊥, _ => b + 1
+
+/-- `F.next b > b` for finite `(F.p, F.exp)` and `b ≥ 0`. -/
+theorem lt_next_of_finite (F : Format) {e : ℤ} {p : ℕ+}
+    (he : F.exp = (e : WithBot ℤ)) (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (b : Dyadic)
+    (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
+    (b : ℝ) < (F.next b : ℝ) := by
+  have h_step_pos : ∀ k : ℤ, (0 : ℝ) < ((Dyadic.ofIntZpow 1 k : Dyadic) : ℝ) := by
+    intro k
+    rw [Dyadic.coe_ofIntZpow]
+    have h2 : (0 : ℝ) < (2 : ℝ) ^ k := zpow_pos (by norm_num) _
+    push_cast
+    linarith
+  have h_next_eq : F.next b =
+      if ((b : Dyadic) : ℝ) ≤ 0 then Dyadic.ofIntZpow 1 e
+      else b + Dyadic.ofIntZpow 1 (max e (Int.log 2 ((b : Dyadic) : ℝ) - ((p : ℕ) : ℤ) + 1)) := by
+    unfold next; rw [he, hp]
+  rw [h_next_eq]
+  by_cases h : ((b : Dyadic) : ℝ) ≤ 0
+  · rw [if_pos h]
+    have hb_zero : ((b : Dyadic) : ℝ) = 0 := le_antisymm h hb
+    rw [hb_zero]
+    exact h_step_pos e
+  · rw [if_neg h]
+    push_cast
+    have := h_step_pos (max e (Int.log 2 ((b : Dyadic) : ℝ) - ((p : ℕ) : ℤ) + 1))
+    linarith
+
+/-- `F.next b > b` for `F.p = ⊤` and `F.exp = (e : ℤ)`. -/
+theorem lt_next_of_p_top (F : Format) {e : ℤ}
+    (he : F.exp = (e : WithBot ℤ)) (hp : F.p = ⊤) (b : Dyadic) :
+    (b : ℝ) < (F.next b : ℝ) := by
+  have h_step_pos : (0 : ℝ) < ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) := by
+    rw [Dyadic.coe_ofIntZpow]
+    have h2 : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
+    push_cast; linarith
+  have h_next_eq : F.next b = b + Dyadic.ofIntZpow 1 e := by
+    -- After unfolding `next` and rewriting via `he, hp`, the goal contains
+    -- `match (some e), ⊤ with ...`. The match doesn't auto-reduce because
+    -- `⊤ : WithTop ℕ+` doesn't syntactically match the `none` constructor. We
+    -- rewrite `⊤` to `none` explicitly via the `Top` instance.
+    have hp' : F.p = (none : WithTop ℕ+) := hp
+    unfold next
+    rw [he, hp']
+  rw [h_next_eq]; push_cast; linarith
+
+/-- `F.next b ≥ 0` for `b ≥ 0`. Combines all four `(F.p, F.exp)` shapes:
+finite-finite via `lt_next_of_finite`; `F.p = ⊤` finite-exp via
+`lt_next_of_p_top`; `F.exp = ⊥` corner uses fallback `b + 1`. -/
+theorem next_nonneg (F : Format) (b : Dyadic) (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
+    0 ≤ ((F.next b : Dyadic) : ℝ) := by
+  rcases hF_exp : F.exp with _ | e
+  · -- F.exp = ⊥. next = b + 1.
+    have : F.next b = b + 1 := by unfold next; rw [hF_exp]
+    rw [this]; push_cast; linarith
+  · rcases hF_p : F.p with _ | p
+    · -- F.p = ⊤, F.exp finite. Use lt_next_of_p_top.
+      have hlt := lt_next_of_p_top F hF_exp hF_p b
+      linarith
+    · -- Both finite. Use lt_next_of_finite.
+      have hlt := lt_next_of_finite F hF_exp hF_p b hb
+      linarith
+
+/-- Computed form of `next` for `F.exp = (e : ℤ), F.p = (p : ℕ+), b > 0`. -/
+theorem next_eq_finite_pos (F : Format) {e : ℤ} {p : ℕ+}
+    (he : F.exp = (e : WithBot ℤ)) (hp : F.p = ((p : ℕ+) : WithTop ℕ+))
+    {b : Dyadic} (hb_pos : 0 < ((b : Dyadic) : ℝ)) :
+    F.next b =
+      b + Dyadic.ofIntZpow 1
+        (max e (Int.log 2 ((b : Dyadic) : ℝ) - ((p : ℕ) : ℤ) + 1)) := by
+  have h_eq : F.next b =
+      if ((b : Dyadic) : ℝ) ≤ 0 then Dyadic.ofIntZpow 1 e
+      else b + Dyadic.ofIntZpow 1
+        (max e (Int.log 2 ((b : Dyadic) : ℝ) - ((p : ℕ) : ℤ) + 1)) := by
+    unfold next; rw [he, hp]
+  rw [h_eq, if_neg (not_le.mpr hb_pos)]
+
+/-- Computed form of `next` for `F.exp = (e : ℤ), F.p = ⊤`. -/
+theorem next_eq_p_top (F : Format) {e : ℤ}
+    (he : F.exp = (e : WithBot ℤ)) (hp : F.p = ⊤) (b : Dyadic) :
+    F.next b = b + Dyadic.ofIntZpow 1 e := by
+  have hp' : F.p = (none : WithTop ℕ+) := hp
+  unfold next
+  rw [he, hp']
+
+/-- `b ≤ F.next b` for `b ≥ 0`. Combines all four `(F.p, F.exp)` shapes via
+case-split: finite-finite via `lt_next_of_finite`; `F.p = ⊤` finite-exp via
+`lt_next_of_p_top`; `F.exp = ⊥` corner via the fallback `b + 1`. -/
+theorem self_le_next (F : Format) (b : Dyadic)
+    (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
+    ((b : Dyadic) : ℝ) ≤ ((F.next b : Dyadic) : ℝ) := by
+  rcases hF_exp : F.exp with _ | e
+  · -- F.exp = ⊥. next = b + 1.
+    have : F.next b = b + 1 := by unfold next; rw [hF_exp]
+    rw [this]; push_cast; linarith
+  · rcases hF_p : F.p with _ | p
+    · -- F.p = ⊤, F.exp finite. lt_next_of_p_top.
+      have := lt_next_of_p_top F hF_exp hF_p b; linarith
+    · -- Both finite. lt_next_of_finite.
+      have := lt_next_of_finite F hF_exp hF_p b hb; linarith
+
 end Format
 
 namespace FiniteFormat

@@ -83,7 +83,8 @@ Mpfx2/
 ├── Containment.lean §5.1 / Fig. 8: Format.Subset + HasSubset,
 │                   boundOK_mono, nnPow, containsPrec, containsSub,
 │                   Format.extend + self_subset_extend + extend_mono,
-│                   FiniteFormat.extend + numDigits_extend (Lemma 5.2)
+│                   FiniteFormat.extend + numDigits_extend (Lemma 5.2),
+│                   withBound + next (+ next lemmas) — §5.2 bound API
 ├── Digits.lean     §5.1-supporting digit/parity-transfer lemmas (Lemma 5.3):
 │                   numDigits_le_one_of_p_one, precisionAtMost_not_IsOdd
 │                   (corollary), numDigits_eq_of_subset_of_isOdd(_aux),
@@ -225,11 +226,11 @@ In `Mpfx2/Containment.lean` (proved entirely over `ℚ`):
       `extend_mono` (`j ≤ k → F.extend j ⊆ F.extend k`). All via `containsPrec`.
 - [x] `FiniteFormat.extend` lift (preserves the `finite` invariant) +
       `extend_toFormat` simp lemma.
-
-Still open:
-
-- [ ] Bound-changing API (`withBound` / `next`) used by the RTO-composition
-      rules' `A(p₁+1, exp₁−1, next b₁) ⊆ F₂` phrasing.
+- [x] **Bound-changing API**: `Format.withBound b'` (swap the bound; no
+      non-neg witness needed since `NonNegDyadic` carries it) + `withBound_*`
+      simp lemmas; `Format.next b` (paper's `next_{p,exp}(b)`, smallest grid
+      point above `b`) + `lt_next_of_finite`, `lt_next_of_p_top`,
+      `next_nonneg`, `next_eq_finite_pos`, `next_eq_p_top`, `self_le_next`.
 
 ## Open: Digits + parity (§5.1 supporting)
 
