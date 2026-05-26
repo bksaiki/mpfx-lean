@@ -91,6 +91,33 @@ theorem quantumAtLeast_coe (e : ℤ) (x : Dyadic) :
     quantumAtLeast (e : WithBot ℤ) x ↔
       ∃ c : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := Iff.rfl
 
+theorem precisionAtMost_neg {p : WithTop ℕ+} {x : Dyadic} (h : precisionAtMost p x) :
+    precisionAtMost p (-x) := by
+  cases p with
+  | top => trivial
+  | coe p =>
+    obtain ⟨c, e, hx, hc⟩ := h
+    refine ⟨-c, e, ?_, ?_⟩
+    · push_cast [Subring.coe_neg, hx]; ring
+    · simpa [abs_neg] using hc
+
+@[simp] theorem precisionAtMost_neg_iff (p : WithTop ℕ+) (x : Dyadic) :
+    precisionAtMost p (-x) ↔ precisionAtMost p x :=
+  ⟨fun h => by simpa using precisionAtMost_neg h, precisionAtMost_neg⟩
+
+theorem quantumAtLeast_neg {e : WithBot ℤ} {x : Dyadic} (h : quantumAtLeast e x) :
+    quantumAtLeast e (-x) := by
+  cases e with
+  | bot => trivial
+  | coe e =>
+    obtain ⟨c, hx⟩ := h
+    refine ⟨-c, ?_⟩
+    push_cast [Subring.coe_neg, hx]; ring
+
+@[simp] theorem quantumAtLeast_neg_iff (e : WithBot ℤ) (x : Dyadic) :
+    quantumAtLeast e (-x) ↔ quantumAtLeast e x :=
+  ⟨fun h => by simpa using quantumAtLeast_neg h, quantumAtLeast_neg⟩
+
 /-- `(c, e)` is a representation of `y` at *exactly* `p` binary digits:
 `y = c · 2^e` with `2^(p-1) ≤ |c| < 2^p`. For nonzero `y` representable
 at `p` bits, the `(c, e)` pair is unique. -/

@@ -51,6 +51,37 @@ instance : Membership Dyadic Format := ⟨Format.Mem⟩
 
 namespace Format
 
+/-- Zero satisfies any magnitude bound. -/
+@[simp] theorem boundOK_zero (b : WithTop NonNegDyadic) :
+    boundOK b (0 : Dyadic) := by
+  cases b with
+  | top => trivial
+  | coe b =>
+    change |((0 : Dyadic) : ℝ)| ≤ _
+    simpa using b.property
+
+/-- The bound `|·| ≤ b` is symmetric under negation. -/
+theorem boundOK_neg {b : WithTop NonNegDyadic} {d : Dyadic} (h : boundOK b d) :
+    boundOK b (-d) := by
+  cases b with
+  | top => trivial
+  | coe b =>
+    change |((-d : Dyadic) : ℝ)| ≤ _
+    rw [Subring.coe_neg, abs_neg]
+    exact h
+
+@[simp] theorem boundOK_neg_iff (b : WithTop NonNegDyadic) (d : Dyadic) :
+    boundOK b (-d) ↔ boundOK b d :=
+  ⟨fun h => by simpa using boundOK_neg h, boundOK_neg⟩
+
+/-- Format membership is closed under negation. -/
+theorem neg_mem {F : Format} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F := by
+  obtain ⟨hp, he, hb⟩ := h
+  exact ⟨Dyadic.precisionAtMost_neg hp, Dyadic.quantumAtLeast_neg he, boundOK_neg hb⟩
+
+theorem mem_neg_iff (F : Format) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
+  ⟨fun h => by simpa using neg_mem h, neg_mem⟩
+
 /-- Zero is in every format. -/
 theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
   refine ⟨?_, ?_, ?_⟩
@@ -68,42 +99,6 @@ theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
     | coe b =>
       change |((0 : Dyadic) : ℝ)| ≤ ((b.val : Dyadic) : ℝ)
       simpa using b.property
-
-/-- Canonical exponent for representing `x` in `F`. Junk value `0` when
-`Format.IsUndefined F _` (those cases are filtered earlier). -/
-noncomputable def canonicalExp (F : Format) (x : ℝ) : ℤ :=
-  match F.p, F.exp with
-  | ⊤, ⊥ => 0  -- junk; never used (filtered by IsUndefined)
-  | ⊤, (e : ℤ) => e
-  | (p : ℕ+), ⊥ =>
-      if x = 0 then 0 else Int.log 2 |x| + 1 - (p : ℤ)
-  | (p : ℕ+), (e : ℤ) =>
-      if x = 0 then e
-      else max (Int.log 2 |x| + 1 - (p : ℤ)) e
-
-/-- The canonical exponent dominates `F.exp` whenever `F.exp` is finite.
-Needed to discharge `quantumAtLeast F.exp` for the rounded value. -/
-theorem exp_le_canonicalExp (F : Format) (x : ℝ)
-    {e' : ℤ} (hexp : F.exp = (e' : WithBot ℤ)) :
-    e' ≤ F.canonicalExp x := by
-  unfold canonicalExp
-  cases hp : F.p with
-  | top => simp [hexp]
-  | coe p =>
-    simp only [hexp]
-    split_ifs
-    · exact le_refl _
-    · exact le_max_right _ _
-
-/-- The canonical exponent dominates `Int.log 2 |x| + 1 - p` whenever
-`F.p` is finite and `x ≠ 0`. Needed to bound `|⌊x · 2^(-e)⌋| ≤ 2^p`. -/
-theorem log_sub_p_le_canonicalExp (F : Format) {x : ℝ} (hx : x ≠ 0)
-    {p : ℕ+} (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) :
-    Int.log 2 |x| + 1 - (p : ℤ) ≤ F.canonicalExp x := by
-  unfold canonicalExp
-  cases F.exp with
-  | bot => simp [hp, hx]
-  | coe e' => simp [hp, hx]
 
 end Format
 
@@ -137,6 +132,49 @@ namespace FiniteFormat
 
 /-- Zero is in every (finite) format. -/
 theorem zero_mem (F : FiniteFormat) : (0 : Dyadic) ∈ F := Format.zero_mem F.toFormat
+
+/-- (Finite-)format membership is closed under negation. -/
+theorem neg_mem {F : FiniteFormat} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F :=
+  Format.neg_mem (F := F.toFormat) h
+
+theorem mem_neg_iff (F : FiniteFormat) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
+  Format.mem_neg_iff F.toFormat d
+
+/-- Canonical exponent for representing `x` in `F`. The `(⊤, ⊥)` branch is
+unreachable by `F.finite`; we list it to make the `match` total. -/
+noncomputable def canonicalExp (F : FiniteFormat) (x : ℝ) : ℤ :=
+  match F.p, F.exp with
+  | ⊤, ⊥ => 0  -- unreachable by `F.finite`
+  | ⊤, (e : ℤ) => e
+  | (p : ℕ+), ⊥ =>
+      if x = 0 then 0 else Int.log 2 |x| + 1 - (p : ℤ)
+  | (p : ℕ+), (e : ℤ) =>
+      if x = 0 then e
+      else max (Int.log 2 |x| + 1 - (p : ℤ)) e
+
+/-- The canonical exponent dominates `F.exp` whenever `F.exp` is finite.
+Needed to discharge `quantumAtLeast F.exp` for the rounded value. -/
+theorem exp_le_canonicalExp (F : FiniteFormat) (x : ℝ)
+    {e' : ℤ} (hexp : F.exp = (e' : WithBot ℤ)) :
+    e' ≤ F.canonicalExp x := by
+  unfold canonicalExp
+  cases hp : F.p with
+  | top => simp [hexp]
+  | coe p =>
+    simp only [hexp]
+    split_ifs
+    · exact le_refl _
+    · exact le_max_right _ _
+
+/-- The canonical exponent dominates `Int.log 2 |x| + 1 - p` whenever
+`F.p` is finite and `x ≠ 0`. Needed to bound `|⌊x · 2^(-e)⌋| ≤ 2^p`. -/
+theorem log_sub_p_le_canonicalExp (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
+    {p : ℕ+} (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) :
+    Int.log 2 |x| + 1 - (p : ℤ) ≤ F.canonicalExp x := by
+  unfold canonicalExp
+  cases F.exp with
+  | bot => simp [hp, hx]
+  | coe e' => simp [hp, hx]
 
 /-- `F` with the magnitude bound removed (`b := ⊤`). Used by the
 satisfies-spec to define the unbounded rounding. The `finite` invariant
@@ -442,6 +480,11 @@ theorem IsOdd.neg {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
     · rw [if_pos hp1]; rw [if_pos hp1] at hp; exact hp
     · rw [if_neg hp1]; rw [if_neg hp1] at hp; exact Odd.neg hp
 
+/-- Iff form of `IsOdd.neg`. -/
+@[simp] theorem IsOdd.neg_iff {F : ParityFormat} (y : Dyadic) :
+    IsOdd F (-y) ↔ IsOdd F y :=
+  ⟨fun h => by simpa using h.neg, IsOdd.neg⟩
+
 /-- `IsEven` is invariant under negation. -/
 theorem IsEven.neg {F : ParityFormat} {y : Dyadic} (h : IsEven F y) :
     IsEven F (-y) := by
@@ -461,6 +504,11 @@ theorem IsEven.neg {F : ParityFormat} {y : Dyadic} (h : IsEven F y) :
     · by_cases hp1 : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+)
       · rw [if_pos hp1]; rw [if_pos hp1] at hp; exact hp
       · rw [if_neg hp1]; rw [if_neg hp1] at hp; exact Even.neg hp
+
+/-- Iff form of `IsEven.neg`. -/
+@[simp] theorem IsEven.neg_iff {F : ParityFormat} (y : Dyadic) :
+    IsEven F (-y) ↔ IsEven F y :=
+  ⟨fun h => by simpa using h.neg, IsEven.neg⟩
 
 /-- `IsOdd F y` implies `numDigits ≥ 1`. -/
 theorem IsOdd.numDigits_pos {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
