@@ -84,10 +84,13 @@ Mpfx2/
 │                   boundOK_mono, nnPow, containsPrec, containsSub,
 │                   Format.extend + self_subset_extend + extend_mono,
 │                   FiniteFormat.extend + numDigits_extend (Lemma 5.2)
-└── Digits.lean     §5.1-supporting digit/parity-transfer lemmas (Lemma 5.3):
-                    numDigits_le_one_of_p_one, precisionAtMost_not_IsOdd
-                    (corollary), numDigits_eq_of_subset_of_isOdd(_aux),
-                    odd_index_of_p_one_corner, IsOdd.transfer_of_numDigits_eq
+├── Digits.lean     §5.1-supporting digit/parity-transfer lemmas (Lemma 5.3):
+│                   numDigits_le_one_of_p_one, precisionAtMost_not_IsOdd
+│                   (corollary), numDigits_eq_of_subset_of_isOdd(_aux),
+│                   odd_index_of_p_one_corner, IsOdd.transfer_of_numDigits_eq,
+│                   IsOdd.transfer_of_subset (capstone Lemma 5.3)
+└── DoubleRounding.lean §5.2 / Fig. 9 rules (spec-relational over
+                    RoundsFinite): rndRTZ_RTZ, rndRAZ_RAZ(_pos); RTO rules TBD
 ```
 
 ## Substrate (done)
@@ -283,19 +286,26 @@ Still open:
 - [ ] `IsFaithfulRound`-extraction lemmas (split RTN-witness vs
       RTP-witness disjunct accessors).
 
-## Open: Double rounding (§5.2)
+## Double rounding (§5.2)
 
-These are the headline application. Each is stated against `Rounds`
-(or `rnd … = .finite …` via `rnd_iff_rounds`).
+The headline application, in `Mpfx2/DoubleRounding.lean`. Stated
+spec-relationally over `RoundsFinite` (membership + mode condition):
+`F₁ ⊆ F₂`, `RoundsFinite F₂ rm₂ x z`, `RoundsFinite F₁ rm₁ z w` ⟹
+`RoundsFinite F₁ rm x w`.
 
 **Positive (Fig. 9):**
 
-- [ ] `rndRTZ_RTZ`.
-- [ ] `rndRAZ_RAZ`.
-- [ ] `rndRTO_RTO` (both `_O` and `_E` clauses).
+- [x] `rndRTZ_RTZ` — chained round-to-zero. Sign-trichotomy + maximality
+      transfer through `hsub`. No Lemma 5.3 needed.
+- [x] `rndRAZ_RAZ` (+ `rndRAZ_RAZ_pos`) — chained round-away-zero. Positive
+      case + sign-symmetry (`RoundsFinite.neg_awayZero`) + `x = 0` case.
+- [ ] `rndRTO_RTO` (both `_O` and `_E` clauses). Needs Lemma 5.3
+      (`IsOdd.transfer_of_subset`) + the bound-changing API.
 - [ ] `rndRTO_RTZ`.
 - [ ] `rndRTO_RAZ`.
 - [ ] `rndRTO_RN` (both tie-breaks).
+- (also available in old `Mpfx/`: `rndRTP_RTP`, `rndRTN_RTN` — directed-mode
+  chains that reduce to RTZ/RAZ via sign-bridges; easy follow-ons.)
 
 **Counterexamples (ten cases):**
 
