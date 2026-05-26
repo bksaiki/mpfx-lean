@@ -19,9 +19,11 @@ three design changes from `Mpfx/`:
    `DecidableEq` and a decidable `LinearOrder` for free from `ℚ`, while
    keeping the full Mathlib algebra/tactic suite. `ℝ` is confined to
    exactly where it is intrinsic: the real input `x`, the
-   `Int.log`/`Int.floor`/`numDigits` machinery, `IsRepresentableAtP`
-   (bridges to `numDigits`), and the `Rounds` spec (compares dyadics to
-   real `x`). The `Dyadic → ℝ` coercion factors as `Dyadic → ℚ → ℝ`; the
+   `Int.log`/`Int.floor`/`numDigits` machinery and the `Rounds` spec
+   (compares dyadics to real `x`). Even `IsRepresentableAtP` and its
+   lemmas (`unique`, `ne_zero`, `of_bounds`, `of_saturation`) are
+   `ℚ`-valued — its body never references `numDigits`. The
+   `Dyadic → ℝ` coercion factors as `Dyadic → ℚ → ℝ`; the
    `ℚ↔ℝ` boundary is localized to named bridge lemmas
    (`coe_real_*`, `precisionAtMost_coe_real`, `quantumAtLeast_coe_real`,
    `*_extract`). `rnd` is still `noncomputable` (real input `x`), but the
@@ -46,12 +48,12 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 ```
 Mpfx2/
 ├── Utils.lean      project-agnostic helpers (two_zpow_pos, etc.)
-├── Dyadic.lean     IsDyadic (ℚ), Dyadic := subring of ℚ, ofIntZpow,
+├── Dyadic.lean     IsDyadic (ℚ), Dyadic := subring of ℚ, ofIntZpow (computable),
 │                   coe_real_* / coe_rat_ofIntZpow / ext_real bridge lemmas,
 │                   DecidableEq instance,
-│                   precisionAtMost, quantumAtLeast (both ℚ-valued),
+│                   precisionAtMost, quantumAtLeast (both ℚ-valued) + mono/anti,
 │                   precisionAtMost_coe_real / quantumAtLeast_coe_real (ℝ bridges),
-│                   IsRepresentableAtP (ℝ), IsRepresentableAtP.unique,
+│                   IsRepresentableAtP (ℚ) + unique + ne_zero,
 │                   precisionAtMost_of_abs_le (saturation renormalization),
 │                   isRepresentableAtP_of_saturation, two_pow_succ_pred
 ├── Format.lean     Format / FiniteFormat / ParityFormat hierarchy,
@@ -69,15 +71,17 @@ Mpfx2/
 │                   Sign-symmetry block: IsFaithfulRound.neg_iff,
 │                   per-mode RoundsFinite.neg_*, Rounds.neg_*.
 │                   Mode-vs-sign block: RTP/RTN ↔ RTZ/RAZ by sign of x.
-└── RoundOp.lean    function layer (noncomputable, classical):
-                    abs_floor_le_of_abs_lt, log_two_pow_nat,
-                    cast_two_pow_pred, log_lt_p_of_abs_lt_two_pow,
-                    log_ge_p_pred_of_two_pow_pred_le,
-                    two_pow_pred_le_scaled, abs_floor_ge_two_pow_pred,
-                    rndInt, rndParity,
-                    FiniteFormat.toParityFormatOf{ToOdd,NearestEven},
-                    rndUnbounded, rnd (with overflow-sign computation),
-                    rnd_iff_rounds
+├── RoundOp.lean    function layer (noncomputable, classical):
+│                   abs_floor_le_of_abs_lt, log_two_pow_nat,
+│                   cast_two_pow_pred, log_lt_p_of_abs_lt_two_pow,
+│                   log_ge_p_pred_of_two_pow_pred_le,
+│                   two_pow_pred_le_scaled, abs_floor_ge_two_pow_pred,
+│                   rndInt, rndParity,
+│                   FiniteFormat.toParityFormatOf{ToOdd,NearestEven},
+│                   rndUnbounded, rnd (with overflow-sign computation),
+│                   rnd_iff_rounds
+└── Containment.lean §5.1 / Fig. 8: Format.Subset + HasSubset,
+                    boundOK_mono, nnPow, containsPrec, containsSub
 ```
 
 ## Substrate (done)
@@ -91,8 +95,8 @@ Mpfx2/
 - [x] `Dyadic.ofIntZpow`, `coe_ofIntZpow` (ℝ), `coe_rat_ofIntZpow` (ℚ).
 - [x] `Dyadic.precisionAtMost`, `Dyadic.quantumAtLeast` (ℚ-valued bodies),
       with `precisionAtMost_coe_real` / `quantumAtLeast_coe_real` ℝ bridges.
-- [x] `Dyadic.IsRepresentableAtP` (ℝ body — aligned with `numDigits`)
-      + `unique` + `ne_zero`.
+- [x] `Dyadic.IsRepresentableAtP` (ℚ body) + `unique` + `ne_zero`
+      (all ℚ; `numDigits` only supplies the precision index at call sites).
 - [x] `Dyadic.precisionAtMost_of_abs_le` (renormalization for saturation; ℚ).
 - [x] `Dyadic.isRepresentableAtP_of_saturation`, `isRepresentableAtP_of_bounds`.
 - [x] `Dyadic.two_pow_succ_pred`.
@@ -195,13 +199,24 @@ mixed-normal-pne1, mixed-subnormal-p1, mixed-normal-p1), all of:
     `.toEven` tie-breaks, with full format case-split for the
     `.toEven` parity-tie cases.
 
-## Open: Containment (§5.1)
+## Containment (§5.1, Fig. 8) — done
 
-- [ ] `containsPrec` — `precisionAtMost p₁ y → precisionAtMost p₂ y`
-      when `p₁ ≤ p₂`, with quantum/bound adjustments. Paper Fig. 8.
-- [ ] `containsSub` — subformat with explicit `k` shift on `(p, exp)`.
-      Paper Fig. 8.
-- [ ] Format-extension API (`F.extend k` and its containment).
+In `Mpfx2/Containment.lean` (proved entirely over `ℚ`):
+
+- [x] `Format.Subset` + `HasSubset Format` instance.
+- [x] `Format.boundOK_mono` — bound-check monotone in the bound.
+- [x] `Dyadic.precisionAtMost_mono` / `quantumAtLeast_anti` (substrate
+      monotonicity, in `Dyadic.lean`).
+- [x] `containsPrec` — `𝒜-Contains-Prec`: `p₁ ≤ p₂`, `exp₂ ≤ exp₁`,
+      `b₁ ≤ b₂` ⟹ `F₁ ⊆ F₂`.
+- [x] `containsSub` — `𝒜-Contains-Sub`: degenerate case where `F₁`'s bound
+      `≤ 2^(exp₁+p₂)` lets `F₁.p > F₂.p`. Uses `nnPow` helper.
+
+Still open:
+
+- [ ] Format-extension API (`F.extend k` and `self_subset_extend`,
+      `extend_mono`). Needed for the §5.2 double-rounding rules' phrasing
+      `A(p₁+k, exp₁−k, …) ⊆ F₂`.
 
 ## Open: Digits + parity (§5.1 supporting)
 

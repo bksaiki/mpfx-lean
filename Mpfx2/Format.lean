@@ -478,7 +478,7 @@ theorem IsOdd.neg {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
     rw [Dyadic.coe_real_neg]
     exact F.toFiniteFormat.numDigits_neg (y : ℝ)
   refine ⟨-c, e, ⟨?_, ?_, ?_⟩, ?_⟩
-  · rw [Dyadic.coe_real_neg, hyeq]; push_cast; ring
+  · rw [Subring.coe_neg, hyeq]; push_cast; ring
   · rw [h_nd]; simpa using hlow
   · rw [h_nd]; simpa using hhigh
   · by_cases hp1 : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+)
@@ -501,7 +501,7 @@ theorem IsEven.neg {F : ParityFormat} {y : Dyadic} (h : IsEven F y) :
       rw [Dyadic.coe_real_neg]
       exact F.toFiniteFormat.numDigits_neg (y : ℝ)
     refine ⟨-c, e, ⟨?_, ?_, ?_⟩, ?_⟩
-    · rw [Dyadic.coe_real_neg, hyeq]; push_cast; ring
+    · rw [Subring.coe_neg, hyeq]; push_cast; ring
     · rw [h_nd]; simpa using hlow
     · rw [h_nd]; simpa using hhigh
     · by_cases hp1 : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+)
@@ -532,8 +532,8 @@ theorem IsOdd.ne_zero {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
   intro hy0
   obtain ⟨c, e, ⟨hyeq, hlow, _⟩, _⟩ := h
   rw [hy0] at hyeq
-  have h2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-  have hc_zero : (c : ℝ) = 0 := by
+  have h2e_pos : (0 : ℚ) < (2 : ℚ) ^ e := zpow_pos (by norm_num) _
+  have hc_zero : (c : ℚ) = 0 := by
     push_cast at hyeq
     rcases mul_eq_zero.mp hyeq.symm with h | h
     · exact h
@@ -574,8 +574,8 @@ theorem isEven_iff_even_of_canonical {F : ParityFormat} {y : Dyadic}
     · -- y = 0: IsRepresentableAtP at any precision forces |c| ≥ 1,
       -- but y = 0 forces c = 0. Contradiction.
       obtain ⟨hyeq, h_lo, _⟩ := h_rep
-      have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-      have hc_zero : (c : ℝ) = 0 := by
+      have h_2e_pos : (0 : ℚ) < (2 : ℚ) ^ e := zpow_pos (by norm_num) _
+      have hc_zero : (c : ℚ) = 0 := by
         push_cast at hyeq
         rcases mul_eq_zero.mp hyeq.symm with h | h
         · exact h
@@ -615,7 +615,7 @@ theorem isEven_iff_not_isOdd_of_canonical {F : ParityFormat} {y : Dyadic}
     (h_rep : Dyadic.IsRepresentableAtP (F.toFiniteFormat.numDigits (y : ℝ)).toNat
       c e y) :
     F.IsEven y ↔ ¬ F.IsOdd y := by
-  have hy_ne : (y : ℝ) ≠ 0 := h_rep.ne_zero
+  have hy_ne : (y : ℚ) ≠ 0 := h_rep.ne_zero
   by_cases hp1 : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+)
   · constructor
     · rintro (h_y0 | ⟨c', e', h_rep', h_par⟩) ⟨c'', e'', h_rep'', h_par_odd⟩
@@ -729,6 +729,7 @@ private theorem canonical_rep_floating {F : ParityFormat}
       k e (Dyadic.ofIntZpow k e) := by
   set y : Dyadic := Dyadic.ofIntZpow k e
   have h_y_real : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow k e
+  have h_y_rat : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e := Dyadic.coe_rat_ofIntZpow k e
   have hk_ne : k ≠ 0 := by
     intro h0; rw [h0, abs_zero] at hk_lo
     have hpos : (1 : ℤ) ≤ (2 : ℤ) ^ ((p : ℕ) - 1) := one_le_pow₀ (by norm_num)
@@ -740,7 +741,7 @@ private theorem canonical_rep_floating {F : ParityFormat}
   have h_nd_toNat : (F.toFiniteFormat.numDigits (y : ℝ)).toNat = (p : ℕ) := by
     rw [F.toFiniteFormat.numDigits_coe_bot h_y_ne hp_eq hexp_bot]; simp
   rw [h_nd_toNat]
-  exact Dyadic.isRepresentableAtP_of_bounds h_y_real hk_lo hk_hi
+  exact Dyadic.isRepresentableAtP_of_bounds h_y_rat hk_lo hk_hi
 
 /-- Canonical h_rep construction for mixed-normal (`p ≠ 1`): when
 `|k| ∈ [2^(p-1), 2^p)`, the (k, e_c) pair is canonical at `numDigits` bits. -/
@@ -760,7 +761,10 @@ private theorem canonical_rep_mixed_normal_pne1 {F : ParityFormat}
   have h_nd_toNat : (F.toFiniteFormat.numDigits (y : ℝ)).toNat = (p : ℕ) := by
     rw [h_nd_eq]; simp
   rw [h_nd_toNat]
-  exact ⟨h_y_eq, hk_lo, hk_hi⟩
+  have h_y_rat : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e_c := by
+    apply (Rat.cast_injective (α := ℝ))
+    rw [← Dyadic.coe_real_eq_ratCast, h_y_eq]; push_cast; ring
+  exact ⟨h_y_rat, hk_lo, hk_hi⟩
 
 /-- Canonical h_rep construction for mixed-subnormal (`p ≠ 1`): when
 `log|k| + 1 ≤ p`, the (k, e') pair is canonical at `numDigits` bits. -/
@@ -774,6 +778,7 @@ private theorem canonical_rep_mixed_subnormal_pne1 {F : ParityFormat}
       k e' (Dyadic.ofIntZpow k e') := by
   set y : Dyadic := Dyadic.ofIntZpow k e'
   have h_y_real : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e' := Dyadic.coe_ofIntZpow k e'
+  have h_y_rat : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e' := Dyadic.coe_rat_ofIntZpow k e'
   have h_y_ne : (y : ℝ) ≠ 0 := by
     rw [h_y_real]
     exact mul_ne_zero (Int.cast_ne_zero.mpr hk_ne)
@@ -803,7 +808,7 @@ private theorem canonical_rep_mixed_subnormal_pne1 {F : ParityFormat}
       Int.toNat_of_nonneg h_log_k_nn
     omega
   rw [h_nd_toNat]
-  refine ⟨h_y_real, ?_, ?_⟩
+  refine ⟨h_y_rat, ?_, ?_⟩
   · have h_simp : (Int.log 2 (|k| : ℝ)).toNat + 1 - 1 = (Int.log 2 (|k| : ℝ)).toNat := by
       omega
     rw [h_simp]
@@ -845,6 +850,7 @@ private theorem canonical_rep_mixed_p1 {F : ParityFormat}
   have hk_ne : k ≠ 0 := by
     intro h0; rw [h0] at hk_eq; simp at hk_eq
   have h_y_real : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e_c := Dyadic.coe_ofIntZpow k e_c
+  have h_y_rat : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e_c := Dyadic.coe_rat_ofIntZpow k e_c
   have h_y_ne : (y : ℝ) ≠ 0 := by
     rw [h_y_real]
     exact mul_ne_zero (Int.cast_ne_zero.mpr hk_ne)
@@ -862,7 +868,7 @@ private theorem canonical_rep_mixed_p1 {F : ParityFormat}
   have h_nd_toNat : (F.toFiniteFormat.numDigits (y : ℝ)).toNat = 1 := by
     rw [h_nd_eq]; rfl
   rw [h_nd_toNat]
-  refine ⟨h_y_real, ?_, ?_⟩
+  refine ⟨h_y_rat, ?_, ?_⟩
   · simp only [tsub_self, pow_zero]; rw [hk_eq]
   · rw [hk_eq]; norm_num
 
@@ -909,6 +915,7 @@ private theorem canonical_rep_at_saturation_floating {F : ParityFormat}
       (k / 2) (e + 1) (Dyadic.ofIntZpow k e) := by
   set y : Dyadic := Dyadic.ofIntZpow k e
   have h_y_real : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow k e
+  have h_y_rat : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e := Dyadic.coe_rat_ofIntZpow k e
   have hk_ne : k ≠ 0 := by
     intro h0; rw [h0, abs_zero] at hk_eq
     have hpos : (1 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := one_le_pow₀ (by norm_num)
@@ -920,7 +927,7 @@ private theorem canonical_rep_at_saturation_floating {F : ParityFormat}
   have h_nd_toNat : (F.toFiniteFormat.numDigits (y : ℝ)).toNat = (p : ℕ) := by
     rw [F.toFiniteFormat.numDigits_coe_bot h_y_ne hp_eq hexp_bot]; simp
   rw [h_nd_toNat]
-  exact Dyadic.isRepresentableAtP_of_saturation p.pos h_y_real hk_eq
+  exact Dyadic.isRepresentableAtP_of_saturation p.pos h_y_rat hk_eq
 
 private theorem canonical_rep_at_saturation_mixed_normal {F : ParityFormat}
     {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
@@ -937,7 +944,10 @@ private theorem canonical_rep_at_saturation_mixed_normal {F : ParityFormat}
   have h_nd_toNat : (F.toFiniteFormat.numDigits (y : ℝ)).toNat = (p : ℕ) := by
     rw [h_nd_eq]; simp
   rw [h_nd_toNat]
-  exact Dyadic.isRepresentableAtP_of_saturation p.pos h_y_eq hk_eq
+  have h_y_rat : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e_c := by
+    apply (Rat.cast_injective (α := ℝ))
+    rw [← Dyadic.coe_real_eq_ratCast, h_y_eq]; push_cast; ring
+  exact Dyadic.isRepresentableAtP_of_saturation p.pos h_y_rat hk_eq
 
 /-- When `|k| = 2^p` and `p ≥ 2`, `k/2 = ±2^(p-1)` which is divisible by 2,
 hence not odd. -/
@@ -1644,6 +1654,7 @@ private theorem canonical_rep_fixedpoint {F : ParityFormat}
       k e' (Dyadic.ofIntZpow k e') := by
   set y : Dyadic := Dyadic.ofIntZpow k e'
   have h_y_real : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e' := Dyadic.coe_ofIntZpow k e'
+  have h_y_rat : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e' := Dyadic.coe_rat_ofIntZpow k e'
   have h_y_ne : (y : ℝ) ≠ 0 := by
     rw [h_y_real]
     exact mul_ne_zero (Int.cast_ne_zero.mpr hk_ne)
@@ -1670,7 +1681,7 @@ private theorem canonical_rep_fixedpoint {F : ParityFormat}
       Int.toNat_of_nonneg h_log_nn
     omega
   rw [h_nd_toNat]
-  refine ⟨h_y_real, ?_, ?_⟩
+  refine ⟨h_y_rat, ?_, ?_⟩
   · have h_simp : (Int.log 2 (|k| : ℝ)).toNat + 1 - 1 =
         (Int.log 2 (|k| : ℝ)).toNat := by omega
     rw [h_simp]

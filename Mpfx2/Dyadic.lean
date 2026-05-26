@@ -109,7 +109,7 @@ theorem coe_real_injective : Function.Injective (fun d : Dyadic => ((d : Dyadic)
   push_cast; ring
 
 /-- Build a dyadic from `(c, e) : ℤ × ℤ`: the value `c · 2^e`. -/
-noncomputable def ofIntZpow (c e : ℤ) : Dyadic :=
+def ofIntZpow (c e : ℤ) : Dyadic :=
   ⟨(c : ℚ) * (2 : ℚ) ^ e, c, e, rfl⟩
 
 @[simp] theorem coe_rat_ofIntZpow (c e : ℤ) :
@@ -167,6 +167,42 @@ theorem quantumAtLeast_coe_real (e : ℤ) (x : Dyadic) :
       rw [← coe_real_eq_ratCast, hc]; push_cast; ring
     exact_mod_cast h
 
+/-- `precisionAtMost` is monotone in the precision bound: more precision
+allowed means the constraint is weaker. -/
+theorem precisionAtMost_mono {p₁ p₂ : WithTop ℕ+} (h : p₁ ≤ p₂) {x : Dyadic}
+    (hx : precisionAtMost p₁ x) : precisionAtMost p₂ x := by
+  cases p₂ with
+  | top => trivial
+  | coe p₂ =>
+    cases p₁ with
+    | top => exact absurd (top_le_iff.mp h) (WithTop.coe_ne_top)
+    | coe p₁ =>
+      obtain ⟨c, e, hc, hb⟩ := hx
+      refine ⟨c, e, hc, ?_⟩
+      have hp_le : (p₁ : ℕ) ≤ (p₂ : ℕ) := by exact_mod_cast WithTop.coe_le_coe.mp h
+      exact lt_of_lt_of_le hb (pow_le_pow_right₀ (by norm_num) hp_le)
+
+/-- `quantumAtLeast` is antitone in the exponent bound: a smaller minimum
+quantum (smaller `exp`) is a weaker constraint. -/
+theorem quantumAtLeast_anti {e₁ e₂ : WithBot ℤ} (h : e₂ ≤ e₁) {x : Dyadic}
+    (hx : quantumAtLeast e₁ x) : quantumAtLeast e₂ x := by
+  cases e₂ with
+  | bot => trivial
+  | coe e₂ =>
+    cases e₁ with
+    | bot => exact absurd (le_bot_iff.mp h) (WithBot.coe_ne_bot)
+    | coe e₁ =>
+      obtain ⟨c, hc⟩ := hx
+      have he_le : e₂ ≤ e₁ := by exact_mod_cast WithBot.coe_le_coe.mp h
+      refine ⟨c * 2 ^ (e₁ - e₂).toNat, ?_⟩
+      rw [hc]
+      push_cast
+      rw [show ((2 : ℚ) ^ (e₁ - e₂).toNat : ℚ) = (2 : ℚ) ^ ((e₁ - e₂).toNat : ℤ)
+          from (zpow_natCast _ _).symm,
+          mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0),
+          Int.toNat_of_nonneg (by omega)]
+      congr 2; omega
+
 theorem precisionAtMost_neg {p : WithTop ℕ+} {x : Dyadic} (h : precisionAtMost p x) :
     precisionAtMost p (-x) := by
   cases p with
@@ -198,7 +234,7 @@ theorem quantumAtLeast_neg {e : WithBot ℤ} {x : Dyadic} (h : quantumAtLeast e 
 `y = c · 2^e` with `2^(p-1) ≤ |c| < 2^p`. For nonzero `y` representable
 at `p` bits, the `(c, e)` pair is unique. -/
 def IsRepresentableAtP (p : ℕ) (c e : ℤ) (y : Dyadic) : Prop :=
-  (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧
+  (y : ℚ) = (c : ℚ) * (2 : ℚ) ^ e ∧
   (2 : ℤ) ^ (p - 1) ≤ |c| ∧ |c| < (2 : ℤ) ^ p
 
 /-- If `y = c · 2^e` with `|c| ≤ 2^p`, then `precisionAtMost p y`. The
@@ -235,11 +271,11 @@ theorem precisionAtMost_of_abs_le {p : ℕ+} {x : Dyadic} (c e : ℤ)
 
 /-- `IsRepresentableAtP n c e y` implies `y ≠ 0` (since `|c| ≥ 1`). -/
 theorem IsRepresentableAtP.ne_zero {n : ℕ} {c e : ℤ} {y : Dyadic}
-    (h : IsRepresentableAtP n c e y) : (y : ℝ) ≠ 0 := by
+    (h : IsRepresentableAtP n c e y) : (y : ℚ) ≠ 0 := by
   obtain ⟨hyeq, hc_lo, _⟩ := h
   intro h0; rw [h0] at hyeq
-  have h2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-  have hc_zero : (c : ℝ) = 0 := by
+  have h2e_pos : (0 : ℚ) < (2 : ℚ) ^ e := zpow_pos (by norm_num) _
+  have hc_zero : (c : ℚ) = 0 := by
     rcases mul_eq_zero.mp hyeq.symm with h | h
     · exact h
     · linarith
@@ -251,7 +287,7 @@ theorem IsRepresentableAtP.ne_zero {n : ℕ} {c e : ℤ} {y : Dyadic}
 /-- If `(c, e)` represents `y` with `|c| ∈ [2^(p-1), 2^p)`, then `(c, e)` is the
 IsRepresentableAtP form for `y` at exactly `p` bits. -/
 theorem isRepresentableAtP_of_bounds {p : ℕ} {c e : ℤ} {y : Dyadic}
-    (hyeq : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e)
+    (hyeq : (y : ℚ) = (c : ℚ) * (2 : ℚ) ^ e)
     (hc_lo : (2 : ℤ) ^ (p - 1) ≤ |c|) (hc_hi : |c| < (2 : ℤ) ^ p) :
     IsRepresentableAtP p c e y := ⟨hyeq, hc_lo, hc_hi⟩
 
@@ -266,7 +302,7 @@ theorem two_pow_succ_pred {p : ℕ} (hp : 1 ≤ p) :
 IsRepresentableAtP form at `p` bits (with `|c/2| = 2^(p-1)`). -/
 theorem isRepresentableAtP_of_saturation {p : ℕ} (hp : 1 ≤ p)
     {c e : ℤ} {y : Dyadic}
-    (hyeq : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e)
+    (hyeq : (y : ℚ) = (c : ℚ) * (2 : ℚ) ^ e)
     (hc_eq : |c| = (2 : ℤ) ^ p) :
     IsRepresentableAtP p (c / 2) (e + 1) y := by
   have h2p_nonneg : (0 : ℤ) ≤ (2 : ℤ) ^ p := by positivity
@@ -286,15 +322,15 @@ theorem isRepresentableAtP_of_saturation {p : ℕ} (hp : 1 ≤ p)
     have h2 : (2 : ℤ) ^ p = 2 * (2 : ℤ) ^ (p - 1) := two_pow_succ_pred hp
     linarith
   -- y = (c/2) · 2^(e+1).
-  have h_y_real : (y : ℝ) = ((c / 2 : ℤ) : ℝ) * (2 : ℝ) ^ (e + 1) := by
+  have h_y_real : (y : ℚ) = ((c / 2 : ℤ) : ℚ) * (2 : ℚ) ^ (e + 1) := by
     rw [hyeq]
-    have h_real_eq : (c : ℝ) = 2 * ((c / 2 : ℤ) : ℝ) := by
-      have : ((2 * (c / 2) : ℤ) : ℝ) = (c : ℝ) := by exact_mod_cast h_div_eq
+    have h_real_eq : (c : ℚ) = 2 * ((c / 2 : ℤ) : ℚ) := by
+      have : ((2 * (c / 2) : ℤ) : ℚ) = (c : ℚ) := by exact_mod_cast h_div_eq
       push_cast at this
       linarith
     rw [h_real_eq]
-    rw [show (2 : ℝ) ^ (e + 1) = (2 : ℝ) ^ e * 2 by
-      rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; ring]
+    rw [show (2 : ℚ) ^ (e + 1) = (2 : ℚ) ^ e * 2 by
+      rw [zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0)]; ring]
     ring
   refine ⟨h_y_real, ?_, ?_⟩
   · rw [h_div_abs]
@@ -311,7 +347,7 @@ theorem IsRepresentableAtP.unique {p : ℕ} {y : Dyadic}
     c₁ = c₂ ∧ e₁ = e₂ := by
   obtain ⟨hy₁, hc₁_lo, hc₁_hi⟩ := h₁
   obtain ⟨hy₂, hc₂_lo, hc₂_hi⟩ := h₂
-  have h_2_ne : (2 : ℝ) ≠ 0 := by norm_num
+  have h_2_ne : (2 : ℚ) ≠ 0 := by norm_num
   -- |y| determines e uniquely: |c| ∈ [2^(p-1), 2^p) ⟹ |y| ∈ [2^(p-1+e), 2^(p+e)).
   -- Step 1: derive that |c_i| ≥ 1, so c_i ≠ 0, so y ≠ 0.
   have hone_le_2pow : ∀ n : ℕ, (1 : ℤ) ≤ (2 : ℤ) ^ n := fun n => one_le_pow₀ (by norm_num)
@@ -319,10 +355,10 @@ theorem IsRepresentableAtP.unique {p : ℕ} {y : Dyadic}
   have hc₂_abs_ge_1 : (1 : ℤ) ≤ |c₂| := le_trans (hone_le_2pow _) hc₂_lo
   have hc₁_ne : c₁ ≠ 0 := fun h => by rw [h, abs_zero] at hc₁_abs_ge_1; omega
   have hc₂_ne : c₂ ≠ 0 := fun h => by rw [h, abs_zero] at hc₂_abs_ge_1; omega
-  -- Real-valued bounds.
-  have h_2e1_pos : (0 : ℝ) < (2 : ℝ) ^ e₁ := zpow_pos (by norm_num) _
-  have h_2e2_pos : (0 : ℝ) < (2 : ℝ) ^ e₂ := zpow_pos (by norm_num) _
-  have h_eq : (c₁ : ℝ) * (2 : ℝ) ^ e₁ = (c₂ : ℝ) * (2 : ℝ) ^ e₂ := by
+  -- Rational-valued bounds.
+  have h_2e1_pos : (0 : ℚ) < (2 : ℚ) ^ e₁ := zpow_pos (by norm_num) _
+  have h_2e2_pos : (0 : ℚ) < (2 : ℚ) ^ e₂ := zpow_pos (by norm_num) _
+  have h_eq : (c₁ : ℚ) * (2 : ℚ) ^ e₁ = (c₂ : ℚ) * (2 : ℚ) ^ e₂ := by
     rw [← hy₁, ← hy₂]
   -- The exponent: show e₁ = e₂.
   have h_e_eq : e₁ = e₂ := by
@@ -330,27 +366,27 @@ theorem IsRepresentableAtP.unique {p : ℕ} {y : Dyadic}
     have aux : ∀ {a₁ e₁ a₂ e₂ : ℤ},
         (1 : ℤ) ≤ |a₁| → |a₁| < (2 : ℤ) ^ p →
         (2 : ℤ) ^ (p - 1) ≤ |a₂| → |a₂| < (2 : ℤ) ^ p →
-        (a₁ : ℝ) * (2 : ℝ) ^ e₁ = (a₂ : ℝ) * (2 : ℝ) ^ e₂ →
+        (a₁ : ℚ) * (2 : ℚ) ^ e₁ = (a₂ : ℚ) * (2 : ℚ) ^ e₂ →
         ¬ (e₁ < e₂) := by
       intro a₁ d₁ a₂ d₂ ha₁_ge ha₁_lt ha₂_lo ha₂_hi h_eq h_lt
-      -- d₁ < d₂. a₁ · 2^d₁ = a₂ · 2^d₂ ⟹ a₁ = a₂ · 2^(d₂ - d₁) (in ℝ then in ℤ).
+      -- d₁ < d₂. a₁ · 2^d₁ = a₂ · 2^d₂ ⟹ a₁ = a₂ · 2^(d₂ - d₁) (in ℚ then in ℤ).
       have h_diff_pos : 0 < d₂ - d₁ := by omega
-      have h_pow_eq : (2 : ℝ) ^ d₂ = (2 : ℝ) ^ (d₂ - d₁).toNat * (2 : ℝ) ^ d₁ := by
-        rw [show ((2 : ℝ) ^ (d₂ - d₁).toNat : ℝ) = (2 : ℝ) ^ ((d₂ - d₁).toNat : ℤ)
+      have h_pow_eq : (2 : ℚ) ^ d₂ = (2 : ℚ) ^ (d₂ - d₁).toNat * (2 : ℚ) ^ d₁ := by
+        rw [show ((2 : ℚ) ^ (d₂ - d₁).toNat : ℚ) = (2 : ℚ) ^ ((d₂ - d₁).toNat : ℤ)
             from (zpow_natCast _ _).symm,
             ← zpow_add₀ h_2_ne, Int.toNat_of_nonneg (by omega)]
         congr 1; ring
-      have h_a1_eq_real : (a₁ : ℝ) = (a₂ : ℝ) * (2 : ℝ) ^ (d₂ - d₁).toNat := by
-        have h2d1_pos : (0 : ℝ) < (2 : ℝ) ^ d₁ := zpow_pos (by norm_num) _
-        have : (a₁ : ℝ) * (2 : ℝ) ^ d₁ =
-            (a₂ : ℝ) * ((2 : ℝ) ^ (d₂ - d₁).toNat * (2 : ℝ) ^ d₁) := by
+      have h_a1_eq_real : (a₁ : ℚ) = (a₂ : ℚ) * (2 : ℚ) ^ (d₂ - d₁).toNat := by
+        have h2d1_pos : (0 : ℚ) < (2 : ℚ) ^ d₁ := zpow_pos (by norm_num) _
+        have : (a₁ : ℚ) * (2 : ℚ) ^ d₁ =
+            (a₂ : ℚ) * ((2 : ℚ) ^ (d₂ - d₁).toNat * (2 : ℚ) ^ d₁) := by
           rw [← h_pow_eq]; exact h_eq
         have := mul_right_cancel₀ (ne_of_gt h2d1_pos)
-          (by linarith [this] : (a₁ : ℝ) * (2 : ℝ) ^ d₁ =
-            (a₂ : ℝ) * (2 : ℝ) ^ (d₂ - d₁).toNat * (2 : ℝ) ^ d₁)
+          (by linarith [this] : (a₁ : ℚ) * (2 : ℚ) ^ d₁ =
+            (a₂ : ℚ) * (2 : ℚ) ^ (d₂ - d₁).toNat * (2 : ℚ) ^ d₁)
         exact this
       have h_a1_int : a₁ = a₂ * 2 ^ (d₂ - d₁).toNat := by
-        have : ((a₂ * 2 ^ (d₂ - d₁).toNat : ℤ) : ℝ) = (a₁ : ℝ) := by
+        have : ((a₂ * 2 ^ (d₂ - d₁).toNat : ℤ) : ℚ) = (a₁ : ℚ) := by
           push_cast; rw [h_a1_eq_real]
         exact_mod_cast this.symm
       have h_abs_eq : |a₁| = |a₂| * 2 ^ (d₂ - d₁).toNat := by
@@ -386,7 +422,7 @@ theorem IsRepresentableAtP.unique {p : ℕ} {y : Dyadic}
     omega
   refine ⟨?_, h_e_eq⟩
   rw [h_e_eq] at h_eq
-  have : (c₁ : ℝ) = (c₂ : ℝ) := mul_right_cancel₀ (ne_of_gt h_2e2_pos) h_eq
+  have : (c₁ : ℚ) = (c₂ : ℚ) := mul_right_cancel₀ (ne_of_gt h_2e2_pos) h_eq
   exact_mod_cast this
 
 /-- Dyadics have decidable equality (inherited from `ℚ`) — a payoff of the
