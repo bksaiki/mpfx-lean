@@ -116,8 +116,22 @@ mixed-normal-pne1, mixed-subnormal-p1, mixed-normal-p1), all of:
   - `alternating_isEven_of_alternating_iff` — same iff plus rep-or-zero
     on each side gives `¬ IsEven dlo → IsEven dhi`.
 - [x] `private canonical_rep_*` helpers — extracted rep-construction
-    helpers for `fixedpoint`, `floating`, `mixed_normal_pne1` (others
-    inline their rep construction).
+    helpers for all 5 sub-cases (`fixedpoint`, `floating`,
+    `mixed_normal_pne1`, `mixed_subnormal_pne1`, `mixed_p1`). All
+    consolidated near the top of the parity section.
+- [x] Characterization wrappers reuse the rep helpers — each
+    `isOdd_iff_odd_at_canonical_X` and `isEven_iff_even_at_canonical_X`
+    is now a thin 7-22 line wrapper around `isOdd_iff_odd_of_canonical`
+    (or `isEven_iff_even_of_canonical`) applied to the appropriate
+    `canonical_rep_X`. Format.lean line count: 2155 → 1985 (−170 lines).
+- [x] **Saturation lemmas refactored via dichotomy** (Tier 2). New
+    helpers: `private two_le_p_of_pne1`, `canonical_rep_at_saturation_floating`,
+    `canonical_rep_at_saturation_mixed_normal`, `not_odd_k_div_2_at_sat`.
+    Each `*_at_saturation_*` (4 lemmas) now 3-5 lines:
+    `not_isOdd_at_saturation_*` rewrites via `isOdd_iff_odd_of_canonical`
+    + `not_odd_k_div_2_at_sat`; `isEven_at_saturation_*` derives from
+    its `not_isOdd_*` counterpart via `isEven_iff_not_isOdd_of_canonical`.
+    Format.lean: 1985 → 1925 (−60 lines).
 - [x] `Dyadic.two_pow_succ_pred`, `log_abs_mul_zpow`.
 
 ## Rounding (done)
