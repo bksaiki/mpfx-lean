@@ -585,6 +585,111 @@ private theorem floor_mantissa_lt {F : Format} {x : ℝ}
       _ ≤ (2 : ℝ) ^ ((p : ℕ) : ℤ) := zpow_le_zpow_right₀ (by norm_num) hle
       _ = (2 : ℝ) ^ (p : ℕ) := by rw [zpow_natCast]
 
+/-- `|k| < 2^p` (integers) ⟹ `log₂|k| + 1 ≤ p`. -/
+private theorem log_lt_p_of_abs_lt_two_pow {p : ℕ+} {k : ℤ}
+    (hk : |k| < (2 : ℤ) ^ ((p : ℕ+) : ℕ)) :
+    Int.log 2 (|k| : ℝ) + 1 ≤ (((p : ℕ+) : ℕ) : ℤ) := by
+  by_cases hk0 : k = 0
+  · rw [hk0]
+    simp only [Int.cast_zero, abs_zero, Int.log_zero_right, zero_add, Nat.one_le_cast]
+    exact_mod_cast (p : ℕ+).pos
+  · have h_abs_pos : (0 : ℝ) < (|k| : ℝ) := by
+      have h1 : (1 : ℤ) ≤ |k| := Int.one_le_abs hk0
+      have h2 : (1 : ℝ) ≤ (|k| : ℝ) := by exact_mod_cast h1
+      linarith
+    have h_abs_lt_zpow : (|k| : ℝ) < (2 : ℝ) ^ (((p : ℕ+) : ℕ) : ℤ) := by
+      rw [zpow_natCast]
+      have h1 : ((|k| : ℤ) : ℝ) < ((2 : ℤ) ^ ((p : ℕ+) : ℕ) : ℝ) := by
+        exact_mod_cast hk
+      have h_cast : ((2 : ℤ) ^ ((p : ℕ+) : ℕ) : ℝ) =
+          (2 : ℝ) ^ ((p : ℕ+) : ℕ) := by push_cast; rfl
+      rw [h_cast] at h1; push_cast at h1; exact h1
+    have h_log_lt : Int.log 2 (|k| : ℝ) < (((p : ℕ+) : ℕ) : ℤ) :=
+      (Int.lt_zpow_iff_log_lt (by norm_num : 1 < 2) h_abs_pos).mp h_abs_lt_zpow
+    linarith
+
+/-- `Int.log 2 ((2 : ℝ) ^ n) = n` for natural `n`. -/
+private theorem log_two_pow_nat (n : ℕ) : Int.log 2 ((2 : ℝ) ^ n) = (n : ℤ) := by
+  rw [show ((2 : ℝ) ^ n) = ((2 : ℝ) ^ (n : ℤ)) from (zpow_natCast (2 : ℝ) n).symm]
+  exact Int.log_zpow (by norm_num : 1 < 2) (n : ℤ)
+
+/-- Cast `((2 : ℤ) ^ (p - 1) : ℝ) = (2 : ℝ) ^ (p - 1 : ℤ)`. -/
+private theorem cast_two_pow_pred {p : ℕ+} :
+    ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) = (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
+  rw [show ((p : ℕ) - 1 : ℤ) = (((p : ℕ) - 1 : ℕ) : ℤ) by
+        have : 1 ≤ (p : ℕ) := p.pos; omega, zpow_natCast]
+  push_cast; rfl
+
+/-- `2^(p-1) ≤ |k|` (integers) ⟹ `p - 1 ≤ log₂|↑k|`. -/
+private theorem log_ge_p_pred_of_two_pow_pred_le {p : ℕ+} {k : ℤ}
+    (hk : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |k|) :
+    ((p : ℕ) : ℤ) - 1 ≤ Int.log 2 |(k : ℝ)| := by
+  have h_2pm1_pos : (0 : ℝ) < ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
+    have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
+    exact_mod_cast this
+  have h_le_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |(k : ℝ)| := by
+    rw [show |(k : ℝ)| = ((|k| : ℤ) : ℝ) from by push_cast; rfl]
+    exact_mod_cast hk
+  have h_log_mono : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
+      Int.log 2 |(k : ℝ)| :=
+    Int.log_mono_right (by linarith) h_le_real
+  have h_log_2pm1 : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
+      (((p : ℕ) - 1 : ℕ) : ℤ) := by
+    have h_cast : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
+        (2 : ℝ) ^ ((p : ℕ) - 1 : ℕ) := by push_cast; rfl
+    rw [h_cast, log_two_pow_nat]
+  rw [h_log_2pm1] at h_log_mono
+  have hp_pos : 1 ≤ (p : ℕ) := p.pos
+  have h_cast_eq : (((p : ℕ) - 1 : ℕ) : ℤ) = ((p : ℕ) : ℤ) - 1 := by omega
+  linarith
+
+/-- If `2^(p-1) ≤ |r|`, then `2^(p-1) ≤ |⌊r⌋|`. Sign-split argument. -/
+private theorem abs_floor_ge_two_pow_pred {p : ℕ+} {r : ℝ}
+    (h_r : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |r|) :
+    (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |⌊r⌋| := by
+  by_cases hr_nn : 0 ≤ r
+  · have h_lo_nn : 0 ≤ ⌊r⌋ := Int.floor_nonneg.mpr hr_nn
+    have h_r_ge : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ r := by
+      rw [show |r| = r from abs_of_nonneg hr_nn] at h_r
+      exact h_r
+    have h_floor_ge : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ ⌊r⌋ := by
+      apply Int.le_floor.mpr
+      have : (((2 : ℤ) ^ ((p : ℕ) - 1) : ℤ) : ℝ) =
+          ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by push_cast; rfl
+      rw [this]; exact h_r_ge
+    rw [abs_of_nonneg h_lo_nn]; exact h_floor_ge
+  · have hr_neg : r < 0 := not_le.mp hr_nn
+    have h_r_le : r ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
+      have h_abs_eq : |r| = -r := abs_of_neg hr_neg
+      linarith
+    have h_floor_le : (⌊r⌋ : ℝ) ≤ r := Int.floor_le _
+    have h_lo_le_r : (⌊r⌋ : ℝ) ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by linarith
+    have h_lo_le : ⌊r⌋ ≤ -((2 : ℤ) ^ ((p : ℕ) - 1)) := by exact_mod_cast h_lo_le_r
+    have h_lo_neg : ⌊r⌋ < 0 := by
+      have hpos : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
+      linarith
+    rw [abs_of_neg h_lo_neg]; linarith
+
+/-- For `x ≠ 0` and `e = log₂|x| + 1 - p`, we have `2^(p-1) ≤ |x · 2^(-e)|`. -/
+private theorem two_pow_pred_le_scaled {p : ℕ+} {x : ℝ} (hx : x ≠ 0) {e : ℤ}
+    (h_e_eq_log : e = Int.log 2 |x| + 1 - ((p : ℕ+) : ℤ)) :
+    ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |x * (2 : ℝ) ^ (-e)| := by
+  rw [cast_two_pow_pred (p := p)]
+  have h_x_ge : (2 : ℝ) ^ (Int.log 2 |x|) ≤ |x| :=
+    Int.zpow_log_le_self (b := 2) (by norm_num : (1 : ℕ) < 2) (abs_pos.mpr hx)
+  have h_2neg_pos : (0 : ℝ) < (2 : ℝ) ^ (-e) := zpow_pos (by norm_num) _
+  have h_abs_s : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
+    rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
+  rw [h_abs_s]
+  have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
+  calc (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ)
+      = (2 : ℝ) ^ (Int.log 2 |x| + (-e)) := by
+        congr 1; linarith [h_e_eq_log, h_pcast]
+    _ = (2 : ℝ) ^ (Int.log 2 |x|) * (2 : ℝ) ^ (-e) := by
+        rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+    _ ≤ |x| * (2 : ℝ) ^ (-e) :=
+        mul_le_mul_of_nonneg_right h_x_ge h_2neg_pos.le
+
 theorem rndUnbounded_satisfies_toNegative (F : Format) (x : ℝ)
     (h : ¬ F.IsUndefined .toNegative) :
     RoundsFinite F.unbounded .toNegative x (rndUnbounded F .toNegative x h) := by
@@ -1093,54 +1198,11 @@ theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
               change F.canonicalExp x = _
               unfold Format.canonicalExp
               simp [hp_F, hexp_F, hx]
-            have h_x_ge : (2 : ℝ) ^ (Int.log 2 |x|) ≤ |x| :=
-              Int.zpow_log_le_self (b := 2) (by norm_num : (1 : ℕ) < 2)
-                (abs_pos.mpr hx)
-            have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
-            have h_2neg_pos : (0 : ℝ) < (2 : ℝ) ^ (-e) := zpow_pos (by norm_num) _
-            have h_cast_2pm1 : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
-              rw [show ((p : ℕ) - 1 : ℤ) = (((p : ℕ) - 1 : ℕ) : ℤ) by
-                    have : 1 ≤ (p : ℕ) := p.pos; omega, zpow_natCast]
-              push_cast; rfl
-            have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |s| := by
-              rw [h_cast_2pm1]
-              have h_abs_s : |s| = |x| * (2 : ℝ) ^ (-e) := by
-                change |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e)
-                rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-              rw [h_abs_s]
-              calc (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ)
-                  = (2 : ℝ) ^ (Int.log 2 |x| + (-e)) := by
-                    congr 1; linarith [h_e_eq_log, h_pcast]
-                _ = (2 : ℝ) ^ (Int.log 2 |x|) * (2 : ℝ) ^ (-e) := by
-                    rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-                _ ≤ |x| * (2 : ℝ) ^ (-e) :=
-                    mul_le_mul_of_nonneg_right h_x_ge h_2neg_pos.le
+            have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |s| :=
+              two_pow_pred_le_scaled (p := p) hx h_e_eq_log
             -- |lo| ≥ 2^(p-1).
-            have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| := by
-              by_cases hs_nn : 0 ≤ s
-              · have h_lo_nn : 0 ≤ lo := Int.floor_nonneg.mpr hs_nn
-                have h_s_ge_r : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ s := by
-                  rw [show |s| = s from abs_of_nonneg hs_nn] at h_s_lo_real
-                  exact h_s_lo_real
-                have h_lo_ge : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ lo := by
-                  apply Int.le_floor.mpr
-                  have : (((2 : ℤ) ^ ((p : ℕ) - 1) : ℤ) : ℝ) =
-                      ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by push_cast; rfl
-                  rw [this]
-                  exact h_s_ge_r
-                rw [abs_of_nonneg h_lo_nn]; exact h_lo_ge
-              · have hs_neg : s < 0 := not_le.mp hs_nn
-                have h_s_le_r : s ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                  have h_abs_eq : |s| = -s := abs_of_neg hs_neg
-                  linarith [h_s_lo_real]
-                have h_floor_le : (lo : ℝ) ≤ s := Int.floor_le _
-                have h_lo_le_r : (lo : ℝ) ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by linarith
-                have h_lo_le : lo ≤ -((2 : ℤ) ^ ((p : ℕ) - 1)) := by exact_mod_cast h_lo_le_r
-                have h_lo_neg : lo < 0 := by
-                  have hpos : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                  linarith
-                rw [abs_of_neg h_lo_neg]; linarith
+            have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| :=
+              abs_floor_ge_two_pow_pred (p := p) h_s_lo_real
             -- |lo + 1| ≥ 2^(p-1) (non-exact case).
             have h_lop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1| := by
               by_cases hs_nn : 0 ≤ s
@@ -1362,40 +1424,13 @@ theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
                   push_cast; exact h_s_lt
                 have h_lop1_le : |lo + 1| ≤ (2 : ℤ) ^ ((p : ℕ+) : ℕ) :=
                   abs_floor_add_one_le_of_abs_lt h_s_lt
-                -- Case split: |lo| < 2^p (non-saturation) or |lo| = 2^p.
-                -- Helper: |k| < 2^p ⟹ log 2 |k| + 1 ≤ p.
-                have h_log_bound : ∀ (k : ℤ), |k| < (2 : ℤ) ^ ((p : ℕ+) : ℕ) →
-                    Int.log 2 (|k| : ℝ) + 1 ≤ (((p : ℕ+) : ℕ) : ℤ) := by
-                  intro k hk
-                  by_cases hk0 : k = 0
-                  · rw [hk0]
-                    simp only [Int.cast_zero, abs_zero, Int.log_zero_right, zero_add,
-                      Nat.one_le_cast]
-                    exact_mod_cast (p : ℕ+).pos
-                  · have h_abs_pos : (0 : ℝ) < (|k| : ℝ) := by
-                      have h1 : (1 : ℤ) ≤ |k| := Int.one_le_abs hk0
-                      have h2 : (1 : ℝ) ≤ (|k| : ℝ) := by exact_mod_cast h1
-                      linarith
-                    have h_abs_lt_zpow : (|k| : ℝ) <
-                        (2 : ℝ) ^ (((p : ℕ+) : ℕ) : ℤ) := by
-                      rw [zpow_natCast]
-                      have h1 : ((|k| : ℤ) : ℝ) < ((2 : ℤ) ^ ((p : ℕ+) : ℕ) : ℝ) := by
-                        exact_mod_cast hk
-                      have h_cast : ((2 : ℤ) ^ ((p : ℕ+) : ℕ) : ℝ) =
-                          (2 : ℝ) ^ ((p : ℕ+) : ℕ) := by push_cast; rfl
-                      rw [h_cast] at h1
-                      push_cast at h1
-                      exact h1
-                    have h_log_lt : Int.log 2 (|k| : ℝ) < (((p : ℕ+) : ℕ) : ℤ) :=
-                      (Int.lt_zpow_iff_log_lt (by norm_num : 1 < 2) h_abs_pos).mp
-                        h_abs_lt_zpow
-                    linarith
+                    -- Case split: |lo| < 2^p (non-saturation) or |lo| = 2^p.
                 rcases lt_or_eq_of_le h_lo_le with h_lo_lt | h_lo_sat
                 · -- Non-saturation: also |lo+1| ≤ 2^p but may saturate.
                   rcases lt_or_eq_of_le h_lop1_le with h_lop1_lt | h_lop1_sat
                   · -- Both strict. Apply lemma.
-                    have h_log_lo' := h_log_bound lo h_lo_lt
-                    have h_log_lop1_raw := h_log_bound (lo + 1) h_lop1_lt
+                    have h_log_lo' := log_lt_p_of_abs_lt_two_pow h_lo_lt
+                    have h_log_lop1_raw := log_lt_p_of_abs_lt_two_pow h_lop1_lt
                     -- Bridge for lo+1: lemma's `|lo + 1| : ℝ` elaborates as
                     -- `|↑lo + 1|`, but helper gives `|↑(lo + 1)|`.
                     have h_log_lop1' : Int.log 2 |((lo : ℝ) + 1)| + 1 ≤
@@ -1444,7 +1479,8 @@ theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
                                 _ = 2 := by ring
                           _ > 1 := by norm_num
                       omega
-                    have h_log_lo' := h_log_bound lo (by rw [h_abs_lo_eq]; linarith)
+                    have h_log_lo' := log_lt_p_of_abs_lt_two_pow
+                      (k := lo) (by rw [h_abs_lo_eq]; linarith)
                     have h_dlo_at_e' : dlo = Dyadic.ofIntZpow lo e' := by
                       rw [h_dlo_def, h_e_eq]
                     apply hodd
@@ -1496,8 +1532,8 @@ theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
                       have : (1 : ℤ) ≤ (2 : ℤ) ^ ((p : ℕ+) : ℕ) := one_le_pow₀ (by norm_num)
                       linarith
                     exact abs_of_nonneg h_pos
-                  have h_log_lop1' := h_log_bound (lo + 1)
-                    (by rw [h_abs_lop1]; linarith)
+                  have h_log_lop1' := log_lt_p_of_abs_lt_two_pow
+                    (k := lo + 1) (by rw [h_abs_lop1]; linarith)
                   have h_dhi_at_e' : dhi = Dyadic.ofIntZpow (lo + 1) e' := by
                     rw [h_dhi_def, h_e_eq]
                   rw [h_dhi_at_e']
@@ -1519,57 +1555,11 @@ theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
                   simp only [hp_F, hexp_F]
                   rw [if_neg hx]
                   exact max_eq_left (le_of_lt h_regime)
-                -- Mirror floating-point: derive |s| ≥ 2^(p-1) lower bound and
-                -- |lo|, |lo+1| ≥ 2^(p-1) mantissa lower bounds.
-                have h_x_ge : (2 : ℝ) ^ (Int.log 2 |x|) ≤ |x| :=
-                  Int.zpow_log_le_self (b := 2) (by norm_num : (1 : ℕ) < 2)
-                    (abs_pos.mpr hx)
-                have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
-                have h_2neg_pos : (0 : ℝ) < (2 : ℝ) ^ (-e) := zpow_pos (by norm_num) _
-                have h_cast_2pm1 : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                    (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
-                  rw [show ((p : ℕ) - 1 : ℤ) = (((p : ℕ) - 1 : ℕ) : ℤ) by
-                        have : 1 ≤ (p : ℕ) := p.pos; omega, zpow_natCast]
-                  push_cast; rfl
                 have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                    |x * (2 : ℝ) ^ (-e)| := by
-                  rw [h_cast_2pm1]
-                  have h_abs_s : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
-                    rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-                  rw [h_abs_s]
-                  calc (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ)
-                      = (2 : ℝ) ^ (Int.log 2 |x| + (-e)) := by
-                        congr 1; linarith [h_e_eq_log, h_pcast]
-                    _ = (2 : ℝ) ^ (Int.log 2 |x|) * (2 : ℝ) ^ (-e) := by
-                        rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-                    _ ≤ |x| * (2 : ℝ) ^ (-e) :=
-                        mul_le_mul_of_nonneg_right h_x_ge h_2neg_pos.le
-                -- |lo| ≥ 2^(p-1).
-                have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| := by
-                  by_cases hs_nn : 0 ≤ s
-                  · have h_lo_nn : 0 ≤ lo := Int.floor_nonneg.mpr hs_nn
-                    have h_s_ge_r : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ s := by
-                      rw [show |s| = s from abs_of_nonneg hs_nn] at h_s_lo_real
-                      exact h_s_lo_real
-                    have h_lo_ge : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ lo := by
-                      apply Int.le_floor.mpr
-                      have : (((2 : ℤ) ^ ((p : ℕ) - 1) : ℤ) : ℝ) =
-                          ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by push_cast; rfl
-                      rw [this]; exact h_s_ge_r
-                    rw [abs_of_nonneg h_lo_nn]; exact h_lo_ge
-                  · have hs_neg : s < 0 := not_le.mp hs_nn
-                    have h_s_le_r : s ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                      have h_abs_eq : |s| = -s := abs_of_neg hs_neg
-                      linarith [h_s_lo_real]
-                    have h_floor_le : (lo : ℝ) ≤ s := Int.floor_le _
-                    have h_lo_le_r : (lo : ℝ) ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                      linarith
-                    have h_lo_le : lo ≤ -((2 : ℤ) ^ ((p : ℕ) - 1)) := by
-                      exact_mod_cast h_lo_le_r
-                    have h_lo_neg : lo < 0 := by
-                      have hpos : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                      linarith
-                    rw [abs_of_neg h_lo_neg]; linarith
+                    |x * (2 : ℝ) ^ (-e)| :=
+                  two_pow_pred_le_scaled (p := p) hx h_e_eq_log
+                have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| :=
+                  abs_floor_ge_two_pow_pred (p := p) h_s_lo_real
                 -- |lo + 1| ≥ 2^(p-1) (non-exact case).
                 have h_lop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1| := by
                   by_cases hs_nn : 0 ≤ s
@@ -1645,65 +1635,12 @@ theorem rndUnbounded_satisfies_toOdd (F : Format) (x : ℝ)
                   rw [h_dhi_real]
                   exact ParityFormat.log_abs_mul_zpow h_lop1_ne e
                 -- Helper: compute Int.log 2 (2^n : ℝ) = n for natural n.
-                have h_log_2pow_nat : ∀ (n : ℕ),
-                    Int.log 2 ((2 : ℝ) ^ n) = (n : ℤ) := fun n => by
-                  rw [show ((2 : ℝ) ^ n) = ((2 : ℝ) ^ (n : ℤ)) from
-                        (zpow_natCast (2 : ℝ) n).symm]
-                  exact Int.log_zpow (by norm_num : 1 < 2) (n : ℤ)
-                -- Int.log 2 |lo| ≥ p - 1 (since |lo| ≥ 2^(p-1)).
-                have h_log_lo_lb : ((p : ℕ) : ℤ) - 1 ≤
-                    Int.log 2 |(lo : ℝ)| := by
-                  have h_2pm1_pos : (0 : ℝ) < ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                    have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                    exact_mod_cast this
-                  have h_le_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |(lo : ℝ)| := by
-                    rw [show |(lo : ℝ)| = ((|lo| : ℤ) : ℝ) from by push_cast; rfl]
-                    exact_mod_cast h_lo_lo
-                  have h_log_mono : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                      Int.log 2 |(lo : ℝ)| :=
-                    Int.log_mono_right (by linarith) h_le_real
-                  have h_log_2pm1 : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                      (((p : ℕ) - 1 : ℕ) : ℤ) := by
-                    have h_cast : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                        (2 : ℝ) ^ ((p : ℕ) - 1 : ℕ) := by push_cast; rfl
-                    rw [h_cast, h_log_2pow_nat]
-                  rw [h_log_2pm1] at h_log_mono
-                  have hp_pos : 1 ≤ (p : ℕ) := p.pos
-                  have h_cast_eq : (((p : ℕ) - 1 : ℕ) : ℤ) = ((p : ℕ) : ℤ) - 1 := by
-                    omega
-                  linarith
-                have h_log_lop1_lb : ((p : ℕ) : ℤ) - 1 ≤
-                    Int.log 2 |((lo + 1 : ℤ) : ℝ)| := by
-                  have h_2pm1_pos : (0 : ℝ) < ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                    have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                    exact_mod_cast this
-                  have h_le_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                      |((lo + 1 : ℤ) : ℝ)| := by
-                    rw [show |((lo + 1 : ℤ) : ℝ)| = ((|lo + 1| : ℤ) : ℝ) from by
-                          push_cast; rfl]
-                    exact_mod_cast h_lop1_lo
-                  have h_log_mono : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                      Int.log 2 |((lo + 1 : ℤ) : ℝ)| :=
-                    Int.log_mono_right (by linarith) h_le_real
-                  have h_log_2pm1 : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                      (((p : ℕ) - 1 : ℕ) : ℤ) := by
-                    have h_cast : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                        (2 : ℝ) ^ ((p : ℕ) - 1 : ℕ) := by push_cast; rfl
-                    rw [h_cast, h_log_2pow_nat]
-                  rw [h_log_2pm1] at h_log_mono
-                  have hp_pos : 1 ≤ (p : ℕ) := p.pos
-                  have h_cast_eq : (((p : ℕ) - 1 : ℕ) : ℤ) = ((p : ℕ) : ℤ) - 1 := by
-                    omega
-                  linarith
+                have h_log_lo_lb := log_ge_p_pred_of_two_pow_pred_le (k := lo) h_lo_lo
+                have h_log_lop1_lb := log_ge_p_pred_of_two_pow_pred_le (k := lo + 1) h_lop1_lo
                 -- Combine: log|dlo| = log|lo| + e ≥ (p-1) + (log|x|+1-p) = log|x|.
-                -- p ≤ log|x| - e' + 1 (from h_regime). So p ≤ log|dlo| - e' + 1.
                 have h_log_lo : ((p : ℕ) : ℤ) ≤
                     Int.log 2 |(dlo : ℝ)| - e' + 1 := by
                   rw [h_log_dlo, h_e_eq_log]
-                  -- h_regime : e' < log|x| + 1 - p, so log|x| - e' ≥ p, so log|x| - e' + 1 ≥ p + 1.
-                  -- We need p ≤ log|lo| + (log|x|+1-p) - e' + 1.
-                  -- = log|lo| + log|x| - p - e' + 2 ≥ (p-1) + log|x| - p - e' + 2
-                  -- = log|x| - e' + 1 ≥ p + 1.
                   have : Int.log 2 |x| - e' ≥ ((p : ℕ) : ℤ) := by linarith
                   linarith [h_log_lo_lb]
                 have h_log_hi : ((p : ℕ) : ℤ) ≤
@@ -2123,57 +2060,11 @@ theorem rndUnbounded_satisfies_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                   change F.canonicalExp x = _
                   unfold Format.canonicalExp
                   simp [hp_F, hexp_F, hx_ne]
-                -- |s| ≥ 2^(p-1) follows from |x| ≥ 2^(log|x|) and e = log|x|+1-p.
-                have h_x_ge : (2 : ℝ) ^ (Int.log 2 |x|) ≤ |x| :=
-                  Int.zpow_log_le_self (b := 2) (by norm_num : (1 : ℕ) < 2)
-                    (abs_pos.mpr hx_ne)
-                have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
-                have h_2neg_pos : (0 : ℝ) < (2 : ℝ) ^ (-e) := zpow_pos (by norm_num) _
-                have h_cast_2pm1 : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                    (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
-                  rw [show ((p : ℕ) - 1 : ℤ) = (((p : ℕ) - 1 : ℕ) : ℤ) by
-                        have : 1 ≤ (p : ℕ) := p.pos; omega, zpow_natCast]
-                  push_cast; rfl
-                have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |s| := by
-                  rw [h_cast_2pm1]
-                  have h_abs_s : |s| = |x| * (2 : ℝ) ^ (-e) := by
-                    change |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e)
-                    rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-                  rw [h_abs_s]
-                  calc (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ)
-                      = (2 : ℝ) ^ (Int.log 2 |x| + (-e)) := by
-                        congr 1; linarith [h_e_eq_log, h_pcast]
-                    _ = (2 : ℝ) ^ (Int.log 2 |x|) * (2 : ℝ) ^ (-e) := by
-                        rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-                    _ ≤ |x| * (2 : ℝ) ^ (-e) :=
-                        mul_le_mul_of_nonneg_right h_x_ge h_2neg_pos.le
+                have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |s| :=
+                  two_pow_pred_le_scaled (p := p) hx_ne h_e_eq_log
                 -- Derive h_lo_lo (|lo| ≥ 2^(p-1)) by sign-split on x.
-                have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| := by
-                  by_cases hs_nn : 0 ≤ s
-                  · have h_lo_nn : 0 ≤ lo := Int.floor_nonneg.mpr hs_nn
-                    have h_s_ge_r : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ s := by
-                      rw [show |s| = s from abs_of_nonneg hs_nn] at h_s_lo_real
-                      exact h_s_lo_real
-                    have h_lo_ge : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ lo := by
-                      apply Int.le_floor.mpr
-                      have : (((2 : ℤ) ^ ((p : ℕ) - 1) : ℤ) : ℝ) =
-                          ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by push_cast; rfl
-                      rw [this]; exact h_s_ge_r
-                    rw [abs_of_nonneg h_lo_nn]; exact h_lo_ge
-                  · push Not at hs_nn
-                    have hs_neg : s < 0 := hs_nn
-                    have h_s_le_r : s ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                      have h_abs_eq : |s| = -s := abs_of_neg hs_neg
-                      linarith [h_s_lo_real]
-                    have h_floor_le : (lo : ℝ) ≤ s := Int.floor_le _
-                    have h_lo_le_r : (lo : ℝ) ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) :=
-                      le_trans h_floor_le h_s_le_r
-                    have h_lo_le : lo ≤ -((2 : ℤ) ^ ((p : ℕ) - 1)) := by
-                      exact_mod_cast h_lo_le_r
-                    have h_lo_neg : lo < 0 := by
-                      have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                      linarith
-                    rw [abs_of_neg h_lo_neg]; linarith
+                have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| :=
+                  abs_floor_ge_two_pow_pred (p := p) h_s_lo_real
                 -- h_lop1_lo: similar argument. Use δ ≠ 0 to handle "exact" case.
                 have h_lop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1| := by
                   -- δ = 1/2 ≠ 0, so lo ≠ s. Use strict reasoning.
@@ -2377,32 +2268,6 @@ theorem rndUnbounded_satisfies_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                       push_cast; exact h_s_lt
                     have h_lop1_le : |lo + 1| ≤ (2 : ℤ) ^ ((p : ℕ+) : ℕ) :=
                       abs_floor_add_one_le_of_abs_lt h_s_lt
-                    have h_log_bound : ∀ (k : ℤ), |k| < (2 : ℤ) ^ ((p : ℕ+) : ℕ) →
-                        Int.log 2 (|k| : ℝ) + 1 ≤ (((p : ℕ+) : ℕ) : ℤ) := by
-                      intro k hk
-                      by_cases hk0 : k = 0
-                      · rw [hk0]
-                        simp only [Int.cast_zero, abs_zero, Int.log_zero_right, zero_add,
-                          Nat.one_le_cast]
-                        exact_mod_cast (p : ℕ+).pos
-                      · have h_abs_pos : (0 : ℝ) < (|k| : ℝ) := by
-                          have h1 : (1 : ℤ) ≤ |k| := Int.one_le_abs hk0
-                          have h2 : (1 : ℝ) ≤ (|k| : ℝ) := by exact_mod_cast h1
-                          linarith
-                        have h_abs_lt_zpow : (|k| : ℝ) <
-                            (2 : ℝ) ^ (((p : ℕ+) : ℕ) : ℤ) := by
-                          rw [zpow_natCast]
-                          have h1 : ((|k| : ℤ) : ℝ) < ((2 : ℤ) ^ ((p : ℕ+) : ℕ) : ℝ) := by
-                            exact_mod_cast hk
-                          have h_cast : ((2 : ℤ) ^ ((p : ℕ+) : ℕ) : ℝ) =
-                              (2 : ℝ) ^ ((p : ℕ+) : ℕ) := by push_cast; rfl
-                          rw [h_cast] at h1
-                          push_cast at h1
-                          exact h1
-                        have h_log_lt : Int.log 2 (|k| : ℝ) < (((p : ℕ+) : ℕ) : ℤ) :=
-                          (Int.lt_zpow_iff_log_lt (by norm_num : 1 < 2) h_abs_pos).mp
-                            h_abs_lt_zpow
-                        linarith
                     have h_dlo_at_e'' : dlo = Dyadic.ofIntZpow lo e'' := by
                       rw [h_dlo_at_e, h_e_eq]
                     have h_dhi_at_e'' : dhi = Dyadic.ofIntZpow (lo + 1) e'' := by
@@ -2411,8 +2276,8 @@ theorem rndUnbounded_satisfies_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                     rcases lt_or_eq_of_le h_lo_le with h_lo_lt | h_lo_sat
                     · rcases lt_or_eq_of_le h_lop1_le with h_lop1_lt | h_lop1_sat
                       · -- Both non-sat: apply alternating_isEven_mixed_subnormal_pne1.
-                        have h_log_lo' := h_log_bound lo h_lo_lt
-                        have h_log_lop1_raw := h_log_bound (lo + 1) h_lop1_lt
+                        have h_log_lo' := log_lt_p_of_abs_lt_two_pow h_lo_lt
+                        have h_log_lop1_raw := log_lt_p_of_abs_lt_two_pow h_lop1_lt
                         have h_log_lop1' : Int.log 2 |((lo : ℝ) + 1)| + 1 ≤
                             (((p : ℕ+) : ℕ) : ℤ) := by
                           have h_eq : |((lo : ℝ) + 1)| = |((lo + 1 : ℤ) : ℝ)| := by
@@ -2510,49 +2375,11 @@ theorem rndUnbounded_satisfies_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                     have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
                     have h_2neg_pos : (0 : ℝ) < (2 : ℝ) ^ (-e) :=
                       zpow_pos (by norm_num) _
-                    have h_cast_2pm1 : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                        (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
-                      rw [show ((p : ℕ) - 1 : ℤ) = (((p : ℕ) - 1 : ℕ) : ℤ) by
-                            have : 1 ≤ (p : ℕ) := p.pos; omega, zpow_natCast]
-                      push_cast; rfl
                     have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                        |x * (2 : ℝ) ^ (-e)| := by
-                      rw [h_cast_2pm1]
-                      have h_abs_s : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
-                        rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-                      rw [h_abs_s]
-                      calc (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ)
-                          = (2 : ℝ) ^ (Int.log 2 |x| + (-e)) := by
-                            congr 1; linarith [h_e_eq_log, h_pcast]
-                        _ = (2 : ℝ) ^ (Int.log 2 |x|) * (2 : ℝ) ^ (-e) := by
-                            rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-                        _ ≤ |x| * (2 : ℝ) ^ (-e) :=
-                            mul_le_mul_of_nonneg_right h_x_ge h_2neg_pos.le
-                    have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| := by
-                      by_cases hs_nn : 0 ≤ s
-                      · have h_lo_nn : 0 ≤ lo := Int.floor_nonneg.mpr hs_nn
-                        have h_s_ge_r : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ s := by
-                          rw [show |s| = s from abs_of_nonneg hs_nn] at h_s_lo_real
-                          exact h_s_lo_real
-                        have h_lo_ge : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ lo := by
-                          apply Int.le_floor.mpr
-                          have : (((2 : ℤ) ^ ((p : ℕ) - 1) : ℤ) : ℝ) =
-                              ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by push_cast; rfl
-                          rw [this]; exact h_s_ge_r
-                        rw [abs_of_nonneg h_lo_nn]; exact h_lo_ge
-                      · have hs_neg : s < 0 := not_le.mp hs_nn
-                        have h_s_le_r : s ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                          have h_abs_eq : |s| = -s := abs_of_neg hs_neg
-                          linarith [h_s_lo_real]
-                        have h_floor_le : (lo : ℝ) ≤ s := Int.floor_le _
-                        have h_lo_le_r : (lo : ℝ) ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) :=
-                          le_trans h_floor_le h_s_le_r
-                        have h_lo_le : lo ≤ -((2 : ℤ) ^ ((p : ℕ) - 1)) := by
-                          exact_mod_cast h_lo_le_r
-                        have h_lo_neg : lo < 0 := by
-                          have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                          linarith
-                        rw [abs_of_neg h_lo_neg]; linarith
+                        |x * (2 : ℝ) ^ (-e)| :=
+                      two_pow_pred_le_scaled (p := p) hx_ne h_e_eq_log
+                    have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| :=
+                      abs_floor_ge_two_pow_pred (p := p) h_s_lo_real
                     have h_lop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1| := by
                       -- δ = 1/2 ≠ 0, so lo ≠ s (strict).
                       by_cases hs_nn : 0 ≤ s
@@ -2610,54 +2437,11 @@ theorem rndUnbounded_satisfies_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                         Int.log 2 |((lo + 1 : ℤ) : ℝ)| + e := by
                       rw [h_dhi_real_e]
                       exact ParityFormat.log_abs_mul_zpow h_lop1_ne e
-                    have h_log_2pow_nat : ∀ (n : ℕ),
-                        Int.log 2 ((2 : ℝ) ^ n) = (n : ℤ) := fun n => by
-                      rw [show ((2 : ℝ) ^ n) = ((2 : ℝ) ^ (n : ℤ)) from
-                            (zpow_natCast (2 : ℝ) n).symm]
-                      exact Int.log_zpow (by norm_num : 1 < 2) (n : ℤ)
-                    have h_log_lo_lb : ((p : ℕ) : ℤ) - 1 ≤ Int.log 2 |(lo : ℝ)| := by
-                      have h_le_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |(lo : ℝ)| := by
-                        rw [show |(lo : ℝ)| = ((|lo| : ℤ) : ℝ) from by push_cast; rfl]
-                        exact_mod_cast h_lo_lo
-                      have h_2pm1_pos : (0 : ℝ) < ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                        have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                        exact_mod_cast this
-                      have h_log_mono : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                          Int.log 2 |(lo : ℝ)| :=
-                        Int.log_mono_right (by linarith) h_le_real
-                      have h_log_2pm1 : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                          (((p : ℕ) - 1 : ℕ) : ℤ) := by
-                        have h_cast : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                            (2 : ℝ) ^ ((p : ℕ) - 1 : ℕ) := by push_cast; rfl
-                        rw [h_cast, h_log_2pow_nat]
-                      rw [h_log_2pm1] at h_log_mono
-                      have hp_pos : 1 ≤ (p : ℕ) := p.pos
-                      have h_cast_eq : (((p : ℕ) - 1 : ℕ) : ℤ) = ((p : ℕ) : ℤ) - 1 := by
-                        omega
-                      linarith
-                    have h_log_lop1_lb : ((p : ℕ) : ℤ) - 1 ≤
-                        Int.log 2 |((lo + 1 : ℤ) : ℝ)| := by
-                      have h_le_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                          |((lo + 1 : ℤ) : ℝ)| := by
-                        rw [show |((lo + 1 : ℤ) : ℝ)| = ((|lo + 1| : ℤ) : ℝ) from by
-                              push_cast; rfl]
-                        exact_mod_cast h_lop1_lo
-                      have h_2pm1_pos : (0 : ℝ) < ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                        have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                        exact_mod_cast this
-                      have h_log_mono : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                          Int.log 2 |((lo + 1 : ℤ) : ℝ)| :=
-                        Int.log_mono_right (by linarith) h_le_real
-                      have h_log_2pm1 : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                          (((p : ℕ) - 1 : ℕ) : ℤ) := by
-                        have h_cast : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                            (2 : ℝ) ^ ((p : ℕ) - 1 : ℕ) := by push_cast; rfl
-                        rw [h_cast, h_log_2pow_nat]
-                      rw [h_log_2pm1] at h_log_mono
-                      have hp_pos : 1 ≤ (p : ℕ) := p.pos
-                      have h_cast_eq : (((p : ℕ) - 1 : ℕ) : ℤ) = ((p : ℕ) : ℤ) - 1 := by
-                        omega
-                      linarith
+                    have h_log_2pow_nat := log_two_pow_nat
+                    have h_log_lo_lb := log_ge_p_pred_of_two_pow_pred_le
+                      (k := lo) h_lo_lo
+                    have h_log_lop1_lb := log_ge_p_pred_of_two_pow_pred_le
+                      (k := lo + 1) h_lop1_lo
                     have h_log_lo : ((p : ℕ) : ℤ) ≤ Int.log 2 |(dlo : ℝ)| - e'' + 1 := by
                       rw [h_log_dlo, h_e_eq_log]
                       have : Int.log 2 |x| - e'' ≥ ((p : ℕ) : ℤ) := by linarith
@@ -2969,63 +2753,12 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
           change F.canonicalExp x = _
           unfold Format.canonicalExp
           simp [hp_F, hexp_F, hx_ne]
-        have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
-        have h_x_ge : (2 : ℝ) ^ (Int.log 2 |x|) ≤ |x| :=
-          Int.zpow_log_le_self (b := 2) (by norm_num : (1 : ℕ) < 2)
-            (abs_pos.mpr hx_ne)
         have h_2neg_pos : (0 : ℝ) < (2 : ℝ) ^ (-e) := zpow_pos (by norm_num) _
-        have h_cast_2pm1 : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-            (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
-          rw [show ((p : ℕ) - 1 : ℤ) = (((p : ℕ) - 1 : ℕ) : ℤ) by
-                have : 1 ≤ (p : ℕ) := p.pos; omega, zpow_natCast]
-          push_cast; rfl
-        have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |x * (2 : ℝ) ^ (-e)| := by
-          rw [h_cast_2pm1]
-          have h_abs : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
-            rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-          rw [h_abs]
-          calc (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ)
-              = (2 : ℝ) ^ (Int.log 2 |x| + (-e)) := by
-                congr 1; linarith [h_e_eq_log, h_pcast]
-            _ = (2 : ℝ) ^ (Int.log 2 |x|) * (2 : ℝ) ^ (-e) := by
-                rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-            _ ≤ |x| * (2 : ℝ) ^ (-e) :=
-                mul_le_mul_of_nonneg_right h_x_ge h_2neg_pos.le
-        -- Sign-split on x to derive lo and lo+1 lower bounds.
-        have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| := by
-          by_cases hx_nn : 0 ≤ x
-          · -- x ≥ 0: x · 2^(-e) ≥ 2^(p-1) ⟹ lo ≥ 2^(p-1).
-            have h_s_ge_r : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ x * (2 : ℝ) ^ (-e) := by
-              have hs_nn : 0 ≤ x * (2 : ℝ) ^ (-e) :=
-                mul_nonneg hx_nn h_2neg_pos.le
-              have h_abs_eq : |x * (2 : ℝ) ^ (-e)| = x * (2 : ℝ) ^ (-e) :=
-                abs_of_nonneg hs_nn
-              linarith [h_s_lo_real]
-            have h_lo_nn : 0 ≤ lo :=
-              Int.floor_nonneg.mpr (le_trans (by positivity) h_s_ge_r)
-            have h_lo_ge : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ lo := by
-              apply Int.le_floor.mpr
-              have : (((2 : ℤ) ^ ((p : ℕ) - 1) : ℤ) : ℝ) =
-                  ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by push_cast; rfl
-              rw [this]; exact h_s_ge_r
-            rw [abs_of_nonneg h_lo_nn]; exact h_lo_ge
-          · -- x < 0: x · 2^(-e) ≤ -2^(p-1) ⟹ lo ≤ -2^(p-1).
-            push Not at hx_nn
-            have hs_neg : x * (2 : ℝ) ^ (-e) < 0 :=
-              mul_neg_of_neg_of_pos hx_nn h_2neg_pos
-            have h_s_le_r : x * (2 : ℝ) ^ (-e) ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-              have h_abs_eq : |x * (2 : ℝ) ^ (-e)| = -(x * (2 : ℝ) ^ (-e)) :=
-                abs_of_neg hs_neg
-              linarith [h_s_lo_real]
-            have h_floor_le : (lo : ℝ) ≤ x * (2 : ℝ) ^ (-e) := Int.floor_le _
-            have h_lo_le_r : (lo : ℝ) ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) :=
-              le_trans h_floor_le h_s_le_r
-            have h_lo_le : lo ≤ -((2 : ℤ) ^ ((p : ℕ) - 1)) := by
-              exact_mod_cast h_lo_le_r
-            have h_lo_neg : lo < 0 := by
-              have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-              linarith
-            rw [abs_of_neg h_lo_neg]; linarith
+        have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
+            |x * (2 : ℝ) ^ (-e)| :=
+          two_pow_pred_le_scaled (p := p) hx_ne h_e_eq_log
+        have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| :=
+          abs_floor_ge_two_pow_pred (p := p) h_s_lo_real
         have h_lop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1| := by
           by_cases hx_nn : 0 ≤ x
           · -- x ≥ 0: lo ≥ 2^(p-1) ⟹ lo+1 ≥ 2^(p-1) + 1.
@@ -3288,40 +3021,12 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
               rw [h_dlo_def, h_e_eq]
             have h_dhi_at_e'' : dhi = Dyadic.ofIntZpow (lo + 1) e'' := by
               rw [h_dhi_def, h_e_eq]
-            -- Helper: lift |k| < 2^p (ℤ) to log bound for the lemma.
-            have h_log_bound : ∀ (k : ℤ), |k| < (2 : ℤ) ^ ((p : ℕ+) : ℕ) →
-                Int.log 2 (|k| : ℝ) + 1 ≤ (((p : ℕ+) : ℕ) : ℤ) := by
-              intro k hk
-              by_cases hk0 : k = 0
-              · rw [hk0]
-                simp only [Int.cast_zero, abs_zero, Int.log_zero_right, zero_add,
-                  Nat.one_le_cast]
-                exact_mod_cast (p : ℕ+).pos
-              · have h_abs_pos : (0 : ℝ) < (|k| : ℝ) := by
-                  have h1 : (1 : ℤ) ≤ |k| := Int.one_le_abs hk0
-                  have h2 : (1 : ℝ) ≤ (|k| : ℝ) := by exact_mod_cast h1
-                  linarith
-                have h_abs_lt_zpow : (|k| : ℝ) <
-                    (2 : ℝ) ^ (((p : ℕ+) : ℕ) : ℤ) := by
-                  rw [zpow_natCast]
-                  have h1 : ((|k| : ℤ) : ℝ) < ((2 : ℤ) ^ ((p : ℕ+) : ℕ) : ℝ) := by
-                    exact_mod_cast hk
-                  have h_cast : ((2 : ℤ) ^ ((p : ℕ+) : ℕ) : ℝ) =
-                      (2 : ℝ) ^ ((p : ℕ+) : ℕ) := by push_cast; rfl
-                  rw [h_cast] at h1
-                  push_cast at h1
-                  exact h1
-                have h_log_lt : Int.log 2 (|k| : ℝ) < (((p : ℕ+) : ℕ) : ℤ) :=
-                  (Int.lt_zpow_iff_log_lt (by norm_num : 1 < 2) h_abs_pos).mp
-                    h_abs_lt_zpow
-                linarith
-            -- Case-split on |lo| vs |lo+1| saturation. In saturation cases,
-            -- one of F''.IsOdd dlo / dhi must fail.
+            -- Case-split on |lo| vs |lo+1| saturation.
             rcases lt_or_eq_of_le h_lo_le with h_lo_lt | h_lo_sat
             · rcases lt_or_eq_of_le h_lop1_le with h_lop1_lt | h_lop1_sat
               · -- Both non-saturated. Apply not_both_isOdd_mixed_subnormal_pne1.
-                have h_log_lo := h_log_bound lo h_lo_lt
-                have h_log_lop1_raw := h_log_bound (lo + 1) h_lop1_lt
+                have h_log_lo := log_lt_p_of_abs_lt_two_pow h_lo_lt
+                have h_log_lop1_raw := log_lt_p_of_abs_lt_two_pow h_lop1_lt
                 have h_log_lop1 : Int.log 2 |((lo : ℝ) + 1)| + 1 ≤
                     (((p : ℕ+) : ℕ) : ℤ) := by
                   have h_eq : |((lo : ℝ) + 1)| = |((lo + 1 : ℤ) : ℝ)| := by
@@ -3415,63 +3120,12 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
               simp only [hp_F, hexp_F]
               rw [if_neg hx_ne]
               exact max_eq_left (le_of_lt h_regime)
-            -- Mirror satisfies normal case to derive bounds.
-            have h_x_ge : (2 : ℝ) ^ (Int.log 2 |x|) ≤ |x| :=
-              Int.zpow_log_le_self (b := 2) (by norm_num : (1 : ℕ) < 2)
-                (abs_pos.mpr hx_ne)
-            have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
             have h_2neg_pos : (0 : ℝ) < (2 : ℝ) ^ (-e) := zpow_pos (by norm_num) _
-            have h_cast_2pm1 : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
-              rw [show ((p : ℕ) - 1 : ℤ) = (((p : ℕ) - 1 : ℕ) : ℤ) by
-                    have : 1 ≤ (p : ℕ) := p.pos; omega, zpow_natCast]
-              push_cast; rfl
             have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                |x * (2 : ℝ) ^ (-e)| := by
-              rw [h_cast_2pm1]
-              have h_abs_s : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
-                rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-              rw [h_abs_s]
-              calc (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ)
-                  = (2 : ℝ) ^ (Int.log 2 |x| + (-e)) := by
-                    congr 1; linarith [h_e_eq_log, h_pcast]
-                _ = (2 : ℝ) ^ (Int.log 2 |x|) * (2 : ℝ) ^ (-e) := by
-                    rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-                _ ≤ |x| * (2 : ℝ) ^ (-e) :=
-                    mul_le_mul_of_nonneg_right h_x_ge h_2neg_pos.le
-            -- Derive lo lower bound. Sign-split on x.
-            have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| := by
-              by_cases hx_nn : 0 ≤ x
-              · have h_s_ge_r : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ x * (2 : ℝ) ^ (-e) := by
-                  have hs_nn : 0 ≤ x * (2 : ℝ) ^ (-e) :=
-                    mul_nonneg hx_nn h_2neg_pos.le
-                  have h_abs_eq : |x * (2 : ℝ) ^ (-e)| = x * (2 : ℝ) ^ (-e) :=
-                    abs_of_nonneg hs_nn
-                  linarith [h_s_lo_real]
-                have h_lo_nn : 0 ≤ lo :=
-                  Int.floor_nonneg.mpr (le_trans (by positivity) h_s_ge_r)
-                have h_lo_ge : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ lo := by
-                  apply Int.le_floor.mpr
-                  have : (((2 : ℤ) ^ ((p : ℕ) - 1) : ℤ) : ℝ) =
-                      ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by push_cast; rfl
-                  rw [this]; exact h_s_ge_r
-                rw [abs_of_nonneg h_lo_nn]; exact h_lo_ge
-              · push Not at hx_nn
-                have hs_neg : x * (2 : ℝ) ^ (-e) < 0 :=
-                  mul_neg_of_neg_of_pos hx_nn h_2neg_pos
-                have h_s_le_r : x * (2 : ℝ) ^ (-e) ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                  have h_abs_eq : |x * (2 : ℝ) ^ (-e)| = -(x * (2 : ℝ) ^ (-e)) :=
-                    abs_of_neg hs_neg
-                  linarith [h_s_lo_real]
-                have h_floor_le : (lo : ℝ) ≤ x * (2 : ℝ) ^ (-e) := Int.floor_le _
-                have h_lo_le_r : (lo : ℝ) ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) :=
-                  le_trans h_floor_le h_s_le_r
-                have h_lo_le : lo ≤ -((2 : ℤ) ^ ((p : ℕ) - 1)) := by
-                  exact_mod_cast h_lo_le_r
-                have h_lo_neg : lo < 0 := by
-                  have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                  linarith
-                rw [abs_of_neg h_lo_neg]; linarith
+                |x * (2 : ℝ) ^ (-e)| :=
+              two_pow_pred_le_scaled (p := p) hx_ne h_e_eq_log
+            have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| :=
+              abs_floor_ge_two_pow_pred (p := p) h_s_lo_real
             -- Derive lo+1 lower bound. Use h_floor_lt from y < x.
             have h_lop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1| := by
               by_cases hx_nn : 0 ≤ x
@@ -3551,53 +3205,9 @@ theorem rndUnbounded_unique_toOdd (F : Format) (x : ℝ)
                 Int.log 2 |((lo + 1 : ℤ) : ℝ)| + e := by
               rw [h_dhi_real]
               exact ParityFormat.log_abs_mul_zpow h_lop1_ne e
-            have h_log_2pow_nat : ∀ (n : ℕ),
-                Int.log 2 ((2 : ℝ) ^ n) = (n : ℤ) := fun n => by
-              rw [show ((2 : ℝ) ^ n) = ((2 : ℝ) ^ (n : ℤ)) from
-                    (zpow_natCast (2 : ℝ) n).symm]
-              exact Int.log_zpow (by norm_num : 1 < 2) (n : ℤ)
-            have h_log_lo_lb : ((p : ℕ) : ℤ) - 1 ≤ Int.log 2 |(lo : ℝ)| := by
-              have h_2pm1_pos : (0 : ℝ) < ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                exact_mod_cast this
-              have h_le_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |(lo : ℝ)| := by
-                rw [show |(lo : ℝ)| = ((|lo| : ℤ) : ℝ) from by push_cast; rfl]
-                exact_mod_cast h_lo_lo
-              have h_log_mono : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                  Int.log 2 |(lo : ℝ)| :=
-                Int.log_mono_right (by linarith) h_le_real
-              have h_log_2pm1 : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                  (((p : ℕ) - 1 : ℕ) : ℤ) := by
-                have h_cast : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                    (2 : ℝ) ^ ((p : ℕ) - 1 : ℕ) := by push_cast; rfl
-                rw [h_cast, h_log_2pow_nat]
-              rw [h_log_2pm1] at h_log_mono
-              have hp_pos : 1 ≤ (p : ℕ) := p.pos
-              have h_cast_eq : (((p : ℕ) - 1 : ℕ) : ℤ) = ((p : ℕ) : ℤ) - 1 := by
-                omega
-              linarith
-            have h_log_lop1_lb : ((p : ℕ) : ℤ) - 1 ≤ Int.log 2 |((lo + 1 : ℤ) : ℝ)| := by
-              have h_2pm1_pos : (0 : ℝ) < ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                exact_mod_cast this
-              have h_le_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                  |((lo + 1 : ℤ) : ℝ)| := by
-                rw [show |((lo + 1 : ℤ) : ℝ)| = ((|lo + 1| : ℤ) : ℝ) from by
-                      push_cast; rfl]
-                exact_mod_cast h_lop1_lo
-              have h_log_mono : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                  Int.log 2 |((lo + 1 : ℤ) : ℝ)| :=
-                Int.log_mono_right (by linarith) h_le_real
-              have h_log_2pm1 : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                  (((p : ℕ) - 1 : ℕ) : ℤ) := by
-                have h_cast : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                    (2 : ℝ) ^ ((p : ℕ) - 1 : ℕ) := by push_cast; rfl
-                rw [h_cast, h_log_2pow_nat]
-              rw [h_log_2pm1] at h_log_mono
-              have hp_pos : 1 ≤ (p : ℕ) := p.pos
-              have h_cast_eq : (((p : ℕ) - 1 : ℕ) : ℤ) = ((p : ℕ) : ℤ) - 1 := by
-                omega
-              linarith
+            have h_log_2pow_nat := log_two_pow_nat
+            have h_log_lo_lb := log_ge_p_pred_of_two_pow_pred_le (k := lo) h_lo_lo
+            have h_log_lop1_lb := log_ge_p_pred_of_two_pow_pred_le (k := lo + 1) h_lop1_lo
             have h_log_lo : ((p : ℕ) : ℤ) ≤ Int.log 2 |(dlo : ℝ)| - e'' + 1 := by
               rw [h_log_dlo, h_e_eq_log]
               have : Int.log 2 |x| - e'' ≥ ((p : ℕ) : ℤ) := by linarith
@@ -3644,14 +3254,8 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
         hy'_tie y hy_mem hy_faith h_yy h_dist_eq.symm
       have h_y'_le_y : |(y' : ℝ)| ≤ |(y : ℝ)| :=
         hy_tie y' hy'_mem hy'_faith (Ne.symm h_yy) h_dist_eq
-      -- |y| = |y'|. Both faithful, distance-min. If y ≠ y' but |y| = |y'|, then y = -y'.
-      -- (Two faithful values are dlo, dhi. dhi = dlo + 2^e ≠ -dlo unless x = midpoint = 0.)
-      -- Then 2x = (y : ℝ) + (y' : ℝ) = 0, so x = 0. But x = 0 with δ = 1/2 requires
-      -- lo + 1/2 = 0 (impossible for integer lo).
+      -- |y| = |y'| and dist eq give y² = y'² and 2x(y - y') = 0. y ≠ y' ⟹ x = 0.
       have h_abs_eq : |(y : ℝ)| = |(y' : ℝ)| := le_antisymm h_y_le_y' h_y'_le_y
-      -- From dist eq: 2x = y + y' (when y ≠ y') OR y = y'.
-      -- (y - x)² = (y' - x)² ⟹ y² - 2xy = y'² - 2xy' ⟹ y² - y'² = 2x(y - y').
-      -- Since |y| = |y'|, y² = y'², so 0 = 2x(y - y'). Since y ≠ y', x = 0.
       have h_sq : (y : ℝ) ^ 2 = (y' : ℝ) ^ 2 := by
         have h1 : |(y : ℝ)| ^ 2 = |(y' : ℝ)| ^ 2 := by rw [h_abs_eq]
         rw [sq_abs, sq_abs] at h1
@@ -3661,10 +3265,6 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
           have h1 : |x - (y : ℝ)| ^ 2 = |x - (y' : ℝ)| ^ 2 := by rw [h_dist_eq]
           rw [sq_abs, sq_abs] at h1
           exact h1
-        -- (x - y)² - (x - y')² = 0
-        -- = (y'² - y²) - 2x(y' - y) = 0
-        -- = 0 - 2x(y' - y) = 0
-        -- => x(y - y') = 0
         have h_expand : 2 * x * ((y : ℝ) - (y' : ℝ)) = 0 := by
           have : (x - (y : ℝ)) ^ 2 - (x - (y' : ℝ)) ^ 2 = 0 := by linarith
           have : 2 * x * ((y' : ℝ) - (y : ℝ)) + ((y : ℝ)^2 - (y' : ℝ)^2) = 0 := by
@@ -3678,8 +3278,7 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
           have : 2 * x * ((y : ℝ) - (y' : ℝ)) ≠ 0 := mul_ne_zero h2x h_diff_ne
           exact this h_expand
         linarith
-      -- But hy_faith says y is faithful. With x = 0, faithful y must be 0
-      -- (since 0 ∈ F.unbounded and RTN/RTP of 0 is 0). Same for y'. So y = y'.
+      -- At x = 0, faithful round of 0 must be 0 (since 0 ∈ F). So y = y' = 0.
       have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := Format.zero_mem F.unbounded
       have h_y_eq_zero : (y : ℝ) = 0 := by
         rcases hy_faith with ⟨_, hy_le, hy_max⟩ | ⟨_, hy_ge, hy_min'⟩
@@ -3875,17 +3474,9 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
               apply abs_floor_le_of_abs_lt; push_cast; exact h_s_lt_p
             have h_lop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ) :=
               abs_floor_add_one_le_of_abs_lt h_s_lt_p
-            -- Need 2^(p-1) ≤ |lo|, |lo+1|. From e = log|x|+1-p (floating).
-            -- Need hx_ne first.
+            -- Faithful + tie at x = 0 forces y = y' = 0; combined with h_yy.
             have hx_ne : x ≠ 0 := by
               intro hx0
-              -- If x = 0, dlo = ofIntZpow 0 e = 0 and dhi = ofIntZpow 1 e ≠ 0.
-              -- IsOdd dhi at canonical (1, e): for floating, |c| < 2^p, fine.
-              -- But the contradiction we need... hmm
-              -- Actually for x = 0, faithful y must be 0 (= dlo). y' is rndUnbounded.
-              -- For .nearest .toEven of x = 0: algorithm returns... let's see.
-              -- δ = 0 - 0 = 0, so y' = dlo = 0. y faithful → y ≤ 0 ≤ y, y = 0.
-              -- So y = y' = 0, contradicting h_yy.
               subst hx0
               have h_zero_mem : (0 : Dyadic) ∈ F.unbounded :=
                 Format.zero_mem F.unbounded
@@ -3914,68 +3505,18 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
               change F.canonicalExp x = _
               unfold Format.canonicalExp
               simp [hp_F, hexp_F, hx_ne]
-            have h_x_ge : (2 : ℝ) ^ (Int.log 2 |x|) ≤ |x| :=
-              Int.zpow_log_le_self (b := 2) (by norm_num : (1 : ℕ) < 2)
-                (abs_pos.mpr hx_ne)
-            have h_2neg_pos : (0 : ℝ) < (2 : ℝ) ^ (-e) := zpow_pos (by norm_num) _
-            have h_cast_2pm1 : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
-              rw [show ((p : ℕ) - 1 : ℤ) = (((p : ℕ) - 1 : ℕ) : ℤ) by
-                    have : 1 ≤ (p : ℕ) := p.pos; omega, zpow_natCast]
-              push_cast; rfl
-            have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
             have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                |x * (2 : ℝ) ^ (-e)| := by
-              rw [h_cast_2pm1]
-              have h_abs_s : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
-                rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-              rw [h_abs_s]
-              calc (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ)
-                  = (2 : ℝ) ^ (Int.log 2 |x| + (-e)) := by
-                    congr 1; linarith [h_e_eq_log, h_pcast]
-                _ = (2 : ℝ) ^ (Int.log 2 |x|) * (2 : ℝ) ^ (-e) := by
-                    rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-                _ ≤ |x| * (2 : ℝ) ^ (-e) :=
-                    mul_le_mul_of_nonneg_right h_x_ge h_2neg_pos.le
-            -- For unique we get distance equation gives δ = 1/2.
-            -- Sign-split for h_lo_lo, h_lop1_lo (mirrors satisfies).
-            have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| := by
-              by_cases hs_nn : 0 ≤ s
-              · have h_lo_nn : 0 ≤ lo := Int.floor_nonneg.mpr hs_nn
-                have h_s_ge_r : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ s := by
-                  rw [show |s| = s from abs_of_nonneg hs_nn] at h_s_lo_real
-                  exact h_s_lo_real
-                have h_lo_ge : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ lo := by
-                  apply Int.le_floor.mpr
-                  have : (((2 : ℤ) ^ ((p : ℕ) - 1) : ℤ) : ℝ) =
-                      ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by push_cast; rfl
-                  rw [this]; exact h_s_ge_r
-                rw [abs_of_nonneg h_lo_nn]; exact h_lo_ge
-              · have hs_neg : s < 0 := not_le.mp hs_nn
-                have h_s_le_r : s ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                  have h_abs_eq : |s| = -s := abs_of_neg hs_neg
-                  linarith [h_s_lo_real]
-                have h_floor_le : (lo : ℝ) ≤ s := Int.floor_le _
-                have h_lo_le_r : (lo : ℝ) ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) :=
-                  le_trans h_floor_le h_s_le_r
-                have h_lo_le : lo ≤ -((2 : ℤ) ^ ((p : ℕ) - 1)) := by
-                  exact_mod_cast h_lo_le_r
-                have h_lo_neg_int : lo < 0 := by
-                  have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                  linarith
-                rw [abs_of_neg h_lo_neg_int]; linarith
-            -- For h_lop1_lo, we need to know lo ≠ s (to handle non-exact case).
-            -- δ = 1/2 from distance equality, so s = lo + 1/2 ≠ lo (assuming integer lo).
+                |x * (2 : ℝ) ^ (-e)| :=
+              two_pow_pred_le_scaled (p := p) hx_ne h_e_eq_log
+            have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| :=
+              abs_floor_ge_two_pow_pred (p := p) h_s_lo_real
+            -- Distance equality at tie forces s ≠ lo (else x = dlo = y = y').
             have h_lo_ne_s : (lo : ℝ) ≠ s := by
               intro h_eq
-              -- s = lo. Then x = lo · 2^e = (dlo : ℝ). So y' = dlo (= rndUnbounded for x exact).
-              -- But also y is faithful, and exact x has unique faithful = x. So y = dlo = y'.
-              -- Contradicts h_yy.
               have h_x_eq_dlo : x = (dlo : ℝ) := by
                 rw [h_dlo_real]
                 have : x = s * (2 : ℝ) ^ e := h_s_unscale.symm
                 rw [this, ← h_eq]
-              -- y faithful → y ≤ x = dlo or y ≥ x = dlo. Either way y = dlo.
               have h_y_eq_dlo' : (y : ℝ) = (dlo : ℝ) := by
                 rcases hy_faith with ⟨_, hy_le, hy_max⟩ | ⟨_, hy_ge, hy_min'⟩
                 · exact le_antisymm (h_dlo_round_down y hy_mem hy_le)
@@ -4203,30 +3744,6 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                   apply abs_floor_le_of_abs_lt; push_cast; exact h_s_lt
                 have h_lop1_le : |lo + 1| ≤ (2 : ℤ) ^ ((p : ℕ+) : ℕ) :=
                   abs_floor_add_one_le_of_abs_lt h_s_lt
-                have h_log_bound : ∀ (k : ℤ), |k| < (2 : ℤ) ^ ((p : ℕ+) : ℕ) →
-                    Int.log 2 (|k| : ℝ) + 1 ≤ (((p : ℕ+) : ℕ) : ℤ) := by
-                  intro k hk
-                  by_cases hk0 : k = 0
-                  · rw [hk0]
-                    simp only [Int.cast_zero, abs_zero, Int.log_zero_right, zero_add,
-                      Nat.one_le_cast]
-                    exact_mod_cast (p : ℕ+).pos
-                  · have h_abs_pos : (0 : ℝ) < (|k| : ℝ) := by
-                      have h1 : (1 : ℤ) ≤ |k| := Int.one_le_abs hk0
-                      have h2 : (1 : ℝ) ≤ (|k| : ℝ) := by exact_mod_cast h1
-                      linarith
-                    have h_abs_lt_zpow : (|k| : ℝ) <
-                        (2 : ℝ) ^ (((p : ℕ+) : ℕ) : ℤ) := by
-                      rw [zpow_natCast]
-                      have h1 : ((|k| : ℤ) : ℝ) < ((2 : ℤ) ^ ((p : ℕ+) : ℕ) : ℝ) := by
-                        exact_mod_cast hk
-                      have h_cast : ((2 : ℤ) ^ ((p : ℕ+) : ℕ) : ℝ) =
-                          (2 : ℝ) ^ ((p : ℕ+) : ℕ) := by push_cast; rfl
-                      rw [h_cast] at h1; push_cast at h1; exact h1
-                    have h_log_lt : Int.log 2 (|k| : ℝ) < (((p : ℕ+) : ℕ) : ℤ) :=
-                      (Int.lt_zpow_iff_log_lt (by norm_num : 1 < 2) h_abs_pos).mp
-                        h_abs_lt_zpow
-                    linarith
                 have h_dlo_at_e'' : dlo = Dyadic.ofIntZpow lo e'' := by
                   rw [h_dlo_def, h_e_eq]
                 have h_dhi_at_e'' : dhi = Dyadic.ofIntZpow (lo + 1) e'' := by
@@ -4234,8 +3751,8 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                 rcases lt_or_eq_of_le h_lo_le with h_lo_lt | h_lo_sat
                 · rcases lt_or_eq_of_le h_lop1_le with h_lop1_lt | h_lop1_sat
                   · -- Both non-sat.
-                    have h_log_lo' := h_log_bound lo h_lo_lt
-                    have h_log_lop1_raw := h_log_bound (lo + 1) h_lop1_lt
+                    have h_log_lo' := log_lt_p_of_abs_lt_two_pow h_lo_lt
+                    have h_log_lop1_raw := log_lt_p_of_abs_lt_two_pow h_lop1_lt
                     have h_log_lop1' : Int.log 2 |((lo : ℝ) + 1)| + 1 ≤
                         (((p : ℕ+) : ℕ) : ℤ) := by
                       have h_eq : |((lo : ℝ) + 1)| = |((lo + 1 : ℤ) : ℝ)| := by
@@ -4245,35 +3762,9 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                     rw [h_dhi_at_e'']
                     exact ParityFormat.alternating_parity_mixed_subnormal_pne1
                       hp_F hp_ne_1 hexp_F h_log_lo' h_log_lop1' h_not_isOdd_dlo
-                  · -- |lo+1| sat: dhi at sat → IsEven dhi (via not_isOdd_at_sat).
-                    -- IsEven dhi already known. We need IsOdd dhi for the contradiction
-                    -- chain. But at saturation, IsOdd dhi = False! So this case is
-                    -- vacuous — we don't derive IsOdd dhi but we get contradiction
-                    -- another way: ¬IsOdd dhi (sat) AND ¬IsOdd dlo (from IsEven dlo).
-                    -- Together with alternating_parity_mixed_subnormal_pne1, IsOdd dhi
-                    -- must hold... but it doesn't at sat. So this case is unreachable.
-                    -- Actually wait: in saturation, both ¬IsOdd dlo AND ¬IsOdd dhi can hold.
-                    -- That doesn't contradict alternating (which says ¬IsOdd dlo → IsOdd dhi).
-                    -- alternating fails here? No, alternating still holds — we derived ¬IsOdd dlo
-                    -- but alternating requires log|lo|+1 ≤ p which fails at sat.
-                    -- Hmm so this saturation case has different conclusion. Let me think.
-                    -- At lo+1 sat: lo+1 = ±2^p. We have hlop1_hi : |lo+1| ≤ 2^p. ✓
-                    -- We also have h_lo_lt : |lo| < 2^p (strict).
-                    -- alternating_parity_mixed_subnormal_pne1 needs log|lo+1|+1 ≤ p which
-                    -- fails at sat |lo+1| = 2^p (log = p, log+1 = p+1 > p).
-                    -- So we need different tactic.
-                    -- Actually: dhi at sat has IsEven via isEven_at_saturation_mixed_normal.
-                    -- We already have IsEven dhi (h_F''_even_dhi). So this is consistent.
-                    -- For contradiction, we need IsOdd dhi (would contradict IsEven).
-                    -- But at sat, IsOdd dhi = False. So no contradiction this way.
-                    -- Alternative: derive IsOdd dlo somehow. From hF''_even_dlo and h_lo_lt
-                    -- non-sat: canonical (lo, e''), IsEven ↔ Even lo. But we have IsEven dlo
-                    -- and IsEven dhi at sat. Could lo, lo+1 both have even canonicals? At sat
-                    -- |lo+1| = 2^p ⟹ lo+1 = ±2^p. lo = ±2^p ∓ 1, odd. So Odd lo (non-sat),
-                    -- IsOdd dlo holds. But we have ¬IsOdd dlo. Contradiction!
-                    -- Here |lo+1| = 2^p sat. Derive IsOdd dlo to contradict
-                    -- h_not_isOdd_dlo (giving False, then return any).
-                    have h_log_lo' := h_log_bound lo h_lo_lt
+                  · -- |lo+1| sat: lo = ±2^p ∓ 1 is odd, so IsOdd dlo holds,
+                    -- contradicting h_not_isOdd_dlo.
+                    have h_log_lo' := log_lt_p_of_abs_lt_two_pow h_lo_lt
                     have h_lo_ne : lo ≠ 0 := by
                       intro h_zero
                       rw [h_zero] at h_lop1_sat
@@ -4332,7 +3823,7 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                     have h_rw : -((2 : ℤ) ^ ((p : ℕ+) : ℕ)) + 1 =
                         -((2 : ℤ) ^ ((p : ℕ+) : ℕ) - 1) := by ring
                     rw [h_rw, abs_neg, abs_of_pos h_pos_inner]; linarith
-                  have h_log_lop1' := h_log_bound (lo + 1) h_lop1_lt
+                  have h_log_lop1' := log_lt_p_of_abs_lt_two_pow h_lop1_lt
                   have h_lop1_ne : lo + 1 ≠ 0 := by
                     rw [h_lo_neg]
                     have : (2 : ℤ) ^ ((p : ℕ+) : ℕ) ≥ 2 := by
@@ -4362,55 +3853,11 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                   simp only [hp_F, hexp_F]
                   rw [if_neg hx_ne]
                   exact max_eq_left (le_of_lt h_regime)
-                have h_x_ge : (2 : ℝ) ^ (Int.log 2 |x|) ≤ |x| :=
-                  Int.zpow_log_le_self (b := 2) (by norm_num : (1 : ℕ) < 2)
-                    (abs_pos.mpr hx_ne)
-                have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
-                have h_2neg_pos : (0 : ℝ) < (2 : ℝ) ^ (-e) :=
-                  zpow_pos (by norm_num) _
-                have h_cast_2pm1 : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                    (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
-                  rw [show ((p : ℕ) - 1 : ℤ) = (((p : ℕ) - 1 : ℕ) : ℤ) by
-                        have : 1 ≤ (p : ℕ) := p.pos; omega, zpow_natCast]
-                  push_cast; rfl
                 have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                    |x * (2 : ℝ) ^ (-e)| := by
-                  rw [h_cast_2pm1]
-                  have h_abs_s : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
-                    rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-                  rw [h_abs_s]
-                  calc (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ)
-                      = (2 : ℝ) ^ (Int.log 2 |x| + (-e)) := by
-                        congr 1; linarith [h_e_eq_log, h_pcast]
-                    _ = (2 : ℝ) ^ (Int.log 2 |x|) * (2 : ℝ) ^ (-e) := by
-                        rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-                    _ ≤ |x| * (2 : ℝ) ^ (-e) :=
-                        mul_le_mul_of_nonneg_right h_x_ge h_2neg_pos.le
-                have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| := by
-                  by_cases hs_nn : 0 ≤ s
-                  · have h_lo_nn : 0 ≤ lo := Int.floor_nonneg.mpr hs_nn
-                    have h_s_ge_r : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ s := by
-                      rw [show |s| = s from abs_of_nonneg hs_nn] at h_s_lo_real
-                      exact h_s_lo_real
-                    have h_lo_ge : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ lo := by
-                      apply Int.le_floor.mpr
-                      have : (((2 : ℤ) ^ ((p : ℕ) - 1) : ℤ) : ℝ) =
-                          ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by push_cast; rfl
-                      rw [this]; exact h_s_ge_r
-                    rw [abs_of_nonneg h_lo_nn]; exact h_lo_ge
-                  · have hs_neg : s < 0 := not_le.mp hs_nn
-                    have h_s_le_r : s ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                      have h_abs_eq : |s| = -s := abs_of_neg hs_neg
-                      linarith [h_s_lo_real]
-                    have h_floor_le_s' : (lo : ℝ) ≤ s := Int.floor_le _
-                    have h_lo_le_r : (lo : ℝ) ≤ -((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) :=
-                      le_trans h_floor_le_s' h_s_le_r
-                    have h_lo_le : lo ≤ -((2 : ℤ) ^ ((p : ℕ) - 1)) := by
-                      exact_mod_cast h_lo_le_r
-                    have h_lo_neg_int : lo < 0 := by
-                      have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                      linarith
-                    rw [abs_of_neg h_lo_neg_int]; linarith
+                    |x * (2 : ℝ) ^ (-e)| :=
+                  two_pow_pred_le_scaled (p := p) hx_ne h_e_eq_log
+                have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| :=
+                  abs_floor_ge_two_pow_pred (p := p) h_s_lo_real
                 have h_lop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1| := by
                   by_cases hs_nn : 0 ≤ s
                   · have h_lo_nn : 0 ≤ lo := Int.floor_nonneg.mpr hs_nn
@@ -4463,54 +3910,10 @@ theorem rndUnbounded_unique_nearest (F : Format) (tb : TieBreak) (x : ℝ)
                     Int.log 2 |((lo + 1 : ℤ) : ℝ)| + e := by
                   rw [h_dhi_real_e]
                   exact ParityFormat.log_abs_mul_zpow h_lop1_ne e
-                have h_log_2pow_nat : ∀ (n : ℕ),
-                    Int.log 2 ((2 : ℝ) ^ n) = (n : ℤ) := fun n => by
-                  rw [show ((2 : ℝ) ^ n) = ((2 : ℝ) ^ (n : ℤ)) from
-                        (zpow_natCast (2 : ℝ) n).symm]
-                  exact Int.log_zpow (by norm_num : 1 < 2) (n : ℤ)
-                have h_log_lo_lb : ((p : ℕ) : ℤ) - 1 ≤ Int.log 2 |(lo : ℝ)| := by
-                  have h_le_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |(lo : ℝ)| := by
-                    rw [show |(lo : ℝ)| = ((|lo| : ℤ) : ℝ) from by push_cast; rfl]
-                    exact_mod_cast h_lo_lo
-                  have h_2pm1_pos : (0 : ℝ) < ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                    have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                    exact_mod_cast this
-                  have h_log_mono : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                      Int.log 2 |(lo : ℝ)| :=
-                    Int.log_mono_right (by linarith) h_le_real
-                  have h_log_2pm1 : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                      (((p : ℕ) - 1 : ℕ) : ℤ) := by
-                    have h_cast : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                        (2 : ℝ) ^ ((p : ℕ) - 1 : ℕ) := by push_cast; rfl
-                    rw [h_cast, h_log_2pow_nat]
-                  rw [h_log_2pm1] at h_log_mono
-                  have hp_pos : 1 ≤ (p : ℕ) := p.pos
-                  have h_cast_eq : (((p : ℕ) - 1 : ℕ) : ℤ) = ((p : ℕ) : ℤ) - 1 := by
-                    omega
-                  linarith
-                have h_log_lop1_lb : ((p : ℕ) : ℤ) - 1 ≤
-                    Int.log 2 |((lo + 1 : ℤ) : ℝ)| := by
-                  have h_le_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                      |((lo + 1 : ℤ) : ℝ)| := by
-                    rw [show |((lo + 1 : ℤ) : ℝ)| = ((|lo + 1| : ℤ) : ℝ) from by
-                          push_cast; rfl]
-                    exact_mod_cast h_lop1_lo
-                  have h_2pm1_pos : (0 : ℝ) < ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
-                    have : (0 : ℤ) < (2 : ℤ) ^ ((p : ℕ) - 1) := by positivity
-                    exact_mod_cast this
-                  have h_log_mono : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
-                      Int.log 2 |((lo + 1 : ℤ) : ℝ)| :=
-                    Int.log_mono_right (by linarith) h_le_real
-                  have h_log_2pm1 : Int.log 2 ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                      (((p : ℕ) - 1 : ℕ) : ℤ) := by
-                    have h_cast : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) =
-                        (2 : ℝ) ^ ((p : ℕ) - 1 : ℕ) := by push_cast; rfl
-                    rw [h_cast, h_log_2pow_nat]
-                  rw [h_log_2pm1] at h_log_mono
-                  have hp_pos : 1 ≤ (p : ℕ) := p.pos
-                  have h_cast_eq : (((p : ℕ) - 1 : ℕ) : ℤ) = ((p : ℕ) : ℤ) - 1 := by
-                    omega
-                  linarith
+                have h_log_lo_lb := log_ge_p_pred_of_two_pow_pred_le
+                  (k := lo) h_lo_lo
+                have h_log_lop1_lb := log_ge_p_pred_of_two_pow_pred_le
+                  (k := lo + 1) h_lop1_lo
                 have h_log_lo : ((p : ℕ) : ℤ) ≤ Int.log 2 |(dlo : ℝ)| - e'' + 1 := by
                   rw [h_log_dlo, h_e_eq_log]
                   have : Int.log 2 |x| - e'' ≥ ((p : ℕ) : ℤ) := by linarith
