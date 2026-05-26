@@ -92,8 +92,8 @@ Mpfx2/
 │                   IsOdd.transfer_of_subset (capstone Lemma 5.3)
 └── DoubleRounding.lean §5.2 / Fig. 9 rules (spec-relational over
                     RoundsFinite): rndRTZ_RTZ, rndRAZ_RAZ(_pos), rndRTO_RTO,
-                    rndRTO_RTZ, rndRTO_RAZ (+ RTO helper chain); rndRTO_RN TBD
-                    toOdd_notMem_of_extend_subset, …); rndRTO_{RAZ,RN} TBD
+                    rndRTO_RTZ, rndRTO_RAZ (+ RTO helper chain:
+                    toOdd_notMem_of_extend_subset, …); rndRTO_RN TBD
 ```
 
 ## Substrate (done)
@@ -315,8 +315,21 @@ spec-relationally over `RoundsFinite` (membership + mode condition):
 - [x] `rndRTO_RAZ` (+ `rndRTO_RAZ_pos`) — RTO then RAZ; away-zero mirror of
       RTZ. Lemma 5.3 application sits in the RTN branch (vs RTP for RTZ).
       Reuses the RTO helper chain.
-- [ ] `rndRTO_RN` (both tie-breaks) — the last positive; RTO then
-      round-to-nearest. Hardest: uses `F₁.extend 2` + nearest machinery.
+- [!] `rndRTO_RN` (both tie-breaks) — **BLOCKED** on a missing prerequisite.
+      The rule + its helpers (`rndRTO_RN_close_transfer`,
+      `rndRTO_no_tie_contradiction`, `rndRTO_nearest_facts`) are ~450 lines,
+      BUT they rest on a **grid-step / midpoint-membership theory** (~940
+      lines in old `Mpfx/Format.lean:273-1454` + `Dyadic.midpoint`) that was
+      never ported to Mpfx2. The load-bearing fact: *the midpoint of two
+      F₁-adjacent points is F₂-representable* (a tie forces `x = midpoint`,
+      which then lies in `F₂`, forcing `z = x` — contradiction). No shortcut;
+      the no-tie clause genuinely needs it. **Prerequisite (do first, own
+      module):** port `Dyadic.midpoint`, `F_adjacent_step_form`,
+      `exists_grid_rep`, `no_F_element_in_step_interval`,
+      `midpoint_*_mem_extend_one`, `midpoint_F₁_in_F₂_of_F_adjacent` to Mpfx2
+      (`AbstractFormat`→`Format`, ℚ substrate). Then the ~450-line RN web.
+      Note: the no-tie fact discharges BOTH tie-break clauses vacuously, so
+      no `∃ ParityFormat` tie-witness is needed for either RNE or RNA.
 - (NB: the old "paper-aligned" form derives `hp_F₂` from a `withBound`/`next`
   containment via `hp_F₂_or_F₁_trivial` (~675 lines); deferred — our rules
   take `hp_F₂` + `F₁.extend 1 ⊆ F₂` directly.)
