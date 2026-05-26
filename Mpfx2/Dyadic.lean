@@ -259,6 +259,96 @@ theorem quantumAtLeast_neg {e : WithBot ℤ} {x : Dyadic} (h : quantumAtLeast e 
     quantumAtLeast e (-x) ↔ quantumAtLeast e x :=
   ⟨fun h => by simpa using quantumAtLeast_neg h, quantumAtLeast_neg⟩
 
+/-- The dyadic value `3 · 2^k` has precision at most 2 (significand `3` fits
+in `|c| < 2^2 = 4`). Used as a precision-2 witness in `hp_F₂`-derivation. -/
+theorem precisionAtMost_two_three_zpow (k : ℤ) :
+    precisionAtMost ((2 : ℕ+) : WithTop ℕ+) (Dyadic.ofIntZpow 3 k) := by
+  rw [precisionAtMost_coe]
+  refine ⟨3, k, ?_, ?_⟩
+  · rw [coe_rat_ofIntZpow]
+  · decide
+
+/-- The dyadic value `3 · 2^k` is *not* representable at precision 1. The
+significand `3` has two binary digits, and no rescaling reduces it to `±1` or
+`0`. Used as a precision-2 witness to force `2 ≤ F₂.p` from a containment
+hypothesis. -/
+theorem not_precisionAtMost_one_three_zpow (k : ℤ) :
+    ¬ precisionAtMost ((1 : ℕ+) : WithTop ℕ+) (Dyadic.ofIntZpow 3 k) := by
+  intro h
+  rw [precisionAtMost_coe_real] at h
+  obtain ⟨c, e, h_eq, hc⟩ := h
+  rw [coe_ofIntZpow] at h_eq
+  -- h_eq : ((3 : ℤ) : ℝ) * (2 : ℝ)^k = (c : ℝ) * (2 : ℝ)^e
+  -- hc : |c| < 2^1 = 2.
+  have hc2 : |c| < 2 := by simpa using hc
+  have hc_cases : c = -1 ∨ c = 0 ∨ c = 1 := by
+    have habs := abs_lt.mp hc2
+    omega
+  have h2k_pos : (0 : ℝ) < (2 : ℝ)^k := zpow_pos (by norm_num) _
+  have h2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
+  rcases hc_cases with hc_n1 | hc_0 | hc_1
+  · -- c = -1: -2^e = 3·2^k. LHS < 0, RHS > 0.
+    subst hc_n1
+    push_cast at h_eq
+    nlinarith
+  · -- c = 0: 0 = 3·2^k. RHS > 0.
+    subst hc_0
+    push_cast at h_eq
+    nlinarith
+  · -- c = 1: 2^e = 3·2^k. So 2^(e-k) = 3, but no integer power of 2 equals 3.
+    subst hc_1
+    push_cast at h_eq
+    rw [one_mul] at h_eq
+    have h_pow : (2 : ℝ) ^ (e - k) = 3 := by
+      have h2k_ne : (2 : ℝ)^k ≠ 0 := ne_of_gt h2k_pos
+      rw [zpow_sub₀ (by norm_num : (2 : ℝ) ≠ 0)]
+      field_simp
+      linarith
+    rcases lt_or_ge (e - k) 0 with h_neg | h_nn
+    · -- e - k < 0: 2^(e-k) ≤ 1/2 < 3.
+      have h_le_neg1 : e - k ≤ -1 := by omega
+      have h_lt : (2 : ℝ) ^ (e - k) ≤ (2 : ℝ) ^ (-1 : ℤ) :=
+        zpow_le_zpow_right₀ (by norm_num : (1 : ℝ) ≤ 2) h_le_neg1
+      rw [h_pow] at h_lt
+      norm_num at h_lt
+    · -- e - k ≥ 0: 2^(e-k) is a power of 2 in ℕ; never equals 3.
+      lift (e - k) to ℕ using h_nn with n hn
+      rw [zpow_natCast] at h_pow
+      have hn_int : (2 : ℕ)^n = 3 := by exact_mod_cast h_pow
+      rcases Nat.lt_or_ge n 2 with h_lt | h_ge
+      · interval_cases n
+        · simp at hn_int
+        · simp at hn_int
+      · have hge4 : (4 : ℕ) ≤ (2 : ℕ)^n := by
+          calc (4 : ℕ) = 2^2 := by norm_num
+            _ ≤ 2^n := Nat.pow_le_pow_right (by norm_num) h_ge
+        omega
+
+/-- A nonzero dyadic with `quantumAtLeast e` has absolute value at least `2^e`.
+The smallest nonzero significand `c` is `±1`, giving `|c·2^e| = 2^e`. -/
+theorem abs_ge_two_zpow_of_quantum {e : ℤ} {d : Dyadic}
+    (hq : quantumAtLeast (e : WithBot ℤ) d) (hne : (d : ℝ) ≠ 0) :
+    (2 : ℝ)^e ≤ |(d : ℝ)| := by
+  rw [quantumAtLeast_coe_real] at hq
+  obtain ⟨c, hc_eq⟩ := hq
+  have h2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
+  have hc_ne : c ≠ 0 := by
+    intro h
+    rw [h] at hc_eq
+    push_cast at hc_eq
+    rw [zero_mul] at hc_eq
+    exact hne hc_eq
+  have hc_abs : (1 : ℤ) ≤ |c| := by
+    have := abs_pos.mpr hc_ne
+    omega
+  have habs : (1 : ℝ) ≤ |(c : ℝ)| := by
+    rw [show |(c : ℝ)| = ((|c| : ℤ) : ℝ) by push_cast; rfl]
+    exact_mod_cast hc_abs
+  rw [hc_eq, abs_mul, abs_of_pos h2e_pos]
+  calc (2 : ℝ)^e = 1 * (2 : ℝ)^e := by ring
+    _ ≤ |(c : ℝ)| * (2 : ℝ)^e :=
+        mul_le_mul_of_nonneg_right habs (le_of_lt h2e_pos)
+
 /-- `(c, e)` is a representation of `y` at *exactly* `p` binary digits:
 `y = c · 2^e` with `2^(p-1) ≤ |c| < 2^p`. For nonzero `y` representable
 at `p` bits, the `(c, e)` pair is unique. -/

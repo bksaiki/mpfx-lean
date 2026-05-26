@@ -152,6 +152,58 @@ theorem extend_mono (F : Format) {j k : ℕ+} (h : j ≤ k) :
       exact WithBot.coe_le_coe.mpr (by omega)
   · exact le_refl _
 
+/-- `(F.extend 1).extend 1 ⊆ F.extend 2` via precision/quantum equivalence.
+The core is `(p+1)+1 = p+2`, `(exp-1)-1 = exp-2`, same bound. -/
+theorem extend_one_extend_one_subset_extend_two (F : Format) :
+    (F.extend 1).extend 1 ⊆ F.extend 2 := by
+  intro y hy
+  obtain ⟨hp, hq, hb⟩ := hy
+  refine ⟨?_, ?_, hb⟩
+  · -- precisionAtMost ((F.p.map (·+1)).map (·+1)) y → precisionAtMost (F.p.map (·+2)) y.
+    change Dyadic.precisionAtMost (F.p.map (· + (2 : ℕ+))) y
+    change Dyadic.precisionAtMost ((F.p.map (· + (1 : ℕ+))).map (· + (1 : ℕ+))) y at hp
+    have h_eq : (F.p.map (· + (1 : ℕ+))).map (· + (1 : ℕ+)) = F.p.map (· + (2 : ℕ+)) := by
+      cases F.p with
+      | top => rfl
+      | coe n =>
+        rw [WithTop.map_coe, WithTop.map_coe, WithTop.map_coe]
+        rw [show n + 1 + 1 = n + 2 from PNat.coe_injective (by push_cast; ring)]
+    rw [h_eq] at hp; exact hp
+  · -- quantumAtLeast ((F.exp.map (·-1)).map (·-1)) y → quantumAtLeast (F.exp.map (·-2)) y.
+    change Dyadic.quantumAtLeast (F.exp.map (· - (2 : ℤ))) y
+    change Dyadic.quantumAtLeast ((F.exp.map (· - (1 : ℤ))).map (· - (1 : ℤ))) y at hq
+    have h_eq : (F.exp.map (· - (1 : ℤ))).map (· - (1 : ℤ)) = F.exp.map (· - (2 : ℤ)) := by
+      cases F.exp with
+      | bot => rfl
+      | coe e =>
+        rw [WithBot.map_coe, WithBot.map_coe, WithBot.map_coe]
+        congr 1
+        ring
+    rw [h_eq] at hq; exact hq
+
+/-- A `Dyadic` not representable in 1 bit cannot live in a format with
+`F.p = 1`. Combined with `ℕ+`'s positivity, having a precision-2 witness in
+`F` forces `F.p ≥ 2`. -/
+theorem two_le_p_of_precision_two_witness {F : Format} {v : Dyadic}
+    (hvF : v ∈ F) (hv_not_p1 : ¬ Dyadic.precisionAtMost ((1 : ℕ+) : WithTop ℕ+) v) :
+    ((2 : ℕ+) : WithTop ℕ+) ≤ F.p := by
+  by_contra h_p_lt
+  push Not at h_p_lt
+  have h_F_p_eq_1 : F.p = ((1 : ℕ+) : WithTop ℕ+) := by
+    rcases hpf : F.p with _ | n
+    · exfalso; rw [hpf] at h_p_lt; exact not_top_lt h_p_lt
+    · rw [hpf] at h_p_lt
+      have hn_lt : n < (2 : ℕ+) := WithTop.coe_lt_coe.mp h_p_lt
+      have hn_eq : n = (1 : ℕ+) := by
+        have h2 : (n : ℕ) < 2 := by exact_mod_cast hn_lt
+        have h3 : (1 : ℕ) ≤ (n : ℕ) := n.one_le
+        apply PNat.coe_injective
+        rw [PNat.one_coe]; omega
+      rw [hn_eq]; rfl
+  have hv_p_F : Dyadic.precisionAtMost F.p v := hvF.1
+  rw [h_F_p_eq_1] at hv_p_F
+  exact hv_not_p1 hv_p_F
+
 /-! ### Bound replacement and the `next` operator
 
 `F.withBound b'` swaps out `F`'s magnitude bound for `b'`. `F.next b` is the
@@ -296,6 +348,35 @@ theorem self_le_next (F : Format) (b : Dyadic)
       have := lt_next_of_p_top F hF_exp hF_p b; linarith
     · -- Both finite. lt_next_of_finite.
       have := lt_next_of_finite F hF_exp hF_p b hb; linarith
+
+/-! ### `boundAfterNext`: the bound for the paper's `F⁺` containment
+
+`next(F.b)` lifted to `WithTop NonNegDyadic`. Returns `⊤` when `F.b = ⊤`,
+otherwise `(F.next b : NonNegDyadic)`. Unlike the old `AbstractFormat` API, the
+non-negativity witness is carried by `NonNegDyadic` itself (no separate
+`boundAfterNext_nn` obligation), and `withBound` takes only the bound. -/
+
+/-- The bound for the paper's `F⁺` containment: `next(F.b)` lifted to
+`WithTop NonNegDyadic`. -/
+noncomputable def boundAfterNext (F : Format) : WithTop NonNegDyadic :=
+  match F.b with
+  | ⊤ => ⊤
+  | (b : NonNegDyadic) =>
+    (⟨F.next b.val, by
+        have hb : 0 ≤ ((b.val : Dyadic) : ℝ) := by
+          rw [Dyadic.coe_real_eq_ratCast]; exact_mod_cast b.2
+        have h_next_nn : 0 ≤ ((F.next b.val : Dyadic) : ℝ) := next_nonneg F b.val hb
+        rw [Dyadic.coe_real_eq_ratCast] at h_next_nn
+        exact_mod_cast h_next_nn⟩ : NonNegDyadic)
+
+/-- `boundAfterNext` evaluator: `⊤` case. -/
+@[simp] theorem boundAfterNext_top {F : Format} (hF : F.b = ⊤) :
+    F.boundAfterNext = ⊤ := by unfold boundAfterNext; rw [hF]
+
+/-- `boundAfterNext` evaluator: coe case. The underlying dyadic is `F.next b`. -/
+theorem boundAfterNext_coe {F : Format} {b : NonNegDyadic} (hF : F.b = (b : WithTop NonNegDyadic)) :
+    ∃ h, F.boundAfterNext = ((⟨F.next b.val, h⟩ : NonNegDyadic) : WithTop NonNegDyadic) := by
+  unfold boundAfterNext; rw [hF]; exact ⟨_, rfl⟩
 
 end Format
 
