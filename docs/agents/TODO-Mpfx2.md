@@ -40,9 +40,13 @@ Mpfx2/
 │                   IsOdd, IsEven, parity dichotomy + alternating
 │                   + not_both lemmas across all 6 format cases
 ├── Rounding.lean   relational layer (constructive):
-│                   TieBreak, RoundingMode, RoundResult,
+│                   TieBreak, RoundingMode,
+│                   RoundResult (with signed overflow), RoundResult.neg,
 │                   FiniteFormat.IsUndefined,
-│                   IsFaithfulRound, RoundsFinite, Rounds
+│                   IsFaithfulRound, RoundsFinite, Rounds.
+│                   Sign-symmetry block: IsFaithfulRound.neg_iff,
+│                   per-mode RoundsFinite.neg_*, Rounds.neg_*.
+│                   Mode-vs-sign block: RTP/RTN ↔ RTZ/RAZ by sign of x.
 └── RoundOp.lean    function layer (noncomputable, classical):
                     abs_floor_le_of_abs_lt, log_two_pow_nat,
                     cast_two_pow_pred, log_lt_p_of_abs_lt_two_pow,
@@ -50,7 +54,8 @@ Mpfx2/
                     two_pow_pred_le_scaled, abs_floor_ge_two_pow_pred,
                     rndInt, rndParity,
                     FiniteFormat.toParityFormatOf{ToOdd,NearestEven},
-                    rndUnbounded, rnd, rnd_iff_rounds
+                    rndUnbounded, rnd (with overflow-sign computation),
+                    rnd_iff_rounds
 ```
 
 ## Substrate (done)
@@ -97,24 +102,44 @@ mixed-normal-pne1, mixed-subnormal-p1, mixed-normal-p1), all of:
 - [x] `not_isOdd_at_saturation`, `not_isOdd_at_saturation_mixed_normal`,
       `isEven_at_saturation_floating`, `isEven_at_saturation_mixed_normal` —
       saturation behaviour.
-- [x] `alternating_parity_*` — `¬ IsOdd dlo → IsOdd dhi`.
-- [x] `alternating_isEven_*` — `¬ IsEven dlo → IsEven dhi`.
-- [x] `not_both_isOdd_*` — `¬ (IsOdd dlo ∧ IsOdd dhi)`.
+- [x] **Consolidated alternation API** (refactored to single bulk-proof iff
+      per case, with the previous three lemmas as thin wrappers):
+  - `alternating_parity_*_iff` — `IsOdd dhi ↔ ¬ IsOdd dlo`. The bulk
+    proof; combines forward and backward directions in one place.
+  - `alternating_parity_*` — thin wrapper `(iff).mpr` (the original
+    `¬ IsOdd dlo → IsOdd dhi` shape).
+  - `not_both_isOdd_*` — thin wrapper via `not_both_isOdd_of_alternating_iff`.
+  - `alternating_isEven_*` — uses the generic `alternating_isEven_of_alternating_iff`
+    with saturation cases handled manually where applicable.
+- [x] **Generic derivations** (case-independent, in Format.lean ~648):
+  - `not_both_isOdd_of_alternating_iff` — `(IsOdd dhi ↔ ¬ IsOdd dlo) → ¬ (IsOdd dlo ∧ IsOdd dhi)`.
+  - `alternating_isEven_of_alternating_iff` — same iff plus rep-or-zero
+    on each side gives `¬ IsEven dlo → IsEven dhi`.
+- [x] `private canonical_rep_*` helpers — extracted rep-construction
+    helpers for `fixedpoint`, `floating`, `mixed_normal_pne1` (others
+    inline their rep construction).
 - [x] `Dyadic.two_pow_succ_pred`, `log_abs_mul_zpow`.
 
 ## Rounding (done)
 
 - [x] `TieBreak`, `RoundingMode`, `RoundResult` inductives.
+      `RoundResult.overflow` carries a `Bool` sign field (`true` =
+      positive overflow) so signed-infinity semantics are recoverable.
+- [x] `RoundResult.neg` + simp lemmas (`neg_finite`, `neg_overflow`
+      flips the sign bit, `neg_undefined`, `neg_neg`).
 - [x] `FiniteFormat.IsUndefined` — `(p = 1, exp = ⊥, .toOdd ∨ .nearest .toEven)`
       (the `(⊤, ⊥)` case is structurally excluded by `FiniteFormat`).
 - [x] `FiniteFormat.unbounded_isUndefined` (rfl-simp).
 - [x] `IsFaithfulRound : FiniteFormat → ℝ → Dyadic → Prop`.
 - [x] `RoundsFinite : FiniteFormat → RoundingMode → ℝ → Dyadic → Prop`.
 - [x] `Rounds : FiniteFormat → RoundingMode → ℝ → RoundResult → Prop`
-      (IEEE-style overflow via `F.unbounded` + separate `boundOK`).
+      (IEEE-style overflow via `F.unbounded` + separate `boundOK`;
+      `.overflow b` clause adds the sign constraint
+      `(b ↔ 0 < (y : ℝ))` on the overflowing witness).
 - [x] `rndInt`, `rndParity`.
 - [x] `FiniteFormat.toParityFormatOfToOdd`, `toParityFormatOfNearestEven`.
-- [x] `rndUnbounded`, `rnd`.
+- [x] `rndUnbounded`, `rnd` (computes overflow sign from the unbounded
+      rounded value).
 
 ## Soundness (done — zero `sorry`)
 
@@ -146,14 +171,34 @@ mixed-normal-pne1, mixed-subnormal-p1, mixed-normal-p1), all of:
 - [ ] Lemma 5.3 itself (RTO digit-padding preserves representability) —
       the pivotal lemma for all RTO-composition double-rounding rules.
 
+## Rounding API extensions (done)
+
+- [x] **Sign-symmetry helpers** (`Format.lean`, `Dyadic.lean`):
+      `Dyadic.precisionAtMost_neg`/`_neg_iff`, `quantumAtLeast_neg`/`_neg_iff`,
+      `Format.boundOK_neg`/`_neg_iff`, `Format.neg_mem`, `Format.mem_neg_iff`,
+      `FiniteFormat.neg_mem`/`mem_neg_iff`, `Format.boundOK_zero`,
+      `ParityFormat.IsOdd.neg_iff`, `IsEven.neg_iff`.
+- [x] **`IsFaithfulRound.neg_iff`** — `IsFaithfulRound F x y ↔
+      IsFaithfulRound F (-x) (-y)` (swaps RTN- and RTP-witness disjuncts).
+- [x] **Per-mode `RoundsFinite.neg_*`** for all seven modes:
+      `neg_toZero`, `neg_awayZero`, `neg_toOdd`, `neg_nearest_toEven`,
+      `neg_nearest_awayZero`, `neg_toNegative_iff_toPositive`.
+- [x] **Per-mode `Rounds.neg_*`** (six, since RTN/RTP are paired):
+      `neg_toZero`, `neg_awayZero`, `neg_toOdd`, `neg_nearest_toEven`,
+      `neg_nearest_awayZero`, `neg_toNegative_iff_toPositive`. Each
+      overflow case threads the sign bit through `RoundResult.neg`'s
+      Bool flip.
+- [x] **Mode-vs-sign reductions** — `RoundsFinite.*`-level and
+      `Rounds.*`-level theorems:
+      - `toPositive_iff_awayZero_of_nonneg` (`0 ≤ x → RTP = RAZ`),
+      - `toPositive_iff_toZero_of_nonpos` (`x ≤ 0 → RTP = RTZ`),
+      - `toNegative_iff_toZero_of_nonneg` (derived via sign-symmetry),
+      - `toNegative_iff_awayZero_of_nonpos` (derived via sign-symmetry).
+
 ## Open: Rounding API extensions
 
-- [ ] Sign-symmetry: `Rounds.neg_toZero`, `neg_awayZero`, `neg_toOdd`,
-      `neg_nearest`, `Rounds.neg` unified.
-- [ ] Mode-conversion: `Rounds.toPositive_iff_awayZero_of_nn`,
-      `Rounds.toNegative_iff_awayZero_of_np` (for sign-reduction proofs).
-- [ ] `IsFaithfulRound`-extraction lemmas (split RTN/RTP from
-      `IsFaithfulRound`).
+- [ ] `IsFaithfulRound`-extraction lemmas (split RTN-witness vs
+      RTP-witness disjunct accessors).
 
 ## Open: Double rounding (§5.2)
 

@@ -636,6 +636,44 @@ theorem isEven_iff_not_isOdd_of_canonical {F : ParityFormat} {y : Dyadic}
     · exact Int.not_odd_iff_even.mpr
     · exact Int.not_odd_iff_even.mp
 
+/-! ### Generic consequences of the alternating-parity iff
+
+For any `dlo, dhi` related by the iff `IsOdd dhi ↔ ¬ IsOdd dlo`, we get
+both *no-overlap* (`¬ (IsOdd dlo ∧ IsOdd dhi)`) and *alternation in IsEven*
+(`¬ IsEven dlo → IsEven dhi`) without case-by-case reasoning. The
+alternation requires canonical representations (or zero) on both sides
+to invoke the dichotomy. -/
+
+/-- From an alternating-parity iff, the two values can't both be `IsOdd`. -/
+theorem not_both_isOdd_of_alternating_iff {F : ParityFormat} {dlo dhi : Dyadic}
+    (h : F.IsOdd dhi ↔ ¬ F.IsOdd dlo) :
+    ¬ (F.IsOdd dlo ∧ F.IsOdd dhi) := fun ⟨h1, h2⟩ => h.mp h2 h1
+
+/-- From an alternating-parity iff plus canonical representations (or
+zero) on both sides, `IsEven` alternates as well: `¬ IsEven dlo → IsEven dhi`. -/
+theorem alternating_isEven_of_alternating_iff
+    {F : ParityFormat} {dlo dhi : Dyadic} {c_lo e_lo c_hi e_hi : ℤ}
+    (h_iff : F.IsOdd dhi ↔ ¬ F.IsOdd dlo)
+    (h_rep_lo_or_zero : dlo = 0 ∨ Dyadic.IsRepresentableAtP
+      (F.toFiniteFormat.numDigits (dlo : ℝ)).toNat c_lo e_lo dlo)
+    (h_rep_hi_or_zero : dhi = 0 ∨ Dyadic.IsRepresentableAtP
+      (F.toFiniteFormat.numDigits (dhi : ℝ)).toNat c_hi e_hi dhi) :
+    ¬ F.IsEven dlo → F.IsEven dhi := by
+  intro h_not_even
+  rcases h_rep_hi_or_zero with hhi_z | h_rep_hi
+  · rw [hhi_z]; exact isEven_zero F
+  rcases h_rep_lo_or_zero with hlo_z | h_rep_lo
+  · exfalso; apply h_not_even
+    rw [hlo_z]; exact isEven_zero F
+  have h_odd_lo : F.IsOdd dlo := by
+    by_contra h_not_odd
+    apply h_not_even
+    rw [isEven_iff_not_isOdd_of_canonical h_rep_lo]
+    exact h_not_odd
+  have h_not_odd_hi : ¬ F.IsOdd dhi := fun h_odd_hi => h_iff.mp h_odd_hi h_odd_lo
+  rw [isEven_iff_not_isOdd_of_canonical h_rep_hi]
+  exact h_not_odd_hi
+
 /-- Floating-point characterization (non-saturation): when `F.p = (p:ℕ+)`,
 `F.p ≠ 1`, `F.exp = ⊥`, and `|k| ∈ [2^(p-1), 2^p)`, then
 `F.IsOdd (Dyadic.ofIntZpow k e) ↔ Odd k`. -/
@@ -1031,186 +1069,6 @@ theorem isEven_at_saturation_mixed_normal {F : ParityFormat}
       rw [h_factor, Int.mul_ediv_cancel_left _ (by norm_num : (2 : ℤ) ≠ 0)]
     rw [h_div_neg_2p, h_2pm2_pow]; ring
 
-/-- Alternating parity in the mixed-normal regime (`p ≠ 1`). Mirror of
-`alternating_parity_floating`, with saturation handled by the mixed-normal
-characterization + saturation lemma. -/
-theorem alternating_parity_mixed_normal_pne1 {F : ParityFormat}
-    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
-    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
-    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
-    {y_lo y_hi : Dyadic} (h_y_lo_ne : (y_lo : ℝ) ≠ 0) (h_y_hi_ne : (y_hi : ℝ) ≠ 0)
-    (h_log_lo : ((p : ℕ) : ℤ) ≤ Int.log 2 |(y_lo : ℝ)| - e' + 1)
-    (h_log_hi : ((p : ℕ) : ℤ) ≤ Int.log 2 |(y_hi : ℝ)| - e' + 1)
-    {lo : ℤ} {e : ℤ}
-    (h_y_lo_eq : (y_lo : ℝ) = (lo : ℝ) * (2 : ℝ) ^ e)
-    (h_y_hi_eq : (y_hi : ℝ) = ((lo + 1 : ℤ) : ℝ) * (2 : ℝ) ^ e)
-    (hlo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo|)
-    (hlo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ))
-    (hlop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1|)
-    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ)) :
-    ¬ F.IsOdd y_lo → F.IsOdd y_hi := by
-  intro h_not_odd
-  rcases lt_or_eq_of_le hlo_hi with hlo_lt | hlo_sat
-  · rw [isOdd_iff_odd_at_canonical_mixed_normal hp_eq hp_ne_1 hexp h_y_lo_ne
-      h_log_lo h_y_lo_eq hlo_lo hlo_lt] at h_not_odd
-    have h_even_lo : Even lo := Int.not_odd_iff_even.mp h_not_odd
-    have h_odd_lop1 : Odd (lo + 1) := Even.add_one h_even_lo
-    rcases lt_or_eq_of_le hlop1_hi with hlop1_lt | hlop1_sat
-    · rw [isOdd_iff_odd_at_canonical_mixed_normal hp_eq hp_ne_1 hexp h_y_hi_ne
-        h_log_hi h_y_hi_eq hlop1_lo hlop1_lt]
-      exact h_odd_lop1
-    · exfalso
-      have h_even_lop1 : Even (lo + 1) := by
-        have h2p_nn : (0 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by positivity
-        rcases (abs_eq h2p_nn).mp hlop1_sat with h | h
-        · rw [h]
-          refine ⟨(2 : ℤ) ^ ((p : ℕ) - 1), ?_⟩
-          have := Dyadic.two_pow_succ_pred p.pos
-          linarith
-        · rw [h]
-          refine ⟨-((2 : ℤ) ^ ((p : ℕ) - 1)), ?_⟩
-          have := Dyadic.two_pow_succ_pred p.pos
-          linarith
-      exact (Int.not_odd_iff_even.mpr h_even_lop1) h_odd_lop1
-  · -- lo saturated: |lo| = 2^p. From canonical-exponent properties, this forces
-    -- a specific sign (depends on x's sign).
-    -- For our use case: hlop1_hi says |lo+1| ≤ 2^p. lo = 2^p ⟹ lo+1 = 2^p+1
-    -- contradicts hlop1_hi. So lo = -2^p, lo+1 = -2^p+1 (non-saturated).
-    have h2p_nn : (0 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by positivity
-    rcases (abs_eq h2p_nn).mp hlo_sat with hlo_pos | hlo_neg
-    · -- lo = 2^p: lo + 1 = 2^p + 1, |lo+1| = 2^p+1 > 2^p, contradicting hlop1_hi.
-      exfalso
-      rw [hlo_pos] at hlop1_hi
-      have : (2 : ℤ) ^ (p : ℕ) + 1 > 0 := by positivity
-      have h_abs : |(2 : ℤ) ^ (p : ℕ) + 1| = (2 : ℤ) ^ (p : ℕ) + 1 := abs_of_pos this
-      linarith
-    · -- lo = -2^p: lo + 1 = -(2^p - 1), |lo+1| = 2^p - 1 < 2^p (non-sat).
-      have h_lop1_lt : |lo + 1| < (2 : ℤ) ^ (p : ℕ) := by
-        rw [hlo_neg]
-        have h_pos_inner : (0 : ℤ) < (2 : ℤ) ^ (p : ℕ) - 1 := by
-          have : (1 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := one_le_pow₀ (by norm_num)
-          have h_two_le : (2 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by
-            calc (2 : ℤ) = (2 : ℤ) ^ 1 := by ring
-              _ ≤ (2 : ℤ) ^ (p : ℕ) := pow_le_pow_right₀ (by norm_num) p.pos
-          linarith
-        have h_eq : -((2 : ℤ) ^ (p : ℕ)) + 1 = -((2 : ℤ) ^ (p : ℕ) - 1) := by ring
-        rw [h_eq, abs_neg, abs_of_pos h_pos_inner]
-        linarith
-      rw [isOdd_iff_odd_at_canonical_mixed_normal hp_eq hp_ne_1 hexp h_y_hi_ne
-        h_log_hi h_y_hi_eq hlop1_lo h_lop1_lt]
-      rw [hlo_neg]
-      have h_2p_even : Even ((2 : ℤ) ^ (p : ℕ)) := by
-        refine ⟨(2 : ℤ) ^ ((p : ℕ) - 1), ?_⟩
-        have := Dyadic.two_pow_succ_pred p.pos
-        linarith
-      have h_neg_2p_even : Even (-((2 : ℤ) ^ (p : ℕ))) := h_2p_even.neg
-      exact h_neg_2p_even.add_one
-
-/-- Alternating parity in the mixed-subnormal regime (`p ≠ 1`). When both
-`|lo|` and `|lo + 1|` fit in `log + 1 ≤ p` bits, IsOdd ↔ Odd k reduces to
-the standard alternating-parity argument. Edge cases: `lo = 0` (dlo = 0,
-trivially `¬IsOdd`) and `lo = -1` (vacuously ruled out by `¬IsOdd dlo`). -/
-theorem alternating_parity_mixed_subnormal_pne1 {F : ParityFormat}
-    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
-    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
-    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
-    {lo : ℤ} (h_lo_lt : Int.log 2 (|lo| : ℝ) + 1 ≤ ((p : ℕ) : ℤ))
-    (h_lop1_lt : Int.log 2 (|lo + 1| : ℝ) + 1 ≤ ((p : ℕ) : ℤ)) :
-    ¬ F.IsOdd (Dyadic.ofIntZpow lo e') →
-    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e') := by
-  intro h_not_odd
-  by_cases hlo_zero : lo = 0
-  · subst hlo_zero
-    rw [show (0 : ℤ) + 1 = 1 from by ring]
-    rw [isOdd_iff_odd_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
-        (by norm_num : (1 : ℤ) ≠ 0) ?_]
-    · exact ⟨0, by ring⟩
-    · -- log 2 |1| + 1 = log 2 1 + 1 = 0 + 1 = 1 ≤ p.
-      simp only [Int.cast_one, abs_one, Int.log_one_right, zero_add, Nat.one_le_cast]
-      exact p.pos
-  · rw [isOdd_iff_odd_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
-        hlo_zero h_lo_lt] at h_not_odd
-    have h_even : Even lo := Int.not_odd_iff_even.mp h_not_odd
-    have h_odd_lop1 : Odd (lo + 1) := Even.add_one h_even
-    have h_lop1_ne : lo + 1 ≠ 0 := by
-      intro h
-      have : lo = -1 := by omega
-      subst this
-      exact absurd h_even (by decide)
-    have h_lop1_lt' : Int.log 2 (|((lo + 1 : ℤ) : ℝ)|) + 1 ≤ ((p : ℕ) : ℤ) := by
-      have h_cast : ((lo + 1 : ℤ) : ℝ) = (lo : ℝ) + 1 := by push_cast; ring
-      rw [h_cast]
-      exact h_lop1_lt
-    rw [isOdd_iff_odd_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
-        h_lop1_ne h_lop1_lt']
-    exact h_odd_lop1
-
-/-- Alternating `IsEven` (mixed-subnormal, `p ≠ 1`). -/
-theorem alternating_isEven_mixed_subnormal_pne1 {F : ParityFormat}
-    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
-    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
-    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
-    {lo : ℤ} (h_lo_lt : Int.log 2 (|lo| : ℝ) + 1 ≤ ((p : ℕ) : ℤ))
-    (h_lop1_lt : Int.log 2 (|lo + 1| : ℝ) + 1 ≤ ((p : ℕ) : ℤ)) :
-    ¬ F.IsEven (Dyadic.ofIntZpow lo e') →
-    F.IsEven (Dyadic.ofIntZpow (lo + 1) e') := by
-  intro h_not_even
-  by_cases hlo_zero : lo = 0
-  · exfalso; apply h_not_even
-    subst hlo_zero
-    rw [show Dyadic.ofIntZpow (0 : ℤ) e' = 0 from
-      Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)]
-    exact isEven_zero F
-  by_cases hlop1_zero : lo + 1 = 0
-  · rw [show Dyadic.ofIntZpow (lo + 1) e' = 0 from
-      Subtype.ext (by rw [Dyadic.coe_ofIntZpow, hlop1_zero]; push_cast; ring)]
-    exact isEven_zero F
-  · rw [isEven_iff_even_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
-        hlo_zero h_lo_lt] at h_not_even
-    have h_odd : Odd lo := Int.not_even_iff_odd.mp h_not_even
-    have h_even_lop1 : Even (lo + 1) := Odd.add_one h_odd
-    have h_lop1_lt' : Int.log 2 (|((lo + 1 : ℤ) : ℝ)|) + 1 ≤ ((p : ℕ) : ℤ) := by
-      have h_cast : ((lo + 1 : ℤ) : ℝ) = (lo : ℝ) + 1 := by push_cast; ring
-      rw [h_cast]
-      exact h_lop1_lt
-    rw [isEven_iff_even_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
-        hlop1_zero h_lop1_lt']
-    exact h_even_lop1
-
-/-- Alternating `IsEven` (mixed-normal, `p ≠ 1`). -/
-theorem alternating_isEven_mixed_normal_pne1 {F : ParityFormat}
-    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
-    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
-    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
-    {y_lo y_hi : Dyadic} (h_y_lo_ne : (y_lo : ℝ) ≠ 0) (h_y_hi_ne : (y_hi : ℝ) ≠ 0)
-    (h_log_lo : ((p : ℕ) : ℤ) ≤ Int.log 2 |(y_lo : ℝ)| - e' + 1)
-    (h_log_hi : ((p : ℕ) : ℤ) ≤ Int.log 2 |(y_hi : ℝ)| - e' + 1)
-    {lo : ℤ} {e : ℤ}
-    (h_y_lo_eq : (y_lo : ℝ) = (lo : ℝ) * (2 : ℝ) ^ e)
-    (h_y_hi_eq : (y_hi : ℝ) = ((lo + 1 : ℤ) : ℝ) * (2 : ℝ) ^ e)
-    (hlo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo|)
-    (hlo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ))
-    (hlop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1|)
-    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ)) :
-    ¬ F.IsEven y_lo → F.IsEven y_hi := by
-  intro h_not_even
-  rcases lt_or_eq_of_le hlo_hi with hlo_lt | hlo_sat
-  · -- dlo non-sat: IsEven ↔ Even lo. From ¬IsEven, get Odd lo.
-    rw [isEven_iff_even_at_canonical_mixed_normal hp_eq hp_ne_1 hexp h_y_lo_ne
-        h_log_lo h_y_lo_eq hlo_lo hlo_lt] at h_not_even
-    have h_odd : Odd lo := Int.not_even_iff_odd.mp h_not_even
-    have h_even_lop1 : Even (lo + 1) := Odd.add_one h_odd
-    rcases lt_or_eq_of_le hlop1_hi with hlop1_lt | hlop1_sat
-    · rw [isEven_iff_even_at_canonical_mixed_normal hp_eq hp_ne_1 hexp h_y_hi_ne
-          h_log_hi h_y_hi_eq hlop1_lo hlop1_lt]
-      exact h_even_lop1
-    · exact isEven_at_saturation_mixed_normal hp_eq hp_ne_1 hexp h_y_hi_ne
-        h_log_hi h_y_hi_eq hlop1_sat
-  · -- dlo sat: IsEven by isEven_at_saturation_mixed_normal. Contradicts ¬IsEven.
-    exfalso; apply h_not_even
-    exact isEven_at_saturation_mixed_normal hp_eq hp_ne_1 hexp h_y_lo_ne
-      h_log_lo h_y_lo_eq hlo_sat
-
 /-- Mixed case characterization at `p = 1`. Given `y = k · 2^e_c` with
 `|k| = 1` (so the 1-bit canonical form is `(k, e_c)`) and `e_c ≥ e'`,
 `F.IsOdd y ↔ Odd (e_c - e' + 1)`. -/
@@ -1321,353 +1179,228 @@ theorem isEven_p1_iff_at_canonical_mixed {F : ParityFormat}
     rw [h_unbot]
     exact h_even
 
-/-- Alternating parity at `p = 1` mixed-subnormal (`e = e'`).
-For `|lo|, |lo+1| ≤ 2`: if dlo is not IsOdd, then dhi is. -/
-theorem alternating_parity_mixed_subnormal_p1 {F : ParityFormat}
-    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
+/-- Alternating parity iff (mixed-subnormal, `p ≠ 1`):
+`IsOdd dhi ↔ ¬ IsOdd dlo`. Bulk proof handling edge cases `lo = 0`
+(dlo = 0, ¬IsOdd) and `lo = -1` (dhi = 0, ¬IsOdd), and the generic
+`Odd lo ↔ ¬ Odd (lo + 1)` case via `isOdd_iff_odd_at_canonical_mixed_subnormal`. -/
+theorem alternating_parity_mixed_subnormal_pne1_iff {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
     {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
-    {lo : ℤ} (hlo_hi : |lo| ≤ 2) (hlop1_hi : |lo + 1| ≤ 2) :
+    {lo : ℤ} (h_lo_lt : Int.log 2 (|lo| : ℝ) + 1 ≤ ((p : ℕ) : ℤ))
+    (h_lop1_lt : Int.log 2 (|lo + 1| : ℝ) + 1 ≤ ((p : ℕ) : ℤ)) :
+    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e') ↔
+      ¬ F.IsOdd (Dyadic.ofIntZpow lo e') := by
+  have h_lop1_lt' : Int.log 2 (|((lo + 1 : ℤ) : ℝ)|) + 1 ≤ ((p : ℕ) : ℤ) := by
+    have h_cast : ((lo + 1 : ℤ) : ℝ) = (lo : ℝ) + 1 := by push_cast; ring
+    rw [h_cast]; exact h_lop1_lt
+  by_cases hlo_zero : lo = 0
+  · subst hlo_zero
+    rw [show (0 : ℤ) + 1 = 1 by ring]
+    have h_dhi_odd : F.IsOdd (Dyadic.ofIntZpow (1 : ℤ) e') := by
+      rw [isOdd_iff_odd_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
+          (by norm_num : (1 : ℤ) ≠ 0) ?_]
+      · exact ⟨0, by ring⟩
+      · simp only [Int.cast_one, abs_one, Int.log_one_right, zero_add, Nat.one_le_cast]
+        exact p.pos
+    have h_not_odd_dlo : ¬ F.IsOdd (Dyadic.ofIntZpow (0 : ℤ) e') := by
+      intro h
+      have h_zero : Dyadic.ofIntZpow (0 : ℤ) e' = 0 :=
+        Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)
+      exact IsOdd.ne_zero h h_zero
+    exact ⟨fun _ => h_not_odd_dlo, fun _ => h_dhi_odd⟩
+  by_cases hlop1_zero : lo + 1 = 0
+  · have hlo_neg1 : lo = -1 := by omega
+    subst hlo_neg1
+    rw [show (-1 : ℤ) + 1 = 0 by ring]
+    have h_not_odd_dhi : ¬ F.IsOdd (Dyadic.ofIntZpow (0 : ℤ) e') := by
+      intro h
+      have h_zero : Dyadic.ofIntZpow (0 : ℤ) e' = 0 :=
+        Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)
+      exact IsOdd.ne_zero h h_zero
+    have h_odd_dlo : F.IsOdd (Dyadic.ofIntZpow (-1 : ℤ) e') := by
+      rw [isOdd_iff_odd_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
+          (by norm_num : (-1 : ℤ) ≠ 0) ?_]
+      · exact ⟨-1, by ring⟩
+      · simp only [Int.cast_neg, Int.cast_one, abs_neg, abs_one,
+          Int.log_one_right, zero_add, Nat.one_le_cast]
+        exact p.pos
+    exact ⟨fun h => absurd h h_not_odd_dhi, fun h => absurd h_odd_dlo h⟩
+  · rw [isOdd_iff_odd_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
+        hlop1_zero h_lop1_lt']
+    rw [isOdd_iff_odd_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
+        hlo_zero h_lo_lt]
+    constructor
+    · rintro ⟨m₂, hm₂⟩ ⟨m₁, hm₁⟩; omega
+    · intro h_not_odd_lo
+      exact Even.add_one (Int.not_odd_iff_even.mp h_not_odd_lo)
+
+/-- Alternating parity (mixed-subnormal, `p ≠ 1`). Thin wrapper around
+`alternating_parity_mixed_subnormal_pne1_iff`. -/
+theorem alternating_parity_mixed_subnormal_pne1 {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {lo : ℤ} (h_lo_lt : Int.log 2 (|lo| : ℝ) + 1 ≤ ((p : ℕ) : ℤ))
+    (h_lop1_lt : Int.log 2 (|lo + 1| : ℝ) + 1 ≤ ((p : ℕ) : ℤ)) :
     ¬ F.IsOdd (Dyadic.ofIntZpow lo e') →
-    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e') := by
-  intro hodd
-  have h_lo_ge : -2 ≤ lo := (abs_le.mp hlo_hi).1
-  have h_lop1_le : lo + 1 ≤ 2 := (abs_le.mp hlop1_hi).2
-  have h_lo_le_1 : lo ≤ 1 := by linarith
-  interval_cases lo
-  · -- lo = -2: dlo = -2·2^e' = -1·2^(e'+1).
-    have h_dlo_canon : Dyadic.ofIntZpow (-2 : ℤ) e' =
-        Dyadic.ofIntZpow (-1 : ℤ) (e' + 1) := by
-      apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
-      push_cast; ring
-    rw [h_dlo_canon] at hodd
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e' + 1)
-        (by decide) (by linarith)] at hodd
-    rw [show ((-2 : ℤ) + 1) = (-1 : ℤ) by ring]
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e')
-        (by decide) (le_refl _)]
-    exact ⟨0, by ring⟩
-  · -- lo = -1: hodd is False (IsOdd dlo = Odd 1 = True).
-    exfalso; apply hodd
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e')
-        (by decide) (le_refl _)]
-    exact ⟨0, by ring⟩
-  · -- lo = 0: dlo = 0, vacuous. dhi = 1·2^e'.
-    rw [show ((0 : ℤ) + 1) = (1 : ℤ) by ring]
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e')
-        (by decide) (le_refl _)]
-    exact ⟨0, by ring⟩
-  · -- lo = 1: hodd is False.
-    exfalso; apply hodd
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e')
-        (by decide) (le_refl _)]
-    exact ⟨0, by ring⟩
+    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e') :=
+  (alternating_parity_mixed_subnormal_pne1_iff hp_eq hp_ne_1 hexp
+    h_lo_lt h_lop1_lt).mpr
 
-/-- Alternating parity at `p = 1` mixed-normal (`e > e'`, `|lo|, |lo+1| ≥ 1`).
--/
-theorem alternating_parity_mixed_normal_p1 {F : ParityFormat}
-    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
-    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
-    {lo e : ℤ} (h_e_ge : e' ≤ e)
-    (hlo_lo : 1 ≤ |lo|) (hlo_hi : |lo| ≤ 2)
-    (hlop1_lo : 1 ≤ |lo + 1|) (hlop1_hi : |lo + 1| ≤ 2) :
-    ¬ F.IsOdd (Dyadic.ofIntZpow lo e) →
-    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e) := by
-  intro hodd
-  have h_lo_ge : -2 ≤ lo := (abs_le.mp hlo_hi).1
-  have h_lop1_le : lo + 1 ≤ 2 := (abs_le.mp hlop1_hi).2
-  have h_lo_le_1 : lo ≤ 1 := by linarith
-  have h_lo_ne_neg1 : lo ≠ -1 := by
-    intro h_eq
-    rw [h_eq] at hlop1_lo
-    rw [show ((-1 : ℤ) + 1) = 0 by ring] at hlop1_lo
-    simp at hlop1_lo
-  have h_lo_ne_0 : lo ≠ 0 := by
-    intro h_eq; rw [h_eq] at hlo_lo; simp at hlo_lo
-  interval_cases lo
-  · -- lo = -2.
-    have h_dlo_canon : Dyadic.ofIntZpow (-2 : ℤ) e =
-        Dyadic.ofIntZpow (-1 : ℤ) (e + 1) := by
-      apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
-      push_cast; ring
-    rw [h_dlo_canon] at hodd
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e + 1)
-        (by decide) (by linarith)] at hodd
-    rw [show ((-2 : ℤ) + 1) = (-1 : ℤ) by ring]
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e)
-        (by decide) h_e_ge]
-    have h_even : Even (e + 1 - e' + 1) := Int.not_odd_iff_even.mp hodd
-    obtain ⟨m, hm⟩ := h_even
-    exact ⟨m - 1, by omega⟩
-  · exact absurd rfl h_lo_ne_neg1
-  · exact absurd rfl h_lo_ne_0
-  · -- lo = 1.
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e)
-        (by decide) h_e_ge] at hodd
-    rw [show ((1 : ℤ) + 1) = (2 : ℤ) by ring]
-    have h_dhi_canon : Dyadic.ofIntZpow (2 : ℤ) e =
-        Dyadic.ofIntZpow (1 : ℤ) (e + 1) := by
-      apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
-      push_cast; ring
-    rw [h_dhi_canon]
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e + 1)
-        (by decide) (by linarith)]
-    have h_even : Even (e - e' + 1) := Int.not_odd_iff_even.mp hodd
-    obtain ⟨m, hm⟩ := h_even
-    exact ⟨m, by omega⟩
-
-/-- Alternating `IsEven` at `p = 1` mixed-subnormal. -/
-theorem alternating_isEven_mixed_subnormal_p1 {F : ParityFormat}
-    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
-    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
-    {lo : ℤ} (hlo_hi : |lo| ≤ 2) (hlop1_hi : |lo + 1| ≤ 2) :
-    ¬ F.IsEven (Dyadic.ofIntZpow lo e') →
-    F.IsEven (Dyadic.ofIntZpow (lo + 1) e') := by
-  intro h_not_even
-  have h_lo_ge : -2 ≤ lo := (abs_le.mp hlo_hi).1
-  have h_lop1_le : lo + 1 ≤ 2 := (abs_le.mp hlop1_hi).2
-  have h_lo_le_1 : lo ≤ 1 := by linarith
-  interval_cases lo
-  · -- lo = -2: dlo = -1·2^(e'+1). IsEven dlo ↔ Even(e'+1-e'+1) = Even 2 = True.
-    -- So ¬IsEven dlo is False. Contradiction.
-    exfalso; apply h_not_even
-    have h_dlo_canon : Dyadic.ofIntZpow (-2 : ℤ) e' =
-        Dyadic.ofIntZpow (-1 : ℤ) (e' + 1) := by
-      apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
-      push_cast; ring
-    rw [h_dlo_canon]
-    rw [isEven_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e' + 1)
-        (by decide) (by linarith)]
-    exact ⟨1, by ring⟩
-  · -- lo = -1: dhi = 0, IsEven dhi = True.
-    rw [show ((-1 : ℤ) + 1) = (0 : ℤ) by ring,
-        show Dyadic.ofIntZpow (0 : ℤ) e' = 0 from
-          Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)]
-    exact isEven_zero F
-  · -- lo = 0: dlo = 0, IsEven dlo = True. Contradiction.
-    exfalso; apply h_not_even
-    rw [show Dyadic.ofIntZpow (0 : ℤ) e' = 0 from
-      Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)]
-    exact isEven_zero F
-  · -- lo = 1: dhi = 2·2^e' = 1·2^(e'+1). IsEven dhi ↔ Even 2 = True.
-    rw [show ((1 : ℤ) + 1) = (2 : ℤ) by ring]
-    have h_dhi_canon : Dyadic.ofIntZpow (2 : ℤ) e' =
-        Dyadic.ofIntZpow (1 : ℤ) (e' + 1) := by
-      apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
-      push_cast; ring
-    rw [h_dhi_canon]
-    rw [isEven_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e' + 1)
-        (by decide) (by linarith)]
-    exact ⟨1, by ring⟩
-
-/-- Alternating `IsEven` at `p = 1` mixed-normal. -/
-theorem alternating_isEven_mixed_normal_p1 {F : ParityFormat}
-    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
-    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
-    {lo e : ℤ} (h_e_ge : e' ≤ e)
-    (hlo_lo : 1 ≤ |lo|) (hlo_hi : |lo| ≤ 2)
-    (hlop1_lo : 1 ≤ |lo + 1|) (hlop1_hi : |lo + 1| ≤ 2) :
-    ¬ F.IsEven (Dyadic.ofIntZpow lo e) →
-    F.IsEven (Dyadic.ofIntZpow (lo + 1) e) := by
-  intro h_not_even
-  have h_lo_ge : -2 ≤ lo := (abs_le.mp hlo_hi).1
-  have h_lop1_le : lo + 1 ≤ 2 := (abs_le.mp hlop1_hi).2
-  have h_lo_le_1 : lo ≤ 1 := by linarith
-  have h_lo_ne_neg1 : lo ≠ -1 := by
-    intro h_eq
-    rw [h_eq] at hlop1_lo
-    rw [show ((-1 : ℤ) + 1) = 0 by ring] at hlop1_lo
-    simp at hlop1_lo
-  have h_lo_ne_0 : lo ≠ 0 := by
-    intro h_eq; rw [h_eq] at hlo_lo; simp at hlo_lo
-  interval_cases lo
-  · -- lo = -2: dlo = -1·2^(e+1). IsEven dlo ↔ Even(e-e'+2).
-    have h_dlo_canon : Dyadic.ofIntZpow (-2 : ℤ) e =
-        Dyadic.ofIntZpow (-1 : ℤ) (e + 1) := by
-      apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
-      push_cast; ring
-    rw [h_dlo_canon] at h_not_even
-    rw [isEven_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e + 1)
-        (by decide) (by linarith)] at h_not_even
-    rw [show ((-2 : ℤ) + 1) = (-1 : ℤ) by ring]
-    rw [isEven_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e)
-        (by decide) h_e_ge]
-    have h_odd : Odd (e + 1 - e' + 1) := Int.not_even_iff_odd.mp h_not_even
-    obtain ⟨m, hm⟩ := h_odd
-    exact ⟨m, by omega⟩
-  · exact absurd rfl h_lo_ne_neg1
-  · exact absurd rfl h_lo_ne_0
-  · -- lo = 1: dlo = 1·2^e. IsEven dlo ↔ Even(e-e'+1). hodd: Odd(e-e'+1).
-    rw [isEven_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e)
-        (by decide) h_e_ge] at h_not_even
-    rw [show ((1 : ℤ) + 1) = (2 : ℤ) by ring]
-    have h_dhi_canon : Dyadic.ofIntZpow (2 : ℤ) e =
-        Dyadic.ofIntZpow (1 : ℤ) (e + 1) := by
-      apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
-      push_cast; ring
-    rw [h_dhi_canon]
-    rw [isEven_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e + 1)
-        (by decide) (by linarith)]
-    have h_odd : Odd (e - e' + 1) := Int.not_even_iff_odd.mp h_not_even
-    obtain ⟨m, hm⟩ := h_odd
-    exact ⟨m + 1, by omega⟩
-
-/-- Anti-alternating parity at `p = 1` mixed-subnormal. -/
-theorem not_both_isOdd_mixed_subnormal_p1 {F : ParityFormat}
-    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
-    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
-    {lo : ℤ} (hlo_hi : |lo| ≤ 2) (hlop1_hi : |lo + 1| ≤ 2) :
-    ¬ (F.IsOdd (Dyadic.ofIntZpow lo e') ∧
-       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e')) := by
-  rintro ⟨h1, h2⟩
-  have h_lo_ge : -2 ≤ lo := (abs_le.mp hlo_hi).1
-  have h_lop1_le : lo + 1 ≤ 2 := (abs_le.mp hlop1_hi).2
-  have h_lo_le_1 : lo ≤ 1 := by linarith
-  have h_2_even : Even ((2 : ℤ)) := ⟨1, by ring⟩
-  have h_not_odd_2 : ¬ Odd ((2 : ℤ)) := Int.not_odd_iff_even.mpr h_2_even
-  have h_zero_eq : ∀ (e_c : ℤ), Dyadic.ofIntZpow (0 : ℤ) e_c = 0 := fun e_c =>
-    Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)
-  interval_cases lo
-  · -- lo = -2: dlo = -1·2^(e'+1). IsOdd dlo ↔ Odd 2 = False.
-    have h_dlo_canon : Dyadic.ofIntZpow (-2 : ℤ) e' =
-        Dyadic.ofIntZpow (-1 : ℤ) (e' + 1) := by
-      apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
-      push_cast; ring
-    rw [h_dlo_canon] at h1
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e' + 1)
-        (by decide) (by linarith)] at h1
-    apply h_not_odd_2
-    have h_eq : e' + 1 - e' + 1 = 2 := by ring
-    rw [← h_eq]; exact h1
-  · -- lo = -1: dhi = 0. IsOdd 0 = False.
-    rw [show ((-1 : ℤ) + 1) = (0 : ℤ) by ring] at h2
-    rw [h_zero_eq] at h2
-    exact IsOdd.ne_zero h2 rfl
-  · -- lo = 0: dlo = 0.
-    rw [h_zero_eq] at h1
-    exact IsOdd.ne_zero h1 rfl
-  · -- lo = 1: dhi = 2·2^e' = 1·2^(e'+1). IsOdd dhi ↔ Odd 2 = False.
-    rw [show ((1 : ℤ) + 1) = (2 : ℤ) by ring] at h2
-    have h_dhi_canon : Dyadic.ofIntZpow (2 : ℤ) e' =
-        Dyadic.ofIntZpow (1 : ℤ) (e' + 1) := by
-      apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
-      push_cast; ring
-    rw [h_dhi_canon] at h2
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e' + 1)
-        (by decide) (by linarith)] at h2
-    apply h_not_odd_2
-    have h_eq : e' + 1 - e' + 1 = 2 := by ring
-    rw [← h_eq]; exact h2
-
-/-- Anti-alternating parity at `p = 1` mixed-normal. -/
-theorem not_both_isOdd_mixed_normal_p1 {F : ParityFormat}
-    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
-    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
-    {lo e : ℤ} (h_e_ge : e' ≤ e)
-    (hlo_lo : 1 ≤ |lo|) (hlo_hi : |lo| ≤ 2)
-    (hlop1_lo : 1 ≤ |lo + 1|) (hlop1_hi : |lo + 1| ≤ 2) :
-    ¬ (F.IsOdd (Dyadic.ofIntZpow lo e) ∧
-       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e)) := by
-  rintro ⟨h1, h2⟩
-  have h_lo_ge : -2 ≤ lo := (abs_le.mp hlo_hi).1
-  have h_lop1_le : lo + 1 ≤ 2 := (abs_le.mp hlop1_hi).2
-  have h_lo_le_1 : lo ≤ 1 := by linarith
-  have h_lo_ne_neg1 : lo ≠ -1 := by
-    intro h_eq
-    rw [h_eq] at hlop1_lo
-    rw [show ((-1 : ℤ) + 1) = 0 by ring] at hlop1_lo
-    simp at hlop1_lo
-  have h_lo_ne_0 : lo ≠ 0 := by
-    intro h_eq; rw [h_eq] at hlo_lo; simp at hlo_lo
-  interval_cases lo
-  · -- lo = -2.
-    have h_dlo_canon : Dyadic.ofIntZpow (-2 : ℤ) e =
-        Dyadic.ofIntZpow (-1 : ℤ) (e + 1) := by
-      apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
-      push_cast; ring
-    rw [h_dlo_canon] at h1
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e + 1)
-        (by decide) (by linarith)] at h1
-    rw [show ((-2 : ℤ) + 1) = (-1 : ℤ) by ring] at h2
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e)
-        (by decide) h_e_ge] at h2
-    -- h1 : Odd(e+1 - e' + 1) = Odd(e-e'+2). h2 : Odd(e-e'+1). Both odd → impossible.
-    obtain ⟨m1, hm1⟩ := h1
-    obtain ⟨m2, hm2⟩ := h2
-    omega
-  · exact absurd rfl h_lo_ne_neg1
-  · exact absurd rfl h_lo_ne_0
-  · -- lo = 1.
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e)
-        (by decide) h_e_ge] at h1
-    rw [show ((1 : ℤ) + 1) = (2 : ℤ) by ring] at h2
-    have h_dhi_canon : Dyadic.ofIntZpow (2 : ℤ) e =
-        Dyadic.ofIntZpow (1 : ℤ) (e + 1) := by
-      apply Subtype.ext
-      rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
-      push_cast; ring
-    rw [h_dhi_canon] at h2
-    rw [isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e + 1)
-        (by decide) (by linarith)] at h2
-    obtain ⟨m1, hm1⟩ := h1
-    obtain ⟨m2, hm2⟩ := h2
-    omega
-
-/-- Anti-alternating parity (mixed-subnormal, `p ≠ 1`). Not both `dlo` and
-`dhi` can be `IsOdd`. -/
+/-- Anti-alternating parity (mixed-subnormal, `p ≠ 1`): not both can be
+`IsOdd`. Thin wrapper around `alternating_parity_mixed_subnormal_pne1_iff`. -/
 theorem not_both_isOdd_mixed_subnormal_pne1 {F : ParityFormat}
     {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
     (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
     {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
-    {lo : ℤ}
-    (h_lo_lt : Int.log 2 (|lo| : ℝ) + 1 ≤ ((p : ℕ) : ℤ))
+    {lo : ℤ} (h_lo_lt : Int.log 2 (|lo| : ℝ) + 1 ≤ ((p : ℕ) : ℤ))
     (h_lop1_lt : Int.log 2 (|lo + 1| : ℝ) + 1 ≤ ((p : ℕ) : ℤ)) :
     ¬ (F.IsOdd (Dyadic.ofIntZpow lo e') ∧
-       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e')) := by
-  rintro ⟨h1, h2⟩
-  have h_lo_ne : lo ≠ 0 := by
-    intro hlo0
-    subst hlo0
-    have h_zero : Dyadic.ofIntZpow (0 : ℤ) e' = 0 :=
-      Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)
-    exact IsOdd.ne_zero h1 h_zero
-  have h_lop1_ne : lo + 1 ≠ 0 := by
-    intro hlop1_0
-    have h_zero : Dyadic.ofIntZpow (lo + 1 : ℤ) e' = 0 :=
-      Subtype.ext (by rw [Dyadic.coe_ofIntZpow, hlop1_0]; simp)
-    exact IsOdd.ne_zero h2 h_zero
-  rw [isOdd_iff_odd_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp h_lo_ne h_lo_lt] at h1
+       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e')) :=
+  not_both_isOdd_of_alternating_iff
+    (alternating_parity_mixed_subnormal_pne1_iff hp_eq hp_ne_1 hexp
+      h_lo_lt h_lop1_lt)
+
+/-- Alternating `IsEven` (mixed-subnormal, `p ≠ 1`). Derived from the iff
+via the generic `alternating_isEven_of_alternating_iff`. Uses zero-or-canonical
+disjunction for the rep witness on each side. -/
+theorem alternating_isEven_mixed_subnormal_pne1 {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {lo : ℤ} (h_lo_lt : Int.log 2 (|lo| : ℝ) + 1 ≤ ((p : ℕ) : ℤ))
+    (h_lop1_lt : Int.log 2 (|lo + 1| : ℝ) + 1 ≤ ((p : ℕ) : ℤ)) :
+    ¬ F.IsEven (Dyadic.ofIntZpow lo e') →
+    F.IsEven (Dyadic.ofIntZpow (lo + 1) e') := by
+  -- Reduce IsEven_iff to the canonical rep at numDigits; both sides either
+  -- equal 0 (and isEven trivially) or have a canonical representation.
+  have h_zero_rep : ∀ k : ℤ, k = 0 → Dyadic.ofIntZpow k e' = 0 := fun k hk =>
+    Subtype.ext (by rw [Dyadic.coe_ofIntZpow, hk]; push_cast; ring)
   have h_lop1_lt' : Int.log 2 (|((lo + 1 : ℤ) : ℝ)|) + 1 ≤ ((p : ℕ) : ℤ) := by
     have h_cast : ((lo + 1 : ℤ) : ℝ) = (lo : ℝ) + 1 := by push_cast; ring
     rw [h_cast]; exact h_lop1_lt
-  rw [isOdd_iff_odd_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
-      h_lop1_ne h_lop1_lt'] at h2
-  obtain ⟨m1, hm1⟩ := h1
-  obtain ⟨m2, hm2⟩ := h2
-  omega
+  intro h_not_even
+  by_cases hlo_zero : lo = 0
+  · exfalso; apply h_not_even
+    rw [h_zero_rep lo hlo_zero]; exact isEven_zero F
+  by_cases hlop1_zero : lo + 1 = 0
+  · rw [h_zero_rep (lo + 1) hlop1_zero]; exact isEven_zero F
+  · rw [isEven_iff_even_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
+        hlo_zero h_lo_lt] at h_not_even
+    rw [isEven_iff_even_at_canonical_mixed_subnormal hp_eq hp_ne_1 hexp
+        hlop1_zero h_lop1_lt']
+    exact Odd.add_one (Int.not_even_iff_odd.mp h_not_even)
 
-/-- Anti-alternating parity (mixed-normal, `p ≠ 1`). Not both `dlo` and
-`dhi` can be `IsOdd`. -/
+/-- Alternating parity iff (mixed-normal, `p ≠ 1`):
+`IsOdd y_hi ↔ ¬ IsOdd y_lo`. Bulk proof: case-splits on saturation for
+both sides, using `isOdd_iff_odd_at_canonical_mixed_normal` in the
+non-sat case and `not_isOdd_at_saturation_mixed_normal` for saturated sides. -/
+theorem alternating_parity_mixed_normal_pne1_iff {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {y_lo y_hi : Dyadic} (h_y_lo_ne : (y_lo : ℝ) ≠ 0) (h_y_hi_ne : (y_hi : ℝ) ≠ 0)
+    (h_log_lo : ((p : ℕ) : ℤ) ≤ Int.log 2 |(y_lo : ℝ)| - e' + 1)
+    (h_log_hi : ((p : ℕ) : ℤ) ≤ Int.log 2 |(y_hi : ℝ)| - e' + 1)
+    {lo : ℤ} {e : ℤ}
+    (h_y_lo_eq : (y_lo : ℝ) = (lo : ℝ) * (2 : ℝ) ^ e)
+    (h_y_hi_eq : (y_hi : ℝ) = ((lo + 1 : ℤ) : ℝ) * (2 : ℝ) ^ e)
+    (hlo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo|)
+    (hlo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ))
+    (hlop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1|)
+    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ)) :
+    F.IsOdd y_hi ↔ ¬ F.IsOdd y_lo := by
+  have h2p_nn : (0 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by positivity
+  have h_2p_even : Even ((2 : ℤ) ^ (p : ℕ)) := by
+    refine ⟨(2 : ℤ) ^ ((p : ℕ) - 1), ?_⟩
+    have := Dyadic.two_pow_succ_pred p.pos; linarith
+  rcases lt_or_eq_of_le hlo_hi with hlo_lt | hlo_sat
+  · rw [isOdd_iff_odd_at_canonical_mixed_normal hp_eq hp_ne_1 hexp h_y_lo_ne
+        h_log_lo h_y_lo_eq hlo_lo hlo_lt]
+    rcases lt_or_eq_of_le hlop1_hi with hlop1_lt | hlop1_sat
+    · rw [isOdd_iff_odd_at_canonical_mixed_normal hp_eq hp_ne_1 hexp h_y_hi_ne
+          h_log_hi h_y_hi_eq hlop1_lo hlop1_lt]
+      constructor
+      · rintro ⟨m₂, hm₂⟩ ⟨m₁, hm₁⟩; omega
+      · intro h; exact Even.add_one (Int.not_odd_iff_even.mp h)
+    · -- dhi sat: ¬IsOdd dhi; lo+1 even, lo odd.
+      have h_not_odd_dhi : ¬ F.IsOdd y_hi :=
+        not_isOdd_at_saturation_mixed_normal hp_eq hp_ne_1 hexp h_y_hi_ne
+          h_log_hi h_y_hi_eq hlop1_sat
+      have h_even_lop1 : Even (lo + 1) := by
+        rcases (abs_eq h2p_nn).mp hlop1_sat with h | h
+        · rw [h]; exact h_2p_even
+        · rw [h]; exact h_2p_even.neg
+      have h_odd_lo : Odd lo := by
+        rcases h_even_lop1 with ⟨m, hm⟩; exact ⟨m - 1, by omega⟩
+      exact ⟨fun h => absurd h h_not_odd_dhi, fun h => absurd h_odd_lo h⟩
+  · -- dlo sat: ¬IsOdd dlo, must show IsOdd dhi.
+    have h_not_odd_dlo : ¬ F.IsOdd y_lo :=
+      not_isOdd_at_saturation_mixed_normal hp_eq hp_ne_1 hexp h_y_lo_ne
+        h_log_lo h_y_lo_eq hlo_sat
+    rcases (abs_eq h2p_nn).mp hlo_sat with hlo_pos | hlo_neg
+    · exfalso
+      rw [hlo_pos] at hlop1_hi
+      have : (2 : ℤ) ^ (p : ℕ) + 1 > 0 := by positivity
+      have h_abs : |(2 : ℤ) ^ (p : ℕ) + 1| = (2 : ℤ) ^ (p : ℕ) + 1 := abs_of_pos this
+      linarith
+    · have h_lop1_lt : |lo + 1| < (2 : ℤ) ^ (p : ℕ) := by
+        rw [hlo_neg]
+        have h_pos_inner : (0 : ℤ) < (2 : ℤ) ^ (p : ℕ) - 1 := by
+          have h_two_le : (2 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by
+            calc (2 : ℤ) = (2 : ℤ) ^ 1 := by ring
+              _ ≤ (2 : ℤ) ^ (p : ℕ) := pow_le_pow_right₀ (by norm_num) p.pos
+          linarith
+        have h_eq : -((2 : ℤ) ^ (p : ℕ)) + 1 = -((2 : ℤ) ^ (p : ℕ) - 1) := by ring
+        rw [h_eq, abs_neg, abs_of_pos h_pos_inner]; linarith
+      rw [isOdd_iff_odd_at_canonical_mixed_normal hp_eq hp_ne_1 hexp h_y_hi_ne
+          h_log_hi h_y_hi_eq hlop1_lo h_lop1_lt]
+      have h_odd_lop1 : Odd (lo + 1) := by
+        rw [hlo_neg]; exact h_2p_even.neg.add_one
+      exact ⟨fun _ => h_not_odd_dlo, fun _ => h_odd_lop1⟩
+
+/-- Canonical h_rep construction for mixed-normal (`p ≠ 1`): when
+`|k| ∈ [2^(p-1), 2^p)`, the (k, e_c) pair is canonical at `numDigits` bits. -/
+private theorem canonical_rep_mixed_normal_pne1 {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {y : Dyadic} (hy_ne : (y : ℝ) ≠ 0)
+    (h_log_y_ge : ((p : ℕ) : ℤ) ≤ Int.log 2 |(y : ℝ)| - e' + 1)
+    {k e_c : ℤ} (h_y_eq : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e_c)
+    (hk_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |k|)
+    (hk_hi : |k| < (2 : ℤ) ^ (p : ℕ)) :
+    Dyadic.IsRepresentableAtP
+      (F.toFiniteFormat.numDigits (y : ℝ)).toNat k e_c y := by
+  have h_nd_eq : F.toFiniteFormat.numDigits (y : ℝ) = ((p : ℕ) : ℤ) := by
+    rw [F.toFiniteFormat.numDigits_coe_coe hy_ne hp_eq hexp]
+    exact min_eq_left h_log_y_ge
+  have h_nd_toNat : (F.toFiniteFormat.numDigits (y : ℝ)).toNat = (p : ℕ) := by
+    rw [h_nd_eq]; simp
+  rw [h_nd_toNat]
+  exact ⟨h_y_eq, hk_lo, hk_hi⟩
+
+/-- Alternating parity (mixed-normal, `p ≠ 1`). Thin wrapper around
+`alternating_parity_mixed_normal_pne1_iff`. -/
+theorem alternating_parity_mixed_normal_pne1 {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {y_lo y_hi : Dyadic} (h_y_lo_ne : (y_lo : ℝ) ≠ 0) (h_y_hi_ne : (y_hi : ℝ) ≠ 0)
+    (h_log_lo : ((p : ℕ) : ℤ) ≤ Int.log 2 |(y_lo : ℝ)| - e' + 1)
+    (h_log_hi : ((p : ℕ) : ℤ) ≤ Int.log 2 |(y_hi : ℝ)| - e' + 1)
+    {lo : ℤ} {e : ℤ}
+    (h_y_lo_eq : (y_lo : ℝ) = (lo : ℝ) * (2 : ℝ) ^ e)
+    (h_y_hi_eq : (y_hi : ℝ) = ((lo + 1 : ℤ) : ℝ) * (2 : ℝ) ^ e)
+    (hlo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo|)
+    (hlo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ))
+    (hlop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1|)
+    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ)) :
+    ¬ F.IsOdd y_lo → F.IsOdd y_hi :=
+  (alternating_parity_mixed_normal_pne1_iff hp_eq hp_ne_1 hexp h_y_lo_ne h_y_hi_ne
+    h_log_lo h_log_hi h_y_lo_eq h_y_hi_eq hlo_lo hlo_hi hlop1_lo hlop1_hi).mpr
+
+/-- Anti-alternating parity (mixed-normal, `p ≠ 1`): not both can be `IsOdd`. -/
 theorem not_both_isOdd_mixed_normal_pne1 {F : ParityFormat}
     {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
     (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
@@ -1682,21 +1415,304 @@ theorem not_both_isOdd_mixed_normal_pne1 {F : ParityFormat}
     (hlo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ))
     (hlop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1|)
     (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ)) :
-    ¬ (F.IsOdd y_lo ∧ F.IsOdd y_hi) := by
-  rintro ⟨h1, h2⟩
+    ¬ (F.IsOdd y_lo ∧ F.IsOdd y_hi) :=
+  not_both_isOdd_of_alternating_iff
+    (alternating_parity_mixed_normal_pne1_iff hp_eq hp_ne_1 hexp h_y_lo_ne h_y_hi_ne
+      h_log_lo h_log_hi h_y_lo_eq h_y_hi_eq hlo_lo hlo_hi hlop1_lo hlop1_hi)
+
+/-- Alternating `IsEven` (mixed-normal, `p ≠ 1`). Handles saturation cases
+manually via `isEven_at_saturation_mixed_normal`; applies the generic helper
+for the both-non-sat case. -/
+theorem alternating_isEven_mixed_normal_pne1 {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {y_lo y_hi : Dyadic} (h_y_lo_ne : (y_lo : ℝ) ≠ 0) (h_y_hi_ne : (y_hi : ℝ) ≠ 0)
+    (h_log_lo : ((p : ℕ) : ℤ) ≤ Int.log 2 |(y_lo : ℝ)| - e' + 1)
+    (h_log_hi : ((p : ℕ) : ℤ) ≤ Int.log 2 |(y_hi : ℝ)| - e' + 1)
+    {lo : ℤ} {e : ℤ}
+    (h_y_lo_eq : (y_lo : ℝ) = (lo : ℝ) * (2 : ℝ) ^ e)
+    (h_y_hi_eq : (y_hi : ℝ) = ((lo + 1 : ℤ) : ℝ) * (2 : ℝ) ^ e)
+    (hlo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo|)
+    (hlo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ))
+    (hlop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1|)
+    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ)) :
+    ¬ F.IsEven y_lo → F.IsEven y_hi := by
+  intro h_not_even
   rcases lt_or_eq_of_le hlo_hi with hlo_lt | hlo_sat
-  · rw [isOdd_iff_odd_at_canonical_mixed_normal hp_eq hp_ne_1 hexp h_y_lo_ne
-      h_log_lo h_y_lo_eq hlo_lo hlo_lt] at h1
-    rcases lt_or_eq_of_le hlop1_hi with hlop1_lt | hlop1_sat
-    · rw [isOdd_iff_odd_at_canonical_mixed_normal hp_eq hp_ne_1 hexp h_y_hi_ne
-        h_log_hi h_y_hi_eq hlop1_lo hlop1_lt] at h2
-      obtain ⟨m1, hm1⟩ := h1
-      obtain ⟨m2, hm2⟩ := h2
-      omega
-    · exact (not_isOdd_at_saturation_mixed_normal hp_eq hp_ne_1 hexp h_y_hi_ne
-        h_log_hi h_y_hi_eq hlop1_sat) h2
-  · exact (not_isOdd_at_saturation_mixed_normal hp_eq hp_ne_1 hexp h_y_lo_ne
-      h_log_lo h_y_lo_eq hlo_sat) h1
+  · rcases lt_or_eq_of_le hlop1_hi with hlop1_lt | hlop1_sat
+    · exact alternating_isEven_of_alternating_iff
+        (alternating_parity_mixed_normal_pne1_iff hp_eq hp_ne_1 hexp h_y_lo_ne h_y_hi_ne
+          h_log_lo h_log_hi h_y_lo_eq h_y_hi_eq hlo_lo hlo_hi hlop1_lo hlop1_hi)
+        (Or.inr (canonical_rep_mixed_normal_pne1 hp_eq hexp h_y_lo_ne h_log_lo
+          h_y_lo_eq hlo_lo hlo_lt))
+        (Or.inr (canonical_rep_mixed_normal_pne1 hp_eq hexp h_y_hi_ne h_log_hi
+          h_y_hi_eq hlop1_lo hlop1_lt))
+        h_not_even
+    · exact isEven_at_saturation_mixed_normal hp_eq hp_ne_1 hexp h_y_hi_ne
+        h_log_hi h_y_hi_eq hlop1_sat
+  · exfalso; apply h_not_even
+    exact isEven_at_saturation_mixed_normal hp_eq hp_ne_1 hexp h_y_lo_ne
+      h_log_lo h_y_lo_eq hlo_sat
+
+/-- Alternating parity iff (mixed-subnormal, `p = 1`):
+`IsOdd dhi ↔ ¬ IsOdd dlo`. Bulk proof: `interval_cases` lo ∈ {-2, -1, 0, 1}.
+Uses `isOdd_p1_iff_at_canonical_mixed` and the parity of
+`e' + 1 - e' + 1 = 2` (even, so `Odd 2 = False`). -/
+theorem alternating_parity_mixed_subnormal_p1_iff {F : ParityFormat}
+    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {lo : ℤ} (hlo_hi : |lo| ≤ 2) (hlop1_hi : |lo + 1| ≤ 2) :
+    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e') ↔
+      ¬ F.IsOdd (Dyadic.ofIntZpow lo e') := by
+  have h_lo_ge : -2 ≤ lo := (abs_le.mp hlo_hi).1
+  have h_lop1_le : lo + 1 ≤ 2 := (abs_le.mp hlop1_hi).2
+  have h_lo_le_1 : lo ≤ 1 := by linarith
+  have h_zero_eq : ∀ (e_c : ℤ), Dyadic.ofIntZpow (0 : ℤ) e_c = 0 := fun e_c =>
+    Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)
+  have h_neg2_canon : Dyadic.ofIntZpow (-2 : ℤ) e' =
+      Dyadic.ofIntZpow (-1 : ℤ) (e' + 1) := by
+    apply Subtype.ext
+    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    push_cast; ring
+  have h_2_canon : Dyadic.ofIntZpow (2 : ℤ) e' =
+      Dyadic.ofIntZpow (1 : ℤ) (e' + 1) := by
+    apply Subtype.ext
+    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    push_cast; ring
+  have h_odd2_false : ¬ Odd ((e' + 1) - e' + 1) := by
+    rw [show (e' + 1) - e' + 1 = 2 by ring]
+    exact Int.not_odd_iff_even.mpr ⟨1, by ring⟩
+  have h_not_odd_zero : ¬ F.IsOdd (0 : Dyadic) := fun h => IsOdd.ne_zero h rfl
+  have h_odd1 : Odd (e' - e' + 1) := ⟨0, by ring⟩
+  interval_cases lo
+  · -- lo = -2: lo+1 = -1; dlo = -1·2^(e'+1) so ¬IsOdd dlo, dhi = -1·2^e' so IsOdd dhi.
+    rw [h_neg2_canon, isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1)
+      (e_c := e' + 1) (by decide) (by linarith)]
+    rw [show ((-2 : ℤ) + 1) = (-1 : ℤ) by ring,
+        isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e')
+          (by decide) (le_refl _)]
+    exact ⟨fun _ h => h_odd2_false h, fun _ => h_odd1⟩
+  · -- lo = -1: dlo = -1·2^e' so IsOdd, dhi = 0 so ¬IsOdd.
+    rw [show ((-1 : ℤ) + 1) = (0 : ℤ) by ring, h_zero_eq,
+        isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e')
+          (by decide) (le_refl _)]
+    exact ⟨fun h => absurd h h_not_odd_zero, fun h => absurd h_odd1 h⟩
+  · -- lo = 0: dlo = 0 (¬IsOdd), dhi = 1·2^e' (IsOdd).
+    rw [show ((0 : ℤ) + 1) = (1 : ℤ) by ring, h_zero_eq,
+        isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e')
+          (by decide) (le_refl _)]
+    exact ⟨fun _ => h_not_odd_zero, fun _ => h_odd1⟩
+  · -- lo = 1: dlo = 1·2^e' (IsOdd), dhi = 2·2^e' = 1·2^(e'+1) (¬IsOdd).
+    rw [show ((1 : ℤ) + 1) = (2 : ℤ) by ring, h_2_canon,
+        isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e' + 1)
+          (by decide) (by linarith),
+        isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e')
+          (by decide) (le_refl _)]
+    exact ⟨fun h _ => h_odd2_false h, fun h => absurd h_odd1 h⟩
+
+/-- Alternating parity (mixed-subnormal, `p = 1`). Wrapper. -/
+theorem alternating_parity_mixed_subnormal_p1 {F : ParityFormat}
+    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {lo : ℤ} (hlo_hi : |lo| ≤ 2) (hlop1_hi : |lo + 1| ≤ 2) :
+    ¬ F.IsOdd (Dyadic.ofIntZpow lo e') →
+    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e') :=
+  (alternating_parity_mixed_subnormal_p1_iff hp_eq hexp hlo_hi hlop1_hi).mpr
+
+/-- Anti-alternating parity (mixed-subnormal, `p = 1`). Wrapper. -/
+theorem not_both_isOdd_mixed_subnormal_p1 {F : ParityFormat}
+    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {lo : ℤ} (hlo_hi : |lo| ≤ 2) (hlop1_hi : |lo + 1| ≤ 2) :
+    ¬ (F.IsOdd (Dyadic.ofIntZpow lo e') ∧
+       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e')) :=
+  not_both_isOdd_of_alternating_iff
+    (alternating_parity_mixed_subnormal_p1_iff hp_eq hexp hlo_hi hlop1_hi)
+
+/-- Alternating `IsEven` (mixed-subnormal, `p = 1`). At |lo|, |lo+1| ≤ 2,
+the values are in {-2, -1, 0, 1}; some sides are zero (always IsEven),
+or are powers of two (always IsEven by the saturation argument). -/
+theorem alternating_isEven_mixed_subnormal_p1 {F : ParityFormat}
+    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {lo : ℤ} (hlo_hi : |lo| ≤ 2) (hlop1_hi : |lo + 1| ≤ 2) :
+    ¬ F.IsEven (Dyadic.ofIntZpow lo e') →
+    F.IsEven (Dyadic.ofIntZpow (lo + 1) e') := by
+  intro h_not_even
+  have h_lo_ge : -2 ≤ lo := (abs_le.mp hlo_hi).1
+  have h_lop1_le : lo + 1 ≤ 2 := (abs_le.mp hlop1_hi).2
+  have h_lo_le_1 : lo ≤ 1 := by linarith
+  have h_zero_eq : ∀ (e_c : ℤ), Dyadic.ofIntZpow (0 : ℤ) e_c = 0 := fun e_c =>
+    Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)
+  have h_neg2_canon : Dyadic.ofIntZpow (-2 : ℤ) e' =
+      Dyadic.ofIntZpow (-1 : ℤ) (e' + 1) := by
+    apply Subtype.ext
+    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    push_cast; ring
+  have h_2_canon : Dyadic.ofIntZpow (2 : ℤ) e' =
+      Dyadic.ofIntZpow (1 : ℤ) (e' + 1) := by
+    apply Subtype.ext
+    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    push_cast; ring
+  have h_even2 : Even ((e' + 1) - e' + 1) := by
+    rw [show (e' + 1) - e' + 1 = 2 by ring]; exact ⟨1, by ring⟩
+  interval_cases lo
+  · -- lo = -2: dlo = -1·2^(e'+1), IsEven dlo (Even 2). Contradiction.
+    exfalso; apply h_not_even
+    rw [h_neg2_canon, isEven_p1_iff_at_canonical_mixed hp_eq hexp (k := -1)
+        (e_c := e' + 1) (by decide) (by linarith)]
+    exact h_even2
+  · -- lo = -1: dhi = 0, IsEven dhi.
+    rw [show ((-1 : ℤ) + 1) = (0 : ℤ) by ring, h_zero_eq]; exact isEven_zero F
+  · -- lo = 0: dlo = 0, IsEven dlo. Contradiction.
+    exfalso; apply h_not_even
+    rw [h_zero_eq]; exact isEven_zero F
+  · -- lo = 1: dhi = 1·2^(e'+1), IsEven dhi (Even 2).
+    rw [show ((1 : ℤ) + 1) = (2 : ℤ) by ring, h_2_canon,
+        isEven_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e' + 1)
+          (by decide) (by linarith)]
+    exact h_even2
+
+/-- Alternating parity iff (mixed-normal, `p = 1`):
+`IsOdd dhi ↔ ¬ IsOdd dlo`. Bulk proof: `interval_cases` lo. The constraints
+`1 ≤ |lo|`, `1 ≤ |lo+1|` exclude `lo = -1` and `lo = 0`, leaving only
+`lo ∈ {-2, 1}`. -/
+theorem alternating_parity_mixed_normal_p1_iff {F : ParityFormat}
+    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {lo e : ℤ} (h_e_ge : e' ≤ e)
+    (hlo_lo : 1 ≤ |lo|) (hlo_hi : |lo| ≤ 2)
+    (hlop1_lo : 1 ≤ |lo + 1|) (hlop1_hi : |lo + 1| ≤ 2) :
+    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e) ↔
+      ¬ F.IsOdd (Dyadic.ofIntZpow lo e) := by
+  have h_lo_ge : -2 ≤ lo := (abs_le.mp hlo_hi).1
+  have h_lop1_le : lo + 1 ≤ 2 := (abs_le.mp hlop1_hi).2
+  have h_lo_le_1 : lo ≤ 1 := by linarith
+  have h_lo_ne_neg1 : lo ≠ -1 := by
+    intro h_eq
+    rw [h_eq, show ((-1 : ℤ) + 1) = 0 by ring] at hlop1_lo
+    simp at hlop1_lo
+  have h_lo_ne_0 : lo ≠ 0 := by
+    intro h_eq; rw [h_eq] at hlo_lo; simp at hlo_lo
+  have h_neg2_canon : Dyadic.ofIntZpow (-2 : ℤ) e =
+      Dyadic.ofIntZpow (-1 : ℤ) (e + 1) := by
+    apply Subtype.ext
+    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    push_cast; ring
+  have h_2_canon : Dyadic.ofIntZpow (2 : ℤ) e =
+      Dyadic.ofIntZpow (1 : ℤ) (e + 1) := by
+    apply Subtype.ext
+    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    push_cast; ring
+  interval_cases lo
+  · -- lo = -2: dlo = -1·2^(e+1), Odd(e+1-e'+1) = Odd(e-e'+2);
+    -- dhi = -1·2^e, Odd(e-e'+1).
+    rw [h_neg2_canon, show ((-2 : ℤ) + 1) = (-1 : ℤ) by ring,
+        isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e + 1)
+          (by decide) (by linarith),
+        isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e)
+          (by decide) h_e_ge]
+    constructor
+    · rintro ⟨m₂, hm₂⟩ ⟨m₁, hm₁⟩; omega
+    · intro h
+      have h_even : Even (e + 1 - e' + 1) := Int.not_odd_iff_even.mp h
+      rcases h_even with ⟨m, hm⟩; exact ⟨m - 1, by omega⟩
+  · exact absurd rfl h_lo_ne_neg1
+  · exact absurd rfl h_lo_ne_0
+  · -- lo = 1: dlo = 1·2^e, Odd(e-e'+1); dhi = 1·2^(e+1), Odd(e-e'+2).
+    rw [show ((1 : ℤ) + 1) = (2 : ℤ) by ring, h_2_canon,
+        isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e + 1)
+          (by decide) (by linarith),
+        isOdd_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e)
+          (by decide) h_e_ge]
+    constructor
+    · rintro ⟨m₂, hm₂⟩ ⟨m₁, hm₁⟩; omega
+    · intro h
+      have h_even : Even (e - e' + 1) := Int.not_odd_iff_even.mp h
+      rcases h_even with ⟨m, hm⟩; exact ⟨m, by omega⟩
+
+/-- Alternating parity (mixed-normal, `p = 1`). Wrapper. -/
+theorem alternating_parity_mixed_normal_p1 {F : ParityFormat}
+    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {lo e : ℤ} (h_e_ge : e' ≤ e)
+    (hlo_lo : 1 ≤ |lo|) (hlo_hi : |lo| ≤ 2)
+    (hlop1_lo : 1 ≤ |lo + 1|) (hlop1_hi : |lo + 1| ≤ 2) :
+    ¬ F.IsOdd (Dyadic.ofIntZpow lo e) →
+    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e) :=
+  (alternating_parity_mixed_normal_p1_iff hp_eq hexp h_e_ge hlo_lo hlo_hi
+    hlop1_lo hlop1_hi).mpr
+
+/-- Anti-alternating parity (mixed-normal, `p = 1`). Wrapper. -/
+theorem not_both_isOdd_mixed_normal_p1 {F : ParityFormat}
+    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {lo e : ℤ} (h_e_ge : e' ≤ e)
+    (hlo_lo : 1 ≤ |lo|) (hlo_hi : |lo| ≤ 2)
+    (hlop1_lo : 1 ≤ |lo + 1|) (hlop1_hi : |lo + 1| ≤ 2) :
+    ¬ (F.IsOdd (Dyadic.ofIntZpow lo e) ∧
+       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e)) :=
+  not_both_isOdd_of_alternating_iff
+    (alternating_parity_mixed_normal_p1_iff hp_eq hexp h_e_ge hlo_lo hlo_hi
+      hlop1_lo hlop1_hi)
+
+/-- Alternating `IsEven` (mixed-normal, `p = 1`). Uses `interval_cases` on
+lo ∈ {-2, 1}; both sides are non-zero, so the generic IsEven dichotomy applies
+through `isEven_p1_iff_at_canonical_mixed`. -/
+theorem alternating_isEven_mixed_normal_p1 {F : ParityFormat}
+    (hp_eq : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
+    {e' : ℤ} (hexp : F.toFormat.exp = (e' : WithBot ℤ))
+    {lo e : ℤ} (h_e_ge : e' ≤ e)
+    (hlo_lo : 1 ≤ |lo|) (hlo_hi : |lo| ≤ 2)
+    (hlop1_lo : 1 ≤ |lo + 1|) (hlop1_hi : |lo + 1| ≤ 2) :
+    ¬ F.IsEven (Dyadic.ofIntZpow lo e) →
+    F.IsEven (Dyadic.ofIntZpow (lo + 1) e) := by
+  intro h_not_even
+  have h_lo_ge : -2 ≤ lo := (abs_le.mp hlo_hi).1
+  have h_lop1_le : lo + 1 ≤ 2 := (abs_le.mp hlop1_hi).2
+  have h_lo_le_1 : lo ≤ 1 := by linarith
+  have h_lo_ne_neg1 : lo ≠ -1 := by
+    intro h_eq
+    rw [h_eq, show ((-1 : ℤ) + 1) = 0 by ring] at hlop1_lo
+    simp at hlop1_lo
+  have h_lo_ne_0 : lo ≠ 0 := by
+    intro h_eq; rw [h_eq] at hlo_lo; simp at hlo_lo
+  have h_neg2_canon : Dyadic.ofIntZpow (-2 : ℤ) e =
+      Dyadic.ofIntZpow (-1 : ℤ) (e + 1) := by
+    apply Subtype.ext
+    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    push_cast; ring
+  have h_2_canon : Dyadic.ofIntZpow (2 : ℤ) e =
+      Dyadic.ofIntZpow (1 : ℤ) (e + 1) := by
+    apply Subtype.ext
+    rw [Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow,
+        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
+    push_cast; ring
+  interval_cases lo
+  · rw [h_neg2_canon, show ((-2 : ℤ) + 1) = (-1 : ℤ) by ring] at *
+    rw [isEven_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e + 1)
+        (by decide) (by linarith)] at h_not_even
+    rw [isEven_p1_iff_at_canonical_mixed hp_eq hexp (k := -1) (e_c := e)
+        (by decide) h_e_ge]
+    rcases Int.not_even_iff_odd.mp h_not_even with ⟨m, hm⟩
+    exact ⟨m, by omega⟩
+  · exact absurd rfl h_lo_ne_neg1
+  · exact absurd rfl h_lo_ne_0
+  · rw [show ((1 : ℤ) + 1) = (2 : ℤ) by ring, h_2_canon]
+    rw [isEven_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e)
+        (by decide) h_e_ge] at h_not_even
+    rw [isEven_p1_iff_at_canonical_mixed hp_eq hexp (k := 1) (e_c := e + 1)
+        (by decide) (by linarith)]
+    rcases Int.not_even_iff_odd.mp h_not_even with ⟨m, hm⟩
+    exact ⟨m + 1, by omega⟩
 
 /-- Saturation in floating-point implies `IsEven`. At `|k| = 2^p`,
 canonical form is `(±2^(p-1), e+1)` with `c = ±2^(p-1)` even for `p ≥ 2`. -/
@@ -1818,96 +1834,6 @@ private theorem canonical_rep_fixedpoint {F : ParityFormat}
       rw [h_cast]; exact h_2pow_gt
     exact_mod_cast h_real_lt
 
-/-- Alternating `IsEven` (fixed-point). -/
-theorem alternating_isEven_fixedpoint {F : ParityFormat}
-    (hp_top : F.toFormat.p = ⊤) {e' : ℤ}
-    (hexp : F.toFormat.exp = (e' : WithBot ℤ)) {lo : ℤ} :
-    ¬ F.IsEven (Dyadic.ofIntZpow lo e') →
-    F.IsEven (Dyadic.ofIntZpow (lo + 1) e') := by
-  intro h_not_even
-  have hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by rw [hp_top]; decide
-  by_cases hlo_z : lo = 0
-  · exfalso; apply h_not_even
-    rw [hlo_z, show Dyadic.ofIntZpow (0 : ℤ) e' = 0 from
-      Subtype.ext (by rw [Dyadic.coe_ofIntZpow]; simp)]
-    exact isEven_zero F
-  by_cases hlop1_z : lo + 1 = 0
-  · rw [show Dyadic.ofIntZpow (lo + 1) e' = 0 from
-      Subtype.ext (by rw [Dyadic.coe_ofIntZpow, hlop1_z]; push_cast; ring)]
-    exact isEven_zero F
-  · have h_rep_dlo := canonical_rep_fixedpoint hp_top hexp hlo_z
-    have h_rep_dhi := canonical_rep_fixedpoint hp_top hexp hlop1_z
-    rw [isEven_iff_not_isOdd_of_canonical h_rep_dlo] at h_not_even
-    push Not at h_not_even
-    rw [isOdd_iff_odd_of_canonical h_rep_dlo hp_ne_1] at h_not_even
-    have h_even_lop1 : Even (lo + 1) := Odd.add_one h_not_even
-    rw [isEven_iff_not_isOdd_of_canonical h_rep_dhi]
-    rw [isOdd_iff_odd_of_canonical h_rep_dhi hp_ne_1]
-    exact Int.not_odd_iff_even.mpr h_even_lop1
-
-/-- Alternating parity for `IsEven` (floating). If `dlo` is not `IsEven`,
-then `dhi` is. -/
-theorem alternating_isEven_floating {F : ParityFormat}
-    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
-    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
-    (hexp_bot : F.toFormat.exp = ⊥) {lo e : ℤ}
-    (hlo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo|)
-    (hlo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ))
-    (hlop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1|)
-    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ)) :
-    ¬ F.IsEven (Dyadic.ofIntZpow lo e) →
-    F.IsEven (Dyadic.ofIntZpow (lo + 1) e) := by
-  intro h_not_even
-  rcases lt_or_eq_of_le hlo_hi with hlo_lt | hlo_sat
-  · -- dlo non-sat: characterization applies. ¬IsEven dlo ↔ ¬Even lo (for lo ≠ 0).
-    have hlo_ne : lo ≠ 0 := by
-      intro h; rw [h, abs_zero] at hlo_lo
-      have : (1 : ℤ) ≤ (2 : ℤ) ^ ((p : ℕ) - 1) := one_le_pow₀ (by norm_num)
-      linarith
-    -- Construct h_rep for dlo.
-    set dlo : Dyadic := Dyadic.ofIntZpow lo e
-    have h_dlo_real : (dlo : ℝ) = (lo : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow lo e
-    have h_dlo_ne : (dlo : ℝ) ≠ 0 := by
-      rw [h_dlo_real]
-      exact mul_ne_zero (Int.cast_ne_zero.mpr hlo_ne)
-        (ne_of_gt (zpow_pos (by norm_num) _))
-    have h_nd_dlo : (F.toFiniteFormat.numDigits (dlo : ℝ)).toNat = (p : ℕ) := by
-      rw [F.toFiniteFormat.numDigits_coe_bot h_dlo_ne hp_eq hexp_bot]; simp
-    have h_rep_dlo : Dyadic.IsRepresentableAtP
-        (F.toFiniteFormat.numDigits (dlo : ℝ)).toNat lo e dlo := by
-      rw [h_nd_dlo]
-      exact Dyadic.isRepresentableAtP_of_bounds h_dlo_real hlo_lo hlo_lt
-    rw [isEven_iff_even_of_canonical h_rep_dlo hp_ne_1] at h_not_even
-    have h_odd_lo : Odd lo := Int.not_even_iff_odd.mp h_not_even
-    have h_even_lop1 : Even (lo + 1) := Odd.add_one h_odd_lo
-    -- Case on dhi sat.
-    rcases lt_or_eq_of_le hlop1_hi with hlop1_lt | hlop1_sat
-    · -- dhi non-sat. Apply isEven_iff_even_of_canonical for dhi.
-      have hlop1_ne : lo + 1 ≠ 0 := by
-        intro h; rw [h, abs_zero] at hlop1_lo
-        have : (1 : ℤ) ≤ (2 : ℤ) ^ ((p : ℕ) - 1) := one_le_pow₀ (by norm_num)
-        linarith
-      set dhi : Dyadic := Dyadic.ofIntZpow (lo + 1) e
-      have h_dhi_real : (dhi : ℝ) = ((lo + 1 : ℤ) : ℝ) * (2 : ℝ) ^ e :=
-        Dyadic.coe_ofIntZpow (lo + 1) e
-      have h_dhi_ne : (dhi : ℝ) ≠ 0 := by
-        rw [h_dhi_real]
-        exact mul_ne_zero (Int.cast_ne_zero.mpr hlop1_ne)
-          (ne_of_gt (zpow_pos (by norm_num) _))
-      have h_nd_dhi : (F.toFiniteFormat.numDigits (dhi : ℝ)).toNat = (p : ℕ) := by
-        rw [F.toFiniteFormat.numDigits_coe_bot h_dhi_ne hp_eq hexp_bot]; simp
-      have h_rep_dhi : Dyadic.IsRepresentableAtP
-          (F.toFiniteFormat.numDigits (dhi : ℝ)).toNat (lo + 1) e dhi := by
-        rw [h_nd_dhi]
-        exact Dyadic.isRepresentableAtP_of_bounds h_dhi_real hlop1_lo hlop1_lt
-      rw [isEven_iff_even_of_canonical h_rep_dhi hp_ne_1]
-      exact h_even_lop1
-    · -- dhi sat: IsEven via saturation.
-      exact isEven_at_saturation_floating hp_eq hp_ne_1 hexp_bot hlop1_sat
-  · -- dlo sat: IsEven dlo by isEven_at_saturation_floating. Contradicts ¬IsEven dlo.
-    exfalso; apply h_not_even
-    exact isEven_at_saturation_floating hp_eq hp_ne_1 hexp_bot hlo_sat
-
 /-- `IsOdd` depends only on `toFormat`: two `ParityFormat`s with equal `toFormat`
 agree on `IsOdd`. Uses Lean's proof irrelevance for the `finite`/`parity`
 Prop fields. -/
@@ -2002,61 +1928,114 @@ theorem isOdd_iff_odd_at_canonical_fixedpoint {F : ParityFormat}
       exact_mod_cast h_real_lt
   exact isOdd_iff_odd_of_canonical h_rep hp_ne_1
 
-/-- Alternating parity (fixed-point): `¬ IsOdd dlo → IsOdd dhi` at canonical
-exponent `e'`. Handles the edge cases `lo = 0` and `lo = -1` directly. -/
+/-- Alternating parity iff (fixed-point): `IsOdd dhi ↔ ¬ IsOdd dlo` at
+canonical exponent `e'`. Handles the edge cases `lo = 0` (dlo = 0,
+IsOdd false) and `lo = -1` (dhi = 0, IsOdd false) directly. -/
+theorem alternating_parity_fixedpoint_iff {F : ParityFormat}
+    (hp_top : F.toFormat.p = ⊤) {e' : ℤ}
+    (hexp : F.toFormat.exp = (e' : WithBot ℤ)) {lo : ℤ} :
+    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e') ↔
+      ¬ F.IsOdd (Dyadic.ofIntZpow lo e') := by
+  by_cases hlo_zero : lo = 0
+  · subst hlo_zero
+    rw [show (0 : ℤ) + 1 = 1 by ring]
+    have h_dhi_odd : F.IsOdd (Dyadic.ofIntZpow (1 : ℤ) e') := by
+      rw [isOdd_iff_odd_at_canonical_fixedpoint hp_top hexp (by norm_num : (1 : ℤ) ≠ 0)]
+      exact ⟨0, by ring⟩
+    have h_not_odd_dlo : ¬ F.IsOdd (Dyadic.ofIntZpow (0 : ℤ) e') := by
+      intro h
+      have h_zero : (Dyadic.ofIntZpow (0 : ℤ) e' : ℝ) = 0 := by
+        rw [Dyadic.coe_ofIntZpow]; ring
+      exact (IsOdd.ne_zero h) (by apply Subtype.ext; exact h_zero)
+    exact ⟨fun _ => h_not_odd_dlo, fun _ => h_dhi_odd⟩
+  by_cases hlop1_zero : lo + 1 = 0
+  · have hlo_neg1 : lo = -1 := by omega
+    subst hlo_neg1
+    rw [show (-1 : ℤ) + 1 = 0 by ring]
+    have h_not_odd_dhi : ¬ F.IsOdd (Dyadic.ofIntZpow (0 : ℤ) e') := by
+      intro h
+      have h_zero : (Dyadic.ofIntZpow (0 : ℤ) e' : ℝ) = 0 := by
+        rw [Dyadic.coe_ofIntZpow]; ring
+      exact (IsOdd.ne_zero h) (by apply Subtype.ext; exact h_zero)
+    have h_odd_dlo : F.IsOdd (Dyadic.ofIntZpow (-1 : ℤ) e') := by
+      rw [isOdd_iff_odd_at_canonical_fixedpoint hp_top hexp (by norm_num : (-1 : ℤ) ≠ 0)]
+      exact ⟨-1, by ring⟩
+    exact ⟨fun h => absurd h h_not_odd_dhi, fun h => absurd h_odd_dlo h⟩
+  · rw [isOdd_iff_odd_at_canonical_fixedpoint hp_top hexp hlo_zero]
+    rw [isOdd_iff_odd_at_canonical_fixedpoint hp_top hexp hlop1_zero]
+    constructor
+    · rintro ⟨m₂, hm₂⟩ ⟨m₁, hm₁⟩; omega
+    · intro h_not_odd_lo
+      exact Even.add_one (Int.not_odd_iff_even.mp h_not_odd_lo)
+
+/-- Alternating parity (fixed-point): `¬ IsOdd dlo → IsOdd dhi`. Thin
+wrapper around `alternating_parity_fixedpoint_iff`. -/
 theorem alternating_parity_fixedpoint {F : ParityFormat}
     (hp_top : F.toFormat.p = ⊤) {e' : ℤ}
     (hexp : F.toFormat.exp = (e' : WithBot ℤ)) {lo : ℤ} :
     ¬ F.IsOdd (Dyadic.ofIntZpow lo e') →
-    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e') := by
-  intro h_not_odd
-  by_cases hlo_zero : lo = 0
-  · subst hlo_zero
-    -- dlo = 0, dhi = 1 · 2^e'. IsOdd (1 · 2^e') ↔ Odd 1 = True.
-    rw [show (0 : ℤ) + 1 = 1 from by ring]
-    rw [isOdd_iff_odd_at_canonical_fixedpoint hp_top hexp (by norm_num : (1 : ℤ) ≠ 0)]
-    exact ⟨0, by ring⟩
-  · rw [isOdd_iff_odd_at_canonical_fixedpoint hp_top hexp hlo_zero] at h_not_odd
-    have h_even_lo : Even lo := Int.not_odd_iff_even.mp h_not_odd
-    have h_odd_lop1 : Odd (lo + 1) := Even.add_one h_even_lo
-    have hlop1_ne : lo + 1 ≠ 0 := by
-      intro h
-      have : lo = -1 := by omega
-      subst this
-      exact absurd h_even_lo (by decide)
-    rw [isOdd_iff_odd_at_canonical_fixedpoint hp_top hexp hlop1_ne]
-    exact h_odd_lop1
+    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e') :=
+  (alternating_parity_fixedpoint_iff hp_top hexp).mpr
 
-/-- Anti-alternating parity (fixed-point): not both `dlo` and `dhi` can be
-`IsOdd`. -/
+/-- Anti-alternating parity (fixed-point): not both can be `IsOdd`. -/
 theorem not_both_isOdd_fixedpoint {F : ParityFormat}
     (hp_top : F.toFormat.p = ⊤) {e' : ℤ}
     (hexp : F.toFormat.exp = (e' : WithBot ℤ)) {lo : ℤ} :
     ¬ (F.IsOdd (Dyadic.ofIntZpow lo e') ∧
-       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e')) := by
-  rintro ⟨h1, h2⟩
-  -- lo = 0 ⟹ IsOdd 0 = False ⟹ contradiction with h1.
-  by_cases hlo_zero : lo = 0
-  · subst hlo_zero
-    -- h1 : F.IsOdd (Dyadic.ofIntZpow 0 e'). But ofIntZpow 0 e' = 0.
-    have h_zero : (Dyadic.ofIntZpow 0 e' : ℝ) = 0 := by
-      rw [Dyadic.coe_ofIntZpow]; ring
-    exact (IsOdd.ne_zero h1) (by apply Subtype.ext; exact h_zero)
-  by_cases hlop1_zero : lo + 1 = 0
-  · -- lo + 1 = 0 ⟹ IsOdd 0 = False for h2.
-    have h_zero : (Dyadic.ofIntZpow (lo + 1) e' : ℝ) = 0 := by
-      rw [Dyadic.coe_ofIntZpow, hlop1_zero]; push_cast; ring
-    exact (IsOdd.ne_zero h2) (by apply Subtype.ext; exact h_zero)
-  rw [isOdd_iff_odd_at_canonical_fixedpoint hp_top hexp hlo_zero] at h1
-  rw [isOdd_iff_odd_at_canonical_fixedpoint hp_top hexp hlop1_zero] at h2
-  obtain ⟨m₁, hm₁⟩ := h1
-  obtain ⟨m₂, hm₂⟩ := h2
-  omega
+       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e')) :=
+  not_both_isOdd_of_alternating_iff (alternating_parity_fixedpoint_iff hp_top hexp)
 
-/-- Anti-alternating parity (floating-point): not both `dlo` and `dhi` can be
-`IsOdd`. Direct from `lo` and `lo+1` having opposite parity (in non-sat
-case), or from saturation forcing one side Even. -/
-theorem not_both_isOdd_floating {F : ParityFormat}
+/-- Alternating `IsEven` (fixed-point). Derived from
+`alternating_parity_fixedpoint_iff` via the generic
+`alternating_isEven_of_alternating_iff`. -/
+theorem alternating_isEven_fixedpoint {F : ParityFormat}
+    (hp_top : F.toFormat.p = ⊤) {e' : ℤ}
+    (hexp : F.toFormat.exp = (e' : WithBot ℤ)) {lo : ℤ} :
+    ¬ F.IsEven (Dyadic.ofIntZpow lo e') →
+    F.IsEven (Dyadic.ofIntZpow (lo + 1) e') := by
+  apply alternating_isEven_of_alternating_iff
+    (alternating_parity_fixedpoint_iff hp_top hexp)
+  · by_cases h : lo = 0
+    · left; apply Subtype.ext
+      rw [Dyadic.coe_ofIntZpow, h]; push_cast; ring
+    · right; exact canonical_rep_fixedpoint hp_top hexp h
+  · by_cases h : lo + 1 = 0
+    · left; apply Subtype.ext
+      rw [Dyadic.coe_ofIntZpow, h]; push_cast; ring
+    · right; exact canonical_rep_fixedpoint hp_top hexp h
+
+/-- Canonical h_rep construction for floating-point: when `|k| ∈ [2^(p-1), 2^p)`,
+the (k, e) pair is the canonical representation of `ofIntZpow k e` at
+`numDigits`-precision. -/
+private theorem canonical_rep_floating {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hexp_bot : F.toFormat.exp = ⊥) {k e : ℤ}
+    (hk_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |k|)
+    (hk_hi : |k| < (2 : ℤ) ^ (p : ℕ)) :
+    Dyadic.IsRepresentableAtP
+      (F.toFiniteFormat.numDigits ((Dyadic.ofIntZpow k e : Dyadic) : ℝ)).toNat
+      k e (Dyadic.ofIntZpow k e) := by
+  set y : Dyadic := Dyadic.ofIntZpow k e
+  have h_y_real : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow k e
+  have hk_ne : k ≠ 0 := by
+    intro h0; rw [h0, abs_zero] at hk_lo
+    have hpos : (1 : ℤ) ≤ (2 : ℤ) ^ ((p : ℕ) - 1) := one_le_pow₀ (by norm_num)
+    linarith
+  have h_y_ne : (y : ℝ) ≠ 0 := by
+    rw [h_y_real]
+    exact mul_ne_zero (Int.cast_ne_zero.mpr hk_ne)
+      (ne_of_gt (zpow_pos (by norm_num) _))
+  have h_nd_toNat : (F.toFiniteFormat.numDigits (y : ℝ)).toNat = (p : ℕ) := by
+    rw [F.toFiniteFormat.numDigits_coe_bot h_y_ne hp_eq hexp_bot]; simp
+  rw [h_nd_toNat]
+  exact Dyadic.isRepresentableAtP_of_bounds h_y_real hk_lo hk_hi
+
+/-- Alternating parity iff (floating-point):
+`IsOdd dhi ↔ ¬ IsOdd dlo`. Bulk proof: case-splits on saturation for both
+sides, using `isOdd_iff_odd_at_canonical_floating` plus integer arithmetic
+in the non-sat × non-sat case, and `not_isOdd_at_saturation` for the
+saturated sides. -/
+theorem alternating_parity_floating_iff {F : ParityFormat}
     {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
     (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
     (hexp_bot : F.toFormat.exp = ⊥) {lo e : ℤ}
@@ -2064,23 +2043,57 @@ theorem not_both_isOdd_floating {F : ParityFormat}
     (hlo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ))
     (hlop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1|)
     (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ)) :
-    ¬ (F.IsOdd (Dyadic.ofIntZpow lo e) ∧
-       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e)) := by
-  rintro ⟨h1, h2⟩
+    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e) ↔
+      ¬ F.IsOdd (Dyadic.ofIntZpow lo e) := by
+  have h2p_nn : (0 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by positivity
+  have h_2p_even : Even ((2 : ℤ) ^ (p : ℕ)) := by
+    refine ⟨(2 : ℤ) ^ ((p : ℕ) - 1), ?_⟩
+    have := Dyadic.two_pow_succ_pred p.pos; linarith
   rcases lt_or_eq_of_le hlo_hi with hlo_lt | hlo_sat
-  · rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlo_lo hlo_lt] at h1
+  · rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlo_lo hlo_lt]
     rcases lt_or_eq_of_le hlop1_hi with hlop1_lt | hlop1_sat
-    · rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlop1_lo hlop1_lt] at h2
-      obtain ⟨m₁, hm₁⟩ := h1
-      obtain ⟨m₂, hm₂⟩ := h2
-      omega
-    · exact (not_isOdd_at_saturation hp_eq hp_ne_1 hexp_bot hlop1_sat) h2
-  · exact (not_isOdd_at_saturation hp_eq hp_ne_1 hexp_bot hlo_sat) h1
+    · rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlop1_lo hlop1_lt]
+      constructor
+      · rintro ⟨m₂, hm₂⟩ ⟨m₁, hm₁⟩; omega
+      · intro h; exact Even.add_one (Int.not_odd_iff_even.mp h)
+    · -- dhi sat: ¬IsOdd dhi.
+      have h_not_odd_dhi : ¬ F.IsOdd (Dyadic.ofIntZpow (lo + 1) e) :=
+        not_isOdd_at_saturation hp_eq hp_ne_1 hexp_bot hlop1_sat
+      -- |lo+1| = 2^p ⟹ lo+1 even ⟹ lo odd.
+      have h_even_lop1 : Even (lo + 1) := by
+        rcases (abs_eq h2p_nn).mp hlop1_sat with h | h
+        · rw [h]; exact h_2p_even
+        · rw [h]; exact h_2p_even.neg
+      have h_odd_lo : Odd lo := by
+        rcases h_even_lop1 with ⟨m, hm⟩; exact ⟨m - 1, by omega⟩
+      exact ⟨fun h => absurd h h_not_odd_dhi, fun h => absurd h_odd_lo h⟩
+  · -- dlo sat: ¬IsOdd dlo, so RHS is True. Show LHS (IsOdd dhi).
+    have h_not_odd_dlo : ¬ F.IsOdd (Dyadic.ofIntZpow lo e) :=
+      not_isOdd_at_saturation hp_eq hp_ne_1 hexp_bot hlo_sat
+    rcases (abs_eq h2p_nn).mp hlo_sat with hlo_pos | hlo_neg
+    · -- lo = 2^p: lo+1 = 2^p+1 with |.| = 2^p+1 > 2^p, contradiction with hlop1_hi.
+      exfalso
+      rw [hlo_pos] at hlop1_hi
+      have : (2 : ℤ) ^ (p : ℕ) + 1 > 0 := by positivity
+      have h_abs : |(2 : ℤ) ^ (p : ℕ) + 1| = (2 : ℤ) ^ (p : ℕ) + 1 := abs_of_pos this
+      linarith
+    · -- lo = -2^p: lo+1 = -(2^p - 1), |lo+1| < 2^p so dhi non-sat with Odd (lo+1).
+      have h_lop1_lt : |lo + 1| < (2 : ℤ) ^ (p : ℕ) := by
+        rw [hlo_neg]
+        have h_pos_inner : (0 : ℤ) < (2 : ℤ) ^ (p : ℕ) - 1 := by
+          have h_two_le : (2 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by
+            calc (2 : ℤ) = (2 : ℤ) ^ 1 := by ring
+              _ ≤ (2 : ℤ) ^ (p : ℕ) := pow_le_pow_right₀ (by norm_num) p.pos
+          linarith
+        have h_eq : -((2 : ℤ) ^ (p : ℕ)) + 1 = -((2 : ℤ) ^ (p : ℕ) - 1) := by ring
+        rw [h_eq, abs_neg, abs_of_pos h_pos_inner]; linarith
+      have h_odd_lop1 : Odd (lo + 1) := by
+        rw [hlo_neg]; exact h_2p_even.neg.add_one
+      rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlop1_lo h_lop1_lt]
+      exact ⟨fun _ => h_not_odd_dlo, fun _ => h_odd_lop1⟩
 
 /-- Alternating parity at the canonical exponent (floating-point case):
-if `dlo = lo · 2^e` is not `F.IsOdd`, then `dhi = (lo+1) · 2^e` is.
-Requires `lo` and `lo+1` to both lie in the canonical mantissa range
-`[2^(p-1), 2^p]`. -/
+if `dlo = lo · 2^e` is not `F.IsOdd`, then `dhi = (lo+1) · 2^e` is. -/
 theorem alternating_parity_floating {F : ParityFormat}
     {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
     (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
@@ -2090,65 +2103,52 @@ theorem alternating_parity_floating {F : ParityFormat}
     (hlop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1|)
     (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ)) :
     ¬ F.IsOdd (Dyadic.ofIntZpow lo e) →
-    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e) := by
-  intro h_not_odd
-  have h2p_nn : (0 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by positivity
-  -- Case on dlo's saturation.
+    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e) :=
+  (alternating_parity_floating_iff hp_eq hp_ne_1 hexp_bot
+    hlo_lo hlo_hi hlop1_lo hlop1_hi).mpr
+
+/-- Anti-alternating parity (floating-point): not both `dlo` and `dhi`
+can be `IsOdd`. Thin wrapper around `alternating_parity_floating_iff`. -/
+theorem not_both_isOdd_floating {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
+    (hexp_bot : F.toFormat.exp = ⊥) {lo e : ℤ}
+    (hlo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo|)
+    (hlo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ))
+    (hlop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1|)
+    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ)) :
+    ¬ (F.IsOdd (Dyadic.ofIntZpow lo e) ∧
+       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e)) :=
+  not_both_isOdd_of_alternating_iff
+    (alternating_parity_floating_iff hp_eq hp_ne_1 hexp_bot
+      hlo_lo hlo_hi hlop1_lo hlop1_hi)
+
+/-- Alternating `IsEven` (floating-point). Handles saturation cases
+manually (where `isEven_at_saturation_floating` applies), and applies
+the generic `alternating_isEven_of_alternating_iff` for the non-sat case. -/
+theorem alternating_isEven_floating {F : ParityFormat}
+    {p : ℕ+} (hp_eq : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+))
+    (hexp_bot : F.toFormat.exp = ⊥) {lo e : ℤ}
+    (hlo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo|)
+    (hlo_hi : |lo| ≤ (2 : ℤ) ^ (p : ℕ))
+    (hlop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1|)
+    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ (p : ℕ)) :
+    ¬ F.IsEven (Dyadic.ofIntZpow lo e) →
+    F.IsEven (Dyadic.ofIntZpow (lo + 1) e) := by
+  intro h_not_even
   rcases lt_or_eq_of_le hlo_hi with hlo_lt | hlo_sat
-  · -- dlo non-saturated.
-    rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlo_lo hlo_lt]
-      at h_not_odd
-    have h_even_lo : Even lo := Int.not_odd_iff_even.mp h_not_odd
-    have h_odd_lop1 : Odd (lo + 1) := Even.add_one h_even_lo
-    -- Case on dhi's saturation.
-    rcases lt_or_eq_of_le hlop1_hi with hlop1_lt | hlop1_sat
-    · rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlop1_lo hlop1_lt]
-      exact h_odd_lop1
-    · -- |lo+1| = 2^p: 2^p is even, so lo+1 is even, contradicting h_odd_lop1.
-      exfalso
-      have h_even_lop1 : Even (lo + 1) := by
-        rcases (abs_eq h2p_nn).mp hlop1_sat with h | h
-        · rw [h]
-          refine ⟨(2 : ℤ) ^ ((p : ℕ) - 1), ?_⟩
-          have := Dyadic.two_pow_succ_pred p.pos
-          linarith
-        · rw [h]
-          refine ⟨-((2 : ℤ) ^ ((p : ℕ) - 1)), ?_⟩
-          have := Dyadic.two_pow_succ_pred p.pos
-          linarith
-      exact (Int.not_odd_iff_even.mpr h_even_lop1) h_odd_lop1
-  · -- dlo saturated: |lo| = 2^p. Need IsOdd dhi.
-    -- lo = ±2^p. lo + 1 = ±2^p + 1.
-    rcases (abs_eq h2p_nn).mp hlo_sat with hlo_pos | hlo_neg
-    · -- lo = 2^p: lo + 1 = 2^p + 1, |lo+1| = 2^p+1, but hlop1_hi says ≤ 2^p. Contradiction.
-      exfalso
-      rw [hlo_pos] at hlop1_hi
-      have : (2 : ℤ) ^ (p : ℕ) + 1 > 0 := by positivity
-      have h_abs : |(2 : ℤ) ^ (p : ℕ) + 1| = (2 : ℤ) ^ (p : ℕ) + 1 :=
-        abs_of_pos this
-      linarith
-    · -- lo = -2^p: lo + 1 = -2^p + 1 = -(2^p - 1). |lo+1| = 2^p - 1.
-      have h_lop1_lt : |lo + 1| < (2 : ℤ) ^ (p : ℕ) := by
-        rw [hlo_neg]
-        have h_pos_inner : (0 : ℤ) < (2 : ℤ) ^ (p : ℕ) - 1 := by
-          have : (1 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := one_le_pow₀ (by norm_num)
-          have h_two_le : (2 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by
-            calc (2 : ℤ) = (2 : ℤ) ^ 1 := by ring
-              _ ≤ (2 : ℤ) ^ (p : ℕ) := pow_le_pow_right₀ (by norm_num) p.pos
-          linarith
-        have h_eq : -((2 : ℤ) ^ (p : ℕ)) + 1 = -((2 : ℤ) ^ (p : ℕ) - 1) := by ring
-        rw [h_eq, abs_neg, abs_of_pos h_pos_inner]
-        linarith
-      rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlop1_lo h_lop1_lt]
-      -- Show Odd (lo + 1) = Odd (-2^p + 1).
-      rw [hlo_neg]
-      -- -2^p + 1: 2^p is even, -2^p is even, -2^p + 1 is odd.
-      have h_2p_even : Even ((2 : ℤ) ^ (p : ℕ)) := by
-        refine ⟨(2 : ℤ) ^ ((p : ℕ) - 1), ?_⟩
-        have := Dyadic.two_pow_succ_pred p.pos
-        linarith
-      have h_neg_2p_even : Even (-((2 : ℤ) ^ (p : ℕ))) := h_2p_even.neg
-      exact h_neg_2p_even.add_one
+  · rcases lt_or_eq_of_le hlop1_hi with hlop1_lt | hlop1_sat
+    · -- Both non-sat: use generic helper.
+      exact alternating_isEven_of_alternating_iff
+        (alternating_parity_floating_iff hp_eq hp_ne_1 hexp_bot
+          hlo_lo hlo_hi hlop1_lo hlop1_hi)
+        (Or.inr (canonical_rep_floating hp_eq hexp_bot hlo_lo hlo_lt))
+        (Or.inr (canonical_rep_floating hp_eq hexp_bot hlop1_lo hlop1_lt))
+        h_not_even
+    · exact isEven_at_saturation_floating hp_eq hp_ne_1 hexp_bot hlop1_sat
+  · exfalso; apply h_not_even
+    exact isEven_at_saturation_floating hp_eq hp_ne_1 hexp_bot hlo_sat
 
 end ParityFormat
 
