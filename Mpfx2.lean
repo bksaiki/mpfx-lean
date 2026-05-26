@@ -4,5 +4,6 @@ import Mpfx2.Format
 import Mpfx2.Rounding
 import Mpfx2.RoundOp
 import Mpfx2.Containment
+import Mpfx2.Grid
 import Mpfx2.Digits
 import Mpfx2.DoubleRounding

@@ -120,6 +120,35 @@ def ofIntZpow (c e : ℤ) : Dyadic :=
   change ((((c : ℚ) * (2 : ℚ) ^ e : ℚ) : ℝ)) = (c : ℝ) * (2 : ℝ) ^ e
   push_cast; ring
 
+/-- The half-dyadic, `1/2 = 1·2^(-1)`. -/
+def half : Dyadic := ofIntZpow 1 (-1)
+
+@[simp] theorem coe_half : ((half : Dyadic) : ℝ) = 1 / 2 := by
+  change ((ofIntZpow 1 (-1) : Dyadic) : ℝ) = 1 / 2
+  rw [coe_ofIntZpow, zpow_neg_one]; push_cast; ring
+
+@[simp] theorem coe_rat_half : ((half : Dyadic) : ℚ) = 1 / 2 := by
+  change ((ofIntZpow 1 (-1) : Dyadic) : ℚ) = 1 / 2
+  rw [coe_rat_ofIntZpow, zpow_neg_one]; push_cast; ring
+
+/-- Midpoint of two dyadics: `(y₁ + y₂)/2`. -/
+def midpoint (y₁ y₂ : Dyadic) : Dyadic := (y₁ + y₂) * half
+
+theorem coe_midpoint (y₁ y₂ : Dyadic) :
+    ((midpoint y₁ y₂ : Dyadic) : ℝ) = ((y₁ : ℝ) + (y₂ : ℝ)) / 2 := by
+  change (((y₁ + y₂) * half : Dyadic) : ℝ) = _
+  rw [coe_real_mul, coe_real_add, coe_half]; ring
+
+theorem coe_rat_midpoint (y₁ y₂ : Dyadic) :
+    ((midpoint y₁ y₂ : Dyadic) : ℚ) = (((y₁ : ℚ) + (y₂ : ℚ)) / 2) := by
+  change (((y₁ + y₂) * half : Dyadic) : ℚ) = _
+  push_cast [coe_rat_half]; ring
+
+theorem midpoint_comm (y₁ y₂ : Dyadic) :
+    midpoint y₁ y₂ = midpoint y₂ y₁ := by
+  apply ext_real
+  rw [coe_midpoint, coe_midpoint]; ring
+
 /-- `x` has precision at most `p` (`⊤` = no constraint): there exist `c, e : ℤ`
 with `x = c · 2^e` and `|c| < 2^p`. -/
 def precisionAtMost : WithTop ℕ+ → Dyadic → Prop
@@ -424,6 +453,67 @@ theorem IsRepresentableAtP.unique {p : ℕ} {y : Dyadic}
   rw [h_e_eq] at h_eq
   have : (c₁ : ℚ) = (c₂ : ℚ) := mul_right_cancel₀ (ne_of_gt h_2e2_pos) h_eq
   exact_mod_cast this
+
+/-- Auxiliary: any nonzero integer can be factored as `c' * 2^k` with `c'` odd
+and `|c'| ≤ |c|`. Strong induction on `c.natAbs`. -/
+private theorem Int.exists_odd_factor_aux : ∀ (n : ℕ) (c : ℤ),
+    c.natAbs ≤ n → c ≠ 0 →
+    ∃ k : ℕ, ∃ c' : ℤ, Odd c' ∧ c = c' * 2^k ∧ c'.natAbs ≤ c.natAbs := by
+  intro n
+  induction n with
+  | zero =>
+    intro c hle hne
+    have : c.natAbs = 0 := Nat.le_zero.mp hle
+    exact absurd (Int.natAbs_eq_zero.mp this) hne
+  | succ n ih =>
+    intro c hle hne
+    rcases Int.even_or_odd c with hev | hod
+    · -- c even: c = 2 * r, r has smaller natAbs.
+      obtain ⟨r, hr⟩ := hev
+      have hr_eq : c = 2 * r := by linarith
+      have hr_ne : r ≠ 0 := by
+        intro h; rw [h, mul_zero] at hr_eq; exact hne hr_eq
+      have h2r_natAbs : (2 * r).natAbs = 2 * r.natAbs := by
+        rw [Int.natAbs_mul]; rfl
+      have hr_natAbs_lt : r.natAbs < c.natAbs := by
+        rw [hr_eq, h2r_natAbs]
+        have : 0 < r.natAbs := Int.natAbs_pos.mpr hr_ne
+        omega
+      have hr_natAbs_le : r.natAbs ≤ n := by omega
+      obtain ⟨k, c', h_odd, h_eq, h_abs⟩ := ih r hr_natAbs_le hr_ne
+      refine ⟨k + 1, c', h_odd, ?_, ?_⟩
+      · rw [hr_eq, h_eq]; ring
+      · omega
+    · -- c odd: k = 0, c' = c.
+      refine ⟨0, c, hod, ?_, le_refl _⟩
+      simp
+
+/-- Any nonzero integer factors as `c' * 2^k` with `c'` odd. -/
+private theorem Int.exists_odd_factor {c₀ : ℤ} (hc : c₀ ≠ 0) :
+    ∃ k : ℕ, ∃ c : ℤ, Odd c ∧ c₀ = c * 2^k ∧ c.natAbs ≤ c₀.natAbs :=
+  Int.exists_odd_factor_aux c₀.natAbs c₀ (le_refl _) hc
+
+/-- For any nonzero dyadic with precision at most `p`, there's a representation
+`y = c·2^e` with `c` odd and `|c| < 2^p`. -/
+theorem exists_odd_canonical_of_precisionAtMost {p : ℕ+} {y : Dyadic}
+    (hp : precisionAtMost (p : WithTop ℕ+) y) (hy : (y : ℝ) ≠ 0) :
+    ∃ c e : ℤ, ((y : ℝ) = c * (2 : ℝ)^e) ∧ Odd c ∧ |c| < (2 : ℤ)^(p : ℕ) := by
+  rw [precisionAtMost_coe_real] at hp
+  obtain ⟨c₀, e₀, hy_eq, hc₀_lt⟩ := hp
+  have hc₀_ne : c₀ ≠ 0 := by
+    intro h; rw [h] at hy_eq; push_cast at hy_eq
+    rw [zero_mul] at hy_eq; exact hy hy_eq
+  obtain ⟨k, c, h_odd, hc_eq, h_natAbs⟩ := Int.exists_odd_factor hc₀_ne
+  refine ⟨c, e₀ + k, ?_, h_odd, ?_⟩
+  · rw [hy_eq, hc_eq]
+    push_cast
+    rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_natCast]
+    ring
+  · -- |c| ≤ |c₀| < 2^p.
+    have hc_le : |c| ≤ |c₀| := by
+      rw [Int.abs_eq_natAbs, Int.abs_eq_natAbs]
+      exact_mod_cast h_natAbs
+    linarith
 
 /-- Dyadics have decidable equality (inherited from `ℚ`) — a payoff of the
 rational substrate. -/

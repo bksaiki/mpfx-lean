@@ -85,6 +85,13 @@ Mpfx2/
 │                   Format.extend + self_subset_extend + extend_mono,
 │                   FiniteFormat.extend + numDigits_extend (Lemma 5.2),
 │                   withBound + next (+ next lemmas) — §5.2 bound API
+├── Grid.lean       grid-step / midpoint-membership theory (prereq for
+│                   rndRTO_RN): exists_grid_rep(_exp_bot), grid_rep_c_pos,
+│                   no_F_element_in_step_interval(_exp_bot),
+│                   F_adjacent_step_form(_exp_bot), prev_F_adjacent_of_log_eq,
+│                   and the goal family midpoint_mem_extend_one_of_F_adjacent
+│                   (+_pos/_pos_exp_bot/_exp_bot/_of_p_top), half_mem_extend_one.
+│                   Ported from old Mpfx/Format.lean over the ℚ substrate.
 ├── Digits.lean     §5.1-supporting digit/parity-transfer lemmas (Lemma 5.3):
 │                   numDigits_le_one_of_p_one, precisionAtMost_not_IsOdd
 │                   (corollary), numDigits_eq_of_subset_of_isOdd(_aux),
@@ -315,21 +322,16 @@ spec-relationally over `RoundsFinite` (membership + mode condition):
 - [x] `rndRTO_RAZ` (+ `rndRTO_RAZ_pos`) — RTO then RAZ; away-zero mirror of
       RTZ. Lemma 5.3 application sits in the RTN branch (vs RTP for RTZ).
       Reuses the RTO helper chain.
-- [!] `rndRTO_RN` (both tie-breaks) — **BLOCKED** on a missing prerequisite.
-      The rule + its helpers (`rndRTO_RN_close_transfer`,
-      `rndRTO_no_tie_contradiction`, `rndRTO_nearest_facts`) are ~450 lines,
-      BUT they rest on a **grid-step / midpoint-membership theory** (~940
-      lines in old `Mpfx/Format.lean:273-1454` + `Dyadic.midpoint`) that was
-      never ported to Mpfx2. The load-bearing fact: *the midpoint of two
-      F₁-adjacent points is F₂-representable* (a tie forces `x = midpoint`,
-      which then lies in `F₂`, forcing `z = x` — contradiction). No shortcut;
-      the no-tie clause genuinely needs it. **Prerequisite (do first, own
-      module):** port `Dyadic.midpoint`, `F_adjacent_step_form`,
-      `exists_grid_rep`, `no_F_element_in_step_interval`,
-      `midpoint_*_mem_extend_one`, `midpoint_F₁_in_F₂_of_F_adjacent` to Mpfx2
-      (`AbstractFormat`→`Format`, ℚ substrate). Then the ~450-line RN web.
-      Note: the no-tie fact discharges BOTH tie-break clauses vacuously, so
-      no `∃ ParityFormat` tie-witness is needed for either RNE or RNA.
+- [ ] `rndRTO_RN` (both tie-breaks) — prerequisite NOW SATISFIED.
+      The grid-step / midpoint-membership theory it rests on is ported (see
+      `Mpfx2/Grid.lean`). The load-bearing fact — *the midpoint of two
+      F₁-adjacent points lies in `F₁.extend 1`*, hence in `F₂` via
+      `F₁.extend 1 ⊆ F₂` — is `midpoint_mem_extend_one_of_F_adjacent`. A tie
+      forces `x = midpoint ∈ F₂`, forcing `z = x` — contradiction. Remaining:
+      the ~450-line RN helper web (`rndRTO_RN_close_transfer`,
+      `rndRTO_no_tie_contradiction`, `rndRTO_nearest_facts`). The no-tie fact
+      discharges BOTH tie-break clauses vacuously, so no `∃ ParityFormat`
+      tie-witness is needed for either RNE or RNA.
 - (NB: the old "paper-aligned" form derives `hp_F₂` from a `withBound`/`next`
   containment via `hp_F₂_or_F₁_trivial` (~675 lines); deferred — our rules
   take `hp_F₂` + `F₁.extend 1 ⊆ F₂` directly.)
