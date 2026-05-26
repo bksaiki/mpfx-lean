@@ -13,13 +13,8 @@ The constructive-logic layer of the rounding architecture. Defines:
 * `Rounds : Format → RoundingMode → ℝ → RoundResult → Prop` — the
   specification relation, all seven modes.
 
-Everything here is in pure constructive logic — no `Classical.choose`,
-no implicit `Classical.dec` from `Real`-comparison `if-then-else`s.
-Anything reasoned about `Rounds` alone stays constructive.
-
 The companion file **`Mpfx2/RoundOp.lean`** adds the noncomputable
-function `rnd` and the bridge `rnd_iff_rounds`. That file is where the
-classical commitment lives.
+function `rnd` and the bridge `rnd_iff_rounds`.
 -/
 
 namespace Mpfx2
@@ -254,6 +249,34 @@ theorem IsFaithfulRound.neg_iff (F : FiniteFormat) (x : ℝ) (y : Dyadic) :
       have hnzx : -x ≤ ((-z : Dyadic) : ℝ) := by rw [Dyadic.coe_real_neg]; linarith
       have h := h_min (-z) hnz hnzx
       rw [Dyadic.coe_real_neg] at h; linarith
+
+/-- `IsFaithfulRound` is exactly "round-down or round-up", phrased via the
+directed `RoundsFinite` specs. This lets the round-to-nearest machinery work
+with `RoundsFinite .toNegative/.toPositive` while the `.nearest` spec hands
+out an `IsFaithfulRound`. -/
+theorem isFaithfulRound_iff_directed {F : FiniteFormat} {x : ℝ} {y : Dyadic} :
+    IsFaithfulRound F x y ↔
+      RoundsFinite F .toNegative x y ∨ RoundsFinite F .toPositive x y := by
+  unfold IsFaithfulRound RoundsFinite
+  constructor
+  · rintro (⟨hm, h_le, h_max⟩ | ⟨hm, h_le, h_min⟩)
+    · exact Or.inl ⟨hm, h_le, h_max⟩
+    · exact Or.inr ⟨hm, h_le, h_min⟩
+  · rintro (⟨hm, h_le, h_max⟩ | ⟨hm, h_le, h_min⟩)
+    · exact Or.inl ⟨hm, h_le, h_max⟩
+    · exact Or.inr ⟨hm, h_le, h_min⟩
+
+/-- If `x ∈ F` and `y` is the RTO-rounding of `x` in `F`, then `y = x`. -/
+theorem RoundsFinite.toOdd_unique_of_mem {F : FiniteFormat} {x : Dyadic}
+    (hx : x ∈ F) {y : Dyadic} (h : RoundsFinite F .toOdd (x : ℝ) y) : y = x := by
+  obtain ⟨_, hadj, _⟩ := h
+  rcases hadj with ⟨-, hyx, hmax⟩ | ⟨-, hxy, hmin⟩
+  · -- round-down: (y:ℝ) ≤ (x:ℝ) and y is largest such
+    have hxy : (x : ℝ) ≤ (y : ℝ) := hmax x hx (le_refl _)
+    exact (Dyadic.coe_real_inj y x).mp (le_antisymm hyx hxy)
+  · -- round-up: (x:ℝ) ≤ (y:ℝ) and y is smallest such
+    have hyx : (y : ℝ) ≤ (x : ℝ) := hmin x hx (le_refl _)
+    exact (Dyadic.coe_real_inj y x).mp (le_antisymm hyx hxy)
 
 /-! ## Sign-symmetry of `Rounds`
 

@@ -99,8 +99,12 @@ Mpfx2/
 │                   IsOdd.transfer_of_subset (capstone Lemma 5.3)
 └── DoubleRounding.lean §5.2 / Fig. 9 rules (spec-relational over
                     RoundsFinite): rndRTZ_RTZ, rndRAZ_RAZ(_pos), rndRTO_RTO,
-                    rndRTO_RTZ, rndRTO_RAZ (+ RTO helper chain:
-                    toOdd_notMem_of_extend_subset, …); rndRTO_RN TBD
+                    rndRTO_RTZ, rndRTO_RAZ, rndRTO_RN — ALL paper-exact.
+                    RTO helper chain (toOdd_notMem_of_extend_subset, …),
+                    paper-containment helpers (hp_F₂_or_F₁_trivial(_RN),
+                    extend_{one,two}_subset_of_paper_subset, *_of_trivial),
+                    RN web (rndRTO_RN_close_transfer, rndRTO_no_tie_contradiction,
+                    rndRTO_nearest_facts) + bridges.
 ```
 
 ## Substrate (done)
@@ -314,27 +318,34 @@ spec-relationally over `RoundsFinite` (membership + mode condition):
       `IsFaithfulRound` adjacency split otherwise. Helper `exp_bot_of_subset`
       (an `exp = ⊥` format can't embed in a finite-`exp` one) discharges the
       non-degeneracy needed to build the `∃ ParityFormat` witness.
-- [x] `rndRTO_RTZ` — RTO (in `F₂`) then RTZ (in `F₁`). Simpler-hypothesis
-      form (`F₁.extend 1 ⊆ F₂` + explicit `hp_F₂`). Added RTO helper chain:
-      `toOdd_eq_zero_of_zero`, `toOdd_nonneg_of_nn`,
+- [x] `rndRTO_RTZ` — RTO (in `F₂`) then RTZ (in `F₁`). **Paper-exact** form:
+      single bound-aware containment `(F₁.extend 1).withBound F₁.boundAfterNext
+      ⊆ F₂` (no separate `hp_F₂`; derived internally via
+      `hp_F₂_or_F₁_trivial`, trivial-`F₁` corner via
+      `RoundsFinite.toZero_of_trivial`). The `_pos` body keeps the
+      `F₁.extend 1 ⊆ F₂` + `hp_F₂` shape, fed by `extend_one_subset_of_paper_subset`.
+      RTO helper chain: `toOdd_eq_zero_of_zero`, `toOdd_nonneg_of_nn`,
       `toOdd_notMem_of_lower_numDigits`, `toOdd_notMem_of_extend_subset`
       (Lemma 5.2 + 5.3), `rndRTO_RTZ_pos`.
 - [x] `rndRTO_RAZ` (+ `rndRTO_RAZ_pos`) — RTO then RAZ; away-zero mirror of
-      RTZ. Lemma 5.3 application sits in the RTN branch (vs RTP for RTZ).
-      Reuses the RTO helper chain.
-- [ ] `rndRTO_RN` (both tie-breaks) — prerequisite NOW SATISFIED.
-      The grid-step / midpoint-membership theory it rests on is ported (see
-      `Mpfx2/Grid.lean`). The load-bearing fact — *the midpoint of two
-      F₁-adjacent points lies in `F₁.extend 1`*, hence in `F₂` via
-      `F₁.extend 1 ⊆ F₂` — is `midpoint_mem_extend_one_of_F_adjacent`. A tie
-      forces `x = midpoint ∈ F₂`, forcing `z = x` — contradiction. Remaining:
-      the ~450-line RN helper web (`rndRTO_RN_close_transfer`,
-      `rndRTO_no_tie_contradiction`, `rndRTO_nearest_facts`). The no-tie fact
-      discharges BOTH tie-break clauses vacuously, so no `∃ ParityFormat`
-      tie-witness is needed for either RNE or RNA.
-- (NB: the old "paper-aligned" form derives `hp_F₂` from a `withBound`/`next`
-  containment via `hp_F₂_or_F₁_trivial` (~675 lines); deferred — our rules
-  take `hp_F₂` + `F₁.extend 1 ⊆ F₂` directly.)
+      RTZ (paper-exact, `RoundsFinite.awayZero_of_trivial` for the corner).
+      Lemma 5.3 application sits in the RTN branch (vs RTP for RTZ).
+- [x] `rndRTO_RN` (both tie-breaks) — **DONE**, paper-exact form:
+      `(F₁.extend 2).withBound (F₁.extend 1).boundAfterNext ⊆ F₂`. Rests on the
+      grid/midpoint theory (`Mpfx2/Grid.lean`): the midpoint of two F₁-adjacent
+      points lies in `F₁.extend 1` (`midpoint_mem_extend_one_of_F_adjacent`),
+      hence in `F₂`. The no-tie argument (`rndRTO_no_tie_contradiction`) forces
+      a tie's `x = midpoint ∈ F₂`, so `z = x` — contradiction; this discharges
+      BOTH tie-break clauses vacuously (no `∃ ParityFormat` witness needed for
+      RNE or RNA). Web: `rndRTO_RN_close_transfer`, `rndRTO_no_tie_contradiction`,
+      `rndRTO_nearest_facts`; bridges `isFaithfulRound_iff_directed`,
+      `RoundsFinite.toOdd_unique_of_mem`, `nearest_midpoint_of_tie`,
+      `F_adjacent_of_RN_round_pair`, `midpoint_F₁_in_F₂_of_F_adjacent`;
+      containment `hp_F₂_or_F₁_trivial_RN`, `extend_two_subset_of_paper_RN_subset`,
+      `RoundsFinite.nearest_of_trivial`.
+- (NB: `rndRTO_RTO` legitimately keeps `F₁ ⊆ F₂` + `hp_F₂` — that *is* the
+  paper statement for RTO→RTO; only RTZ/RAZ/RN carry the bound-aware
+  containment that lets `hp_F₂` be derived.)
 - (also available in old `Mpfx/`: `rndRTP_RTP`, `rndRTN_RTN` — directed-mode
   chains that reduce to RTZ/RAZ via sign-bridges; easy follow-ons.)
 
