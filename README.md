@@ -1,77 +1,106 @@
 # mpfx-lean
 
-A Lean 4 / Mathlib formalization of the abstract floating-point results in
-*When Double Rounding is Correct* (Saiki, Zorn, Richey, Tatlock).
+A Lean 4 / Mathlib (`v4.29.0`) formalization of the abstract floating-point
+results in *When Double Rounding is Correct* (Saiki, Zorn, Richey, Tatlock).
 
-The paper studies the abstract number format `𝒜(p, exp, b)` — `p` binary
-digits of precision, minimum quantum `2^exp`, magnitude bound `b` — and asks
-when rounding a real into a wide format and then into a narrow one agrees with
+The paper studies the abstract format `𝒜(p, exp, b)` — `p` binary digits of
+precision, minimum quantum `2^exp`, magnitude bound `b` — and characterizes
+when rounding a real into a wide format then into a narrow one agrees with
 rounding directly into the narrow format. This development mechanizes the
-appendix: format containment, the supporting digit/parity lemmas, every
-double-rounding rule of Fig. 9 (with counterexamples for the invalid mode
-pairings), and the format-inference operators.
+appendix.
 
-## What is formalized
+## Theorems
 
-- **§5.1 Format containment** (`Containment.lean`): `containsPrec`
-  (`𝒜-Contains-Prec`) and `containsSub` (`𝒜-Contains-Sub`).
-- **Lemmas 5.1–5.3** (`Format.lean`, `Containment.lean`, `Digits.lean`):
-  `numDigits` (digit position as a function of `(p, exp, x)`),
-  `numDigits_extend` (Lemma 5.2), and `IsOdd.transfer_of_subset` (Lemma 5.3,
-  round-to-odd digit-padding preserves representability).
-- **§5.2 Correct double rounding** (`DoubleRounding.lean`): all six positive
-  rules of Fig. 9 — `rndRTZ_RTZ`, `rndRAZ_RAZ`, `rndRTO_RTO`, `rndRTO_RTZ`,
-  `rndRTO_RAZ`, and `rndRTO_RN` (covering both tie-breaks) — plus the
-  directed-mode chains `rndRTP_RTP` / `rndRTN_RTN`.
-- **§5.2 Counterexamples** (`DoubleRoundingCex.lean`): the ten incorrectly
-  double-rounding mode pairings, each refuted by an explicit witness format and
-  real input where the chained rounding disagrees with the direct one.
-- **§6.1 Format inference** (`FormatInference.lean`): the `⊗` (multiply) and
-  `⊕` (add) operators with `mul_subset` / `add_subset` — every product / sum
-  of representables lies in the inferred format — plus `neg`/`abs`.
+Each entry gives the paper result, the Lean name (relative to `namespace
+Mpfx`), and its file. To inspect a statement, qualify with `Mpfx.`, e.g.
+`#check @Mpfx.Format.containsPrec` or `#check @Mpfx.rndRTO_RN`.
 
-The entire development is `sorry`-free.
+### §5.1 — Format containment (Fig. 8)
 
-## Design
+| Paper | Lean | File |
+| --- | --- | --- |
+| `𝒜-Contains-Prec` | `Format.containsPrec` | `Mpfx/Containment.lean` |
+| `𝒜-Contains-Sub` | `Format.containsSub` | `Mpfx/Containment.lean` |
 
-- **Layered format subtypes.** `Format` carries only the natural type-level
-  constraints (`p ≥ 1` via `WithTop ℕ+`, `b ≥ 0` via `WithTop NonNegDyadic`).
-  `FiniteFormat extends Format` rules out the doubly-unbounded `(p = ⊤,
-  exp = ⊥)` case; `ParityFormat extends FiniteFormat` additionally rules out
-  `(p = 1, exp = ⊥)`, anchoring `IsOdd` / `IsEven`.
-- **`ℚ` substrate.** `Dyadic` is a subring of `ℚ` (not `ℝ`), giving decidable
-  equality and order for free. `ℝ` is confined to where it is intrinsic — the
-  real input `x` and the `Int.log` / `Int.floor` rounding machinery — with the
-  `Dyadic → ℚ → ℝ` boundary localized to named bridge lemmas.
-- **Constructive rounding.** Alongside the specification relation `Rounds`,
-  the function `rnd` (`RoundOp.lean`) computes the rounded result via
-  `Int.log` + `Int.floor`/`Int.ceil`, bridged to the relation by
-  `rnd_iff_rounds`. The constructive/classical split is at the file level:
-  `Rounding.lean` is constructive, `RoundOp.lean` is classical.
+### Supporting lemmas
 
-## File map
+| Paper | Lean | File |
+| --- | --- | --- |
+| Lemma 5.1 (digit position is a function of `(p, exp, x)`) | `FiniteFormat.numDigits` | `Mpfx/Format.lean` |
+| Lemma 5.2 (`w₂ = w₁ + k`) | `FiniteFormat.numDigits_extend` | `Mpfx/Containment.lean` |
+| Lemma 5.3 (RTO padding preserves representability) | `IsOdd.transfer_of_subset` | `Mpfx/Digits.lean` |
+
+### §5.2 — Correct double rounding (Fig. 9)
+
+All positive rules, in `Mpfx/DoubleRounding.lean`. Each has the form: given
+`RoundsFinite F₂ rm₂ x z` and `RoundsFinite F₁ rm₁ z w` (with the stated
+containment of `F₁` in `F₂`), then `RoundsFinite F₁ rm₁ x w`.
+
+| Paper | Lean |
+| --- | --- |
+| `rnd-RTZ-RTZ` | `rndRTZ_RTZ` |
+| `rnd-RAZ-RAZ` | `rndRAZ_RAZ` |
+| `rnd-RTO-RTO` | `rndRTO_RTO` |
+| `rnd-RTO-RTZ` | `rndRTO_RTZ` |
+| `rnd-RTO-RAZ` | `rndRTO_RAZ` |
+| `rnd-RTO-RNE` / `rnd-RTO-RNA` | `rndRTO_RN` (one theorem, both tie-breaks) |
+| RTP→RTP, RTN→RTN (IEEE directed) | `rndRTP_RTP`, `rndRTN_RTN` |
+
+### §5.2 — Counterexamples for the invalid pairings
+
+The ten mode pairings that are *not* correct double rounding, in
+`namespace Mpfx.Cex` (`Mpfx/DoubleRoundingCex.lean`). Each exhibits a witness
+format `F₁` and a real `x` whose chained rounding disagrees with the direct
+rounding (`∃ x z w, RoundsFinite F₂ rm₂ x z ∧ RoundsFinite F₁ rm₁ z w ∧
+¬ RoundsFinite F₁ rm₁ x w`):
+
+`no_rndRNE_RNE`, `no_rndRNE_RAZ`, `no_rndRNE_RTZ`, `no_rndRNE_RTO`,
+`no_rndRTZ_RNE`, `no_rndRTZ_RAZ`, `no_rndRTZ_RTO`,
+`no_rndRAZ_RNE`, `no_rndRAZ_RTZ`, `no_rndRAZ_RTO`.
+
+### §6.1 — Format inference
+
+In `Mpfx/FormatInference.lean`. The inferred format contains every result of
+the unrounded operation:
+
+| Paper | Lean |
+| --- | --- |
+| `⊗`-containment (`A ⊗ B ⊆ 𝒜(p₁+p₂, …)`) | `Format.mul_subset` |
+| `⊕`-containment (`A ⊕ B ⊆ 𝒜(…)`) | `Format.add_subset` |
+| `-A ⊆ A`, `\|A\| ⊆ A` | `Format.neg_subset`, `Format.abs_subset` |
+
+## Verifying
+
+Requires the toolchain pinned in `lean-toolchain`.
+
+```sh
+lake exe cache get   # prebuilt Mathlib oleans
+lake build           # checks the whole development; exit 0 = all proofs check
+```
+
+`lake build` compiles every file (including the constructive `rnd` layer).
+To confirm a result rests on no unexpected axioms, e.g.:
+
+```lean
+import Mpfx
+#print axioms Mpfx.rndRTO_RN
+```
+
+## Layout
 
 | File | Contents |
 | --- | --- |
-| `Mpfx/Utils.lean` | Project-agnostic `ℝ`/integer arithmetic helpers. |
+| `Mpfx/Utils.lean` | Project-agnostic `ℝ`/integer helpers. |
 | `Mpfx/Dyadic.lean` | `Dyadic` (subring of `ℚ`), `precisionAtMost`/`quantumAtLeast`, `IsRepresentableAtP`. |
-| `Mpfx/Format.lean` | `Format`/`FiniteFormat`/`ParityFormat`, membership, `numDigits` (Lemma 5.1), `IsOdd`/`IsEven`. |
-| `Mpfx/Rounding.lean` | Rounding modes, `RoundResult`, the `Rounds`/`RoundsFinite` spec, `IsFaithfulRound`, sign-symmetry. |
-| `Mpfx/RoundOp.lean` | The constructive function `rnd` and the bridge `rnd_iff_rounds`. |
-| `Mpfx/Containment.lean` | §5.1 containment; `extend`/`withBound`/`next`/`boundAfterNext`. |
-| `Mpfx/Grid.lean` | F-grid representation, F-adjacency, midpoint membership (prerequisite for `rndRTO_RN`). |
+| `Mpfx/Format.lean` | `Format`/`FiniteFormat`/`ParityFormat`, membership, `numDigits`, `IsOdd`/`IsEven`. |
+| `Mpfx/Rounding.lean` | Rounding modes, the `Rounds`/`RoundsFinite` spec, `IsFaithfulRound`. |
+| `Mpfx/RoundOp.lean` | The constructive `rnd` and the bridge `rnd_iff_rounds`. |
+| `Mpfx/Containment.lean` | §5.1 containment; `extend`/`withBound`/`next`. |
+| `Mpfx/Grid.lean` | F-grid representation, F-adjacency, midpoint membership. |
 | `Mpfx/Digits.lean` | Lemmas 5.2 and 5.3. |
-| `Mpfx/DoubleRounding.lean` | §5.2 positive rules (Fig. 9). |
+| `Mpfx/DoubleRounding.lean` | §5.2 positive rules. |
 | `Mpfx/DoubleRoundingCex.lean` | §5.2 counterexamples. |
-| `Mpfx/FormatInference.lean` | §6.1 `⊗`/`⊕` inference. |
+| `Mpfx/FormatInference.lean` | §6.1 inference. |
 
-`docs/agents/TODO.md` tracks status and remaining work.
-
-## Building
-
-Requires the Lean toolchain pinned in `lean-toolchain` (Mathlib `v4.29.0`).
-
-```sh
-lake exe cache get   # fetch prebuilt Mathlib oleans
-lake build
-```
+Formalization design notes are in [`docs/DESIGN.md`](docs/DESIGN.md); status and
+remaining work in [`docs/agents/TODO.md`](docs/agents/TODO.md).
