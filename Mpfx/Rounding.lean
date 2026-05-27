@@ -1,708 +1,857 @@
-import Mpfx.Containment
-import Mpfx.Digits
+import Mpfx.Format
 
 /-!
-# Rounding modes and the rounding function
+# Rounding spec (relational layer)
 
-§3.2 of the paper defines five IEEE 754 rounding modes plus two extras (RAZ, RTO).
-For our analysis (§5.2) we focus on `RTZ`, `RAZ`, `RTO`, and `RNE`, since RTP/RTN
-collapse to RAZ/RTZ depending on sign and RNA differs from RNE only in tiebreaking.
+The constructive-logic layer of the rounding architecture. Defines:
+
+* `RoundingMode`, `TieBreak`, `RoundResult` — the modes and the
+  result ADT (`.finite`, `.overflow`, `.undefined`).
+* `Format.IsUndefined`, `Format.IsOverflow` — when each `RoundResult`
+  case fires.
+* `IsFaithfulRound` — RoundDown or RoundUp.
+* `Rounds : Format → RoundingMode → ℝ → RoundResult → Prop` — the
+  specification relation, all seven modes.
+
+The companion file **`Mpfx/RoundOp.lean`** adds the noncomputable
+function `rnd` and the bridge `rnd_iff_rounds`.
 -/
 
 namespace Mpfx
 
-/-- Tie-break for nearest rounding modes.
-
-* `ToEven` — ties to the value with even significand parity.
-* `AwayZero` — ties to the value with larger magnitude.
--/
-inductive TieBreak
-  | ToEven : TieBreak
-  | AwayZero : TieBreak
+/-- Tie-breaking for the nearest-rounding modes. -/
+inductive TieBreak where
+  /-- Ties to the value with even significand (IEEE `roundTiesToEven`). -/
+  | toEven : TieBreak
+  /-- Ties to the value with larger magnitude (IEEE `roundTiesToAway`). -/
+  | awayZero : TieBreak
 deriving DecidableEq, Repr
 
-/-- Rounding modes. Five IEEE 754 modes plus the paper's auxiliary RTO mode.
+/-- IEEE-754 + paper-extended rounding modes.
 
-* `Nearest .ToEven` — round to nearest, ties to even (RNE).
-* `Nearest .AwayZero` — round to nearest, ties away from zero (RNA).
-* `ToZero` — round towards zero / truncate (RTZ).
-* `AwayZero` — round away from zero (RAZ).
-* `ToPositive` — round towards plus infinity (RTP / round-up).
-* `ToNegative` — round towards minus infinity (RTN / round-down).
-* `ToOdd` — round to the value with odd significand (RTO; not IEEE).
--/
-inductive RoundingMode
-  | Nearest (tieBreak : TieBreak)
-  | ToZero : RoundingMode
-  | AwayZero : RoundingMode
-  | ToNegative : RoundingMode
-  | ToPositive : RoundingMode
-  | ToOdd : RoundingMode
+* `ToNegative` (RTN) — round toward `-∞`.
+* `ToPositive` (RTP) — round toward `+∞`.
+* `ToZero` (RTZ) — round toward `0`.
+* `AwayZero` (RAZ) — round away from `0`.
+* `ToOdd` (RTO; not IEEE) — round to the F-adjacent with odd significand.
+* `Nearest tb` — round to nearest; ties broken by `tb`. -/
+inductive RoundingMode where
+  | toNegative : RoundingMode
+  | toPositive : RoundingMode
+  | toZero : RoundingMode
+  | awayZero : RoundingMode
+  | toOdd : RoundingMode
+  | nearest : TieBreak → RoundingMode
 deriving DecidableEq, Repr
 
-/-- A rounding mode is *sign-symmetric* if rounding under it commutes with
-negation (`Rounds F rm x y ↔ Rounds F rm (-x) (-y)`). The directed modes
-`ToPositive`/`ToNegative` are not sign-symmetric (they're each other's
-negation-duals); all other modes are. -/
-def RoundingMode.IsSymmetric : RoundingMode → Prop
-  | .Nearest _ => True
-  | .ToZero => True
-  | .AwayZero => True
-  | .ToOdd => True
-  | .ToPositive => False
-  | .ToNegative => False
+/-- The result of rounding a real `x` in a `Format` with some `RoundingMode`.
 
-instance (rm : RoundingMode) : Decidable rm.IsSymmetric :=
-  match rm with
-  | .Nearest _ => instDecidableTrue
-  | .ToZero => instDecidableTrue
-  | .AwayZero => instDecidableTrue
-  | .ToOdd => instDecidableTrue
-  | .ToPositive => instDecidableFalse
-  | .ToNegative => instDecidableFalse
+* `.finite d` — `d : Dyadic` is the rounded value.
+* `.overflow positive` — `|x|` exceeds the format's magnitude bound. The
+  `positive : Bool` records the sign of the would-be result: `true` for
+  positive overflow, `false` for negative. (The would-be result is never
+  zero, since `0 ∈ F` always.)
+* `.undefined` — the `(Format, RoundingMode)` combination is degenerate
+  and rounding has no semantic meaning. Currently fires only on
+  `(p = 1, exp = ⊥, rm ∈ {.toOdd, .nearest .toEven})`. -/
+inductive RoundResult where
+  | finite (d : Dyadic) : RoundResult
+  | overflow (positive : Bool) : RoundResult
+  | undefined : RoundResult
 
-namespace AbstractFormat
+namespace RoundResult
 
-/-- `y` is one of the two F-adjacent values bracketing `x`: either the
-round-down (largest F-element ≤ x) or the round-up (smallest F-element ≥ x).
-Shared substructure of `Rounds F .ToOdd`, `Rounds F (.Nearest .ToEven)`,
-and `Rounds F (.Nearest .AwayZero)`. -/
-def IsFaithfulRound (F : AbstractFormat) (x : ℝ) (y : Dyadic) : Prop :=
-  (y ∈ F ∧ (y : ℝ) ≤ x ∧ ∀ z : Dyadic, z ∈ F → (z : ℝ) ≤ x → (z : ℝ) ≤ (y : ℝ))
-  ∨ (y ∈ F ∧ x ≤ (y : ℝ) ∧ ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ))
+/-- Pointwise negation on `RoundResult`. `.finite y` maps to `.finite (-y)`;
+`.overflow positive` flips the sign bit; `.undefined` is a fixed point. -/
+def neg : RoundResult → RoundResult
+  | .finite y    => .finite (-y)
+  | .overflow b  => .overflow !b
+  | .undefined   => .undefined
 
-/-- Unified rounding relation: `Rounds F rm x y` holds iff `y` is the
-`rm`-rounding of `x` in `F`. Each branch is the spec of the corresponding
-IEEE 754 (or paper-extended) rounding mode:
+@[simp] theorem neg_finite (y : Dyadic) : (RoundResult.finite y).neg = .finite (-y) := rfl
+@[simp] theorem neg_overflow (b : Bool) :
+    (RoundResult.overflow b).neg = .overflow !b := rfl
+@[simp] theorem neg_undefined : RoundResult.undefined.neg = .undefined := rfl
 
-* `.ToNegative` (RTN) — `y` is the largest F-element with `y ≤ x`.
-* `.ToPositive` (RTP) — `y` is the smallest F-element with `x ≤ y`.
-* `.ToZero` (RTZ) — `y ∈ F` lies between `0` and `x` and has maximum `|y|`.
-* `.AwayZero` (RAZ) — `y ∈ F` on the `x`-side of `0` with minimum `|y| ≥ |x|`.
-* `.ToOdd` (RTO; not IEEE) — `y ∈ F` is RTN or RTP of `x`, and is odd
-  whenever `x ≠ y`.
-* `.Nearest .ToEven` (RNE) — `y ∈ F` is the closer of the two F-adjacents to
-  `x`; ties broken to the even-significand value.
-* `.Nearest .AwayZero` (RNA) — same closeness, ties broken to the larger
-  `|·|`. -/
-def Rounds (F : AbstractFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) : Prop :=
+@[simp] theorem neg_neg (r : RoundResult) : r.neg.neg = r := by
+  cases r <;> simp [neg]
+
+end RoundResult
+
+/-- The format/mode pair is degenerate (no meaningful rounding):
+`(1, ⊥, rm)` for `rm ∈ {.toOdd, .nearest .toEven}` — precision `1` with
+no quantum has no anchor for parity, so the modes that consult
+`IsOdd`/`IsEven` are meaningless.
+
+The `(⊤, ⊥)` case (fully unconstrained) is structurally excluded by
+`FiniteFormat`'s `finite` invariant. -/
+def FiniteFormat.IsUndefined (F : FiniteFormat) (rm : RoundingMode) : Prop :=
+  F.p = (1 : ℕ+) ∧ F.exp = ⊥ ∧
+    (rm = .toOdd ∨ rm = .nearest .toEven)
+
+/-- `IsUndefined` depends only on `(F.p, F.exp)`, both preserved by
+`F.unbounded`. -/
+@[simp] theorem FiniteFormat.unbounded_isUndefined (F : FiniteFormat)
+    (rm : RoundingMode) :
+    F.unbounded.IsUndefined rm = F.IsUndefined rm := rfl
+
+/-! ### The specification relation `Rounds`
+
+`Rounds F rm x r : Prop` asserts that `r : RoundResult` is *the* answer
+that mode `rm` gives for input `x : ℝ` in format `F`:
+
+* `Rounds F rm x .undefined`  ↔  `F.IsUndefined rm`.
+* `Rounds F rm x .overflow`   ↔  not undefined *and* the unbounded
+                                 rounding produces a value that
+                                 violates `F.b`. (IEEE-style overflow.)
+* `Rounds F rm x (.finite y)` ↔  not undefined *and* `y` is the
+                                 unbounded rounding *and* `y` fits the
+                                 bound `F.b`.
+
+The mode-specific rounding spec `RoundsFinite` is evaluated against
+`F.unbounded` (i.e., `F` with `b := ⊤`) — the bound check is a
+*separate* conjunct, applied to the value chosen by the unbounded
+spec. This ensures IEEE-style overflow: saturation isn't a "valid
+answer" — the only candidate is the unbounded rounding, and overflow
+fires if and only if that candidate is out of range. -/
+
+/-- A *faithful* rounding of `x`: `y ∈ F` is either the largest F-element
+≤ `x` (RTN) or the smallest F-element ≥ `x` (RTP). All of RTO, RNE, RNA
+require their result to be faithful. -/
+def IsFaithfulRound (F : FiniteFormat) (x : ℝ) (y : Dyadic) : Prop :=
+  (y ∈ F ∧ (y : ℝ) ≤ x ∧ ∀ z : Dyadic, z ∈ F → (z : ℝ) ≤ x → (z : ℝ) ≤ (y : ℝ)) ∨
+  (y ∈ F ∧ x ≤ (y : ℝ) ∧ ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ))
+
+-- `ParityFormat.IsOdd` and `ParityFormat.IsEven` live in
+-- `Mpfx/Format.lean`, built on `Format.numDigits` (Lemma 5.1) +
+-- `Dyadic.IsRepresentableAtP`.
+
+/-- The finite-result rounding spec: when `r = .finite y`, this is the
+mode-specific condition `y` must satisfy. Lifted out of `Rounds` so the
+`.overflow` clause can quantify over its negation. -/
+def RoundsFinite (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) :
+    Prop :=
   y ∈ F ∧
   match rm with
-  | .ToNegative =>
-      (y : ℝ) ≤ x ∧ ∀ z : Dyadic, z ∈ F → (z : ℝ) ≤ x → (z : ℝ) ≤ (y : ℝ)
-  | .ToPositive =>
-      x ≤ (y : ℝ) ∧ ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ)
-  | .ToZero =>
+  | .toNegative =>
+      (y : ℝ) ≤ x ∧
+      ∀ z : Dyadic, z ∈ F → (z : ℝ) ≤ x → (z : ℝ) ≤ (y : ℝ)
+  | .toPositive =>
+      x ≤ (y : ℝ) ∧
+      ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ)
+  | .toZero =>
       |(y : ℝ)| ≤ |x| ∧ (y : ℝ) * x ≥ 0 ∧
       ∀ z : Dyadic, z ∈ F → |(z : ℝ)| ≤ |x| → (z : ℝ) * x ≥ 0 →
         |(z : ℝ)| ≤ |(y : ℝ)|
-  | .AwayZero =>
+  | .awayZero =>
       |x| ≤ |(y : ℝ)| ∧ (y : ℝ) * x ≥ 0 ∧
       ∀ z : Dyadic, z ∈ F → |x| ≤ |(z : ℝ)| → (z : ℝ) * x ≥ 0 →
         |(y : ℝ)| ≤ |(z : ℝ)|
-  | .ToOdd =>
-      IsFaithfulRound F x y ∧ (x ≠ (y : ℝ) → IsOdd F y)
-  | .Nearest .ToEven =>
+  | .toOdd =>
+      IsFaithfulRound F x y ∧
+      (x ≠ (y : ℝ) →
+        ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsOdd y)
+  | .nearest .toEven =>
       IsFaithfulRound F x y ∧
       (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
         |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
       ((∃ z : Dyadic, z ∈ F ∧ IsFaithfulRound F x z ∧
           z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
-        IsEven F y)
-  | .Nearest .AwayZero =>
+        ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsEven y)
+  | .nearest .awayZero =>
       IsFaithfulRound F x y ∧
       (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
         |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
       (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
           z ≠ y → |x - (y : ℝ)| = |x - (z : ℝ)| → |(z : ℝ)| ≤ |(y : ℝ)|)
 
-/-- For `0 ≤ x`, RTP (smallest F-element ≥ x) coincides with RAZ
-(smallest F-element with `|y| ≥ |x|` on x's side). -/
-theorem Rounds.toPositive_iff_awayZero_of_nn {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (hx : 0 ≤ x) : Rounds F .ToPositive x y ↔ Rounds F .AwayZero x y := by
+/-- Per-mode, per-result rounding-specification predicate. Dispatches on
+the `RoundResult` constructor; the mode-spec is always against
+`F.unbounded` and the bound `F.b` is checked separately. -/
+def Rounds (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (r : RoundResult) :
+    Prop :=
+  match r with
+  | .undefined   => F.IsUndefined rm
+  | .overflow b  =>
+      ¬ F.IsUndefined rm ∧
+      ∃ y, RoundsFinite F.unbounded rm x y ∧ ¬ Format.boundOK F.b y ∧
+           (b ↔ (0 : ℚ) < (y : ℚ))
+  | .finite y    =>
+      ¬ F.IsUndefined rm ∧
+      RoundsFinite F.unbounded rm x y ∧ Format.boundOK F.b y
+
+/-! ## Sign-symmetry algebraic helpers -/
+
+private lemma neg_sub_neg_abs (a b : ℝ) : |(-a) - (-b)| = |a - b| := by
+  rw [show -a - -b = -(a - b) by ring, abs_neg]
+
+private lemma abs_neg_sub_dyadic (x : ℝ) (z : Dyadic) :
+    |(-x) - (z : ℝ)| = |x - ((-z : Dyadic) : ℝ)| := by
+  rw [Dyadic.coe_real_neg, show -x - (z : ℝ) = -(x - -(z : ℝ)) by ring, abs_neg]
+
+/-- Sign-flip iff for the `(b ↔ 0 < y)` predicate under `y ↦ -y`, given
+`y ≠ 0`. Used inside the overflow case of each `Rounds.neg_*` theorem. -/
+private lemma sign_iff_neg (b : Bool) {y : ℚ} (hy : y ≠ 0) :
+    (b ↔ 0 < y) ↔ (!b ↔ 0 < -y) := by
+  rcases lt_or_gt_of_ne hy with hneg | hpos
+  · have h1 : ¬ (0 < y) := not_lt.mpr (le_of_lt hneg)
+    have h2 : 0 < -y := by linarith
+    cases b <;> simp [h1, h2]
+  · have h1 : ¬ (0 < -y) := not_lt.mpr (by linarith)
+    cases b <;> simp [hpos, h1]
+
+/-- Helper used inside the `.overflow` case of every sign-symmetry theorem:
+extract `y ≠ 0` from the bound-violation hypothesis. -/
+private lemma overflow_witness_ne_zero {F : FiniteFormat} {y : Dyadic}
+    (h : ¬ Format.boundOK F.b y) : (y : ℚ) ≠ 0 := by
+  intro h0
+  apply h
+  have hy0 : y = 0 := Subtype.ext h0
+  rw [hy0]; exact Format.boundOK_zero _
+
+/-! ## Sign-symmetry helper: `IsFaithfulRound` -/
+
+/-- `IsFaithfulRound` is invariant under joint negation of `x` and `y`. The
+two disjuncts swap roles: a max-below witness for `x` becomes a min-above
+witness for `-x`. -/
+theorem IsFaithfulRound.neg_iff (F : FiniteFormat) (x : ℝ) (y : Dyadic) :
+    IsFaithfulRound F x y ↔ IsFaithfulRound F (-x) (-y) := by
+  unfold IsFaithfulRound
+  simp only [Dyadic.coe_real_neg, FiniteFormat.mem_neg_iff]
   constructor
-  · rintro ⟨hyF, hxy, hmin⟩
-    have hy_nn : 0 ≤ (y : ℝ) := le_trans hx hxy
-    refine ⟨hyF, ?_, ?_, ?_⟩
-    · rw [abs_of_nonneg hx, abs_of_nonneg hy_nn]; exact hxy
-    · nlinarith
-    · intro z hzF hxz hzx
-      -- |x| ≤ |z| means x ≤ |z|. We want |y| ≤ |z|, i.e. y ≤ |z|.
-      -- z * x ≥ 0 with x ≥ 0: either x = 0 (any z works for the sign) or z ≥ 0.
-      by_cases hz_nn : 0 ≤ (z : ℝ)
-      · -- z ≥ 0, so |z| = z and |x| = x
-        have habs_z : |(z : ℝ)| = (z : ℝ) := abs_of_nonneg hz_nn
-        have habs_x : |x| = x := abs_of_nonneg hx
-        have habs_y : |(y : ℝ)| = (y : ℝ) := abs_of_nonneg hy_nn
-        rw [habs_z, habs_x] at hxz
-        have h_yz : (y : ℝ) ≤ (z : ℝ) := hmin z hzF hxz
-        rw [habs_y, habs_z]; exact h_yz
-      · -- z < 0. Then z * x ≥ 0 with x ≥ 0 forces x = 0, then y = 0 (smallest F-elt ≥ 0).
-        push Not at hz_nn
-        have hx_zero : x = 0 := by nlinarith
-        have h0 : (y : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
-          apply hmin 0 F.zero_mem; rw [hx_zero]; rfl
-        have hy0 : (y : ℝ) = 0 :=
-          le_antisymm (by simpa using h0) (by rw [← hx_zero]; exact hxy)
-        rw [hy0, abs_zero]
-        exact abs_nonneg ((z : Dyadic) : ℝ)
-  · rintro ⟨hyF, hxy, hsign, hmin⟩
-    have hy_nn : 0 ≤ (y : ℝ) := by
-      -- y * x ≥ 0 and x ≥ 0; either x = 0 (then |y| ≥ 0 only forces y ≠ 0... no) or y ≥ 0
-      by_cases hx0 : x = 0
-      · -- Need: y ≥ 0. From |x| ≤ |y| we get 0 ≤ |y|; we also need sign.
-        -- Actually: with x = 0, y * 0 = 0 ≥ 0 trivially; we don't know y's sign.
-        -- But the universal property: for z = 0, |x| = 0 ≤ |0| = 0 ✓, 0 * 0 = 0 ≥ 0 ✓,
-        -- so |y| ≤ |0| = 0, forcing y = 0.
-        have h0 : |(y : ℝ)| ≤ |((0 : Dyadic) : ℝ)| :=
-          hmin 0 F.zero_mem (by rw [hx0]; simp) (by simp)
-        have : |(y : ℝ)| = 0 := le_antisymm (by simpa using h0) (abs_nonneg _)
-        have hy0 : (y : ℝ) = 0 := abs_eq_zero.mp this
-        rw [hy0]
-      · have hx_pos : 0 < x := lt_of_le_of_ne hx (Ne.symm hx0)
-        nlinarith
-    refine ⟨hyF, ?_, ?_⟩
-    · rw [abs_of_nonneg hx, abs_of_nonneg hy_nn] at hxy; exact hxy
-    · intro z hzF hxz
-      have hz_nn : 0 ≤ (z : ℝ) := le_trans hx hxz
-      have h1 : |x| ≤ |(z : ℝ)| := by
-        rw [abs_of_nonneg hx, abs_of_nonneg hz_nn]; exact hxz
-      have h2 : (z : ℝ) * x ≥ 0 := mul_nonneg hz_nn hx
-      have key := hmin z hzF h1 h2
-      rw [abs_of_nonneg hy_nn, abs_of_nonneg hz_nn] at key
-      exact key
+  · rintro (⟨hm, h_le, h_max⟩ | ⟨hm, h_le, h_min⟩)
+    · right
+      refine ⟨hm, by linarith, ?_⟩
+      intro z hz hxz
+      have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+      have hnzx : ((-z : Dyadic) : ℝ) ≤ x := by rw [Dyadic.coe_real_neg]; linarith
+      have h := h_max (-z) hnz hnzx
+      rw [Dyadic.coe_real_neg] at h; linarith
+    · left
+      refine ⟨hm, by linarith, ?_⟩
+      intro z hz hzx
+      have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+      have hnzx : x ≤ ((-z : Dyadic) : ℝ) := by rw [Dyadic.coe_real_neg]; linarith
+      have h := h_min (-z) hnz hnzx
+      rw [Dyadic.coe_real_neg] at h; linarith
+  · rintro (⟨hm, h_le, h_max⟩ | ⟨hm, h_le, h_min⟩)
+    · right
+      refine ⟨hm, by linarith, ?_⟩
+      intro z hz hxz
+      have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+      have hnzx : ((-z : Dyadic) : ℝ) ≤ -x := by rw [Dyadic.coe_real_neg]; linarith
+      have h := h_max (-z) hnz hnzx
+      rw [Dyadic.coe_real_neg] at h; linarith
+    · left
+      refine ⟨hm, by linarith, ?_⟩
+      intro z hz hzx
+      have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+      have hnzx : -x ≤ ((-z : Dyadic) : ℝ) := by rw [Dyadic.coe_real_neg]; linarith
+      have h := h_min (-z) hnz hnzx
+      rw [Dyadic.coe_real_neg] at h; linarith
 
-/-- For `x ≤ 0`, RTP (smallest F-element ≥ x) coincides with RTZ
-(largest F-element on x's side with magnitude ≤ |x|). -/
-theorem Rounds.toPositive_iff_toZero_of_nonpos {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (hx : x ≤ 0) : Rounds F .ToPositive x y ↔ Rounds F .ToZero x y := by
+/-- `IsFaithfulRound` is exactly "round-down or round-up", phrased via the
+directed `RoundsFinite` specs. This lets the round-to-nearest machinery work
+with `RoundsFinite .toNegative/.toPositive` while the `.nearest` spec hands
+out an `IsFaithfulRound`. -/
+theorem isFaithfulRound_iff_directed {F : FiniteFormat} {x : ℝ} {y : Dyadic} :
+    IsFaithfulRound F x y ↔
+      RoundsFinite F .toNegative x y ∨ RoundsFinite F .toPositive x y := by
+  unfold IsFaithfulRound RoundsFinite
   constructor
-  · rintro ⟨hyF, hxy, hmin⟩
-    -- For x ≤ 0, smallest F-elt ≥ x. Claim: y ≤ 0 since 0 ∈ F is ≥ x, so y ≤ 0.
-    have hy_nonpos : (y : ℝ) ≤ 0 := by
-      have := hmin 0 F.zero_mem hx
-      simpa using this
-    refine ⟨hyF, ?_, ?_, ?_⟩
-    · rw [abs_of_nonpos hy_nonpos, abs_of_nonpos hx]; linarith
-    · -- y * x ≥ 0 from y ≤ 0 and x ≤ 0
-      nlinarith
-    · intro z hzF hzx hzsign
-      -- |z| ≤ |x| and z * x ≥ 0. With x ≤ 0, want |z| ≤ |y|.
-      by_cases hz_nonpos : (z : ℝ) ≤ 0
-      · -- z ≤ 0. Then |z| = -z, |x| = -x, so -z ≤ -x, i.e., x ≤ z.
-        have habs_z : |(z : ℝ)| = -(z : ℝ) := abs_of_nonpos hz_nonpos
-        have habs_x : |x| = -x := abs_of_nonpos hx
-        have habs_y : |(y : ℝ)| = -(y : ℝ) := abs_of_nonpos hy_nonpos
-        rw [habs_z, habs_x] at hzx
-        have hxz : x ≤ (z : ℝ) := by linarith
-        have h_yz : (y : ℝ) ≤ (z : ℝ) := hmin z hzF hxz
-        rw [habs_z, habs_y]; linarith
-      · -- z > 0. With x ≤ 0, z * x ≥ 0 forces x = 0; then |z| ≤ 0 gives z = 0
-        -- — contradicting z > 0.
-        push Not at hz_nonpos
-        have hx_zero : x = 0 := by nlinarith
-        have habs_x_zero : |x| = 0 := by rw [hx_zero, abs_zero]
-        rw [habs_x_zero] at hzx
-        have hz_zero_abs : |(z : ℝ)| = 0 := le_antisymm hzx (abs_nonneg (z : ℝ))
-        have hz_zero : (z : ℝ) = 0 := abs_eq_zero.mp hz_zero_abs
-        linarith
-  · rintro ⟨hyF, hbnd, hsign, hmax⟩
-    -- y ≤ 0: from |y| ≤ |x|, sign y * x ≥ 0, x ≤ 0
-    have hy_nonpos : (y : ℝ) ≤ 0 := by
-      by_cases hx0 : x = 0
-      · -- Then |y| ≤ 0, so y = 0
-        have habs_x : |x| = 0 := by rw [hx0, abs_zero]
-        rw [habs_x] at hbnd
-        have : |(y : ℝ)| = 0 := le_antisymm hbnd (abs_nonneg _)
-        have : (y : ℝ) = 0 := abs_eq_zero.mp this
-        linarith
-      · have hx_neg : x < 0 := lt_of_le_of_ne hx hx0
-        nlinarith
-    refine ⟨hyF, ?_, ?_⟩
-    · -- x ≤ y: |y| ≤ |x| with both nonpos gives -y ≤ -x, i.e., x ≤ y
-      rw [abs_of_nonpos hy_nonpos, abs_of_nonpos hx] at hbnd
-      linarith
-    · intro z hzF hxz
-      -- z ≥ x. Want y ≤ z. We use the maximality property in RTZ flavor.
-      by_cases hz_nonpos : (z : ℝ) ≤ 0
-      · -- z ≤ 0; |z| ≤ |x|; z * x ≥ 0
-        have h1 : |(z : ℝ)| ≤ |x| := by
-          rw [abs_of_nonpos hz_nonpos, abs_of_nonpos hx]; linarith
-        have h2 : (z : ℝ) * x ≥ 0 := by nlinarith
-        have key := hmax z hzF h1 h2
-        rw [abs_of_nonpos hy_nonpos, abs_of_nonpos hz_nonpos] at key
-        linarith
-      · push Not at hz_nonpos
-        linarith
-
-/-- For `0 ≤ x`, RTN (largest F-element ≤ x) coincides with RTZ
-(largest F-element on x's side with magnitude ≤ |x|). -/
-theorem Rounds.toNegative_iff_toZero_of_nn {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (hx : 0 ≤ x) : Rounds F .ToNegative x y ↔ Rounds F .ToZero x y := by
-  constructor
-  · rintro ⟨hyF, hyx, hmax⟩
-    -- Largest F-elt ≤ x with x ≥ 0; 0 ∈ F is ≤ x so y ≥ 0.
-    have hy_nn : 0 ≤ (y : ℝ) := by
-      have := hmax 0 F.zero_mem hx
-      simpa using this
-    refine ⟨hyF, ?_, ?_, ?_⟩
-    · rw [abs_of_nonneg hx, abs_of_nonneg hy_nn]; exact hyx
-    · nlinarith
-    · intro z hzF hzx hzsign
-      by_cases hz_nn : 0 ≤ (z : ℝ)
-      · have habs_z : |(z : ℝ)| = (z : ℝ) := abs_of_nonneg hz_nn
-        have habs_x : |x| = x := abs_of_nonneg hx
-        have habs_y : |(y : ℝ)| = (y : ℝ) := abs_of_nonneg hy_nn
-        rw [habs_z, habs_x] at hzx
-        have h_zy : (z : ℝ) ≤ (y : ℝ) := hmax z hzF hzx
-        rw [habs_z, habs_y]; exact h_zy
-      · push Not at hz_nn
-        -- z < 0. z * x ≥ 0 with x ≥ 0 forces x = 0.
-        have hx_zero : x = 0 := by nlinarith
-        -- |z| ≤ |x| = 0 forces z = 0, contradicting z < 0.
-        have habs_x : |x| = 0 := by rw [hx_zero, abs_zero]
-        rw [habs_x] at hzx
-        have : (z : ℝ) = 0 := abs_eq_zero.mp (le_antisymm hzx (abs_nonneg _))
-        linarith
-  · rintro ⟨hyF, hbnd, hsign, hmax⟩
-    have hy_nn : 0 ≤ (y : ℝ) := by
-      by_cases hx0 : x = 0
-      · -- |y| ≤ 0 ⇒ y = 0
-        have habs_x : |x| = 0 := by rw [hx0, abs_zero]
-        rw [habs_x] at hbnd
-        have : |(y : ℝ)| = 0 := le_antisymm hbnd (abs_nonneg _)
-        have : (y : ℝ) = 0 := abs_eq_zero.mp this
-        linarith
-      · have hx_pos : 0 < x := lt_of_le_of_ne hx (Ne.symm hx0)
-        nlinarith
-    refine ⟨hyF, ?_, ?_⟩
-    · rw [abs_of_nonneg hy_nn, abs_of_nonneg hx] at hbnd; exact hbnd
-    · intro z hzF hzx
-      by_cases hz_nn : 0 ≤ (z : ℝ)
-      · have h1 : |(z : ℝ)| ≤ |x| := by
-          rw [abs_of_nonneg hz_nn, abs_of_nonneg hx]; exact hzx
-        have h2 : (z : ℝ) * x ≥ 0 := mul_nonneg hz_nn hx
-        have key := hmax z hzF h1 h2
-        rw [abs_of_nonneg hy_nn, abs_of_nonneg hz_nn] at key
-        exact key
-      · push Not at hz_nn
-        linarith
-
-/-- For `x ≤ 0`, RTN (largest F-element ≤ x) coincides with RAZ
-(smallest F-element with `|y| ≥ |x|` on x's side). -/
-theorem Rounds.toNegative_iff_awayZero_of_nonpos {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (hx : x ≤ 0) : Rounds F .ToNegative x y ↔ Rounds F .AwayZero x y := by
-  constructor
-  · rintro ⟨hyF, hyx, hmax⟩
-    -- y ≤ x ≤ 0
-    have hy_nonpos : (y : ℝ) ≤ 0 := le_trans hyx hx
-    refine ⟨hyF, ?_, ?_, ?_⟩
-    · rw [abs_of_nonpos hx, abs_of_nonpos hy_nonpos]; linarith
-    · nlinarith
-    · intro z hzF hxz hzsign
-      by_cases hz_nonpos : (z : ℝ) ≤ 0
-      · -- z ≤ 0. |x| ≤ |z| means -x ≤ -z, i.e., z ≤ x.
-        have habs_z : |(z : ℝ)| = -(z : ℝ) := abs_of_nonpos hz_nonpos
-        have habs_x : |x| = -x := abs_of_nonpos hx
-        have habs_y : |(y : ℝ)| = -(y : ℝ) := abs_of_nonpos hy_nonpos
-        rw [habs_z, habs_x] at hxz
-        have hzx : (z : ℝ) ≤ x := by linarith
-        have h_zy : (z : ℝ) ≤ (y : ℝ) := hmax z hzF hzx
-        rw [habs_z, habs_y]; linarith
-      · push Not at hz_nonpos
-        -- z > 0; z * x ≥ 0 with x ≤ 0 forces x = 0
-        have hx_zero : x = 0 := by nlinarith
-        -- y ≤ 0 and largest F-elt ≤ 0 is 0 (since 0 ∈ F).
-        have h0 : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) := by
-          apply hmax 0 F.zero_mem; rw [hx_zero]; rfl
-        have hy0 : (y : ℝ) = 0 :=
-          le_antisymm hy_nonpos (by simpa using h0)
-        -- |x| = 0, |y| = 0, |z| > 0; need |y| ≥ |z|, but |y| = 0 < |z|.
-        -- Wait, the hypothesis is |x| ≤ |z|, with |x| = 0; |z| > 0. So we just
-        -- need 0 ≤ z's claim, but RAZ says |y| ≤ |z|, not |z| ≤ |y|.
-        -- Re-reading: RAZ requires |y| ≤ |z|. y = 0 makes this |0| ≤ |z|, true.
-        rw [hy0, abs_zero]
-        exact abs_nonneg _
-  · rintro ⟨hyF, hbnd, hsign, hmin⟩
-    have hy_nonpos : (y : ℝ) ≤ 0 := by
-      by_cases hx0 : x = 0
-      · -- |x| = 0 ≤ |y|; not enough alone. Use the universal property at z = 0.
-        -- For z = 0: |x| ≤ |0| means 0 ≤ 0 ✓; 0 * x = 0 ≥ 0 ✓. So |y| ≤ 0, y = 0.
-        have h0 : |(y : ℝ)| ≤ |((0 : Dyadic) : ℝ)| :=
-          hmin 0 F.zero_mem (by rw [hx0]; simp) (by simp)
-        have : |(y : ℝ)| = 0 := le_antisymm (by simpa using h0) (abs_nonneg _)
-        have : (y : ℝ) = 0 := abs_eq_zero.mp this
-        linarith
-      · have hx_neg : x < 0 := lt_of_le_of_ne hx hx0
-        nlinarith
-    refine ⟨hyF, ?_, ?_⟩
-    · -- y ≤ x: |x| ≤ |y| with both nonpos gives -x ≤ -y, so y ≤ x
-      rw [abs_of_nonpos hx, abs_of_nonpos hy_nonpos] at hbnd
-      linarith
-    · intro z hzF hzx
-      -- z ≤ x ≤ 0; want z ≤ y.
-      have hz_nonpos : (z : ℝ) ≤ 0 := le_trans hzx hx
-      have h1 : |x| ≤ |(z : ℝ)| := by
-        rw [abs_of_nonpos hx, abs_of_nonpos hz_nonpos]; linarith
-      have h2 : (z : ℝ) * x ≥ 0 := by nlinarith
-      have key := hmin z hzF h1 h2
-      rw [abs_of_nonpos hy_nonpos, abs_of_nonpos hz_nonpos] at key
-      linarith
-
-/-- Composition lemma for RTN (round-down): if `F₁ ⊆ F₂`, then RTN through
-`F₂` to `F₁` agrees with RTN directly to `F₁`. -/
-theorem Rounds.compose_toNegative {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
-    {x : ℝ} {z w : Dyadic}
-    (hz : Rounds F₂ .ToNegative x z) (hw : Rounds F₁ .ToNegative (z : ℝ) w) :
-    Rounds F₁ .ToNegative x w := by
-  obtain ⟨hzF, hzx, hz_max⟩ := hz
-  obtain ⟨hwF, hwz, hw_max⟩ := hw
-  refine ⟨hwF, le_trans hwz hzx, ?_⟩
-  intro y hyF₁ hyx
-  have hyF₂ : y ∈ F₂ := hsub y hyF₁
-  have hyz : (y : ℝ) ≤ (z : ℝ) := hz_max y hyF₂ hyx
-  exact hw_max y hyF₁ hyz
-
-/-- Composition lemma for RTP (round-up): if `F₁ ⊆ F₂`, then RTP through
-`F₂` to `F₁` agrees with RTP directly to `F₁`. -/
-theorem Rounds.compose_toPositive {F₁ F₂ : AbstractFormat} (hsub : F₁ ⊆ F₂)
-    {x : ℝ} {z w : Dyadic}
-    (hz : Rounds F₂ .ToPositive x z) (hw : Rounds F₁ .ToPositive (z : ℝ) w) :
-    Rounds F₁ .ToPositive x w := by
-  obtain ⟨hzF, hxz, hz_min⟩ := hz
-  obtain ⟨hwF, hzw, hw_min⟩ := hw
-  refine ⟨hwF, le_trans hxz hzw, ?_⟩
-  intro y hyF₁ hxy
-  have hyF₂ : y ∈ F₂ := hsub y hyF₁
-  have hzy : (z : ℝ) ≤ (y : ℝ) := hz_min y hyF₂ hxy
-  exact hw_min y hyF₁ hzy
+  · rintro (⟨hm, h_le, h_max⟩ | ⟨hm, h_le, h_min⟩)
+    · exact Or.inl ⟨hm, h_le, h_max⟩
+    · exact Or.inr ⟨hm, h_le, h_min⟩
+  · rintro (⟨hm, h_le, h_max⟩ | ⟨hm, h_le, h_min⟩)
+    · exact Or.inl ⟨hm, h_le, h_max⟩
+    · exact Or.inr ⟨hm, h_le, h_min⟩
 
 /-- If `x ∈ F` and `y` is the RTO-rounding of `x` in `F`, then `y = x`. -/
-theorem Rounds.toOdd_unique_of_mem {F : AbstractFormat} {x : Dyadic} (hx : x ∈ F)
-    {y : Dyadic} (h : Rounds F .ToOdd (x : ℝ) y) : y = x := by
+theorem RoundsFinite.toOdd_unique_of_mem {F : FiniteFormat} {x : Dyadic}
+    (hx : x ∈ F) {y : Dyadic} (h : RoundsFinite F .toOdd (x : ℝ) y) : y = x := by
   obtain ⟨_, hadj, _⟩ := h
   rcases hadj with ⟨-, hyx, hmax⟩ | ⟨-, hxy, hmin⟩
   · -- round-down: (y:ℝ) ≤ (x:ℝ) and y is largest such
     have hxy : (x : ℝ) ≤ (y : ℝ) := hmax x hx (le_refl _)
-    have heq : (y : ℝ) = (x : ℝ) := le_antisymm hyx hxy
-    exact Subtype.ext heq
+    exact (Dyadic.coe_real_inj y x).mp (le_antisymm hyx hxy)
   · -- round-up: (x:ℝ) ≤ (y:ℝ) and y is smallest such
     have hyx : (y : ℝ) ≤ (x : ℝ) := hmin x hx (le_refl _)
-    have heq : (y : ℝ) = (x : ℝ) := le_antisymm hyx hxy
-    exact Subtype.ext heq
+    exact (Dyadic.coe_real_inj y x).mp (le_antisymm hyx hxy)
 
-/-- The RTO-rounding of `0` in any format is `0` itself. -/
-theorem Rounds.toOdd_eq_zero_of_zero {F : AbstractFormat} {z : Dyadic}
-    (h : Rounds F .ToOdd 0 z) : z = 0 := by
-  have h0 : Rounds F .ToOdd (((0 : Dyadic) : ℝ)) z := by
-    have : ((0 : Dyadic) : ℝ) = 0 := rfl
-    rw [this]; exact h
-  exact Rounds.toOdd_unique_of_mem F.zero_mem h0
+/-! ## Sign-symmetry of `Rounds`
 
-/-- If `0 ≤ x` and `z` is one of the two F-adjacents of `x`, then `z ≥ 0`. -/
-theorem IsFaithfulRound.nonneg_of_nn {F : AbstractFormat} {x : ℝ} {z : Dyadic}
-    (hx : 0 ≤ x) (h : IsFaithfulRound F x z) : 0 ≤ (z : ℝ) := by
-  rcases h with hRD | hRU
-  · obtain ⟨_, _, hz_max⟩ := hRD
-    have := hz_max 0 F.zero_mem hx
-    simpa using this
-  · linarith [hRU.2.1]
+For each rounding mode we relate `Rounds F rm x r` to `Rounds F rm' (-x) r.neg`,
+where `rm'` is either `rm` itself (modes symmetric around zero) or its
+"flipped" partner (`.toNegative` ↔ `.toPositive`).
 
-/-- If `x ≤ 0` and `z` is one of the two F-adjacents of `x`, then `z ≤ 0`. -/
-theorem IsFaithfulRound.nonpos_of_nonpos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
-    (hx : x ≤ 0) (h : IsFaithfulRound F x z) : (z : ℝ) ≤ 0 := by
-  rcases h with hRD | hRU
-  · linarith [hRD.2.1]
-  · obtain ⟨_, _, hz_min⟩ := hRU
-    have := hz_min 0 F.zero_mem hx
-    simpa using this
+Each mode gets its own theorem — there is intentionally no unified
+`Rounds.neg` polymorphic over the mode. -/
 
-/-- The RTO-rounding of a non-positive `x` is non-positive. -/
-theorem Rounds.toOdd_nonpos_of_nonpos {F : AbstractFormat} {x : ℝ} {z : Dyadic}
-    (hx : x ≤ 0) (h : Rounds F .ToOdd x z) : (z : ℝ) ≤ 0 :=
-  IsFaithfulRound.nonpos_of_nonpos hx h.2.1
+/-- Sign-symmetry of `RoundsFinite` at mode `.toZero`. -/
+theorem RoundsFinite.neg_toZero (F : FiniteFormat) (x : ℝ) (y : Dyadic) :
+    RoundsFinite F .toZero x y ↔ RoundsFinite F .toZero (-x) (-y) := by
+  unfold RoundsFinite
+  simp only [Dyadic.coe_real_neg, abs_neg, neg_mul_neg, FiniteFormat.mem_neg_iff]
+  refine and_congr_right' (and_congr_right' (and_congr_right' ?_))
+  refine ⟨fun h z hz hzabs hzsign => ?_, fun h z hz hzabs hzsign => ?_⟩
+  · have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+    have hnzabs : |((-z : Dyadic) : ℝ)| ≤ |x| := by
+      rw [Dyadic.coe_real_neg, abs_neg]; exact hzabs
+    have hnzsign : ((-z : Dyadic) : ℝ) * x ≥ 0 := by
+      rw [Dyadic.coe_real_neg]; linarith
+    have := h (-z) hnz hnzabs hnzsign
+    rwa [Dyadic.coe_real_neg, abs_neg] at this
+  · have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+    have hnzabs : |((-z : Dyadic) : ℝ)| ≤ |x| := by
+      rw [Dyadic.coe_real_neg, abs_neg]; exact hzabs
+    have hnzsign : ((-z : Dyadic) : ℝ) * (-x) ≥ 0 := by
+      rw [Dyadic.coe_real_neg]; linarith
+    have := h (-z) hnz hnzabs hnzsign
+    rwa [Dyadic.coe_real_neg, abs_neg] at this
 
-/-- The RTO-rounding of a non-negative `x` is non-negative. -/
-theorem Rounds.toOdd_nonneg_of_nn {F : AbstractFormat} {x : ℝ} {z : Dyadic}
-    (hx : 0 ≤ x) (h : Rounds F .ToOdd x z) : 0 ≤ (z : ℝ) :=
-  IsFaithfulRound.nonneg_of_nn hx h.2.1
+/-- Sign-symmetry: `.toNegative` ↔ `.toPositive` swaps under negation. -/
+theorem RoundsFinite.neg_toNegative_iff_toPositive (F : FiniteFormat) (x : ℝ)
+    (y : Dyadic) :
+    RoundsFinite F .toNegative x y ↔ RoundsFinite F .toPositive (-x) (-y) := by
+  unfold RoundsFinite
+  simp only [Dyadic.coe_real_neg, FiniteFormat.mem_neg_iff]
+  refine and_congr_right' ?_
+  constructor
+  · rintro ⟨h_le, h_max⟩
+    refine ⟨by linarith, ?_⟩
+    intro z hz hzx
+    have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+    have hnzx : ((-z : Dyadic) : ℝ) ≤ x := by
+      rw [Dyadic.coe_real_neg]; linarith
+    have h := h_max (-z) hnz hnzx
+    rw [Dyadic.coe_real_neg] at h
+    linarith
+  · rintro ⟨h_le, h_max⟩
+    refine ⟨by linarith, ?_⟩
+    intro z hz hzx
+    have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+    have hnzx : -x ≤ ((-z : Dyadic) : ℝ) := by
+      rw [Dyadic.coe_real_neg]; linarith
+    have h := h_max (-z) hnz hnzx
+    rw [Dyadic.coe_real_neg] at h
+    linarith
 
-/-- **Lemma 5.3 (spec-form corollary)**: when `x` is unrepresentable in `F`
-(`x ≠ x'`), the RTO-rounded `x'` cannot coincide with *any* dyadic `y` that is
-representable at strictly lower precision than the rounding precision at `x'`.
+/-- `.toNegative` is RTP-symmetric under negation. -/
+theorem Rounds.neg_toNegative_iff_toPositive (F : FiniteFormat) (x : ℝ)
+    (r : RoundResult) :
+    Rounds F .toNegative x r ↔ Rounds F .toPositive (-x) r.neg := by
+  have hu : F.IsUndefined .toNegative ↔ F.IsUndefined .toPositive := by
+    simp [FiniteFormat.IsUndefined]
+  cases r with
+  | undefined => simp [Rounds, RoundResult.neg, hu]
+  | overflow b =>
+      simp only [Rounds, RoundResult.neg_overflow]
+      refine and_congr (not_congr hu) ?_
+      constructor
+      · rintro ⟨y, h_rf, h_bnd, h_sign⟩
+        have hy0 := overflow_witness_ne_zero h_bnd
+        refine ⟨-y,
+          (RoundsFinite.neg_toNegative_iff_toPositive F.unbounded x y).mp h_rf,
+          by rwa [Format.boundOK_neg_iff], ?_⟩
+        rw [Subring.coe_neg]
+        exact (sign_iff_neg b hy0).mp h_sign
+      · rintro ⟨y, h_rf, h_bnd, h_sign⟩
+        have hy0 := overflow_witness_ne_zero h_bnd
+        have hiff := RoundsFinite.neg_toNegative_iff_toPositive F.unbounded x (-y)
+        simp only [neg_neg] at hiff
+        refine ⟨-y, hiff.mpr h_rf, by rwa [Format.boundOK_neg_iff], ?_⟩
+        rw [Subring.coe_neg]
+        have := (sign_iff_neg (!b) hy0).mp h_sign
+        simpa using this
+  | finite y =>
+      simp only [Rounds, RoundResult.neg]
+      refine and_congr (not_congr hu) (and_congr ?_ ?_)
+      · exact RoundsFinite.neg_toNegative_iff_toPositive F.unbounded x y
+      · rw [Format.boundOK_neg_iff]
 
-The hypothesis `hgt : (w : ℤ) < numDigits F.p F.exp x'` captures "the rounding
-precision (at `x'`) exceeds `w`". In typical applications, this follows from
-the rounding precision at `x` (Lemma 5.1) plus a magnitude-bin invariant. -/
-theorem Rounds.toOdd_ne_of_precisionAtMost {F : AbstractFormat} {w : ℕ}
-    {x : ℝ} {x' : Dyadic} (hround : Rounds F .ToOdd x x')
-    (hxne : x ≠ (x' : ℝ))
-    (hgt : (w : ℤ) < numDigits F.p F.exp (x' : ℝ))
-    {y : Dyadic} (hy : Dyadic.precisionAtMost (w : ℕ∞) y) :
-    (x' : ℝ) ≠ (y : ℝ) := by
-  intro hxy
-  have hxy_eq : x' = y := Subtype.ext hxy
-  obtain ⟨_, _, hodd_imp⟩ := hround
-  have h_odd : IsOdd F x' := hodd_imp hxne
-  -- Transport hgt and h_odd along x' = y
-  have hgt_y : (w : ℤ) < numDigits F.p F.exp (y : ℝ) := by rw [← hxy]; exact hgt
-  have h_odd_y : IsOdd F y := by rw [← hxy_eq]; exact h_odd
-  exact (precisionAtMost_not_IsOdd hgt_y hy) h_odd_y
+/-- Sign-symmetry of `RoundsFinite` at mode `.awayZero`. -/
+theorem RoundsFinite.neg_awayZero (F : FiniteFormat) (x : ℝ) (y : Dyadic) :
+    RoundsFinite F .awayZero x y ↔ RoundsFinite F .awayZero (-x) (-y) := by
+  unfold RoundsFinite
+  simp only [Dyadic.coe_real_neg, abs_neg, neg_mul_neg, FiniteFormat.mem_neg_iff]
+  refine and_congr_right' (and_congr_right' (and_congr_right' ?_))
+  refine ⟨fun h z hz hzabs hzsign => ?_, fun h z hz hzabs hzsign => ?_⟩
+  · have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+    have hnzabs : |x| ≤ |((-z : Dyadic) : ℝ)| := by
+      rw [Dyadic.coe_real_neg, abs_neg]; exact hzabs
+    have hnzsign : ((-z : Dyadic) : ℝ) * x ≥ 0 := by
+      rw [Dyadic.coe_real_neg]; linarith
+    have := h (-z) hnz hnzabs hnzsign
+    rwa [Dyadic.coe_real_neg, abs_neg] at this
+  · have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+    have hnzabs : |x| ≤ |((-z : Dyadic) : ℝ)| := by
+      rw [Dyadic.coe_real_neg, abs_neg]; exact hzabs
+    have hnzsign : ((-z : Dyadic) : ℝ) * (-x) ≥ 0 := by
+      rw [Dyadic.coe_real_neg]; linarith
+    have := h (-z) hnz hnzabs hnzsign
+    rwa [Dyadic.coe_real_neg, abs_neg] at this
 
-/-- **Lemma 5.3, applied form**: if `Rounds F₂ .ToOdd x z` (with `x ≠ z`), then `z`
-cannot be representable in any format `F₁` whose effective precision at `z`
-(per Lemma 5.1) is strictly less than `F₂`'s. This is the form used by every
-double-rounding theorem to rule out the case "F₂'s rounded value lands on an
-`F₁`-representable point". -/
-theorem Rounds.toOdd_notMem_of_lower_numDigits {F₁ F₂ : AbstractFormat}
-    {x : ℝ} {z : Dyadic} (hz : Rounds F₂ .ToOdd x z)
-    (hxne : x ≠ (z : ℝ))
-    (hlt : numDigits F₁.p F₁.exp (z : ℝ) < numDigits F₂.p F₂.exp (z : ℝ)) :
-    z ∉ F₁ := by
-  intro hzF₁
-  have h_prec : Dyadic.precisionAtMost
-      (((numDigits F₁.p F₁.exp ((z : Dyadic) : ℝ)).toNat : ℕ) : ℕ∞) z :=
-    mem_imp_precisionAtMost_numDigits hzF₁
-  have h_iod : IsOdd F₂ z := hz.2.2 hxne
-  have h_nd_F₂_pos : 0 < numDigits F₂.p F₂.exp ((z : Dyadic) : ℝ) :=
-    h_iod.numDigits_pos
-  have hcast : ((numDigits F₁.p F₁.exp ((z : Dyadic) : ℝ)).toNat : ℤ)
-      < numDigits F₂.p F₂.exp ((z : Dyadic) : ℝ) := by
-    rcases le_or_gt 0 (numDigits F₁.p F₁.exp ((z : Dyadic) : ℝ)) with h | h
-    · rw [Int.toNat_of_nonneg h]; exact hlt
-    · rw [Int.toNat_of_nonpos (le_of_lt h)]
-      push_cast; exact h_nd_F₂_pos
-  exact (Rounds.toOdd_ne_of_precisionAtMost hz hxne hcast h_prec) rfl
+/-- `.awayZero` is symmetric around zero. -/
+theorem Rounds.neg_awayZero (F : FiniteFormat) (x : ℝ) (r : RoundResult) :
+    Rounds F .awayZero x r ↔ Rounds F .awayZero (-x) r.neg := by
+  cases r with
+  | undefined => simp [Rounds, RoundResult.neg]
+  | overflow b =>
+      simp only [Rounds, RoundResult.neg_overflow]
+      refine and_congr_right' ?_
+      constructor
+      · rintro ⟨y, h_rf, h_bnd, h_sign⟩
+        have hy0 := overflow_witness_ne_zero h_bnd
+        refine ⟨-y, (RoundsFinite.neg_awayZero F.unbounded x y).mp h_rf,
+                by rwa [Format.boundOK_neg_iff], ?_⟩
+        rw [Subring.coe_neg]
+        exact (sign_iff_neg b hy0).mp h_sign
+      · rintro ⟨y, h_rf, h_bnd, h_sign⟩
+        have hy0 := overflow_witness_ne_zero h_bnd
+        have hflip := (RoundsFinite.neg_awayZero F.unbounded (-x) y).mp h_rf
+        refine ⟨-y, by simpa using hflip,
+                by rwa [Format.boundOK_neg_iff], ?_⟩
+        rw [Subring.coe_neg]
+        have := (sign_iff_neg (!b) hy0).mp h_sign
+        simpa using this
+  | finite y =>
+      simp only [Rounds, RoundResult.neg]
+      refine and_congr_right' (and_congr ?_ ?_)
+      · exact RoundsFinite.neg_awayZero F.unbounded x y
+      · rw [Format.boundOK_neg_iff]
 
-/-- Paper-aligned form of Lemma 5.3. From `F₁.extend 1 ⊆ F₂` and an RTO
-rounding `z` with `x ≠ z` (so `IsOdd F₂ z`), conclude `z ∉ F₁`.
+/-- Sign-symmetry of `RoundsFinite` at mode `.nearest .awayZero`. -/
+theorem RoundsFinite.neg_nearest_awayZero (F : FiniteFormat) (x : ℝ) (y : Dyadic) :
+    RoundsFinite F (.nearest .awayZero) x y ↔
+      RoundsFinite F (.nearest .awayZero) (-x) (-y) := by
+  unfold RoundsFinite
+  simp only [FiniteFormat.mem_neg_iff]
+  refine and_congr_right' ?_
+  rw [← IsFaithfulRound.neg_iff]
+  refine and_congr_right' (and_congr ?_ ?_)
+  · constructor
+    · intro h z hz hfr_z
+      have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+      have hfr_nz : IsFaithfulRound F x (-z) :=
+        (IsFaithfulRound.neg_iff F x (-z)).mpr (by simpa)
+      have hh := h (-z) hnz hfr_nz
+      change |(-x) - ((-y : Dyadic) : ℝ)| ≤ |(-x) - (z : ℝ)|
+      rw [Dyadic.coe_real_neg, neg_sub_neg_abs, abs_neg_sub_dyadic]
+      exact hh
+    · intro h z hz hfr_z
+      have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+      have hfr_nz : IsFaithfulRound F (-x) (-z) :=
+        (IsFaithfulRound.neg_iff F x z).mp hfr_z
+      have hh := h (-z) hnz hfr_nz
+      rw [Dyadic.coe_real_neg, Dyadic.coe_real_neg, neg_sub_neg_abs, neg_sub_neg_abs] at hh
+      exact hh
+  · constructor
+    · intro h z hz hfr_z hzne heq
+      have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+      have hfr_nz : IsFaithfulRound F x (-z) :=
+        (IsFaithfulRound.neg_iff F x (-z)).mpr (by simpa)
+      have hne : (-z) ≠ y := fun hye => hzne (neg_eq_iff_eq_neg.mp hye)
+      have heq' : |x - (y : ℝ)| = |x - ((-z : Dyadic) : ℝ)| := by
+        rw [Dyadic.coe_real_neg, neg_sub_neg_abs] at heq
+        rw [abs_neg_sub_dyadic] at heq
+        exact heq
+      have hh := h (-z) hnz hfr_nz hne heq'
+      change |(z : ℝ)| ≤ |((-y : Dyadic) : ℝ)|
+      rw [Dyadic.coe_real_neg] at hh
+      rw [abs_neg] at hh
+      rw [Dyadic.coe_real_neg, abs_neg]
+      exact hh
+    · intro h z hz hfr_z hzne heq
+      have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+      have hfr_nz : IsFaithfulRound F (-x) (-z) :=
+        (IsFaithfulRound.neg_iff F x z).mp hfr_z
+      have hne : (-z) ≠ -y := fun hye => hzne (neg_inj.mp hye)
+      have heq' : |(-x) - ((-y : Dyadic) : ℝ)| = |(-x) - ((-z : Dyadic) : ℝ)| := by
+        rw [Dyadic.coe_real_neg, Dyadic.coe_real_neg, neg_sub_neg_abs, neg_sub_neg_abs]
+        exact heq
+      have hh := h (-z) hnz hfr_nz hne heq'
+      rw [Dyadic.coe_real_neg, Dyadic.coe_real_neg, abs_neg, abs_neg] at hh
+      exact hh
 
-Proof: `z ∈ F₁ ⊆ F₁.extend 1`. By `numDigits_eq_of_subset_of_isOdd`,
-`numDigits (F₁.extend 1) z = numDigits F₂ z`. By `numDigits_extend`, the LHS
-equals `numDigits F₁ z + 1`. So `numDigits F₁ z + 1 = numDigits F₂ z`, i.e.,
-`numDigits F₁ z < numDigits F₂ z`. Then apply `notMem_of_lower_numDigits`. -/
-theorem Rounds.toOdd_notMem_of_extend_subset {F₁ F₂ : AbstractFormat}
-    (hsub : F₁.extend 1 ⊆ F₂)
-    (hp_F₂ : 2 ≤ F₂.p)
-    {x : ℝ} {z : Dyadic} (hz : Rounds F₂ .ToOdd x z)
-    (hxne : x ≠ (z : ℝ)) :
-    z ∉ F₁ := by
-  intro hzF₁
-  have h_iod : IsOdd F₂ z := hz.2.2 hxne
-  have hz_ne_zero : ((z : Dyadic) : ℝ) ≠ 0 := by
-    intro h
-    have hz_d : z = 0 := Subtype.ext (by rw [h]; rfl)
-    rw [hz_d] at h_iod
-    exact h_iod.ne_zero rfl
-  -- z ∈ F₁ ⇒ z ∈ F₁.extend 1 (precision/quantum constraints weaken).
-  have hzF₁_ext : z ∈ F₁.extend 1 := by
-    obtain ⟨hp, hq, hb⟩ := hzF₁
+/-- `.nearest .awayZero` is symmetric around zero. -/
+theorem Rounds.neg_nearest_awayZero (F : FiniteFormat) (x : ℝ) (r : RoundResult) :
+    Rounds F (.nearest .awayZero) x r ↔
+      Rounds F (.nearest .awayZero) (-x) r.neg := by
+  cases r with
+  | undefined => simp [Rounds, RoundResult.neg, FiniteFormat.IsUndefined]
+  | overflow b =>
+      simp only [Rounds, RoundResult.neg_overflow]
+      refine and_congr_right' ?_
+      constructor
+      · rintro ⟨y, h_rf, h_bnd, h_sign⟩
+        have hy0 := overflow_witness_ne_zero h_bnd
+        refine ⟨-y, (RoundsFinite.neg_nearest_awayZero F.unbounded x y).mp h_rf,
+                by rwa [Format.boundOK_neg_iff], ?_⟩
+        rw [Subring.coe_neg]
+        exact (sign_iff_neg b hy0).mp h_sign
+      · rintro ⟨y, h_rf, h_bnd, h_sign⟩
+        have hy0 := overflow_witness_ne_zero h_bnd
+        have hflip := (RoundsFinite.neg_nearest_awayZero F.unbounded (-x) y).mp h_rf
+        refine ⟨-y, by simpa using hflip,
+                by rwa [Format.boundOK_neg_iff], ?_⟩
+        rw [Subring.coe_neg]
+        have := (sign_iff_neg (!b) hy0).mp h_sign
+        simpa using this
+  | finite y =>
+      simp only [Rounds, RoundResult.neg]
+      refine and_congr_right' (and_congr ?_ ?_)
+      · exact RoundsFinite.neg_nearest_awayZero F.unbounded x y
+      · rw [Format.boundOK_neg_iff]
+
+/-- Sign-symmetry of `RoundsFinite` at mode `.toOdd`. -/
+theorem RoundsFinite.neg_toOdd (F : FiniteFormat) (x : ℝ) (y : Dyadic) :
+    RoundsFinite F .toOdd x y ↔ RoundsFinite F .toOdd (-x) (-y) := by
+  unfold RoundsFinite
+  simp only [FiniteFormat.mem_neg_iff, ParityFormat.IsOdd.neg_iff, Dyadic.coe_real_neg,
+    ne_eq, neg_inj]
+  rw [← IsFaithfulRound.neg_iff]
+
+/-- Sign-symmetry of `RoundsFinite` at mode `.nearest .toEven`. -/
+theorem RoundsFinite.neg_nearest_toEven (F : FiniteFormat) (x : ℝ) (y : Dyadic) :
+    RoundsFinite F (.nearest .toEven) x y ↔
+      RoundsFinite F (.nearest .toEven) (-x) (-y) := by
+  unfold RoundsFinite
+  simp only [FiniteFormat.mem_neg_iff, ParityFormat.IsEven.neg_iff]
+  refine and_congr_right' ?_
+  rw [← IsFaithfulRound.neg_iff]
+  refine and_congr_right' (and_congr ?_ ?_)
+  · constructor
+    · intro h z hz hfr_z
+      have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+      have hfr_nz : IsFaithfulRound F x (-z) :=
+        (IsFaithfulRound.neg_iff F x (-z)).mpr (by simpa)
+      have hh := h (-z) hnz hfr_nz
+      change |(-x) - ((-y : Dyadic) : ℝ)| ≤ |(-x) - (z : ℝ)|
+      rw [Dyadic.coe_real_neg, neg_sub_neg_abs, abs_neg_sub_dyadic]
+      exact hh
+    · intro h z hz hfr_z
+      have hnz : (-z) ∈ F := FiniteFormat.neg_mem hz
+      have hfr_nz : IsFaithfulRound F (-x) (-z) :=
+        (IsFaithfulRound.neg_iff F x z).mp hfr_z
+      have hh := h (-z) hnz hfr_nz
+      rw [Dyadic.coe_real_neg, Dyadic.coe_real_neg, neg_sub_neg_abs, neg_sub_neg_abs] at hh
+      exact hh
+  · constructor
+    · intro h_impl ⟨z, hz, hfr_z, hzne, heq⟩
+      apply h_impl
+      refine ⟨-z, FiniteFormat.neg_mem hz,
+        (IsFaithfulRound.neg_iff F x (-z)).mpr (by simpa), ?_, ?_⟩
+      · intro hye; apply hzne; exact neg_eq_iff_eq_neg.mp hye
+      · rw [Dyadic.coe_real_neg, neg_sub_neg_abs] at heq
+        rw [abs_neg_sub_dyadic] at heq
+        exact heq
+    · intro h_impl ⟨z, hz, hfr_z, hzne, heq⟩
+      apply h_impl
+      refine ⟨-z, FiniteFormat.neg_mem hz,
+        (IsFaithfulRound.neg_iff F x z).mp hfr_z, ?_, ?_⟩
+      · intro hye; apply hzne; exact neg_inj.mp hye
+      · change |(-x) - ((-y : Dyadic) : ℝ)| = |(-x) - ((-z : Dyadic) : ℝ)|
+        rw [Dyadic.coe_real_neg, Dyadic.coe_real_neg, neg_sub_neg_abs, neg_sub_neg_abs]
+        exact heq
+
+/-- `.nearest .toEven` is symmetric around zero. -/
+theorem Rounds.neg_nearest_toEven (F : FiniteFormat) (x : ℝ) (r : RoundResult) :
+    Rounds F (.nearest .toEven) x r ↔ Rounds F (.nearest .toEven) (-x) r.neg := by
+  cases r with
+  | undefined => simp [Rounds, RoundResult.neg]
+  | overflow b =>
+      simp only [Rounds, RoundResult.neg_overflow]
+      refine and_congr_right' ?_
+      constructor
+      · rintro ⟨y, h_rf, h_bnd, h_sign⟩
+        have hy0 := overflow_witness_ne_zero h_bnd
+        refine ⟨-y, (RoundsFinite.neg_nearest_toEven F.unbounded x y).mp h_rf,
+                by rwa [Format.boundOK_neg_iff], ?_⟩
+        rw [Subring.coe_neg]
+        exact (sign_iff_neg b hy0).mp h_sign
+      · rintro ⟨y, h_rf, h_bnd, h_sign⟩
+        have hy0 := overflow_witness_ne_zero h_bnd
+        have hflip := (RoundsFinite.neg_nearest_toEven F.unbounded (-x) y).mp h_rf
+        refine ⟨-y, by simpa using hflip,
+                by rwa [Format.boundOK_neg_iff], ?_⟩
+        rw [Subring.coe_neg]
+        have := (sign_iff_neg (!b) hy0).mp h_sign
+        simpa using this
+  | finite y =>
+      simp only [Rounds, RoundResult.neg]
+      refine and_congr_right' (and_congr ?_ ?_)
+      · exact RoundsFinite.neg_nearest_toEven F.unbounded x y
+      · rw [Format.boundOK_neg_iff]
+
+/-- `.toOdd` is symmetric around zero. -/
+theorem Rounds.neg_toOdd (F : FiniteFormat) (x : ℝ) (r : RoundResult) :
+    Rounds F .toOdd x r ↔ Rounds F .toOdd (-x) r.neg := by
+  cases r with
+  | undefined => simp [Rounds, RoundResult.neg]
+  | overflow b =>
+      simp only [Rounds, RoundResult.neg_overflow]
+      refine and_congr_right' ?_
+      constructor
+      · rintro ⟨y, h_rf, h_bnd, h_sign⟩
+        have hy0 := overflow_witness_ne_zero h_bnd
+        refine ⟨-y, (RoundsFinite.neg_toOdd F.unbounded x y).mp h_rf,
+                by rwa [Format.boundOK_neg_iff], ?_⟩
+        rw [Subring.coe_neg]
+        exact (sign_iff_neg b hy0).mp h_sign
+      · rintro ⟨y, h_rf, h_bnd, h_sign⟩
+        have hy0 := overflow_witness_ne_zero h_bnd
+        have hflip := (RoundsFinite.neg_toOdd F.unbounded (-x) y).mp h_rf
+        refine ⟨-y, by simpa using hflip,
+                by rwa [Format.boundOK_neg_iff], ?_⟩
+        rw [Subring.coe_neg]
+        have := (sign_iff_neg (!b) hy0).mp h_sign
+        simpa using this
+  | finite y =>
+      simp only [Rounds, RoundResult.neg]
+      refine and_congr_right' (and_congr ?_ ?_)
+      · exact RoundsFinite.neg_toOdd F.unbounded x y
+      · rw [Format.boundOK_neg_iff]
+
+/-- `.toZero` is symmetric around zero. -/
+theorem Rounds.neg_toZero (F : FiniteFormat) (x : ℝ) (r : RoundResult) :
+    Rounds F .toZero x r ↔ Rounds F .toZero (-x) r.neg := by
+  cases r with
+  | undefined => simp [Rounds, RoundResult.neg]
+  | overflow b =>
+      simp only [Rounds, RoundResult.neg_overflow]
+      refine and_congr_right' ?_
+      constructor
+      · rintro ⟨y, h_rf, h_bnd, h_sign⟩
+        have hy0 := overflow_witness_ne_zero h_bnd
+        refine ⟨-y, (RoundsFinite.neg_toZero F.unbounded x y).mp h_rf,
+                by rwa [Format.boundOK_neg_iff], ?_⟩
+        rw [Subring.coe_neg]
+        exact (sign_iff_neg b hy0).mp h_sign
+      · rintro ⟨y, h_rf, h_bnd, h_sign⟩
+        have hy0 := overflow_witness_ne_zero h_bnd
+        have hflip := (RoundsFinite.neg_toZero F.unbounded (-x) y).mp h_rf
+        refine ⟨-y, by simpa using hflip,
+                by rwa [Format.boundOK_neg_iff], ?_⟩
+        rw [Subring.coe_neg]
+        have := (sign_iff_neg (!b) hy0).mp h_sign
+        simpa using this
+  | finite y =>
+      simp only [Rounds, RoundResult.neg]
+      refine and_congr_right' (and_congr ?_ ?_)
+      · exact RoundsFinite.neg_toZero F.unbounded x y
+      · rw [Format.boundOK_neg_iff]
+
+/-! ## Directed-vs-zero-relative mode equivalences
+
+For nonnegative `x`, RTP coincides with RAZ and RTN with RTZ; for nonpositive
+`x`, the relationships swap. These let callers reduce RTP/RTN to RTZ/RAZ
+when the sign of `x` is known. -/
+
+private lemma dyadic_coe_zero : ((0 : Dyadic) : ℝ) = 0 := by push_cast; rfl
+
+theorem RoundsFinite.toPositive_iff_awayZero_of_nonneg
+    (F : FiniteFormat) {x : ℝ} (hx : 0 ≤ x) (y : Dyadic) :
+    RoundsFinite F .toPositive x y ↔ RoundsFinite F .awayZero x y := by
+  unfold RoundsFinite
+  refine and_congr_right' ?_
+  constructor
+  · rintro ⟨hxy, h_min⟩
+    have hy_nn : (0 : ℝ) ≤ (y : ℝ) := le_trans hx hxy
+    refine ⟨?_, mul_nonneg hy_nn hx, ?_⟩
+    · rw [abs_of_nonneg hx, abs_of_nonneg hy_nn]; exact hxy
+    · intro z hz hxz hzx
+      rw [abs_of_nonneg hx] at hxz
+      rcases eq_or_lt_of_le hx with rfl | hx_pos
+      · have h_zero_in : (0 : Dyadic) ∈ F := FiniteFormat.zero_mem F
+        have hy_le_zero := h_min 0 h_zero_in (by rw [dyadic_coe_zero])
+        rw [dyadic_coe_zero] at hy_le_zero
+        have hy_eq : (y : ℝ) = 0 := le_antisymm hy_le_zero hy_nn
+        rw [hy_eq, abs_zero]; exact abs_nonneg _
+      · have hz_nn : (0 : ℝ) ≤ (z : ℝ) := by
+          by_contra hz_neg
+          rw [not_le] at hz_neg
+          linarith [mul_neg_of_neg_of_pos hz_neg hx_pos]
+        rw [abs_of_nonneg hz_nn] at hxz
+        rw [abs_of_nonneg hy_nn, abs_of_nonneg hz_nn]
+        exact h_min z hz hxz
+  · rintro ⟨h_xa, h_zx, h_min⟩
+    rw [abs_of_nonneg hx] at h_xa
+    rcases eq_or_lt_of_le hx with rfl | hx_pos
+    · have h_zero_in : (0 : Dyadic) ∈ F := FiniteFormat.zero_mem F
+      have h := h_min 0 h_zero_in
+        (by rw [dyadic_coe_zero])
+        (by rw [dyadic_coe_zero]; simp)
+      rw [dyadic_coe_zero, abs_zero] at h
+      have hy_abs_zero : |(y : ℝ)| = 0 := le_antisymm h (abs_nonneg _)
+      have hy_eq : (y : ℝ) = 0 := abs_eq_zero.mp hy_abs_zero
+      refine ⟨by rw [hy_eq], ?_⟩
+      intro z hz hxz
+      rw [hy_eq]; exact hxz
+    · have hy_nn : (0 : ℝ) ≤ (y : ℝ) :=
+        (mul_nonneg_iff_of_pos_right hx_pos).mp h_zx
+      rw [abs_of_nonneg hy_nn] at h_xa
+      refine ⟨h_xa, ?_⟩
+      intro z hz hxz
+      have hz_nn : (0 : ℝ) ≤ (z : ℝ) := le_trans hx_pos.le hxz
+      have h := h_min z hz
+        (by rw [abs_of_nonneg hx, abs_of_nonneg hz_nn]; exact hxz)
+        (mul_nonneg hz_nn hx_pos.le)
+      rw [abs_of_nonneg hy_nn, abs_of_nonneg hz_nn] at h
+      exact h
+
+theorem RoundsFinite.toPositive_iff_toZero_of_nonpos
+    (F : FiniteFormat) {x : ℝ} (hx : x ≤ 0) (y : Dyadic) :
+    RoundsFinite F .toPositive x y ↔ RoundsFinite F .toZero x y := by
+  unfold RoundsFinite
+  refine and_congr_right' ?_
+  constructor
+  · rintro ⟨hxy, h_min⟩
+    have h_zero_in : (0 : Dyadic) ∈ F := FiniteFormat.zero_mem F
+    have hy_le_zero : (y : ℝ) ≤ 0 := by
+      have := h_min 0 h_zero_in (by rw [dyadic_coe_zero]; exact hx)
+      rwa [dyadic_coe_zero] at this
     refine ⟨?_, ?_, ?_⟩
-    · have h_p_le : F₁.p ≤ F₁.p + 1 := by
-        cases F₁.p with
-        | top => simp
-        | coe n => exact WithTop.coe_le_coe.mpr (Nat.le_succ n)
-      change Dyadic.precisionAtMost _ z
-      exact Dyadic.precisionAtMost_mono h_p_le hp
-    · change Dyadic.quantumAtLeast _ z
-      have h_exp_ge : (F₁.exp.map (· - (1 : ℤ))) ≤ F₁.exp := by
-        cases F₁.exp with
-        | bot => simp
-        | coe e =>
-          change ((e - 1 : ℤ) : WithBot ℤ) ≤ ((e : ℤ) : WithBot ℤ)
-          exact WithBot.coe_le_coe.mpr (by linarith)
-      exact Dyadic.quantumAtLeast_anti h_exp_ge hq
-    · exact hb
-  -- Apply Lemma 5.3 corollary at F₁.extend 1 ⊆ F₂.
-  have h_eq : numDigits (F₁.extend 1).p (F₁.extend 1).exp (z : ℝ) =
-              numDigits F₂.p F₂.exp (z : ℝ) :=
-    numDigits_eq_of_subset_of_isOdd hsub hp_F₂ hzF₁_ext h_iod
-  rw [numDigits_extend F₁ 1 hz_ne_zero] at h_eq
-  -- h_eq : numDigits F₁ z + 1 = numDigits F₂ z
-  -- Convert to the strict shift and apply notMem_of_lower_numDigits.
-  have h_F₂_pos : 0 < numDigits F₂.p F₂.exp (z : ℝ) := h_iod.numDigits_pos
-  have h_lt : numDigits F₁.p F₁.exp (z : ℝ) < numDigits F₂.p F₂.exp (z : ℝ) := by
-    omega
-  exact (Rounds.toOdd_notMem_of_lower_numDigits hz hxne h_lt) hzF₁
+    · rw [abs_of_nonpos hx, abs_of_nonpos hy_le_zero]; linarith
+    · nlinarith
+    · intro z hz hzabs hzx
+      rw [abs_of_nonpos hx] at hzabs
+      rcases eq_or_lt_of_le hx with hx0 | hx_neg
+      · subst hx0
+        have hxy' : (y : ℝ) ≥ 0 := hxy
+        have hy_eq : (y : ℝ) = 0 := le_antisymm hy_le_zero hxy'
+        rw [hy_eq, abs_zero]
+        have h_z_zero : (z : ℝ) = 0 := by
+          have : |(z : ℝ)| ≤ 0 := by linarith
+          have := abs_nonneg (z : ℝ)
+          have : |(z : ℝ)| = 0 := by linarith
+          exact abs_eq_zero.mp this
+        rw [h_z_zero, abs_zero]
+      · have hz_nonpos : (z : ℝ) ≤ 0 := by
+          by_contra hz_pos
+          rw [not_le] at hz_pos
+          have : (z : ℝ) * x < 0 := mul_neg_of_pos_of_neg hz_pos hx_neg
+          linarith
+        rw [abs_of_nonpos hz_nonpos] at hzabs
+        have hxz : x ≤ (z : ℝ) := by linarith
+        have h_y_le_z := h_min z hz hxz
+        rw [abs_of_nonpos hy_le_zero, abs_of_nonpos hz_nonpos]
+        linarith
+  · rintro ⟨hya, h_yx, h_min⟩
+    rw [abs_of_nonpos hx] at hya
+    rcases eq_or_lt_of_le hx with hx0 | hx_neg
+    · subst hx0
+      have hy_abs_zero : |(y : ℝ)| ≤ 0 := by linarith
+      have hy_eq : (y : ℝ) = 0 := by
+        have hnn := abs_nonneg (y : ℝ)
+        have habs : |(y : ℝ)| = 0 := le_antisymm hy_abs_zero hnn
+        exact abs_eq_zero.mp habs
+      refine ⟨by rw [hy_eq], ?_⟩
+      intro z hz hxz
+      rw [hy_eq]; exact hxz
+    · have hy_le_zero : (y : ℝ) ≤ 0 := by
+        by_contra h_pos
+        rw [not_le] at h_pos
+        have : (y : ℝ) * x < 0 := mul_neg_of_pos_of_neg h_pos hx_neg
+        linarith
+      rw [abs_of_nonpos hy_le_zero] at hya
+      refine ⟨by linarith, ?_⟩
+      intro z hz hxz
+      by_cases hz_np : (z : ℝ) ≤ 0
+      · have hzabs : |(z : ℝ)| ≤ |x| := by
+          rw [abs_of_nonpos hx, abs_of_nonpos hz_np]; linarith
+        have hzx : (z : ℝ) * x ≥ 0 := by
+          have : (z : ℝ) * x = (-(z : ℝ)) * (-x) := by ring
+          rw [this]
+          exact mul_nonneg (neg_nonneg.mpr hz_np) (neg_nonneg.mpr hx_neg.le)
+        have h := h_min z hz hzabs hzx
+        rw [abs_of_nonpos hy_le_zero, abs_of_nonpos hz_np] at h
+        linarith
+      · push Not at hz_np
+        linarith
 
-/-- Sign-flip symmetry for RTZ rounding. -/
-theorem Rounds.neg_toZero {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (h : Rounds F .ToZero x y) : Rounds F .ToZero (-x) (-y) := by
-  obtain ⟨hyF, hbnd, hsign, hmax⟩ := h
-  refine ⟨neg_mem hyF, ?_, ?_, ?_⟩
-  · change |((-y : Dyadic) : ℝ)| ≤ |(-x)|
-    push_cast
-    rw [abs_neg, abs_neg]
-    exact hbnd
-  · change ((-y : Dyadic) : ℝ) * (-x) ≥ 0
-    push_cast
-    have : -(y : ℝ) * -x = (y : ℝ) * x := by ring
-    rw [this]
-    exact hsign
-  · intro z hzF hzbnd hzsign
-    rw [abs_neg] at hzbnd
-    have hnz : (-z) ∈ F := neg_mem hzF
-    have h1 : |((-z : Dyadic) : ℝ)| ≤ |x| := by push_cast; rw [abs_neg]; exact hzbnd
-    have h2 : 0 ≤ ((-z : Dyadic) : ℝ) * x := by
-      push_cast
-      have hzs : 0 ≤ (z : ℝ) * (-x) := hzsign
-      linarith
-    have key := hmax (-z) hnz h1 h2
-    have habs1 : |((-z : Dyadic) : ℝ)| = |(z : ℝ)| := by push_cast; rw [abs_neg]
-    have habs2 : |((-y : Dyadic) : ℝ)| = |(y : ℝ)| := by push_cast; rw [abs_neg]
-    rw [habs1] at key
-    rw [habs2]
-    exact key
+/-- For `x ≤ 0`, rounding toward `−∞` coincides with rounding away from zero
+(both move to the more-negative side). Sign-mirror of
+`toPositive_iff_awayZero_of_nonneg`, derived via joint negation. -/
+theorem RoundsFinite.toNegative_iff_awayZero_of_nonpos
+    (F : FiniteFormat) {x : ℝ} (hx : x ≤ 0) (y : Dyadic) :
+    RoundsFinite F .toNegative x y ↔ RoundsFinite F .awayZero x y :=
+  calc RoundsFinite F .toNegative x y
+      ↔ RoundsFinite F .toPositive (-x) (-y) :=
+        RoundsFinite.neg_toNegative_iff_toPositive F x y
+    _ ↔ RoundsFinite F .awayZero (-x) (-y) :=
+        RoundsFinite.toPositive_iff_awayZero_of_nonneg F (neg_nonneg.mpr hx) (-y)
+    _ ↔ RoundsFinite F .awayZero x y := (RoundsFinite.neg_awayZero F x y).symm
 
-/-- `IsFaithfulRound` is preserved under joint negation of `x` and `y` (the
-round-down and round-up branches swap). Used by `Rounds.neg_toOdd` and
-`Rounds.neg_nearest`. -/
-theorem IsFaithfulRound.neg {F : AbstractFormat} {a : ℝ} {b : Dyadic}
-    (h : IsFaithfulRound F a b) : IsFaithfulRound F (-a) (-b) := by
-  rcases h with ⟨hbF, hba, hmax⟩ | ⟨hbF, hab, hmin⟩
-  · right
-    refine ⟨neg_mem hbF, ?_, ?_⟩
-    · push_cast; linarith
-    · intro w hwF haw
-      have hnwF : (-w) ∈ F := neg_mem hwF
-      have h1 : ((-w : Dyadic) : ℝ) ≤ a := by push_cast; linarith
-      have key := hmax (-w) hnwF h1
-      push_cast at key ⊢; linarith
-  · left
-    refine ⟨neg_mem hbF, ?_, ?_⟩
-    · push_cast; linarith
-    · intro w hwF hwa
-      have hnwF : (-w) ∈ F := neg_mem hwF
-      have h1 : a ≤ ((-w : Dyadic) : ℝ) := by push_cast; linarith
-      have key := hmin (-w) hnwF h1
-      push_cast at key ⊢; linarith
+/-- For `0 ≤ x`, rounding toward `−∞` coincides with rounding toward zero
+(both move down). Sign-mirror of `toPositive_iff_toZero_of_nonpos`. -/
+theorem RoundsFinite.toNegative_iff_toZero_of_nonneg
+    (F : FiniteFormat) {x : ℝ} (hx : 0 ≤ x) (y : Dyadic) :
+    RoundsFinite F .toNegative x y ↔ RoundsFinite F .toZero x y :=
+  calc RoundsFinite F .toNegative x y
+      ↔ RoundsFinite F .toPositive (-x) (-y) :=
+        RoundsFinite.neg_toNegative_iff_toPositive F x y
+    _ ↔ RoundsFinite F .toZero (-x) (-y) :=
+        RoundsFinite.toPositive_iff_toZero_of_nonpos F (neg_nonpos.mpr hx) (-y)
+    _ ↔ RoundsFinite F .toZero x y := (RoundsFinite.neg_toZero F x y).symm
 
-/-- Sign-flip symmetry for RTO rounding. -/
-theorem Rounds.neg_toOdd {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (h : Rounds F .ToOdd x y) : Rounds F .ToOdd (-x) (-y) := by
-  obtain ⟨hyF, hadj, hodd_imp⟩ := h
-  refine ⟨neg_mem hyF, IsFaithfulRound.neg hadj, ?_⟩
-  intro hxne
-  have hxne' : x ≠ (y : ℝ) := by
-    intro h_eq
-    apply hxne
-    rw [h_eq]; push_cast; rfl
-  exact (hodd_imp hxne').neg
+theorem Rounds.toPositive_iff_awayZero_of_nonneg
+    (F : FiniteFormat) {x : ℝ} (hx : 0 ≤ x) (r : RoundResult) :
+    Rounds F .toPositive x r ↔ Rounds F .awayZero x r := by
+  have hu : F.IsUndefined .toPositive ↔ F.IsUndefined .awayZero := by
+    simp [FiniteFormat.IsUndefined]
+  cases r with
+  | undefined => simpa [Rounds] using hu
+  | overflow b =>
+      simp only [Rounds]
+      refine and_congr (not_congr hu) ?_
+      refine ⟨fun ⟨y, h_rf, rest⟩ => ⟨y,
+        (RoundsFinite.toPositive_iff_awayZero_of_nonneg F.unbounded hx y).mp h_rf, rest⟩,
+              fun ⟨y, h_rf, rest⟩ => ⟨y,
+        (RoundsFinite.toPositive_iff_awayZero_of_nonneg F.unbounded hx y).mpr h_rf, rest⟩⟩
+  | finite y =>
+      simp only [Rounds]
+      refine and_congr (not_congr hu) (and_congr ?_ Iff.rfl)
+      exact RoundsFinite.toPositive_iff_awayZero_of_nonneg F.unbounded hx y
 
-/-- Sign-flip symmetry for RAZ rounding: rounding `x` to `y` under RAZ in `F`
-is equivalent to rounding `-x` to `-y`. Uses `neg_mem` (every format is closed
-under negation). -/
-theorem Rounds.neg_awayZero {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (h : Rounds F .AwayZero x y) : Rounds F .AwayZero (-x) (-y) := by
-  obtain ⟨hyF, hbnd, hsign, hmin⟩ := h
-  refine ⟨neg_mem hyF, ?_, ?_, ?_⟩
-  · change |(-x)| ≤ |((-y : Dyadic) : ℝ)|
-    push_cast
-    rw [abs_neg, abs_neg]
-    exact hbnd
-  · change ((-y : Dyadic) : ℝ) * (-x) ≥ 0
-    push_cast
-    have : -(y : ℝ) * -x = (y : ℝ) * x := by ring
-    rw [this]
-    exact hsign
-  · intro z hzF hzbnd hzsign
-    rw [abs_neg] at hzbnd
-    have hnz : (-z) ∈ F := neg_mem hzF
-    have h1 : |x| ≤ |((-z : Dyadic) : ℝ)| := by
-      push_cast; rw [abs_neg]; exact hzbnd
-    have h2 : 0 ≤ ((-z : Dyadic) : ℝ) * x := by
-      push_cast
-      have hzs : 0 ≤ (z : ℝ) * (-x) := hzsign
-      linarith
-    have key := hmin (-z) hnz h1 h2
-    change |((-y : Dyadic) : ℝ)| ≤ |(z : ℝ)|
-    push_cast
-    rw [abs_neg]
-    have hyz : |(y : ℝ)| ≤ |((-z : Dyadic) : ℝ)| := key
-    rwa [show |((-z : Dyadic) : ℝ)| = |(z : ℝ)| from by push_cast; rw [abs_neg]] at hyz
+theorem Rounds.toPositive_iff_toZero_of_nonpos
+    (F : FiniteFormat) {x : ℝ} (hx : x ≤ 0) (r : RoundResult) :
+    Rounds F .toPositive x r ↔ Rounds F .toZero x r := by
+  have hu : F.IsUndefined .toPositive ↔ F.IsUndefined .toZero := by
+    simp [FiniteFormat.IsUndefined]
+  cases r with
+  | undefined => simpa [Rounds] using hu
+  | overflow b =>
+      simp only [Rounds]
+      refine and_congr (not_congr hu) ?_
+      refine ⟨fun ⟨y, h_rf, rest⟩ => ⟨y,
+        (RoundsFinite.toPositive_iff_toZero_of_nonpos F.unbounded hx y).mp h_rf, rest⟩,
+              fun ⟨y, h_rf, rest⟩ => ⟨y,
+        (RoundsFinite.toPositive_iff_toZero_of_nonpos F.unbounded hx y).mpr h_rf, rest⟩⟩
+  | finite y =>
+      simp only [Rounds]
+      refine and_congr (not_congr hu) (and_congr ?_ Iff.rfl)
+      exact RoundsFinite.toPositive_iff_toZero_of_nonpos F.unbounded hx y
 
-/-- Closeness clause for nearest-rounds is preserved under joint negation. The
-clause shape `∀ z, z ∈ F → IsFaithfulRound F x z → |x - y| ≤ |x - z|` is
-shared by RNE and RNA, so this helper services both negation proofs. -/
-private theorem Rounds.nearest_close_neg {F : AbstractFormat} {x : ℝ} {y : Dyadic}
-    (hclose : ∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
-        |x - (y : ℝ)| ≤ |x - (z : ℝ)|) :
-    ∀ z : Dyadic, z ∈ F → IsFaithfulRound F (-x) z →
-        |(-x) - ((-y : Dyadic) : ℝ)| ≤ |(-x) - (z : ℝ)| := by
-  intro z hzF hzadj
-  have hnzadj : IsFaithfulRound F x (-z) := by
-    have := IsFaithfulRound.neg hzadj
-    rwa [neg_neg] at this
-  have key := hclose (-z) (neg_mem hzF) hnzadj
-  have e1 : |x - ((-z : Dyadic) : ℝ)| = |(-x) - (z : ℝ)| := by
-    push_cast; rw [show x - -(z : ℝ) = -((-x) - (z : ℝ)) from by ring, abs_neg]
-  have e2 : |x - (y : ℝ)| = |(-x) - ((-y : Dyadic) : ℝ)| := by
-    push_cast; rw [show x - (y : ℝ) = -((-x) - -(y : ℝ)) from by ring, abs_neg]
-  rw [e1] at key
-  rw [← e2]
-  exact key
+/-- Derived from `toPositive_iff_toZero_of_nonpos` via the RTN↔RTP and
+RTZ self-symmetry theorems. -/
+theorem Rounds.toNegative_iff_toZero_of_nonneg
+    (F : FiniteFormat) {x : ℝ} (hx : 0 ≤ x) (r : RoundResult) :
+    Rounds F .toNegative x r ↔ Rounds F .toZero x r := by
+  have h1 := Rounds.neg_toNegative_iff_toPositive F x r
+  have h2 :=
+    Rounds.toPositive_iff_toZero_of_nonpos F (neg_nonpos.mpr hx) r.neg
+  have h3 := (Rounds.neg_toZero F x r).symm
+  exact h1.trans (h2.trans h3)
 
-/-- Tie-witness conversion: a tie at `(-x, -y)` (witness `z`) yields a tie at
-`(x, y)` with witness `-z`. Used by the RNE and RNA negation tie-break clauses. -/
-private theorem Rounds.nearest_tie_neg {F : AbstractFormat} {x : ℝ} {y z : Dyadic}
-    (hzF : z ∈ F) (hzadj : IsFaithfulRound F (-x) z) (hzne : z ≠ -y)
-    (hzdist : |(-x) - ((-y : Dyadic) : ℝ)| = |(-x) - (z : ℝ)|) :
-    (-z : Dyadic) ∈ F ∧ IsFaithfulRound F x (-z) ∧ (-z : Dyadic) ≠ y ∧
-    |x - (y : ℝ)| = |x - ((-z : Dyadic) : ℝ)| := by
-  refine ⟨neg_mem hzF, ?_, ?_, ?_⟩
-  · have := IsFaithfulRound.neg hzadj
-    rwa [neg_neg] at this
-  · intro h_eq
-    apply hzne
-    have h2 : -(-z) = -y := by rw [h_eq]
-    rwa [neg_neg] at h2
-  · have e1 : |x - ((-z : Dyadic) : ℝ)| = |(-x) - (z : ℝ)| := by
-      push_cast; rw [show x - -(z : ℝ) = -((-x) - (z : ℝ)) from by ring, abs_neg]
-    have e2 : |x - (y : ℝ)| = |(-x) - ((-y : Dyadic) : ℝ)| := by
-      push_cast; rw [show x - (y : ℝ) = -((-x) - -(y : ℝ)) from by ring, abs_neg]
-    rw [e2, e1]; exact hzdist
-
-/-- Sign-flip symmetry for nearest rounding, parameterized by the tie-break.
-The membership, faithful-round, and closeness clauses follow from
-`IsFaithfulRound.neg` and `Rounds.nearest_close_neg`; the tie-break clause
-dispatches on `tb` (RNE uses `IsEven.neg`; RNA uses `abs_neg` to rewrite
-the magnitude bound). -/
-theorem Rounds.neg_nearest {F : AbstractFormat} {tb : TieBreak}
-    {x : ℝ} {y : Dyadic}
-    (h : Rounds F (.Nearest tb) x y) : Rounds F (.Nearest tb) (-x) (-y) := by
-  cases tb with
-  | ToEven =>
-    obtain ⟨hyF, hadj, hclose, htie⟩ := h
-    refine ⟨neg_mem hyF, IsFaithfulRound.neg hadj, Rounds.nearest_close_neg hclose, ?_⟩
-    rintro ⟨z, hzF, hzadj, hzne, hzdist⟩
-    obtain ⟨hnzF, hnzadj, hnzne, hnzdist⟩ := Rounds.nearest_tie_neg hzF hzadj hzne hzdist
-    exact (htie ⟨-z, hnzF, hnzadj, hnzne, hnzdist⟩).neg
-  | AwayZero =>
-    obtain ⟨hyF, hadj, hclose, htie⟩ := h
-    refine ⟨neg_mem hyF, IsFaithfulRound.neg hadj, Rounds.nearest_close_neg hclose, ?_⟩
-    intro z hzF hzadj hzne hzdist
-    obtain ⟨hnzF, hnzadj, hnzne, hnzdist⟩ := Rounds.nearest_tie_neg hzF hzadj hzne hzdist
-    have key := htie (-z) hnzF hnzadj hnzne hnzdist
-    have h_neg_z : |((-z : Dyadic) : ℝ)| = |(z : ℝ)| := by push_cast; rw [abs_neg]
-    have h_neg_y : |((-y : Dyadic) : ℝ)| = |(y : ℝ)| := by push_cast; rw [abs_neg]
-    rw [h_neg_y]; rw [h_neg_z] at key; exact key
-
-/-- Sign-flip symmetry for the unified `Rounds` relation, on sign-symmetric
-modes. Dispatches to the per-mode `.neg` helpers (`Rounds.neg_toZero`,
-`Rounds.neg_awayZero`, `Rounds.neg_toOdd`, `Rounds.neg_nearest`). The
-directed modes `ToPositive`/`ToNegative` are excluded by `hrm`. -/
-theorem Rounds.neg {F : AbstractFormat} {rm : RoundingMode}
-    {x : ℝ} {y : Dyadic}
-    (h : Rounds F rm x y) (hrm : rm.IsSymmetric) :
-    Rounds F rm (-x) (-y) := by
-  cases rm with
-  | Nearest _ => exact Rounds.neg_nearest h
-  | ToZero => exact Rounds.neg_toZero h
-  | AwayZero => exact Rounds.neg_awayZero h
-  | ToOdd => exact Rounds.neg_toOdd h
-  | ToPositive => exact hrm.elim
-  | ToNegative => exact hrm.elim
-
-end AbstractFormat
+/-- Derived from `toPositive_iff_awayZero_of_nonneg` via the RTN↔RTP and
+RAZ self-symmetry theorems. -/
+theorem Rounds.toNegative_iff_awayZero_of_nonpos
+    (F : FiniteFormat) {x : ℝ} (hx : x ≤ 0) (r : RoundResult) :
+    Rounds F .toNegative x r ↔ Rounds F .awayZero x r := by
+  have h1 := Rounds.neg_toNegative_iff_toPositive F x r
+  have h2 :=
+    Rounds.toPositive_iff_awayZero_of_nonneg F (neg_nonneg.mpr hx) r.neg
+  have h3 := (Rounds.neg_awayZero F x r).symm
+  exact h1.trans (h2.trans h3)
 
 end Mpfx

@@ -1,7 +1,7 @@
 name = "mpfx"
 version = "0.1.0"
 keywords = ["math"]
-defaultTargets = ["Mpfx", "Mpfx2"]
+defaultTargets = ["Mpfx"]
 
 [leanOptions]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
@@ -16,6 +16,3 @@ rev = "v4.29.0"
 
 [[lean_lib]]
 name = "Mpfx"
-
-[[lean_lib]]
-name = "Mpfx2"

@@ -1,4 +1,4 @@
-import Mpfx2.Containment
+import Mpfx.Containment
 
 /-!
 # Grid representation theory
@@ -11,7 +11,7 @@ prerequisite for the `rndRTO_RN` analysis: the grid-representation lemmas
 build up to the F-adjacency and midpoint-membership results used there.
 -/
 
-namespace Mpfx2
+namespace Mpfx
 
 /-- For a finite-precision finite-exp format `F` with `F.p = (p : ℕ+)`,
 `F.exp = (exp : ℤ)`, and a positive value `y ∈ F`, there exist `k : ℤ` with
@@ -1121,4 +1121,4 @@ theorem midpoint_mem_extend_one_of_p_top (F : FiniteFormat) {exp : ℤ}
       rw [abs_div, abs_of_pos (by norm_num : (0 : ℚ) < 2)]
       linarith
 
-end Mpfx2
+end Mpfx

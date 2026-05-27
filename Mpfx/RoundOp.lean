@@ -1,10 +1,10 @@
-import Mpfx2.Rounding
+import Mpfx.Rounding
 
 /-!
 # Constructive rounding function
 
 The noncomputable layer of the rounding architecture. See
-`Mpfx2/Rounding.lean` for the relational spec `Rounds`; this file
+`Mpfx/Rounding.lean` for the relational spec `Rounds`; this file
 provides the function `rnd` and bridges to the relation.
 
 `rnd` is `noncomputable` because of `Int.log : ℝ → ℤ` and because the
@@ -12,11 +12,11 @@ provides the function `rnd` and bridges to the relation.
 `Classical.propDecidable`. The bridge lemma `rnd_iff_rounds` connects
 this to the relational layer.
 
-Theorems about `Rounds` alone live in `Mpfx2/Rounding.lean` and stay
+Theorems about `Rounds` alone live in `Mpfx/Rounding.lean` and stay
 in constructive logic; the classical commitment is isolated here.
 -/
 
-namespace Mpfx2
+namespace Mpfx
 
 -- FLoPS-style: noncomputable definitions rely on Mathlib's
 -- `Real.decidableLT`/`decidableEq` plus the classical `propDecidable`
@@ -4003,4 +4003,4 @@ theorem rnd_iff_rounds (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (r : Rou
       rw [if_pos (h_y_eq ▸ hBOK)]
       exact congrArg _ h_y_eq.symm
 
-end Mpfx2
+end Mpfx
