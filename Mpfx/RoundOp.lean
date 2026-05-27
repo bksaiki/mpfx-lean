@@ -1133,8 +1133,8 @@ theorem rndUnbounded_satisfies_toOdd (F : FiniteFormat) (x : ℝ)
             have h_dhi_def_e' : dhi = Dyadic.ofIntZpow (lo + 1) e' := by
               rw [h_dhi_def, h_e_eq]
             rw [h_dhi_def_e']
-            have h_F''_top : F''.toFormat.p = ⊤ := hp_F
-            have h_F''_exp : F''.toFormat.exp = (e' : WithBot ℤ) := hexp_F
+            have h_F''_top : F''.p = ⊤ := hp_F
+            have h_F''_exp : F''.exp = (e' : WithBot ℤ) := hexp_F
             have h_F''_odd_dhi : F''.IsOdd (Dyadic.ofIntZpow (lo + 1) e') := by
               apply ParityFormat.alternating_parity_fixedpoint h_F''_top h_F''_exp
               rw [← h_dlo_def_e']; exact hodd
@@ -1146,9 +1146,9 @@ theorem rndUnbounded_satisfies_toOdd (F : FiniteFormat) (x : ℝ)
         | coe p =>
           cases hexp_F : F.exp with
           | bot =>
-            have hp_eq : F''.toFormat.p = ((p : ℕ+) : WithTop ℕ+) := hp_F
-            have hexp_eq : F''.toFormat.exp = ⊥ := hexp_F
-            have hp_ne_1 : F''.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
+            have hp_eq : F''.p = ((p : ℕ+) : WithTop ℕ+) := hp_F
+            have hexp_eq : F''.exp = ⊥ := hexp_F
+            have hp_ne_1 : F''.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
               change F.p ≠ ((1 : ℕ+) : WithTop ℕ+)
               intro h_eq
               apply h
@@ -1212,8 +1212,8 @@ theorem rndUnbounded_satisfies_toOdd (F : FiniteFormat) (x : ℝ)
             by_cases hp_eq_1 : p = (1 : ℕ+)
             · -- p = 1: exponent-index parity branch.
               subst hp_eq_1
-              have hp_eq : F''.toFormat.p = ((1 : ℕ+) : WithTop ℕ+) := hp_F
-              have hexp_eq : F''.toFormat.exp = (e' : WithBot ℤ) := hexp_F
+              have hp_eq : F''.p = ((1 : ℕ+) : WithTop ℕ+) := hp_F
+              have hexp_eq : F''.exp = (e' : WithBot ℤ) := hexp_F
               have h_e_ge : e' ≤ e := F.exp_le_canonicalExp x hexp_F
               have h_s_lt : |x * (2 : ℝ) ^ (-e)| < (2 : ℝ) ^ ((1 : ℕ+) : ℕ) :=
                 floor_mantissa_lt hp_F
@@ -1328,9 +1328,9 @@ theorem rndUnbounded_satisfies_toOdd (F : FiniteFormat) (x : ℝ)
                   hp_eq hexp_eq h_e_ge h_lo_lo_int h_lo_hi_int
                   h_lop1_lo_int h_lop1_hi_int hodd
             · -- p ≠ 1.
-              have hp_eq : F''.toFormat.p = ((p : ℕ+) : WithTop ℕ+) := hp_F
-              have hexp_eq : F''.toFormat.exp = (e' : WithBot ℤ) := hexp_F
-              have hp_ne_1 : F''.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
+              have hp_eq : F''.p = ((p : ℕ+) : WithTop ℕ+) := hp_F
+              have hexp_eq : F''.exp = (e' : WithBot ℤ) := hexp_F
+              have hp_ne_1 : F''.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
                 change F.p ≠ _
                 rw [hp_F]
                 intro h
@@ -1981,8 +1981,8 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
                   rw [h_dlo_at_e, h_e_eq]
                 have h_dhi_at_e'' : dhi = Dyadic.ofIntZpow (lo + 1) e'' := by
                   rw [h_dhi_at_e, h_e_eq]
-                have hp_top_F'' : F''.toFormat.p = ⊤ := hp_F
-                have hexp_F'' : F''.toFormat.exp = (e'' : WithBot ℤ) := hexp_F
+                have hp_top_F'' : F''.p = ⊤ := hp_F
+                have hexp_F'' : F''.exp = (e'' : WithBot ℤ) := hexp_F
                 rw [h_dhi_at_e'']
                 apply ParityFormat.alternating_isEven_fixedpoint hp_top_F'' hexp_F''
                 rw [← h_dlo_at_e'']
@@ -1991,9 +1991,9 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
               cases hexp_F : F.exp with
               | bot =>
                 -- Floating case. p ≠ 1 (else undefined for .nearest .toEven).
-                have hp_eq : F''.toFormat.p = ((p : ℕ+) : WithTop ℕ+) := hp_F
-                have hexp_bot : F''.toFormat.exp = ⊥ := hexp_F
-                have hp_ne_1 : F''.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
+                have hp_eq : F''.p = ((p : ℕ+) : WithTop ℕ+) := hp_F
+                have hexp_bot : F''.exp = ⊥ := hexp_F
+                have hp_ne_1 : F''.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
                   change F.p ≠ _
                   rw [hp_F]
                   intro h_eq
@@ -2063,8 +2063,8 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
                 exact h_even_dlo
               | coe e'' =>
                 -- Mixed case. Mirrors structure of `_toOdd_satisfies` mixed case.
-                have hp_eq : F''.toFormat.p = ((p : ℕ+) : WithTop ℕ+) := hp_F
-                have hexp_eq : F''.toFormat.exp = (e'' : WithBot ℤ) := hexp_F
+                have hp_eq : F''.p = ((p : ℕ+) : WithTop ℕ+) := hp_F
+                have hexp_eq : F''.exp = (e'' : WithBot ℤ) := hexp_F
                 -- hx_ne from tie (s = lo + 1/2 ≠ 0).
                 have hx_ne : x ≠ 0 := by
                   intro hx0
@@ -2082,7 +2082,7 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
                 by_cases hp_eq_1 : p = (1 : ℕ+)
                 · -- p = 1.
                   subst hp_eq_1
-                  have hp_eq_1' : F''.toFormat.p = ((1 : ℕ+) : WithTop ℕ+) := hp_F
+                  have hp_eq_1' : F''.p = ((1 : ℕ+) : WithTop ℕ+) := hp_F
                   have h_e_ge : e'' ≤ e := F.exp_le_canonicalExp x hexp_F
                   have h_s_lt : |x * (2 : ℝ) ^ (-e)| < (2 : ℝ) ^ ((1 : ℕ+) : ℕ) :=
                     floor_mantissa_lt hp_F
@@ -2179,7 +2179,7 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
                       h_lop1_lo_int h_lop1_hi_int
                     rw [← h_dlo_at_e]; exact h_even_dlo
                 · -- p ≠ 1.
-                  have hp_ne_1 : F''.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
+                  have hp_ne_1 : F''.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
                     change F.p ≠ _
                     rw [hp_F]
                     intro h
@@ -2651,8 +2651,8 @@ theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
           rw [hF_y_eq]; rfl
         have hF_y'_eq_F'' : F_y'.toFormat = F''.toFormat := by
           rw [hF_y'_eq]; rfl
-        have h_F''_top : F''.toFormat.p = ⊤ := hp_F
-        have h_F''_exp : F''.toFormat.exp = (e'' : WithBot ℤ) := hexp_F
+        have h_F''_top : F''.p = ⊤ := hp_F
+        have h_F''_exp : F''.exp = (e'' : WithBot ℤ) := hexp_F
         have h_F''_odd_dlo : F''.IsOdd dlo :=
           ((ParityFormat.IsOdd_iff_of_toFormat_eq hF_y_eq_F'' dlo).mp
             (h_y_eq_dlo ▸ hF_y_odd))
@@ -2679,9 +2679,9 @@ theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
         have h_F''_isOdd_dhi : F''.IsOdd dhi :=
           ((ParityFormat.IsOdd_iff_of_toFormat_eq hF_y'_eq_F'' dhi).mp
             (h_y'_eq_dhi ▸ hF_y'_odd))
-        have hp_eq : F''.toFormat.p = ((p : ℕ+) : WithTop ℕ+) := hp_F
-        have hexp_eq : F''.toFormat.exp = ⊥ := hexp_F
-        have hp_ne_1 : F''.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
+        have hp_eq : F''.p = ((p : ℕ+) : WithTop ℕ+) := hp_F
+        have hexp_eq : F''.exp = ⊥ := hexp_F
+        have hp_ne_1 : F''.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
           change F.p ≠ ((1 : ℕ+) : WithTop ℕ+)
           intro h_eq
           exact h ⟨h_eq, hexp_F, Or.inl rfl⟩
@@ -2777,13 +2777,13 @@ theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
         have h_F''_isOdd_dhi : F''.IsOdd dhi :=
           ((ParityFormat.IsOdd_iff_of_toFormat_eq hF_y'_eq_F'' dhi).mp
             (h_y'_eq_dhi ▸ hF_y'_odd))
-        have hp_eq : F''.toFormat.p = ((p : ℕ+) : WithTop ℕ+) := hp_F
-        have hexp_eq : F''.toFormat.exp = (e'' : WithBot ℤ) := hexp_F
+        have hp_eq : F''.p = ((p : ℕ+) : WithTop ℕ+) := hp_F
+        have hexp_eq : F''.exp = (e'' : WithBot ℤ) := hexp_F
         by_cases hp_eq_1 : p = (1 : ℕ+)
         · -- p = 1: exponent-index parity branch.
           subst hp_eq_1
-          have hp_eq_1' : F''.toFormat.p = ((1 : ℕ+) : WithTop ℕ+) := hp_F
-          have hexp_eq_1 : F''.toFormat.exp = (e'' : WithBot ℤ) := hexp_F
+          have hp_eq_1' : F''.p = ((1 : ℕ+) : WithTop ℕ+) := hp_F
+          have hexp_eq_1 : F''.exp = (e'' : WithBot ℤ) := hexp_F
           have hx_ne : x ≠ 0 := by
             intro hx0
             subst hx0
@@ -2909,7 +2909,7 @@ theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
               hp_eq_1' hexp_eq_1 h_e_ge h_lo_lo_int h_lo_hi_int
               h_lop1_lo_int h_lop1_hi_int
               ⟨h_F''_isOdd_dlo, h_F''_isOdd_dhi⟩
-        · have hp_ne_1 : F''.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
+        · have hp_ne_1 : F''.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
             change F.p ≠ _
             rw [hp_F]
             intro h_eq

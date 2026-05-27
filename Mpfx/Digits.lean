@@ -28,14 +28,14 @@ namespace Mpfx
 binary digit, the format rounds every value to `±2^e`, so its effective
 digit count never exceeds one. -/
 theorem FiniteFormat.numDigits_le_one_of_p_one {F : FiniteFormat}
-    (hp1 : F.toFormat.p = ((1 : ℕ+) : WithTop ℕ+)) (x : ℝ) :
+    (hp1 : F.p = ((1 : ℕ+) : WithTop ℕ+)) (x : ℝ) :
     F.numDigits x ≤ 1 := by
   unfold FiniteFormat.numDigits
   by_cases hx : x = 0
   · simp [hx]
   · simp only [hx, ↓reduceIte]
     -- `F.p = 1`, so only the `(p, ⊥)` and `(p, e')` branches apply.
-    cases hexp : F.toFormat.exp with
+    cases hexp : F.exp with
     | bot =>
       rw [hp1]
       change ((1 : ℕ) : ℤ) ≤ 1
@@ -63,7 +63,7 @@ theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ+} {y 
     have : (p_y : ℤ) ≥ ((w : ℕ) : ℤ) + 1 := by rw [h_pyZ]; linarith
     exact_mod_cast this
   -- Show `F.p ≠ 1` (else `numDigits F y ≤ 1`, but `numDigits ≥ w + 1 ≥ 2`).
-  have hFp_ne_1 : F.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
+  have hFp_ne_1 : F.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
     intro hFp1
     have h_le := F.toFiniteFormat.numDigits_le_one_of_p_one hFp1 (y : ℝ)
     have h1 : (p_y : ℤ) ≤ 1 := by rw [h_pyZ]; exact h_le
@@ -141,13 +141,13 @@ and show `y'' ∈ F₁` but `y'' ∉ F₂`, contradicting `F₁ ⊆ F₂`. -/
 private lemma numDigits_eq_of_subset_of_isOdd_aux
     {F₁ : FiniteFormat} {F₂ : ParityFormat}
     (hsub : F₁.toFormat ⊆ F₂.toFormat)
-    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.toFormat.p)
+    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p)
     {y : Dyadic} (hyF₁ : y ∈ F₁) (hodd : F₂.IsOdd y)
     (h_lt : F₂.toFiniteFormat.numDigits (y : ℝ) < F₁.numDigits (y : ℝ)) :
     False := by
   have h_F₂_pos : 0 < F₂.toFiniteFormat.numDigits (y : ℝ) := hodd.numDigits_pos
   -- `F₂.p ≠ 1` from `2 ≤ F₂.p`.
-  have hF₂_ne_1 : F₂.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
+  have hF₂_ne_1 : F₂.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
     intro h
     rw [h] at hp_F₂
     have : ((2 : ℕ+) : ℕ) ≤ ((1 : ℕ+) : ℕ) := by exact_mod_cast hp_F₂
@@ -273,13 +273,13 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
   -- Step 1: Show y'' ∈ F₁.
   have hy''_F₁ : y'' ∈ F₁ := by
     refine ⟨?_, ?_, ?_⟩
-    · cases hp1 : F₁.toFormat.p with
+    · cases hp1 : F₁.p with
       | top => trivial
       | coe n =>
         rw [Dyadic.precisionAtMost_coe]
         refine ⟨c'', e - 1, rfl, ?_⟩
         have h_le_n : F₁.numDigits ((y : Dyadic) : ℝ) ≤ ((n : ℕ) : ℤ) := by
-          cases hexp : F₁.toFormat.exp with
+          cases hexp : F₁.exp with
           | bot =>
             rw [F₁.numDigits_coe_bot hy_ne_zero hp1 hexp]
           | coe e' =>
@@ -293,7 +293,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
             < (2 : ℤ) ^ (p₂ + 1) := hc''_high
           _ ≤ (2 : ℤ) ^ (n : ℕ) :=
               pow_le_pow_right₀ (by norm_num : (1 : ℤ) ≤ 2) hp₂_lt_n_nat
-    · cases hexp : F₁.toFormat.exp with
+    · cases hexp : F₁.exp with
       | bot => trivial
       | coe e₁ =>
         rw [Dyadic.quantumAtLeast_coe]
@@ -301,7 +301,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
           have h_inner_gt : Int.log 2 |((y : Dyadic) : ℝ)| - e₁ + 1 > (p₂ : ℤ) := by
             have h_F₁_lt : (p₂ : ℤ) < F₁.numDigits ((y : Dyadic) : ℝ) := by
               rw [hp₂_eq]; exact h_lt
-            cases hp1 : F₁.toFormat.p with
+            cases hp1 : F₁.p with
             | top =>
               rw [F₁.numDigits_top_coe hy_ne_zero hexp hp1] at h_F₁_lt
               exact h_F₁_lt
@@ -322,7 +322,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
         push_cast
         ring
     · have hyF₁_bnd := hyF₁.2.2
-      cases hb : F₁.toFormat.b with
+      cases hb : F₁.b with
       | top => trivial
       | coe b =>
         rw [hb] at hyF₁_bnd
@@ -425,13 +425,13 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
   have hy''_not_F₂ : y'' ∉ F₂.toFormat := by
     intro hy''_F₂
     obtain ⟨h_pre, h_qua, _⟩ := hy''_F₂
-    change Dyadic.precisionAtMost F₂.toFormat.p y'' at h_pre
-    change Dyadic.quantumAtLeast F₂.toFormat.exp y'' at h_qua
-    cases hexp2 : F₂.toFormat.exp with
+    change Dyadic.precisionAtMost F₂.p y'' at h_pre
+    change Dyadic.quantumAtLeast F₂.exp y'' at h_qua
+    cases hexp2 : F₂.exp with
     | bot =>
       have h_F₂_nd := F₂.nondegenerate
       rcases h_F₂_nd with ⟨hp_top_neg, _⟩ | hexp_bot_neg
-      · cases hp2 : F₂.toFormat.p with
+      · cases hp2 : F₂.p with
         | top => exact absurd hp2 hp_top_neg
         | coe n =>
           have h_numD_eq_n : (p₂ : ℤ) = ((n : ℕ) : ℤ) := by
@@ -456,7 +456,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
           linarith
       · exact absurd hexp2 hexp_bot_neg
     | coe e₂ =>
-      cases hp2 : F₂.toFormat.p with
+      cases hp2 : F₂.p with
       | top =>
         have h_numD : F₂.toFiniteFormat.numDigits ((y : Dyadic) : ℝ) =
             Int.log 2 |((y : Dyadic) : ℝ)| - e₂ + 1 := by
@@ -518,7 +518,7 @@ is `IsOdd F₂`, then `F₁` and `F₂` assign `y` the same effective precision.
 theorem numDigits_eq_of_subset_of_isOdd
     {F₁ : FiniteFormat} {F₂ : ParityFormat}
     (hsub : F₁.toFormat ⊆ F₂.toFormat)
-    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.toFormat.p)
+    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p)
     {y : Dyadic} (hyF₁ : y ∈ F₁) (hodd : F₂.IsOdd y) :
     F₁.numDigits (y : ℝ) = F₂.toFiniteFormat.numDigits (y : ℝ) := by
   have h_F₂_pos : 0 < F₂.toFiniteFormat.numDigits (y : ℝ) := hodd.numDigits_pos
@@ -564,24 +564,24 @@ F₂-IsOdd witness exponent `e` equals `F₁.exp`'s value, so the index-counting
 parity `Odd (e − F₁.exp + 1)` reduces to `Odd 1`. -/
 private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
     (hsub : F₁.toFormat ⊆ F₂.toFormat)
-    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.toFormat.p)
-    (hF₁_p_1 : F₁.toFormat.p = ((1 : ℕ+) : WithTop ℕ+))
+    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p)
+    (hF₁_p_1 : F₁.p = ((1 : ℕ+) : WithTop ℕ+))
     {y : Dyadic} (hyF₁ : y ∈ F₁.toFiniteFormat) (h_iod_F₂ : F₂.IsOdd y)
     (h_eq : F₁.toFiniteFormat.numDigits (y : ℝ)
             = F₂.toFiniteFormat.numDigits (y : ℝ))
     {c e : ℤ}
     (h_rep_F₂ : Dyadic.IsRepresentableAtP
         (F₂.toFiniteFormat.numDigits (y : ℝ)).toNat c e y) :
-    Odd (e - WithBot.unbotD 0 F₁.toFormat.exp + 1) := by
+    Odd (e - WithBot.unbotD 0 F₁.exp + 1) := by
   -- `F₁.p = 1` forces `F₁.exp ≠ ⊥` (via the `parity` invariant).
-  have hF₁_exp_ne : F₁.toFormat.exp ≠ ⊥ := by
+  have hF₁_exp_ne : F₁.exp ≠ ⊥ := by
     rcases F₁.parity with hp1 | hexp
     · exact absurd hF₁_p_1 hp1
     · exact hexp
-  set e₁ : ℤ := F₁.toFormat.exp.unbot hF₁_exp_ne with he₁_def
-  have hF₁_exp_eq : F₁.toFormat.exp = (e₁ : WithBot ℤ) :=
-    (WithBot.coe_unbot F₁.toFormat.exp hF₁_exp_ne).symm
-  have h_unbot : WithBot.unbotD 0 F₁.toFormat.exp = e₁ := by rw [hF₁_exp_eq]; rfl
+  set e₁ : ℤ := F₁.exp.unbot hF₁_exp_ne with he₁_def
+  have hF₁_exp_eq : F₁.exp = (e₁ : WithBot ℤ) :=
+    (WithBot.coe_unbot F₁.exp hF₁_exp_ne).symm
+  have h_unbot : WithBot.unbotD 0 F₁.exp = e₁ := by rw [hF₁_exp_eq]; rfl
   rw [h_unbot]
   have h_F₂_pos_y : 0 < F₂.toFiniteFormat.numDigits (y : ℝ) :=
     h_iod_F₂.numDigits_pos
@@ -617,7 +617,7 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
     rw [habs_y_eq]
     exact Int.log_zpow (by norm_num : 1 < 2) e
   -- `y = c'_q · 2^e₁` from the F₁-quantum constraint.
-  have hyF₁_q : Dyadic.quantumAtLeast F₁.toFormat.exp y := hyF₁.2.1
+  have hyF₁_q : Dyadic.quantumAtLeast F₁.exp y := hyF₁.2.1
   rw [hF₁_exp_eq, Dyadic.quantumAtLeast_coe_real] at hyF₁_q
   obtain ⟨c'_q, hc'_q_eq⟩ := hyF₁_q
   have h_e_ge_e₁ : e₁ ≤ e := by
@@ -662,11 +662,11 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
     nlinarith
   -- `F₂.exp` is finite (`= e₂`), with `e = e₂`.
   have h_e_eq_F₂_exp_or_p_eq_1 :
-      (∃ e₂ : ℤ, F₂.toFormat.exp = (e₂ : WithBot ℤ) ∧ e = e₂) := by
-    cases hF₂_exp_cases : F₂.toFormat.exp with
+      (∃ e₂ : ℤ, F₂.exp = (e₂ : WithBot ℤ) ∧ e = e₂) := by
+    cases hF₂_exp_cases : F₂.exp with
     | bot =>
       exfalso
-      cases hF₂_p_cases : F₂.toFormat.p with
+      cases hF₂_p_cases : F₂.p with
       | top =>
         rcases F₂.nondegenerate with ⟨hp_top_neg, _⟩ | hexp_bot_neg
         · exact hp_top_neg hF₂_p_cases
@@ -679,14 +679,14 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
         have hn_eq_1' : n = 1 := by
           have : ((n : ℕ+) : ℕ) = ((1 : ℕ+) : ℕ) := hn_eq_1
           exact_mod_cast this
-        have hF₂_p_eq_1 : F₂.toFormat.p = ((1 : ℕ+) : WithTop ℕ+) := by
+        have hF₂_p_eq_1 : F₂.p = ((1 : ℕ+) : WithTop ℕ+) := by
           rw [hF₂_p_cases, hn_eq_1']
         rw [hF₂_p_eq_1] at hp_F₂
         have : ((2 : ℕ+) : ℕ) ≤ ((1 : ℕ+) : ℕ) := by exact_mod_cast hp_F₂
         simp at this
     | coe e₂ =>
       refine ⟨e₂, rfl, ?_⟩
-      cases hF₂_p_cases : F₂.toFormat.p with
+      cases hF₂_p_cases : F₂.p with
       | top =>
         have h_n : F₂.toFiniteFormat.numDigits ((y : Dyadic) : ℝ) =
             Int.log 2 |((y : Dyadic) : ℝ)| - e₂ + 1 := by
@@ -708,18 +708,18 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
   -- The witness `2^e₁ = ofIntZpow 1 e₁ ∈ F₁`.
   have h_2e1_in_F₁ : (Dyadic.ofIntZpow 1 e₁) ∈ F₁.toFormat := by
     refine ⟨?_, ?_, ?_⟩
-    · change Dyadic.precisionAtMost F₁.toFormat.p (Dyadic.ofIntZpow 1 e₁)
+    · change Dyadic.precisionAtMost F₁.p (Dyadic.ofIntZpow 1 e₁)
       rw [hF₁_p_1, Dyadic.precisionAtMost_coe]
       refine ⟨1, e₁, ?_, ?_⟩
       · rw [Dyadic.coe_rat_ofIntZpow]
       · decide
-    · change Dyadic.quantumAtLeast F₁.toFormat.exp (Dyadic.ofIntZpow 1 e₁)
+    · change Dyadic.quantumAtLeast F₁.exp (Dyadic.ofIntZpow 1 e₁)
       rw [hF₁_exp_eq, Dyadic.quantumAtLeast_coe]
       refine ⟨1, ?_⟩
       rw [Dyadic.coe_rat_ofIntZpow]
-    · change Mpfx.Format.boundOK F₁.toFormat.b (Dyadic.ofIntZpow 1 e₁)
+    · change Mpfx.Format.boundOK F₁.b (Dyadic.ofIntZpow 1 e₁)
       have hyF₁_b := hyF₁.2.2
-      cases hb : F₁.toFormat.b with
+      cases hb : F₁.b with
       | top => trivial
       | coe b =>
         rw [hb] at hyF₁_b
@@ -741,7 +741,7 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
   have h_2e1_in_F₂ : (Dyadic.ofIntZpow 1 e₁) ∈ F₂.toFormat := hsub _ h_2e1_in_F₁
   have hF₂_exp_le_e₁ : e₂ ≤ e₁ := by
     obtain ⟨_, hq, _⟩ := h_2e1_in_F₂
-    change Dyadic.quantumAtLeast F₂.toFormat.exp (Dyadic.ofIntZpow 1 e₁) at hq
+    change Dyadic.quantumAtLeast F₂.exp (Dyadic.ofIntZpow 1 e₁) at hq
     rw [hF₂_exp_eq, Dyadic.quantumAtLeast_coe] at hq
     obtain ⟨c''', hc'''_eq⟩ := hq
     by_contra h_gt
@@ -792,14 +792,14 @@ The `numDigits F₁ y = numDigits F₂ y` hypothesis is the conclusion of
 parity-transfer chain used by `rndRTO_RTO`. -/
 theorem IsOdd.transfer_of_numDigits_eq {F₁ F₂ : ParityFormat}
     (hsub : F₁.toFormat ⊆ F₂.toFormat)
-    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.toFormat.p)
+    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p)
     {y : Dyadic} (hyF₁ : y ∈ F₁.toFiniteFormat) (h_iod_F₂ : F₂.IsOdd y)
     (h_eq : F₁.toFiniteFormat.numDigits (y : ℝ)
             = F₂.toFiniteFormat.numDigits (y : ℝ)) :
     F₁.IsOdd y := by
   have h_iod_F₂' : F₂.IsOdd y := h_iod_F₂
   obtain ⟨c, e, h_rep_F₂, h_par_F₂⟩ := h_iod_F₂
-  have hF₂_ne_1 : F₂.toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
+  have hF₂_ne_1 : F₂.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
     intro h
     rw [h] at hp_F₂
     have : ((2 : ℕ+) : ℕ) ≤ ((1 : ℕ+) : ℕ) := by exact_mod_cast hp_F₂
@@ -808,7 +808,7 @@ theorem IsOdd.transfer_of_numDigits_eq {F₁ F₂ : ParityFormat}
   have h_par_c : Odd c := h_par_F₂
   refine ⟨c, e, ?_, ?_⟩
   · rw [h_eq]; exact h_rep_F₂
-  · by_cases hF₁_p_1 : F₁.toFormat.p = ((1 : ℕ+) : WithTop ℕ+)
+  · by_cases hF₁_p_1 : F₁.p = ((1 : ℕ+) : WithTop ℕ+)
     · rw [if_pos hF₁_p_1]
       exact odd_index_of_p_one_corner hsub hp_F₂ hF₁_p_1 hyF₁ h_iod_F₂' h_eq h_rep_F₂
     · rw [if_neg hF₁_p_1]; exact h_par_c
@@ -821,7 +821,7 @@ it composes the digit-count agreement (`numDigits_eq_of_subset_of_isOdd`)
 with the parity transfer (`IsOdd.transfer_of_numDigits_eq`). -/
 theorem IsOdd.transfer_of_subset {F₁ F₂ : ParityFormat}
     (hsub : F₁.toFormat ⊆ F₂.toFormat)
-    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.toFormat.p)
+    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p)
     {y : Dyadic} (hyF₁ : y ∈ F₁.toFiniteFormat) (hodd : F₂.IsOdd y) :
     F₁.IsOdd y :=
   IsOdd.transfer_of_numDigits_eq hsub hp_F₂ hyF₁ hodd

@@ -48,13 +48,13 @@ def F₁_g (p : ℕ+) (_hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ) : ParityFormat wher
   parity := Or.inr WithBot.coe_ne_bot
 
 @[simp] theorem F₁_g_p (p : ℕ+) (hp : 2 ≤ (p : ℕ)) (e : ℤ) :
-    (F₁_g p hp e).toFormat.p = ((p : ℕ+) : WithTop ℕ+) := rfl
+    (F₁_g p hp e).p = ((p : ℕ+) : WithTop ℕ+) := rfl
 
 @[simp] theorem F₁_g_exp (p : ℕ+) (hp : 2 ≤ (p : ℕ)) (e : ℤ) :
-    (F₁_g p hp e).toFormat.exp = (e : WithBot ℤ) := rfl
+    (F₁_g p hp e).exp = (e : WithBot ℤ) := rfl
 
 @[simp] theorem F₁_g_b (p : ℕ+) (hp : 2 ≤ (p : ℕ)) (e : ℤ) :
-    (F₁_g p hp e).toFormat.b = ⊤ := rfl
+    (F₁_g p hp e).b = ⊤ := rfl
 
 /-! ### The grid witnesses (as `Dyadic.ofIntZpow`) -/
 
@@ -300,7 +300,7 @@ theorem isEven_F₁_g_y_hi (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ) :
     rw [(F₁_g p hp_ge_2 e).toFiniteFormat.numDigits_coe_coe h_y_ne_real
         (F₁_g_p p hp_ge_2 e) (F₁_g_exp p hp_ge_2 e), h_log]
     congr 1; ring
-  have h_p_ne_1 : (F₁_g p hp_ge_2 e).toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
+  have h_p_ne_1 : (F₁_g p hp_ge_2 e).p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
     rw [F₁_g_p]
     intro h
     have : ((p : ℕ+)) = (1 : ℕ+) := by exact_mod_cast h
@@ -401,7 +401,7 @@ theorem isEven_F₁_g_y_lo_low (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ) 
     have hp_int : ((p : ℕ) : ℤ) ≥ 2 := by exact_mod_cast hp_ge_2
     have h_min : min ((p : ℕ) : ℤ) 2 = 2 := by omega
     rw [h_min]; rfl
-  have h_p_ne_1 : (F₁_g p hp_ge_2 e).toFormat.p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
+  have h_p_ne_1 : (F₁_g p hp_ge_2 e).p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
     rw [F₁_g_p]
     intro h
     have h1 : ((p : ℕ+)) = (1 : ℕ+) := by exact_mod_cast h
@@ -725,23 +725,23 @@ The public-facing version is `no_rndRNE_RNE`, which takes only
 theorem no_rndRNE_RNE_arbitrary_F₂
     (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ)
     (F₂ : FiniteFormat)
-    {q₂ : ℕ+} (hF₂_p : F₂.toFormat.p = ((q₂ : ℕ+) : WithTop ℕ+))
+    {q₂ : ℕ+} (hF₂_p : F₂.p = ((q₂ : ℕ+) : WithTop ℕ+))
     (hq₂ : (p : ℕ) + 2 ≤ (q₂ : ℕ))
-    {f₂ : ℤ} (hF₂_exp : F₂.toFormat.exp = (f₂ : WithBot ℤ)) (hf₂ : f₂ ≤ e - 2)
-    (hF₂_b : F₂.toFormat.b = ⊤) :
+    {f₂ : ℤ} (hF₂_exp : F₂.exp = (f₂ : WithBot ℤ)) (hf₂ : f₂ ≤ e - 2)
+    (hF₂_b : F₂.b = ⊤) :
     (F₁_g p hp_ge_2 e).toFormat ⊆ F₂.toFormat ∧
     ∃ (x : ℝ) (z w : Dyadic),
       RoundsFinite F₂ (.nearest .toEven) x z ∧
       RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat (.nearest .toEven) (z : ℝ) w ∧
       ¬ RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat (.nearest .toEven) x w := by
   -- Containment F₁_g ⊆ F₂ from p/exp/b ordering.
-  have hq₁_le_q₂ : (F₁_g p hp_ge_2 e).toFormat.p ≤ F₂.toFormat.p := by
+  have hq₁_le_q₂ : (F₁_g p hp_ge_2 e).p ≤ F₂.p := by
     rw [F₁_g_p, hF₂_p]
     exact WithTop.coe_le_coe.mpr (by exact_mod_cast (by omega : (p : ℕ) ≤ (q₂ : ℕ)))
-  have hf₂_le_e : F₂.toFormat.exp ≤ (F₁_g p hp_ge_2 e).toFormat.exp := by
+  have hf₂_le_e : F₂.exp ≤ (F₁_g p hp_ge_2 e).exp := by
     rw [F₁_g_exp, hF₂_exp]
     exact WithBot.coe_le_coe.mpr (by omega : f₂ ≤ e)
-  have hb_le : (F₁_g p hp_ge_2 e).toFormat.b ≤ F₂.toFormat.b := by
+  have hb_le : (F₁_g p hp_ge_2 e).b ≤ F₂.b := by
     rw [F₁_g_b, hF₂_b]
   have h_F₁_sub : (F₁_g p hp_ge_2 e).toFormat ⊆ F₂.toFormat :=
     Format.containsPrec hq₁_le_q₂ hf₂_le_e hb_le
@@ -970,8 +970,8 @@ theorem no_rndRNE_RNE
     (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ)
     (F₂ : FiniteFormat)
     (hsub : ((F₁_g p hp_ge_2 e).toFiniteFormat.extend 2).toFormat ⊆ F₂.toFormat)
-    (hF₂_p_fin : F₂.toFormat.p ≠ ⊤)
-    (hF₂_exp_fin : F₂.toFormat.exp ≠ ⊥) :
+    (hF₂_p_fin : F₂.p ≠ ⊤)
+    (hF₂_exp_fin : F₂.exp ≠ ⊥) :
     ∃ (x : ℝ) (z w : Dyadic),
       RoundsFinite F₂ (.nearest .toEven) x z ∧
       RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat (.nearest .toEven) (z : ℝ) w ∧
@@ -979,16 +979,16 @@ theorem no_rndRNE_RNE
   -- Extract finite q₂ and f₂.
   obtain ⟨q₂, hq₂_eq⟩ := WithTop.ne_top_iff_exists.mp hF₂_p_fin
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
-  have hF₂_p : F₂.toFormat.p = ((q₂ : ℕ+) : WithTop ℕ+) := hq₂_eq.symm
-  have hF₂_exp : F₂.toFormat.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
+  have hF₂_p : F₂.p = ((q₂ : ℕ+) : WithTop ℕ+) := hq₂_eq.symm
+  have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
   -- The extend-2 precision predicate: p + 2 bits.
-  have h_ext_p : ((F₁_g p hp_ge_2 e).toFiniteFormat.extend 2).toFormat.p
+  have h_ext_p : ((F₁_g p hp_ge_2 e).toFiniteFormat.extend 2).p
       = (((p + 2 : ℕ+)) : WithTop ℕ+) := by
-    change (F₁_g p hp_ge_2 e).toFormat.p.map (· + (2 : ℕ+)) = _
+    change (F₁_g p hp_ge_2 e).p.map (· + (2 : ℕ+)) = _
     rw [F₁_g_p, WithTop.map_coe]
   have h_pp2_cast : (((p + 2 : ℕ+)) : ℕ) = (p : ℕ) + 2 := by exact_mod_cast rfl
   -- Derive F₂.b = ⊤ from an arbitrarily large element.
-  have hF₂_b : F₂.toFormat.b = ⊤ := by
+  have hF₂_b : F₂.b = ⊤ := by
     by_contra h_b_ne
     obtain ⟨b, hb_eq⟩ := WithTop.ne_top_iff_exists.mp h_b_ne
     set N : ℤ := max (e - 2) (Int.log 2 ((b.val : Dyadic) : ℝ) + 1) with hN_def
@@ -1007,12 +1007,12 @@ theorem no_rndRNE_RNE
         have h_abs : |(1 : ℤ)| = 1 := by decide
         omega
       · -- quantumAtLeast (exp − 2) = (e − 2).
-        change Dyadic.quantumAtLeast ((F₁_g p hp_ge_2 e).toFormat.exp.map (· - (2 : ℤ))) y_huge
+        change Dyadic.quantumAtLeast ((F₁_g p hp_ge_2 e).exp.map (· - (2 : ℤ))) y_huge
         rw [F₁_g_exp, WithBot.map_coe, Dyadic.quantumAtLeast_coe_real]
         refine ⟨(2 : ℤ)^(N - (e - 2)).toNat, ?_⟩
         rw [hy_huge_real, two_zpow_split N (e - 2) (by omega)]; push_cast; ring
     have hy_huge_in_F₂ : y_huge ∈ F₂.toFormat := hsub _ hy_huge_in_ext2
-    have hb_ok : Format.boundOK F₂.toFormat.b y_huge := hy_huge_in_F₂.2.2
+    have hb_ok : Format.boundOK F₂.b y_huge := hy_huge_in_F₂.2.2
     rw [← hb_eq] at hb_ok
     change |((y_huge : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) at hb_ok
     -- Move to ℝ.
@@ -1061,7 +1061,7 @@ theorem no_rndRNE_RNE
       · rw [h_ext_p, Dyadic.precisionAtMost_coe_real]
         refine ⟨c_max, e - 2, hy_max_real, ?_⟩
         rw [h_pp2_cast, abs_of_pos hc_max_pos]; exact hc_max_lt
-      · change Dyadic.quantumAtLeast ((F₁_g p hp_ge_2 e).toFormat.exp.map (· - (2 : ℤ))) y_max
+      · change Dyadic.quantumAtLeast ((F₁_g p hp_ge_2 e).exp.map (· - (2 : ℤ))) y_max
         rw [F₁_g_exp, WithBot.map_coe, Dyadic.quantumAtLeast_coe_real]
         exact ⟨c_max, hy_max_real⟩
     have hy_max_in_F₂ : y_max ∈ F₂.toFormat := hsub _ hy_max_in_ext2
@@ -1229,13 +1229,13 @@ theorem isOdd_transfer_toFormat {F F' : ParityFormat} {y : Dyadic}
 /-- **Counterexample to `rndRNE_RAZ`.** -/
 theorem no_rndRNE_RAZ
     (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ)
-    (F₂ : FiniteFormat) (hF₂_exp_fin : F₂.toFormat.exp ≠ ⊥) :
+    (F₂ : FiniteFormat) (hF₂_exp_fin : F₂.exp ≠ ⊥) :
     ∃ (x : ℝ) (z w : Dyadic),
       RoundsFinite F₂ (.nearest .toEven) x z ∧
       RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .awayZero (z : ℝ) w ∧
       ¬ RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .awayZero x w := by
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
-  have hF₂_exp : F₂.toFormat.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
+  have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
   set x_val : ℝ := (2 : ℝ)^(f₂ - 2) with hx_def
   have h_2f_pos : (0 : ℝ) < (2 : ℝ)^f₂ := zpow_pos (by norm_num) _
   have h_2f2_pos : (0 : ℝ) < (2 : ℝ)^(f₂ - 2) := zpow_pos (by norm_num) _
@@ -1338,13 +1338,13 @@ theorem no_rndRNE_RAZ
 theorem no_rndRNE_RTZ
     (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ)
     (F₂ : FiniteFormat) (hsub : (F₁_g p hp_ge_2 e).toFormat ⊆ F₂.toFormat)
-    (hF₂_exp_fin : F₂.toFormat.exp ≠ ⊥) :
+    (hF₂_exp_fin : F₂.exp ≠ ⊥) :
     ∃ (x : ℝ) (z w : Dyadic),
       RoundsFinite F₂ (.nearest .toEven) x z ∧
       RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .toZero (z : ℝ) w ∧
       ¬ RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .toZero x w := by
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
-  have hF₂_exp : F₂.toFormat.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
+  have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
   have h_two_e_in_F₁ := two_e_mem_F₁_g p hp_ge_2 e
   have h_two_e_in_F₂ : two_e_g e ∈ F₂.toFormat := hsub _ h_two_e_in_F₁
   have hf₂_le_e : f₂ ≤ e := f₂_le_e_of_F₁_g_subset p hp_ge_2 e F₂.toFormat hsub hF₂_exp
@@ -1451,13 +1451,13 @@ theorem no_rndRNE_RTZ
 theorem no_rndRTZ_RAZ
     (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ)
     (F₂ : FiniteFormat) (hsub : (F₁_g p hp_ge_2 e).toFormat ⊆ F₂.toFormat)
-    (hF₂_exp_fin : F₂.toFormat.exp ≠ ⊥) :
+    (hF₂_exp_fin : F₂.exp ≠ ⊥) :
     ∃ (x : ℝ) (z w : Dyadic),
       RoundsFinite F₂ .toZero x z ∧
       RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .awayZero (z : ℝ) w ∧
       ¬ RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .awayZero x w := by
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
-  have hF₂_exp : F₂.toFormat.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
+  have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
   have h_two_e_in_F₁ := two_e_mem_F₁_g p hp_ge_2 e
   have h_two_e_in_F₂ : two_e_g e ∈ F₂.toFormat := hsub _ h_two_e_in_F₁
   have hf₂_le_e : f₂ ≤ e := f₂_le_e_of_F₁_g_subset p hp_ge_2 e F₂.toFormat hsub hF₂_exp
@@ -1519,13 +1519,13 @@ theorem no_rndRTZ_RAZ
 theorem no_rndRAZ_RTZ
     (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ)
     (F₂ : FiniteFormat) (hsub : (F₁_g p hp_ge_2 e).toFormat ⊆ F₂.toFormat)
-    (hF₂_exp_fin : F₂.toFormat.exp ≠ ⊥) :
+    (hF₂_exp_fin : F₂.exp ≠ ⊥) :
     ∃ (x : ℝ) (z w : Dyadic),
       RoundsFinite F₂ .awayZero x z ∧
       RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .toZero (z : ℝ) w ∧
       ¬ RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .toZero x w := by
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
-  have hF₂_exp : F₂.toFormat.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
+  have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
   have h_two_e_in_F₁ := two_e_mem_F₁_g p hp_ge_2 e
   have h_two_e_in_F₂ : two_e_g e ∈ F₂.toFormat := hsub _ h_two_e_in_F₁
   have hf₂_le_e : f₂ ≤ e := f₂_le_e_of_F₁_g_subset p hp_ge_2 e F₂.toFormat hsub hF₂_exp
@@ -1587,13 +1587,13 @@ theorem no_rndRAZ_RTZ
 theorem no_rndRAZ_RTO
     (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ)
     (F₂ : FiniteFormat) (hsub : (F₁_g p hp_ge_2 e).toFormat ⊆ F₂.toFormat)
-    (hF₂_exp_fin : F₂.toFormat.exp ≠ ⊥) :
+    (hF₂_exp_fin : F₂.exp ≠ ⊥) :
     ∃ (x : ℝ) (z w : Dyadic),
       RoundsFinite F₂ .awayZero x z ∧
       RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .toOdd (z : ℝ) w ∧
       ¬ RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .toOdd x w := by
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
-  have hF₂_exp : F₂.toFormat.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
+  have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
   have h_y_hi_in_F₁ := y_hi_mem_F₁_g p hp_ge_2 e
   have h_y_hi_in_F₂ : y_hi_g e ∈ F₂.toFormat := hsub _ h_y_hi_in_F₁
   have hf₂_le_e : f₂ ≤ e := f₂_le_e_of_F₁_g_subset p hp_ge_2 e F₂.toFormat hsub hF₂_exp
@@ -1647,13 +1647,13 @@ theorem no_rndRAZ_RTO
 theorem no_rndRNE_RTO
     (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ)
     (F₂ : FiniteFormat) (hsub : (F₁_g p hp_ge_2 e).toFormat ⊆ F₂.toFormat)
-    (hF₂_exp_fin : F₂.toFormat.exp ≠ ⊥) :
+    (hF₂_exp_fin : F₂.exp ≠ ⊥) :
     ∃ (x : ℝ) (z w : Dyadic),
       RoundsFinite F₂ (.nearest .toEven) x z ∧
       RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .toOdd (z : ℝ) w ∧
       ¬ RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .toOdd x w := by
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
-  have hF₂_exp : F₂.toFormat.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
+  have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
   have h_y_hi_in_F₁ := y_hi_mem_F₁_g p hp_ge_2 e
   have h_y_hi_in_F₂ : y_hi_g e ∈ F₂.toFormat := hsub _ h_y_hi_in_F₁
   have hf₂_le_e : f₂ ≤ e := f₂_le_e_of_F₁_g_subset p hp_ge_2 e F₂.toFormat hsub hF₂_exp
@@ -1762,13 +1762,13 @@ theorem no_rndRNE_RTO
 theorem no_rndRTZ_RTO
     (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ)
     (F₂ : FiniteFormat) (hsub : (F₁_g p hp_ge_2 e).toFormat ⊆ F₂.toFormat)
-    (hF₂_exp_fin : F₂.toFormat.exp ≠ ⊥) :
+    (hF₂_exp_fin : F₂.exp ≠ ⊥) :
     ∃ (x : ℝ) (z w : Dyadic),
       RoundsFinite F₂ .toZero x z ∧
       RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .toOdd (z : ℝ) w ∧
       ¬ RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat .toOdd x w := by
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
-  have hF₂_exp : F₂.toFormat.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
+  have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
   have h_y_hi_in_F₁ := y_hi_mem_F₁_g p hp_ge_2 e
   have h_y_hi_in_F₂ : y_hi_g e ∈ F₂.toFormat := hsub _ h_y_hi_in_F₁
   have hf₂_le_e : f₂ ≤ e := f₂_le_e_of_F₁_g_subset p hp_ge_2 e F₂.toFormat hsub hF₂_exp
@@ -1815,13 +1815,13 @@ theorem no_rndRTZ_RTO
 theorem no_rndRAZ_RNE
     (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ)
     (F₂ : FiniteFormat) (hm_in_F₂ : m_g e ∈ F₂.toFormat)
-    (hF₂_exp_fin : F₂.toFormat.exp ≠ ⊥) :
+    (hF₂_exp_fin : F₂.exp ≠ ⊥) :
     ∃ (x : ℝ) (z w : Dyadic),
       RoundsFinite F₂ .awayZero x z ∧
       RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat (.nearest .toEven) (z : ℝ) w ∧
       ¬ RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat (.nearest .toEven) x w := by
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
-  have hF₂_exp : F₂.toFormat.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
+  have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
   have hf₂_le_e1 : f₂ ≤ e - 1 :=
     f₂_le_e_sub_one_of_odd_in_F₂ hF₂_exp hm_in_F₂ (by decide : Odd (7 : ℤ))
       (by rw [coe_m_g]; push_cast; ring)
@@ -1925,13 +1925,13 @@ theorem no_rndRAZ_RNE
 theorem no_rndRTZ_RNE
     (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ)
     (F₂ : FiniteFormat) (hm_low_in_F₂ : m_low_g e ∈ F₂.toFormat)
-    (hF₂_exp_fin : F₂.toFormat.exp ≠ ⊥) :
+    (hF₂_exp_fin : F₂.exp ≠ ⊥) :
     ∃ (x : ℝ) (z w : Dyadic),
       RoundsFinite F₂ .toZero x z ∧
       RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat (.nearest .toEven) (z : ℝ) w ∧
       ¬ RoundsFinite (F₁_g p hp_ge_2 e).toFiniteFormat (.nearest .toEven) x w := by
   obtain ⟨f₂, hf₂_eq⟩ := WithBot.ne_bot_iff_exists.mp hF₂_exp_fin
-  have hF₂_exp : F₂.toFormat.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
+  have hF₂_exp : F₂.exp = (f₂ : WithBot ℤ) := hf₂_eq.symm
   have hf₂_le_e1 : f₂ ≤ e - 1 :=
     f₂_le_e_sub_one_of_odd_in_F₂ hF₂_exp hm_low_in_F₂ (by decide : Odd (5 : ℤ))
       (by rw [coe_m_low_g]; push_cast; ring)

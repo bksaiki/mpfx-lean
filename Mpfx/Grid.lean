@@ -21,9 +21,9 @@ exponent `k` is the F-grid step exponent at `y`: `max(exp, ⌊log₂ y⌋ - p + 
 This is the key structural lemma underlying the F-adjacent midpoint analysis:
 F-adjacent values at this `k` differ by exactly `2^k`. -/
 theorem exists_grid_rep (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.toFormat.exp = (exp : WithBot ℤ))
-    {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.toFormat.p y)
-    (hq_y_full : Dyadic.quantumAtLeast F.toFormat.exp y)
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.exp = (exp : WithBot ℤ))
+    {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.p y)
+    (hq_y_full : Dyadic.quantumAtLeast F.exp y)
     (hy_pos : 0 < ((y : Dyadic) : ℝ)) :
     ∃ (k : ℤ) (c : ℤ),
       k ≥ exp ∧ |c| < (2 : ℤ)^(p : ℕ) ∧
@@ -37,7 +37,7 @@ theorem exists_grid_rep (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
     Dyadic.exists_odd_canonical_of_precisionAtMost hp_y hy_ne
   -- Need e_can ≥ k. From canonical form constraints.
   have h_e_can_ge_exp : e_can ≥ exp := by
-    have hq : Dyadic.quantumAtLeast F.toFormat.exp y := hq_y_full
+    have hq : Dyadic.quantumAtLeast F.exp y := hq_y_full
     rw [he, Dyadic.quantumAtLeast_coe_real] at hq
     obtain ⟨c', hc'_eq⟩ := hq
     -- y = c'·2^exp. Compare with canonical (c_can, e_can): c_can·2^e_can = c'·2^exp.
@@ -191,8 +191,8 @@ theorem grid_rep_c_pos {y : Dyadic} (hy_pos : 0 < ((y : Dyadic) : ℝ))
 (no `max` with `F.exp`). Useful when `F.exp = ⊥` (since the `k ≥ exp` clause
 of `exists_grid_rep` is then vacuous). -/
 theorem exists_grid_rep_exp_bot (F : FiniteFormat) {p : ℕ+}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
-    {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.toFormat.p y)
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+))
+    {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.p y)
     (hy_pos : 0 < ((y : Dyadic) : ℝ)) :
     ∃ (k : ℤ) (c : ℤ),
       |c| < (2 : ℤ) ^ (p : ℕ) ∧
@@ -303,13 +303,13 @@ This is the key F-adjacency lemma: applying `exists_grid_rep` to a putative
 `y ∈ F` strictly in the interval forces `y` to have grid-exp `k' = k`, making
 `y/2^k` an integer strictly between `c` and `c+1`, a contradiction. -/
 theorem no_F_element_in_step_interval (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.toFormat.exp = (exp : WithBot ℤ))
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.exp = (exp : WithBot ℤ))
     {c : ℤ} (hc_pos : 0 < c) (hc_lt : c < (2 : ℤ) ^ (p : ℕ))
     {k : ℤ} (hk : k ≥ exp)
     (hk_max : k = max exp (Int.log 2 ((c : ℝ) * (2 : ℝ) ^ k) - ((p : ℕ) : ℤ) + 1))
     {y : Dyadic}
-    (hp_y : Dyadic.precisionAtMost F.toFormat.p y)
-    (hq_y : Dyadic.quantumAtLeast F.toFormat.exp y)
+    (hp_y : Dyadic.precisionAtMost F.p y)
+    (hq_y : Dyadic.quantumAtLeast F.exp y)
     (h_lb : ((c : ℝ)) * (2 : ℝ) ^ k < ((y : Dyadic) : ℝ))
     (h_ub : ((y : Dyadic) : ℝ) < (((c + 1 : ℤ) : ℝ)) * (2 : ℝ) ^ k) :
     False := by
@@ -389,12 +389,12 @@ theorem no_F_element_in_step_interval (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
 /-- No F element lies strictly in `(c·2^k, (c+1)·2^k)` when `k` is the
 precision-only step `log(c·2^k) - p + 1` (no `max` with `F.exp`). -/
 private theorem no_F_element_in_step_interval_exp_bot (F : FiniteFormat) {p : ℕ+}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+))
     {c : ℤ} (hc_pos : 0 < c) (hc_lt : c < (2 : ℤ) ^ (p : ℕ))
     {k : ℤ}
     (hk_eq : k = Int.log 2 ((c : ℝ) * (2 : ℝ) ^ k) - ((p : ℕ) : ℤ) + 1)
     {y : Dyadic}
-    (hp_y : Dyadic.precisionAtMost F.toFormat.p y)
+    (hp_y : Dyadic.precisionAtMost F.p y)
     (h_lb : ((c : ℝ)) * (2 : ℝ) ^ k < ((y : Dyadic) : ℝ))
     (h_ub : ((y : Dyadic) : ℝ) < (((c + 1 : ℤ) : ℝ)) * (2 : ℝ) ^ k) :
     False := by
@@ -458,7 +458,7 @@ private theorem no_F_element_in_step_interval_exp_bot (F : FiniteFormat) {p : �
 `y₁ = c·2^k`, `y₂ = (c+1)·2^k` where `(c, k)` is `y₁`'s grid rep. The exponent
 `k = max(exp, ⌊log₂ y₁⌋ - p + 1)` is the F-grid step exponent at `y₁`. -/
 theorem F_adjacent_step_form (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.toFormat.exp = (exp : WithBot ℤ))
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.exp = (exp : WithBot ℤ))
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F)
     (h_pos : 0 < ((y₁ : Dyadic) : ℝ))
     (h_lt : ((y₁ : Dyadic) : ℝ) < ((y₂ : Dyadic) : ℝ))
@@ -495,13 +495,13 @@ theorem F_adjacent_step_form (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
   have hz_eq : ((z : Dyadic) : ℝ) = ((c + 1 : ℤ) : ℝ) * (2 : ℝ) ^ k := by
     change ((Dyadic.ofIntZpow (c + 1) k : Dyadic) : ℝ) = _
     rw [Dyadic.coe_ofIntZpow]
-  have hz_p : Dyadic.precisionAtMost F.toFormat.p z := by
+  have hz_p : Dyadic.precisionAtMost F.p z := by
     rw [hp]
     apply Dyadic.precisionAtMost_of_abs_le (c + 1) k (by rw [Dyadic.coe_rat_ofIntZpow])
     have h_c1_pos : 0 < c + 1 := by omega
     rw [abs_of_pos h_c1_pos]
     omega
-  have hz_q : Dyadic.quantumAtLeast F.toFormat.exp z := by
+  have hz_q : Dyadic.quantumAtLeast F.exp z := by
     rw [he]
     rw [Dyadic.quantumAtLeast_coe_real]
     refine ⟨(c + 1) * (2 : ℤ) ^ (k - exp).toNat, ?_⟩
@@ -513,12 +513,12 @@ theorem F_adjacent_step_form (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
       rw [Int.toNat_of_nonneg h_diff_nn]; ring
     rw [h_eq_zpow, zpow_natCast]
     push_cast; ring
-  have hz_b : Format.boundOK F.toFormat.b z := by
-    cases hF_b : F.toFormat.b with
+  have hz_b : Format.boundOK F.b z := by
+    cases hF_b : F.b with
     | top => trivial
     | coe b =>
       change |((z : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-      change Format.boundOK F.toFormat.b y₂ at hb_y₂
+      change Format.boundOK F.b y₂ at hb_y₂
       rw [hF_b] at hb_y₂
       have hy₂_le_b : |((y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb_y₂
       have hz_pos : 0 < ((z : Dyadic) : ℝ) := by
@@ -558,7 +558,7 @@ theorem F_adjacent_step_form (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
 have `y₁ = c·2^k`, `y₂ = (c+1)·2^k` where `(c, k)` is `y₁`'s grid rep
 (`k = ⌊log₂ y₁⌋ - p + 1`). -/
 theorem F_adjacent_step_form_exp_bot (F : FiniteFormat) {p : ℕ+}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.toFormat.exp = ⊥)
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.exp = ⊥)
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F)
     (h_pos : 0 < ((y₁ : Dyadic) : ℝ))
     (h_lt : ((y₁ : Dyadic) : ℝ) < ((y₂ : Dyadic) : ℝ))
@@ -594,19 +594,19 @@ theorem F_adjacent_step_form_exp_bot (F : FiniteFormat) {p : ℕ+}
   have hz_eq : ((z : Dyadic) : ℝ) = ((c + 1 : ℤ) : ℝ) * (2 : ℝ) ^ k := by
     change ((Dyadic.ofIntZpow (c + 1) k : Dyadic) : ℝ) = _
     rw [Dyadic.coe_ofIntZpow]
-  have hz_p : Dyadic.precisionAtMost F.toFormat.p z := by
+  have hz_p : Dyadic.precisionAtMost F.p z := by
     rw [hp]
     apply Dyadic.precisionAtMost_of_abs_le (c + 1) k (by rw [Dyadic.coe_rat_ofIntZpow])
     have h_c1_pos : 0 < c + 1 := by omega
     rw [abs_of_pos h_c1_pos]; omega
-  have hz_q : Dyadic.quantumAtLeast F.toFormat.exp z := by
+  have hz_q : Dyadic.quantumAtLeast F.exp z := by
     rw [he]; trivial
-  have hz_b : Format.boundOK F.toFormat.b z := by
-    cases hF_b : F.toFormat.b with
+  have hz_b : Format.boundOK F.b z := by
+    cases hF_b : F.b with
     | top => trivial
     | coe b =>
       change |((z : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-      change Format.boundOK F.toFormat.b y₂ at hb_y₂
+      change Format.boundOK F.b y₂ at hb_y₂
       rw [hF_b] at hb_y₂
       have hy₂_le_b : |((y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb_y₂
       have hz_pos : 0 < ((z : Dyadic) : ℝ) := by
@@ -650,7 +650,7 @@ strictly between).
 Used to extract the F-predecessor of a midpoint at proof time when the exact
 F-structure is hypothesized only as a containment. -/
 theorem prev_F_adjacent_of_log_eq (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.toFormat.exp = (exp : WithBot ℤ))
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.exp = (exp : WithBot ℤ))
     {m : Dyadic} (hmF : m ∈ F) (hm_pos : 0 < ((m : Dyadic) : ℝ))
     {k c : ℤ} (hk : k ≥ exp) (hc_ge_2 : 2 ≤ c) (hc_lt : c < (2 : ℤ) ^ (p : ℕ))
     (hm_eq : ((m : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ k)
@@ -690,8 +690,8 @@ theorem prev_F_adjacent_of_log_eq (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
         congr 1; rw [Int.toNat_of_nonneg h_diff_nn]; ring
       rw [h_split, zpow_natCast]; push_cast; ring
     · -- boundOK F.b: |prev| ≤ |m| ≤ b.
-      have hb_m : Format.boundOK F.toFormat.b m := hmF.2.2
-      cases hF_b : F.toFormat.b with
+      have hb_m : Format.boundOK F.b m := hmF.2.2
+      cases hF_b : F.b with
       | top => trivial
       | coe b =>
         rw [hF_b] at hb_m
@@ -725,13 +725,13 @@ theorem prev_F_adjacent_of_log_eq (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
     exact no_F_element_in_step_interval F hp he hc_1_pos hc_1_lt hk hk_max_c1
       hzF.1 hzF.2.1 h_gt h_z_lt_c
 
-/-- The precision component of `F.extend 1` for `F.toFormat.p = (p : ℕ+)`:
+/-- The precision component of `F.extend 1` for `F.p = (p : ℕ+)`:
 it is `(p + 1 : ℕ+)`. The `ℕ+` arithmetic `(p:ℕ+)+1 = (p+1:ℕ+)` is
 definitional. -/
 private theorem extend_one_p (F : FiniteFormat) {p : ℕ+}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+)) :
-    (F.extend 1).toFormat.p = (((p + 1 : ℕ+)) : WithTop ℕ+) := by
-  change F.toFormat.p.map (· + (1 : ℕ+)) = _
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) :
+    (F.extend 1).p = (((p + 1 : ℕ+)) : WithTop ℕ+) := by
+  change F.p.map (· + (1 : ℕ+)) = _
   rw [hp, WithTop.map_coe]
 
 /-- `((p + 1 : ℕ+) : ℕ) = (p : ℕ) + 1`. -/
@@ -743,7 +743,7 @@ to `(2c+1)·2^(k-1)` where `(c, k)` is `y₁`'s grid rep and `y₂ = (c+1)·2^k`
 giving `|2c+1| < 2^(p+1)`, hence precision ≤ `p+1`. -/
 theorem midpoint_mem_extend_one_of_F_adjacent_pos (F : FiniteFormat)
     {p : ℕ+} {exp : ℤ}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.toFormat.exp = (exp : WithBot ℤ))
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.exp = (exp : WithBot ℤ))
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F)
     (h_pos : 0 < ((y₁ : Dyadic) : ℝ))
     (h_lt : ((y₁ : Dyadic) : ℝ) < ((y₂ : Dyadic) : ℝ))
@@ -784,9 +784,9 @@ theorem midpoint_mem_extend_one_of_F_adjacent_pos (F : FiniteFormat)
       rw [pow_succ]; ring
     omega
   · -- quantumAtLeast (F.exp - 1) midpoint
-    show Dyadic.quantumAtLeast (F.extend 1).toFormat.exp _
-    have h_exp_extend : (F.extend 1).toFormat.exp = (((exp - 1 : ℤ)) : WithBot ℤ) := by
-      change F.toFormat.exp.map (· - ((1 : ℕ+) : ℤ)) = _
+    show Dyadic.quantumAtLeast (F.extend 1).exp _
+    have h_exp_extend : (F.extend 1).exp = (((exp - 1 : ℤ)) : WithBot ℤ) := by
+      change F.exp.map (· - ((1 : ℕ+) : ℤ)) = _
       rw [he, WithBot.map_coe]
       have : ((1 : ℕ+) : ℤ) = 1 := rfl
       rw [this]
@@ -800,16 +800,16 @@ theorem midpoint_mem_extend_one_of_F_adjacent_pos (F : FiniteFormat)
       congr 1; omega
     rw [h_eq_zpow, zpow_natCast]; push_cast; ring
   · -- bound: |midpoint| ≤ b, computed over ℚ.
-    show Format.boundOK (F.extend 1).toFormat.b _
-    have h_b : (F.extend 1).toFormat.b = F.toFormat.b := rfl
+    show Format.boundOK (F.extend 1).b _
+    have h_b : (F.extend 1).b = F.b := rfl
     rw [h_b]
-    cases hF_b : F.toFormat.b with
+    cases hF_b : F.b with
     | top => trivial
     | coe b =>
       change |((Dyadic.midpoint y₁ y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
       rw [Dyadic.coe_rat_midpoint]
-      have hy₁_b : Format.boundOK F.toFormat.b y₁ := hy₁F.2.2
-      have hy₂_b : Format.boundOK F.toFormat.b y₂ := hy₂F.2.2
+      have hy₁_b : Format.boundOK F.b y₁ := hy₁F.2.2
+      have hy₂_b : Format.boundOK F.b y₂ := hy₂F.2.2
       rw [hF_b] at hy₁_b hy₂_b
       have h1 : |((y₁ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hy₁_b
       have h2 : |((y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hy₂_b
@@ -821,7 +821,7 @@ theorem midpoint_mem_extend_one_of_F_adjacent_pos (F : FiniteFormat)
 /-- Midpoint lemma for F.exp = ⊥, positive case. Same as the finite-exp version
 but quantum check is trivial. -/
 theorem midpoint_mem_extend_one_of_F_adjacent_pos_exp_bot (F : FiniteFormat) {p : ℕ+}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.toFormat.exp = ⊥)
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.exp = ⊥)
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F)
     (h_pos : 0 < ((y₁ : Dyadic) : ℝ))
     (h_lt : ((y₁ : Dyadic) : ℝ) < ((y₂ : Dyadic) : ℝ))
@@ -855,21 +855,21 @@ theorem midpoint_mem_extend_one_of_F_adjacent_pos_exp_bot (F : FiniteFormat) {p 
       rw [pow_succ]; ring
     omega
   · -- F.extend 1 .exp = ⊥ (since F.exp = ⊥). Quantum trivial.
-    show Dyadic.quantumAtLeast (F.extend 1).toFormat.exp _
-    have h_exp_extend : (F.extend 1).toFormat.exp = ⊥ := by
-      change F.toFormat.exp.map (· - ((1 : ℕ+) : ℤ)) = _
+    show Dyadic.quantumAtLeast (F.extend 1).exp _
+    have h_exp_extend : (F.extend 1).exp = ⊥ := by
+      change F.exp.map (· - ((1 : ℕ+) : ℤ)) = _
       rw [he]; rfl
     rw [h_exp_extend]; trivial
-  · show Format.boundOK (F.extend 1).toFormat.b _
-    have h_b : (F.extend 1).toFormat.b = F.toFormat.b := rfl
+  · show Format.boundOK (F.extend 1).b _
+    have h_b : (F.extend 1).b = F.b := rfl
     rw [h_b]
-    cases hF_b : F.toFormat.b with
+    cases hF_b : F.b with
     | top => trivial
     | coe b =>
       change |((Dyadic.midpoint y₁ y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
       rw [Dyadic.coe_rat_midpoint]
-      have hy₁_b : Format.boundOK F.toFormat.b y₁ := hy₁F.2.2
-      have hy₂_b : Format.boundOK F.toFormat.b y₂ := hy₂F.2.2
+      have hy₁_b : Format.boundOK F.b y₁ := hy₁F.2.2
+      have hy₂_b : Format.boundOK F.b y₂ := hy₂F.2.2
       rw [hF_b] at hy₁_b hy₂_b
       have h1 : |((y₁ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hy₁_b
       have h2 : |((y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hy₂_b
@@ -881,7 +881,7 @@ theorem midpoint_mem_extend_one_of_F_adjacent_pos_exp_bot (F : FiniteFormat) {p 
 /-- For `y ∈ F` (any F shape), `midpoint(0, y) = y/2 ∈ F.extend 1`.
 Handles both `F.exp = ⊥` and `F.exp = (e : ℤ)` cases. -/
 theorem half_mem_extend_one (F : FiniteFormat) {p : ℕ+}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+))
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+))
     {y : Dyadic} (hyF : y ∈ F) :
     (Dyadic.midpoint 0 y : Dyadic) ∈ F.extend 1 := by
   obtain ⟨hp_y, hq_y, hb_y⟩ := hyF
@@ -891,8 +891,8 @@ theorem half_mem_extend_one (F : FiniteFormat) {p : ℕ+}
     rw [Dyadic.coe_rat_midpoint]; push_cast; ring
   refine ⟨?_, ?_, ?_⟩
   · -- precisionAtMost (F.extend 1).p.
-    show Dyadic.precisionAtMost (F.extend 1).toFormat.p _
-    have h_p_le : F.toFormat.p ≤ (F.extend 1).toFormat.p := by
+    show Dyadic.precisionAtMost (F.extend 1).p _
+    have h_p_le : F.p ≤ (F.extend 1).p := by
       rw [hp, extend_one_p F hp]
       exact WithTop.coe_le_coe.mpr (by exact_mod_cast Nat.le_succ (p : ℕ))
     apply Dyadic.precisionAtMost_mono h_p_le
@@ -904,10 +904,10 @@ theorem half_mem_extend_one (F : FiniteFormat) {p : ℕ+}
     rw [h_mid_eq_rat, hy_eq, zpow_sub₀ (by norm_num : (2 : ℚ) ≠ 0)]
     field_simp
   · -- quantumAtLeast ((F.exp).map (· - 1)).
-    show Dyadic.quantumAtLeast (F.extend 1).toFormat.exp _
-    have h_exp_eq : (F.extend 1).toFormat.exp = F.toFormat.exp.map (· - ((1 : ℕ+) : ℤ)) := rfl
+    show Dyadic.quantumAtLeast (F.extend 1).exp _
+    have h_exp_eq : (F.extend 1).exp = F.exp.map (· - ((1 : ℕ+) : ℤ)) := rfl
     rw [h_exp_eq]
-    cases hF_exp : F.toFormat.exp with
+    cases hF_exp : F.exp with
     | bot => trivial
     | coe e =>
       rw [WithBot.map_coe]
@@ -922,15 +922,15 @@ theorem half_mem_extend_one (F : FiniteFormat) {p : ℕ+}
       rw [this, zpow_sub₀ (by norm_num : (2 : ℚ) ≠ 0)]
       field_simp
   · -- bound: |y/2| ≤ b.
-    show Format.boundOK (F.extend 1).toFormat.b _
-    have h_b : (F.extend 1).toFormat.b = F.toFormat.b := rfl
+    show Format.boundOK (F.extend 1).b _
+    have h_b : (F.extend 1).b = F.b := rfl
     rw [h_b]
-    cases hF_b : F.toFormat.b with
+    cases hF_b : F.b with
     | top => trivial
     | coe b =>
       change |((Dyadic.midpoint 0 y : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
       rw [h_mid_eq_rat]
-      have hb_y' : Format.boundOK F.toFormat.b y := hb_y
+      have hb_y' : Format.boundOK F.b y := hb_y
       rw [hF_b] at hb_y'
       have h_b_nn : 0 ≤ ((b.val : Dyadic) : ℚ) := b.2
       have hy_le : |((y : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb_y'
@@ -946,7 +946,7 @@ case-splits on the sign of `y₁`:
 - `y₁ < 0` and `y₂ ≤ 0`: negate, apply positive case to `(-y₂, -y₁)`, then negate back.
 - `y₁ < 0 < y₂`: ruled out by F-adjacency since `0 ∈ F`. -/
 theorem midpoint_mem_extend_one_of_F_adjacent (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.toFormat.exp = (exp : WithBot ℤ))
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.exp = (exp : WithBot ℤ))
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F)
     (h_lt : ((y₁ : Dyadic) : ℝ) < ((y₂ : Dyadic) : ℝ))
     (h_adj : ∀ y : Dyadic, y ∈ F →
@@ -1014,7 +1014,7 @@ theorem midpoint_mem_extend_one_of_F_adjacent (F : FiniteFormat) {p : ℕ+} {exp
 structure as `midpoint_mem_extend_one_of_F_adjacent` but using the
 `_exp_bot` positive case. -/
 theorem midpoint_mem_extend_one_of_F_adjacent_exp_bot (F : FiniteFormat) {p : ℕ+}
-    (hp : F.toFormat.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.toFormat.exp = ⊥)
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (he : F.exp = ⊥)
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F)
     (h_lt : ((y₁ : Dyadic) : ℝ) < ((y₂ : Dyadic) : ℝ))
     (h_adj : ∀ y : Dyadic, y ∈ F →
@@ -1075,22 +1075,22 @@ theorem midpoint_mem_extend_one_of_F_adjacent_exp_bot (F : FiniteFormat) {p : �
 /-- For `F.p = ⊤` and `F.exp` finite, midpoint of any two F-elements lies in
 `F.extend 1`. F-adjacency isn't required since precision is unrestricted. -/
 theorem midpoint_mem_extend_one_of_p_top (F : FiniteFormat) {exp : ℤ}
-    (hp : F.toFormat.p = ⊤) (he : F.toFormat.exp = (exp : WithBot ℤ))
+    (hp : F.p = ⊤) (he : F.exp = (exp : WithBot ℤ))
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F) :
     Dyadic.midpoint y₁ y₂ ∈ F.extend 1 := by
   obtain ⟨_, hq_y₁, hb_y₁⟩ := hy₁F
   obtain ⟨_, hq_y₂, hb_y₂⟩ := hy₂F
   refine ⟨?_, ?_, ?_⟩
   · -- precision: (F.extend 1).p = ⊤. Trivial.
-    show Dyadic.precisionAtMost (F.extend 1).toFormat.p _
-    have h_p_top : (F.extend 1).toFormat.p = ⊤ := by
-      change F.toFormat.p.map (· + (1 : ℕ+)) = _
+    show Dyadic.precisionAtMost (F.extend 1).p _
+    have h_p_top : (F.extend 1).p = ⊤ := by
+      change F.p.map (· + (1 : ℕ+)) = _
       rw [hp]; rfl
     rw [h_p_top]; trivial
   · -- quantum: midpoint at quantum exp - 1.
-    show Dyadic.quantumAtLeast (F.extend 1).toFormat.exp _
-    have h_exp_map : (F.extend 1).toFormat.exp = ((exp - 1 : ℤ) : WithBot ℤ) := by
-      change F.toFormat.exp.map (· - ((1 : ℕ+) : ℤ)) = _
+    show Dyadic.quantumAtLeast (F.extend 1).exp _
+    have h_exp_map : (F.extend 1).exp = ((exp - 1 : ℤ) : WithBot ℤ) := by
+      change F.exp.map (· - ((1 : ℕ+) : ℤ)) = _
       rw [he, WithBot.map_coe]
       have : ((1 : ℕ+) : ℤ) = 1 := rfl
       rw [this]
@@ -1103,16 +1103,16 @@ theorem midpoint_mem_extend_one_of_p_top (F : FiniteFormat) {exp : ℤ}
     rw [zpow_sub₀ (by norm_num : (2 : ℚ) ≠ 0)]
     push_cast; field_simp
   · -- bound: |midpoint| ≤ b, over ℚ.
-    show Format.boundOK (F.extend 1).toFormat.b _
-    have h_b : (F.extend 1).toFormat.b = F.toFormat.b := rfl
+    show Format.boundOK (F.extend 1).b _
+    have h_b : (F.extend 1).b = F.b := rfl
     rw [h_b]
-    cases hF_b : F.toFormat.b with
+    cases hF_b : F.b with
     | top => trivial
     | coe b =>
       change |((Dyadic.midpoint y₁ y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
       rw [Dyadic.coe_rat_midpoint]
-      have hb_y₁' : Format.boundOK F.toFormat.b y₁ := hb_y₁
-      have hb_y₂' : Format.boundOK F.toFormat.b y₂ := hb_y₂
+      have hb_y₁' : Format.boundOK F.b y₁ := hb_y₁
+      have hb_y₂' : Format.boundOK F.b y₂ := hb_y₂
       rw [hF_b] at hb_y₁' hb_y₂'
       have h1 : |((y₁ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb_y₁'
       have h2 : |((y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb_y₂'

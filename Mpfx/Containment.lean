@@ -389,13 +389,13 @@ def extend (F : FiniteFormat) (k : ℕ+) : FiniteFormat where
   finite := by
     rcases F.finite with hp | he
     · left
-      change F.toFormat.p.map (· + k) ≠ ⊤
-      cases hF : F.toFormat.p with
+      change F.p.map (· + k) ≠ ⊤
+      cases hF : F.p with
       | top => exact absurd hF hp
       | coe n => rw [WithTop.map_coe]; exact WithTop.coe_ne_top
     · right
-      change F.toFormat.exp.map (· - (k : ℤ)) ≠ ⊥
-      cases hF : F.toFormat.exp with
+      change F.exp.map (· - (k : ℤ)) ≠ ⊥
+      cases hF : F.exp with
       | bot => exact absurd hF he
       | coe e => rw [WithBot.map_coe]; exact WithBot.coe_ne_bot
 
@@ -406,35 +406,35 @@ def extend (F : FiniteFormat) (k : ℕ+) : FiniteFormat where
 nonzero `x` by exactly `k`. -/
 theorem numDigits_extend (F : FiniteFormat) (k : ℕ+) {x : ℝ} (hx : x ≠ 0) :
     (F.extend k).numDigits x = F.numDigits x + k := by
-  have hp_ext : (F.extend k).toFormat.p = F.toFormat.p.map (· + k) := rfl
-  have he_ext : (F.extend k).toFormat.exp = F.toFormat.exp.map (· - (k : ℤ)) := rfl
-  cases hp : F.toFormat.p with
+  have hp_ext : (F.extend k).p = F.p.map (· + k) := rfl
+  have he_ext : (F.extend k).exp = F.exp.map (· - (k : ℤ)) := rfl
+  cases hp : F.p with
   | top =>
-    cases hexp : F.toFormat.exp with
+    cases hexp : F.exp with
     | bot =>
       exfalso; rcases F.finite with h | h
       · exact h hp
       · exact h hexp
     | coe e' =>
-      have hpe : (F.extend k).toFormat.p = ⊤ := by rw [hp_ext, hp]; rfl
-      have hee : (F.extend k).toFormat.exp = ((e' - (k : ℤ) : ℤ) : WithBot ℤ) := by
+      have hpe : (F.extend k).p = ⊤ := by rw [hp_ext, hp]; rfl
+      have hee : (F.extend k).exp = ((e' - (k : ℤ) : ℤ) : WithBot ℤ) := by
         rw [he_ext, hexp, WithBot.map_coe]
       rw [F.numDigits_top_coe hx hexp hp,
           (F.extend k).numDigits_top_coe hx hee hpe]
       ring
   | coe n =>
-    cases hexp : F.toFormat.exp with
+    cases hexp : F.exp with
     | bot =>
-      have hpe : (F.extend k).toFormat.p = (((n + k : ℕ+)) : WithTop ℕ+) := by
+      have hpe : (F.extend k).p = (((n + k : ℕ+)) : WithTop ℕ+) := by
         rw [hp_ext, hp, WithTop.map_coe]
-      have hee : (F.extend k).toFormat.exp = ⊥ := by rw [he_ext, hexp]; rfl
+      have hee : (F.extend k).exp = ⊥ := by rw [he_ext, hexp]; rfl
       rw [F.numDigits_coe_bot hx hp hexp,
           (F.extend k).numDigits_coe_bot hx hpe hee]
       push_cast; ring
     | coe e' =>
-      have hpe : (F.extend k).toFormat.p = (((n + k : ℕ+)) : WithTop ℕ+) := by
+      have hpe : (F.extend k).p = (((n + k : ℕ+)) : WithTop ℕ+) := by
         rw [hp_ext, hp, WithTop.map_coe]
-      have hee : (F.extend k).toFormat.exp = ((e' - (k : ℤ) : ℤ) : WithBot ℤ) := by
+      have hee : (F.extend k).exp = ((e' - (k : ℤ) : ℤ) : WithBot ℤ) := by
         rw [he_ext, hexp, WithBot.map_coe]
       rw [F.numDigits_coe_coe hx hp hexp,
           (F.extend k).numDigits_coe_coe hx hpe hee]
