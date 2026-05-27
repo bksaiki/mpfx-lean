@@ -358,6 +358,30 @@ spec-relationally over `RoundsFinite` (membership + mode condition):
 - [ ] `no_rndRTZ_RNE`, `no_rndRTZ_RAZ`, `no_rndRTZ_RTO`.
 - [ ] `no_rndRAZ_RNE`, `no_rndRAZ_RTZ`, `no_rndRAZ_RTO`.
 
+## Open: Format inference (§6.1)
+
+The static analysis bounding the value of an *unrounded* operation by an
+inferred format — paper §6.1, the `⊗` (mul) and `⊕` (add) operators.
+Fully present in old `Mpfx/FormatInference.lean` (~530 lines) but NOT yet
+ported to Mpfx2 (no `Mpfx2/FormatInference.lean`). Self-contained: depends
+only on `Dyadic`/`Format`/containment, not on rounding or double-rounding.
+
+- [ ] `Dyadic.abs` (+ `abs_mem`: `x ∈ F → |x| ∈ F`). On the ℚ substrate
+      `abs` is computable (was `noncomputable` over ℝ).
+- [ ] `Format.toSet` + the set-level `⊆` phrasing of containment.
+- [ ] `opMul` (`⊗`) and `opAdd`/`opAddPrec` (`⊕`) — the inferred result
+      formats (precision adds, exponents add, bounds multiply / sum).
+- [ ] Soundness `mul_inferred` / `add_inferred` (predicate level) and the
+      capstones `mul_subset` (`⊗`-containment) and `add_subset`
+      (`⊕`-containment): every product / sum of representables is
+      representable in the inferred format.
+- [ ] `neg_subset`, `abs_subset` (`format(neg e) = format(abs e) = format e`).
+- Adaptation notes: `AbstractFormat`→`Format`/`FiniteFormat`, `ℕ∞`→`WithTop ℕ+`
+      precision, `WithTop Dyadic` bound→`WithTop NonNegDyadic`, ℝ→ℚ substrate
+      (the `opMul`/`opAdd` bound arithmetic is ℚ-native and likely computable).
+      The `opAdd` precision bound is noted in the old file as slightly sharper
+      than the paper's — keep that.
+
 ## Open: New features
 
 - [ ] **Fig. 7 format instances**: `binary64`, `binary32`, `E5M2`,
