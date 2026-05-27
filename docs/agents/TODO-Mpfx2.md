@@ -97,14 +97,17 @@ Mpfx2/
 │                   (corollary), numDigits_eq_of_subset_of_isOdd(_aux),
 │                   odd_index_of_p_one_corner, IsOdd.transfer_of_numDigits_eq,
 │                   IsOdd.transfer_of_subset (capstone Lemma 5.3)
-└── DoubleRounding.lean §5.2 / Fig. 9 rules (spec-relational over
+├── DoubleRounding.lean §5.2 / Fig. 9 rules (spec-relational over
                     RoundsFinite): rndRTZ_RTZ, rndRAZ_RAZ(_pos), rndRTO_RTO,
                     rndRTO_RTZ, rndRTO_RAZ, rndRTO_RN — ALL paper-exact.
                     RTO helper chain (toOdd_notMem_of_extend_subset, …),
                     paper-containment helpers (hp_F₂_or_F₁_trivial(_RN),
                     extend_{one,two}_subset_of_paper_subset, *_of_trivial),
                     RN web (rndRTO_RN_close_transfer, rndRTO_no_tie_contradiction,
-                    rndRTO_nearest_facts) + bridges.
+                    rndRTO_nearest_facts) + bridges. Also rndRTP_RTP/rndRTN_RTN.
+└── FormatInference.lean §6.1: ⊗/⊕ format inference. Dyadic.abs, Format.toSet,
+                    opMul/opAdd/opAddPrec, mul_subset/add_subset (the inferred
+                    format contains every product/sum), neg_subset/abs_subset.
 ```
 
 ## Substrate (done)
@@ -358,29 +361,28 @@ spec-relationally over `RoundsFinite` (membership + mode condition):
 - [ ] `no_rndRTZ_RNE`, `no_rndRTZ_RAZ`, `no_rndRTZ_RTO`.
 - [ ] `no_rndRAZ_RNE`, `no_rndRAZ_RTZ`, `no_rndRAZ_RTO`.
 
-## Open: Format inference (§6.1)
+## Format inference (§6.1) — done
 
 The static analysis bounding the value of an *unrounded* operation by an
-inferred format — paper §6.1, the `⊗` (mul) and `⊕` (add) operators.
-Fully present in old `Mpfx/FormatInference.lean` (~530 lines) but NOT yet
-ported to Mpfx2 (no `Mpfx2/FormatInference.lean`). Self-contained: depends
-only on `Dyadic`/`Format`/containment, not on rounding or double-rounding.
+inferred format — paper §6.1, the `⊗` (mul) and `⊕` (add) operators. Ported
+to `Mpfx2/FormatInference.lean` (~435 lines). Self-contained (depends only on
+`Dyadic`/`Format`).
 
-- [ ] `Dyadic.abs` (+ `abs_mem`: `x ∈ F → |x| ∈ F`). On the ℚ substrate
-      `abs` is computable (was `noncomputable` over ℝ).
-- [ ] `Format.toSet` + the set-level `⊆` phrasing of containment.
-- [ ] `opMul` (`⊗`) and `opAdd`/`opAddPrec` (`⊕`) — the inferred result
-      formats (precision adds, exponents add, bounds multiply / sum).
-- [ ] Soundness `mul_inferred` / `add_inferred` (predicate level) and the
-      capstones `mul_subset` (`⊗`-containment) and `add_subset`
-      (`⊕`-containment): every product / sum of representables is
-      representable in the inferred format.
-- [ ] `neg_subset`, `abs_subset` (`format(neg e) = format(abs e) = format e`).
-- Adaptation notes: `AbstractFormat`→`Format`/`FiniteFormat`, `ℕ∞`→`WithTop ℕ+`
-      precision, `WithTop Dyadic` bound→`WithTop NonNegDyadic`, ℝ→ℚ substrate
-      (the `opMul`/`opAdd` bound arithmetic is ℚ-native and likely computable).
-      The `opAdd` precision bound is noted in the old file as slightly sharper
-      than the paper's — keep that.
+- [x] `Dyadic.abs` (now **computable**, `if 0 ≤ (x:ℚ)`) + `coe_abs`/`coe_rat_abs`,
+      `Format.abs_mem` (`x ∈ F → |x| ∈ F`).
+- [x] `Format.toSet` + `mem_toSet` (set-level `⊆` phrasing).
+- [x] `opMul` (`⊗`) and `opAdd`/`opAddPrec` (`⊕`) — inferred result formats.
+      **Simplification vs. old:** Mpfx2's base `Format` carries no
+      `not_degenerate`/`p_pos`/`b_nn` invariants, so `opMul`/`opAdd` return a
+      plain `Format` with **no `exp ≠ ⊥` hypotheses** (the old AbstractFormat
+      precondition is gone). Result bounds built by `match` on `F₁.b, F₂.b`
+      into `WithTop NonNegDyadic` (any `⊤` operand ⇒ `⊤`).
+- [x] `mul_inferred`/`add_inferred` (predicate level, ℚ), `add_prec_finite`
+      (floor/clog bound, ℝ ratio bridged to ℚ), capstones `mul_subset` /
+      `add_subset`.
+- [x] `neg_subset`, `abs_subset`.
+- `opAddPrec` keeps the tighter floor-based precision (`⌊(b₁+b₂)/2^m⌋`) noted
+  in the old file.
 
 ## Open: New features
 
