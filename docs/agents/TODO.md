@@ -407,15 +407,20 @@ to `Mpfx/FormatInference.lean` (~435 lines). Self-contained (depends only on
 
 ## Open: Refactoring / cleanup (low-priority)
 
-- [ ] **`@[simp]` lemmas** for `F.toFormat.p = F.p`, etc., across the
-      tier hierarchy. Currently `F.toFormat` projections need manual
-      `change` in proofs. (Mathlib convention: prefer explicit `.toFormat`
-      access; only add `simp` lemmas where they're load-bearing.)
-- [ ] **Optional `Coe FiniteFormat Format` instance**. Currently we
-      require `.toFormat` at call sites. Add only if noise becomes
-      overwhelming.
+- [x] **`F.toFormat.{p,exp,b}` → `F.{p,exp,b}`** — access the parent `Format`
+      fields directly via structure inheritance (definitionally equal). Done
+      across the codebase; `.toFormat` kept only where the operator is on
+      `Format` itself (`⊆`/`Subset`, `withBound`, `boundAfterNext`).
+- [ ] **Optional `Coe FiniteFormat Format` instance** — would let `⊆`/
+      `withBound`/`boundAfterNext` drop their explicit `.toFormat` too. Add
+      only if that noise becomes overwhelming.
 - [ ] **Module docstrings** per file, paper-reference cross-links, and
-      a top-level `Mpfx/README.md`.
+      a top-level `README.md` expansion.
+- (Considered, not done: de-`change`-ing `RoundOp.lean` — its ~60 `change`s
+  are legitimate definitional unfolds of `canonicalExp`/`rndInt`/arithmetic,
+  not the `.toFormat` pattern; removing them needs per-def unfold lemmas with
+  no real payoff. Splitting `RoundOp.lean` (~4000 lines) is a mechanical reorg
+  with no correctness benefit — deferred unless it causes friction.)
 
 ## Open: substrate ergonomics (low-priority)
 
