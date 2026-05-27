@@ -414,8 +414,16 @@ to `Mpfx/FormatInference.lean` (~435 lines). Self-contained (depends only on
 - [ ] **Optional `Coe FiniteFormat Format` instance** — would let `⊆`/
       `withBound`/`boundAfterNext` drop their explicit `.toFormat` too. Add
       only if that noise becomes overwhelming.
-- [ ] **Module docstrings** per file, paper-reference cross-links, and
-      a top-level `README.md` expansion.
+- [x] **Top-level `README.md`** — project overview, what's formalized, design,
+      file map, build instructions.
+- [x] **Counterexamples namespace** — moved from the misleading
+      `Mpfx.ParityFormat` to `Mpfx.Cex` (groups the gadget + the ten `no_rnd*`
+      theorems without polluting `Mpfx`).
+- [ ] **Per-file module docstrings** + paper-reference cross-links (`README`
+      is done; individual file headers could still gain `§`-references).
+- (Considered, not done: merging the Grid `_exp_bot`/`_of_p_top` twin lemmas
+  under a unified `k` form — the twin structure with the dispatcher in
+  `midpoint_F₁_in_F₂_of_F_adjacent` is clearer; deferred.)
 - (Considered, not done: de-`change`-ing `RoundOp.lean` — its ~60 `change`s
   are legitimate definitional unfolds of `canonicalExp`/`rndInt`/arithmetic,
   not the `.toFormat` pattern; removing them needs per-def unfold lemmas with

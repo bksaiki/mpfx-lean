@@ -34,7 +34,7 @@ infrastructure in later development.
 
 namespace Mpfx
 
-namespace ParityFormat
+namespace Cex
 
 /-! ## The gadget format `F₁_g = 𝒜(p, e, ⊤)` -/
 
@@ -2026,6 +2026,6 @@ theorem no_rndRTZ_RNE
     rw [h_abs_low, h_abs_hi] at h_close_lo
     linarith
 
-end ParityFormat
+end Cex
 
 end Mpfx
