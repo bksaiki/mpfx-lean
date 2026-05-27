@@ -1739,4 +1739,61 @@ theorem rndRTO_RN {F₁ F₂ : FiniteFormat}
     exact (h_no_tie z' hz'F₁ (isFaithfulRound_iff_directed.mp hz'_faithful)
       hz'_ne_w' hz'_eq_dist).elim
 
+/-- **rnd-RTP-RTP** (round toward `+∞`, chained). For `x > 0` it is RAZ→RAZ
+(`rndRAZ_RAZ_pos`); for `x ≤ 0` it is RTZ→RTZ (`rndRTZ_RTZ`). The two regimes
+are connected to RTP through the sign-bridge iff lemmas. Only needs `F₁ ⊆ F₂`. -/
+theorem rndRTP_RTP {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+    {x : ℝ} {z w : Dyadic}
+    (hz : RoundsFinite F₂ .toPositive x z) (hw : RoundsFinite F₁ .toPositive (z : ℝ) w) :
+    RoundsFinite F₁ .toPositive x w := by
+  by_cases hx_le : x ≤ 0
+  · -- x ≤ 0: bridge to RTZ.
+    have hz_le_0 : (z : ℝ) ≤ 0 := by
+      have := hz.2.2 0 F₂.zero_mem (by rw [Dyadic.coe_real_zero]; exact hx_le)
+      rwa [Dyadic.coe_real_zero] at this
+    have hz_RTZ : RoundsFinite F₂ .toZero x z :=
+      (RoundsFinite.toPositive_iff_toZero_of_nonpos F₂ hx_le z).mp hz
+    have hw_RTZ : RoundsFinite F₁ .toZero (z : ℝ) w :=
+      (RoundsFinite.toPositive_iff_toZero_of_nonpos F₁ hz_le_0 w).mp hw
+    exact (RoundsFinite.toPositive_iff_toZero_of_nonpos F₁ hx_le w).mpr
+      (rndRTZ_RTZ hsub hz_RTZ hw_RTZ)
+  · -- x > 0: bridge to RAZ.
+    have hx_pos : 0 < x := not_le.mp hx_le
+    have hz_nn : 0 ≤ (z : ℝ) := le_trans hx_pos.le hz.2.1
+    have hz_RAZ : RoundsFinite F₂ .awayZero x z :=
+      (RoundsFinite.toPositive_iff_awayZero_of_nonneg F₂ hx_pos.le z).mp hz
+    have hw_RAZ : RoundsFinite F₁ .awayZero (z : ℝ) w :=
+      (RoundsFinite.toPositive_iff_awayZero_of_nonneg F₁ hz_nn w).mp hw
+    exact (RoundsFinite.toPositive_iff_awayZero_of_nonneg F₁ hx_pos.le w).mpr
+      (rndRAZ_RAZ_pos hsub hx_pos hz_RAZ hw_RAZ)
+
+/-- **rnd-RTN-RTN** (round toward `−∞`, chained). For `x < 0` it is RAZ→RAZ
+(`rndRAZ_RAZ`); for `x ≥ 0` it is RTZ→RTZ (`rndRTZ_RTZ`), connected to RTN via
+the sign-bridge iff lemmas. Only needs `F₁ ⊆ F₂`. -/
+theorem rndRTN_RTN {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+    {x : ℝ} {z w : Dyadic}
+    (hz : RoundsFinite F₂ .toNegative x z) (hw : RoundsFinite F₁ .toNegative (z : ℝ) w) :
+    RoundsFinite F₁ .toNegative x w := by
+  by_cases hx_neg : x < 0
+  · -- x < 0: bridge to RAZ.
+    have hx_le : x ≤ 0 := hx_neg.le
+    have hz_le_0 : (z : ℝ) ≤ 0 := le_trans hz.2.1 hx_le
+    have hz_RAZ : RoundsFinite F₂ .awayZero x z :=
+      (RoundsFinite.toNegative_iff_awayZero_of_nonpos F₂ hx_le z).mp hz
+    have hw_RAZ : RoundsFinite F₁ .awayZero (z : ℝ) w :=
+      (RoundsFinite.toNegative_iff_awayZero_of_nonpos F₁ hz_le_0 w).mp hw
+    exact (RoundsFinite.toNegative_iff_awayZero_of_nonpos F₁ hx_le w).mpr
+      (rndRAZ_RAZ hsub hz_RAZ hw_RAZ)
+  · -- x ≥ 0: bridge to RTZ.
+    have hx_nn : 0 ≤ x := not_lt.mp hx_neg
+    have hz_nn : 0 ≤ (z : ℝ) := by
+      have := hz.2.2 0 F₂.zero_mem (by rw [Dyadic.coe_real_zero]; exact hx_nn)
+      rwa [Dyadic.coe_real_zero] at this
+    have hz_RTZ : RoundsFinite F₂ .toZero x z :=
+      (RoundsFinite.toNegative_iff_toZero_of_nonneg F₂ hx_nn z).mp hz
+    have hw_RTZ : RoundsFinite F₁ .toZero (z : ℝ) w :=
+      (RoundsFinite.toNegative_iff_toZero_of_nonneg F₁ hz_nn w).mp hw
+    exact (RoundsFinite.toNegative_iff_toZero_of_nonneg F₁ hx_nn w).mpr
+      (rndRTZ_RTZ hsub hz_RTZ hw_RTZ)
+
 end Mpfx2

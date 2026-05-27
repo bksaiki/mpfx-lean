@@ -769,6 +769,31 @@ theorem RoundsFinite.toPositive_iff_toZero_of_nonpos
       · push Not at hz_np
         linarith
 
+/-- For `x ≤ 0`, rounding toward `−∞` coincides with rounding away from zero
+(both move to the more-negative side). Sign-mirror of
+`toPositive_iff_awayZero_of_nonneg`, derived via joint negation. -/
+theorem RoundsFinite.toNegative_iff_awayZero_of_nonpos
+    (F : FiniteFormat) {x : ℝ} (hx : x ≤ 0) (y : Dyadic) :
+    RoundsFinite F .toNegative x y ↔ RoundsFinite F .awayZero x y :=
+  calc RoundsFinite F .toNegative x y
+      ↔ RoundsFinite F .toPositive (-x) (-y) :=
+        RoundsFinite.neg_toNegative_iff_toPositive F x y
+    _ ↔ RoundsFinite F .awayZero (-x) (-y) :=
+        RoundsFinite.toPositive_iff_awayZero_of_nonneg F (neg_nonneg.mpr hx) (-y)
+    _ ↔ RoundsFinite F .awayZero x y := (RoundsFinite.neg_awayZero F x y).symm
+
+/-- For `0 ≤ x`, rounding toward `−∞` coincides with rounding toward zero
+(both move down). Sign-mirror of `toPositive_iff_toZero_of_nonpos`. -/
+theorem RoundsFinite.toNegative_iff_toZero_of_nonneg
+    (F : FiniteFormat) {x : ℝ} (hx : 0 ≤ x) (y : Dyadic) :
+    RoundsFinite F .toNegative x y ↔ RoundsFinite F .toZero x y :=
+  calc RoundsFinite F .toNegative x y
+      ↔ RoundsFinite F .toPositive (-x) (-y) :=
+        RoundsFinite.neg_toNegative_iff_toPositive F x y
+    _ ↔ RoundsFinite F .toZero (-x) (-y) :=
+        RoundsFinite.toPositive_iff_toZero_of_nonpos F (neg_nonpos.mpr hx) (-y)
+    _ ↔ RoundsFinite F .toZero x y := (RoundsFinite.neg_toZero F x y).symm
+
 theorem Rounds.toPositive_iff_awayZero_of_nonneg
     (F : FiniteFormat) {x : ℝ} (hx : 0 ≤ x) (r : RoundResult) :
     Rounds F .toPositive x r ↔ Rounds F .awayZero x r := by
