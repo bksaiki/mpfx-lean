@@ -42,7 +42,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 ## File layout
 
 ```
-Mpfx2/
+Mpfx/
 ├── Utils.lean      project-agnostic helpers (two_zpow_pos, etc.)
 ├── Dyadic.lean     IsDyadic (ℚ), Dyadic := subring of ℚ, ofIntZpow (computable),
 │                   coe_real_* / coe_rat_ofIntZpow / ext_real bridge lemmas,
@@ -223,7 +223,7 @@ mixed-normal-pne1, mixed-subnormal-p1, mixed-normal-p1), all of:
 
 ## Containment (§5.1, Fig. 8) — done
 
-In `Mpfx2/Containment.lean` (proved entirely over `ℚ`):
+In `Mpfx/Containment.lean` (proved entirely over `ℚ`):
 
 - [x] `Format.Subset` + `HasSubset Format` instance.
 - [x] `Format.boundOK_mono` — bound-check monotone in the bound.
@@ -254,10 +254,10 @@ In `Mpfx2/Containment.lean` (proved entirely over `ℚ`):
 - [x] **Lemma 5.3 corollary** — `ParityFormat.precisionAtMost_not_IsOdd`
       (+ prereq `FiniteFormat.numDigits_le_one_of_p_one`): if `y` has
       precision `≤ w` and `numDigits F y > w`, then `¬ F.IsOdd y`. In
-      `Mpfx2/Digits.lean`.
+      `Mpfx/Digits.lean`.
 - [x] **Lemma 5.3** (RTO digit-padding preserves representability) —
       the pivotal lemma for all RTO-composition double-rounding rules.
-      In `Mpfx2/Digits.lean`, ~750 lines total:
+      In `Mpfx/Digits.lean`, ~750 lines total:
   - [x] `numDigits_eq_of_subset_of_isOdd_aux` — the "≤" direction, the
         ~370-line finer-grid witness core. Hardest proof in the project.
   - [x] `numDigits_eq_of_subset_of_isOdd` — combines corollary (≥) + `_aux`
@@ -301,7 +301,7 @@ In `Mpfx2/Containment.lean` (proved entirely over `ℚ`):
 
 ## Double rounding (§5.2)
 
-The headline application, in `Mpfx2/DoubleRounding.lean`. Stated
+The headline application, in `Mpfx/DoubleRounding.lean`. Stated
 spec-relationally over `RoundsFinite` (membership + mode condition):
 `F₁ ⊆ F₂`, `RoundsFinite F₂ rm₂ x z`, `RoundsFinite F₁ rm₁ z w` ⟹
 `RoundsFinite F₁ rm x w`.
@@ -331,7 +331,7 @@ spec-relationally over `RoundsFinite` (membership + mode condition):
       Lemma 5.3 application sits in the RTN branch (vs RTP for RTZ).
 - [x] `rndRTO_RN` (both tie-breaks) — **DONE**, paper-exact form:
       `(F₁.extend 2).withBound (F₁.extend 1).boundAfterNext ⊆ F₂`. Rests on the
-      grid/midpoint theory (`Mpfx2/Grid.lean`): the midpoint of two F₁-adjacent
+      grid/midpoint theory (`Mpfx/Grid.lean`): the midpoint of two F₁-adjacent
       points lies in `F₁.extend 1` (`midpoint_mem_extend_one_of_F_adjacent`),
       hence in `F₂`. The no-tie argument (`rndRTO_no_tie_contradiction`) forces
       a tie's `x = midpoint ∈ F₂`, so `z = x` — contradiction; this discharges
@@ -351,7 +351,7 @@ spec-relationally over `RoundsFinite` (membership + mode condition):
   paper statement for RTO→RTO; only RTZ/RAZ/RN carry the bound-aware
   containment that lets `hp_F₂` be derived.)
 
-**Counterexamples (ten cases) — done** (`Mpfx2/DoubleRoundingCex.lean`):
+**Counterexamples (ten cases) — done** (`Mpfx/DoubleRoundingCex.lean`):
 universally quantified over a witness format `F₁_g = 𝒜(p, e, ⊤)` (`p ≥ 2`)
 and a compatible `F₂`; each exhibits a real `x` whose chained F₂-then-F₁
 rounding disagrees with direct F₁ rounding.
@@ -365,7 +365,7 @@ rounding disagrees with direct F₁ rounding.
 
 The static analysis bounding the value of an *unrounded* operation by an
 inferred format — paper §6.1, the `⊗` (mul) and `⊕` (add) operators. Ported
-to `Mpfx2/FormatInference.lean` (~435 lines). Self-contained (depends only on
+to `Mpfx/FormatInference.lean` (~435 lines). Self-contained (depends only on
 `Dyadic`/`Format`).
 
 - [x] `Dyadic.abs` (now **computable**, `if 0 ≤ (x:ℚ)`) + `coe_abs`/`coe_rat_abs`,
@@ -389,7 +389,7 @@ to `Mpfx2/FormatInference.lean` (~435 lines). Self-contained (depends only on
 - [ ] **Fig. 7 format instances**: `binary64`, `binary32`, `E5M2`,
       `E4M3`, `int8`, `fixed<-4, 8>`. Concrete `FiniteFormat` or
       `ParityFormat` values; useful as smoke tests.
-- [ ] **Smoke tests** (`Mpfx2/Tests.lean`): concrete
+- [ ] **Smoke tests** (`Mpfx/Tests.lean`): concrete
       `rnd F rm x = .finite y` proofs. Since `rnd` is `noncomputable`,
       these are `rfl`/`decide`-style equational proofs, not `#eval`.
       *Computable-mirror option*: define `rndQ : FiniteFormat → RoundingMode
@@ -415,7 +415,7 @@ to `Mpfx2/FormatInference.lean` (~435 lines). Self-contained (depends only on
       require `.toFormat` at call sites. Add only if noise becomes
       overwhelming.
 - [ ] **Module docstrings** per file, paper-reference cross-links, and
-      a top-level `Mpfx2/README.md`.
+      a top-level `Mpfx/README.md`.
 
 ## Open: substrate ergonomics (low-priority)
 
