@@ -343,11 +343,14 @@ spec-relationally over `RoundsFinite` (membership + mode condition):
       `F_adjacent_of_RN_round_pair`, `midpoint_F₁_in_F₂_of_F_adjacent`;
       containment `hp_F₂_or_F₁_trivial_RN`, `extend_two_subset_of_paper_RN_subset`,
       `RoundsFinite.nearest_of_trivial`.
+- [x] `rndRTP_RTP` / `rndRTN_RTN` — directed-mode chains (round toward
+      `±∞`). Reduce to RTZ/RAZ by sign regime via the `RoundsFinite`
+      sign-bridge iffs (`toPositive/toNegative_iff_{awayZero,toZero}_of_*`;
+      the two `toNegative` bridges were added, derived from the `toPositive`
+      ones by joint negation). Only need `F₁ ⊆ F₂`.
 - (NB: `rndRTO_RTO` legitimately keeps `F₁ ⊆ F₂` + `hp_F₂` — that *is* the
   paper statement for RTO→RTO; only RTZ/RAZ/RN carry the bound-aware
   containment that lets `hp_F₂` be derived.)
-- (also available in old `Mpfx/`: `rndRTP_RTP`, `rndRTN_RTN` — directed-mode
-  chains that reduce to RTZ/RAZ via sign-bridges; easy follow-ons.)
 
 **Counterexamples (ten cases):**
 
