@@ -355,11 +355,15 @@ spec-relationally over `RoundsFinite` (membership + mode condition):
   paper statement for RTO→RTO; only RTZ/RAZ/RN carry the bound-aware
   containment that lets `hp_F₂` be derived.)
 
-**Counterexamples (ten cases):**
+**Counterexamples (ten cases) — done** (`Mpfx2/DoubleRoundingCex.lean`):
+universally quantified over a witness format `F₁_g = 𝒜(p, e, ⊤)` (`p ≥ 2`)
+and a compatible `F₂`; each exhibits a real `x` whose chained F₂-then-F₁
+rounding disagrees with direct F₁ rounding.
 
-- [ ] `no_rndRNE_RNE`, `no_rndRNE_RAZ`, `no_rndRNE_RTZ`, `no_rndRNE_RTO`.
-- [ ] `no_rndRTZ_RNE`, `no_rndRTZ_RAZ`, `no_rndRTZ_RTO`.
-- [ ] `no_rndRAZ_RNE`, `no_rndRAZ_RTZ`, `no_rndRAZ_RTO`.
+- [x] `no_rndRNE_RNE` (core `no_rndRNE_RNE_arbitrary_F₂`), `no_rndRNE_RAZ`,
+      `no_rndRNE_RTZ`, `no_rndRNE_RTO`.
+- [x] `no_rndRTZ_RNE`, `no_rndRTZ_RAZ`, `no_rndRTZ_RTO`.
+- [x] `no_rndRAZ_RNE`, `no_rndRAZ_RTZ`, `no_rndRAZ_RTO`.
 
 ## Format inference (§6.1) — done
 
