@@ -1,7 +1,7 @@
 import Mpfx2.Format
 
 /-!
-# Rounding spec (Mpfx2, relational layer)
+# Rounding spec (relational layer)
 
 The constructive-logic layer of the rounding architecture. Defines:
 

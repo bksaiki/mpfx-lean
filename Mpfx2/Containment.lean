@@ -210,9 +210,8 @@ theorem two_le_p_of_precision_two_witness {F : Format} {v : Dyadic}
 paper's `next_{F.p, F.exp}(b)` from §5.2 / Fig. 9: the smallest Dyadic in the
 grid `A(F.p, F.exp, ∞)` strictly above `b`. -/
 
-/-- Replace `F`'s bound with `b'`, keeping precision and quantum. Unlike the old
-`AbstractFormat` API, no non-negativity witness is needed: `NonNegDyadic`
-already carries `0 ≤ d`. -/
+/-- Replace `F`'s bound with `b'`, keeping precision and quantum. No
+non-negativity witness is needed: `NonNegDyadic` already carries `0 ≤ d`. -/
 def withBound (F : Format) (b' : WithTop NonNegDyadic) : Format := { F with b := b' }
 
 @[simp] theorem withBound_p (F : Format) (b' : WithTop NonNegDyadic) :
@@ -236,8 +235,8 @@ step depends on `b`'s magnitude:
 For `F.p = ⊤` and `F.exp = (e : ℤ)`: `A(⊤, e, ∞)` is all dyadics with quantum
 ≥ e, so the smallest value strictly above `b` is `b + 2^e`.
 
-For `F.exp = ⊥` (degenerate corner): returns `b + 1` as a placeholder; not used
-by the paper's RTO rules. -/
+For `F.exp = ⊥` (degenerate corner): returns `b + 1`; this corner is not
+exercised by the paper's RTO rules. -/
 noncomputable def next (F : Format) (b : Dyadic) : Dyadic :=
   match F.exp, F.p with
   | (e : ℤ), ((p : ℕ+) : WithTop ℕ+) =>
@@ -352,9 +351,9 @@ theorem self_le_next (F : Format) (b : Dyadic)
 /-! ### `boundAfterNext`: the bound for the paper's `F⁺` containment
 
 `next(F.b)` lifted to `WithTop NonNegDyadic`. Returns `⊤` when `F.b = ⊤`,
-otherwise `(F.next b : NonNegDyadic)`. Unlike the old `AbstractFormat` API, the
-non-negativity witness is carried by `NonNegDyadic` itself (no separate
-`boundAfterNext_nn` obligation), and `withBound` takes only the bound. -/
+otherwise `(F.next b : NonNegDyadic)`. The non-negativity witness is carried by
+`NonNegDyadic` itself (no separate obligation), and `withBound` takes only the
+bound. -/
 
 /-- The bound for the paper's `F⁺` containment: `next(F.b)` lifted to
 `WithTop NonNegDyadic`. -/

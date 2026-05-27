@@ -12,7 +12,7 @@ This matches the paper's reasoning and sidesteps overflow bookkeeping —
 existence of `z`, `w` is taken as hypotheses.
 
 Stated over `RoundsFinite` (membership + mode condition, no separate bound
-check), the Mpfx2 analog of the paper's `rnd`-relation.
+check), the spec-relational analog of the paper's `rnd`-relation.
 -/
 
 namespace Mpfx2

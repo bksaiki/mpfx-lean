@@ -1,7 +1,7 @@
 import Mpfx2.Rounding
 
 /-!
-# Constructive rounding function (Mpfx2)
+# Constructive rounding function
 
 The noncomputable layer of the rounding architecture. See
 `Mpfx2/Rounding.lean` for the relational spec `Rounds`; this file

@@ -16,13 +16,12 @@ operations, the paper states:
 * `add`: `𝒜(p₁, exp₁, b₁) ⊕ 𝒜(p₂, exp₂, b₂) ⊆
           𝒜(⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉, min(exp₁, exp₂), b₁ + b₂)`.
 
-## Adaptation to the Mpfx2 substrate
+## Result formats are plain `Format`s
 
-Mpfx2's `Format` carries only the three fields `(p, exp, b)` with **no**
-validity invariants (those live in `FiniteFormat`/`ParityFormat`).  As a
-result `opMul`/`opAdd` produce a plain `Format` with no proof obligations,
-and the old `F.exp ≠ ⊥` hypotheses (needed only to discharge the now-absent
-`not_degenerate`) are gone.
+`Format` carries only the three fields `(p, exp, b)` with **no** validity
+invariants (those live in `FiniteFormat`/`ParityFormat`). So `opMul`/`opAdd`
+produce a plain `Format` with no proof obligations, and need no `F.exp ≠ ⊥`
+preconditions.
 
 For the `⊕`-precision we use a *slightly tighter* formula than the paper:
 `opAddPrec` returns `⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉` (floor inside),

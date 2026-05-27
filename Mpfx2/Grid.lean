@@ -7,10 +7,8 @@ For a finite-precision format `F` with precision `p` and exponent floor `exp`,
 a positive value `y ∈ F` admits a representation `y = c · 2^k` on the
 `F`-grid, where `k = max(exp, ⌊log₂ y⌋ - p + 1)` is the grid step exponent at
 `y` and `c` is a positive integer with `|c| < 2^p`. This is the structural
-prerequisite for the `rndRTO_RN` analysis.
-
-This module is being ported in chunks; the F-adjacency and midpoint lemmas
-follow in later chunks.
+prerequisite for the `rndRTO_RN` analysis: the grid-representation lemmas
+build up to the F-adjacency and midpoint-membership results used there.
 -/
 
 namespace Mpfx2
