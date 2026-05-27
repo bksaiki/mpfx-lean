@@ -206,12 +206,7 @@ private theorem add_inferred_q {F₁ F₂ : Format} {x y : Dyadic}
   obtain ⟨c1, hxeq⟩ := hqx'
   obtain ⟨c2, hyeq⟩ := hqy'
   have h_min_eq : min F₁.exp F₂.exp = ((min e1 e2 : ℤ) : WithBot ℤ) := by
-    rw [← he1, ← he2]
-    rcases le_total e1 e2 with hle | hle
-    · rw [min_eq_left (by exact_mod_cast hle : (e1 : WithBot ℤ) ≤ (e2 : WithBot ℤ))]
-      rw [min_eq_left hle]
-    · rw [min_eq_right (by exact_mod_cast hle : (e2 : WithBot ℤ) ≤ (e1 : WithBot ℤ))]
-      rw [min_eq_right hle]
+    rw [← he1, ← he2, ← WithBot.coe_min]
   rw [h_min_eq, Dyadic.quantumAtLeast_coe]
   set m := min e1 e2 with hm
   have he1_ge : m ≤ e1 := min_le_left _ _
@@ -384,12 +379,7 @@ theorem add_subset (F₁ F₂ : Format) :
             simp only [inf_bot_eq]; trivial
           | coe e2 =>
             have h_min_eq : min (e1 : WithBot ℤ) (e2 : WithBot ℤ)
-                = ((min e1 e2 : ℤ) : WithBot ℤ) := by
-              rcases le_total e1 e2 with hle | hle
-              · rw [min_eq_left (by exact_mod_cast hle : (e1 : WithBot ℤ) ≤ (e2 : WithBot ℤ)),
-                    min_eq_left hle]
-              · rw [min_eq_right (by exact_mod_cast hle : (e2 : WithBot ℤ) ≤ (e1 : WithBot ℤ)),
-                    min_eq_right hle]
+                = ((min e1 e2 : ℤ) : WithBot ℤ) := (WithBot.coe_min e1 e2).symm
             rw [h_min_eq]
             have := add_prec_finite hF1_b hF2_b hF1_exp hF2_exp
               (mem_toSet.mp hx) (mem_toSet.mp hy)

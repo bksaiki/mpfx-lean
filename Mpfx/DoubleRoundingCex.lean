@@ -243,37 +243,6 @@ theorem f₂_le_e_sub_one_of_odd_in_F₂
     refine ⟨c * 2^(k - 1), ?_⟩; ring
   exact (Int.not_even_iff_odd.mpr h_odd) h_even
 
-/-! ## Arithmetic helpers -/
-
-/-- `(2:ℝ)^(e - f) = ((2:ℤ)^n : ℝ)` where `n = (e - f).toNat`, when `f ≤ e`. -/
-theorem two_zpow_diff_eq (e f : ℤ) (h : f ≤ e) :
-    (2 : ℝ)^(e - f) = ((2 : ℤ)^(e - f).toNat : ℝ) := by
-  have hn_eq : ((e - f).toNat : ℤ) = e - f := Int.toNat_of_nonneg (by omega)
-  rw [show (2 : ℝ)^(e - f) = (2 : ℝ)^(((e - f).toNat : ℤ) : ℤ) by rw [hn_eq],
-      zpow_natCast]
-  push_cast; ring
-
-/-- `(2:ℝ)^e = ((2:ℤ)^n : ℝ) * (2:ℝ)^f` where `n = (e - f).toNat`, when `f ≤ e`. -/
-theorem two_zpow_split (e f : ℤ) (h : f ≤ e) :
-    (2 : ℝ)^e = ((2 : ℤ)^(e - f).toNat : ℝ) * (2 : ℝ)^f := by
-  have h_split : (2 : ℝ)^e = (2 : ℝ)^(e - f) * (2 : ℝ)^f := by
-    rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
-  rw [h_split, two_zpow_diff_eq e f h]
-
-/-- If `z·x ≥ 0` and `0 < x`, then `0 ≤ z`. -/
-theorem nonneg_of_mul_nonneg_pos {z x : ℝ} (h_sign : z * x ≥ 0) (hx : 0 < x) :
-    0 ≤ z := by
-  rcases le_or_gt 0 z with h | h
-  · exact h
-  · exfalso; nlinarith
-
-/-- `2^f = 4 · 2^(f − 2)`. -/
-theorem two_zpow_split_minus_two (f : ℤ) :
-    (2 : ℝ)^f = 4 * (2 : ℝ)^(f - 2) := by
-  have h_eq : (2 : ℝ)^f = (2 : ℝ)^(f - 2) * (2 : ℝ)^(2 : ℤ) := by
-    rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
-  rw [h_eq, show (2 : ℝ)^(2 : ℤ) = 4 by norm_num]; ring
-
 /-- **F₂-grid floor.** Given `target = c_target · 2^f₂` on F₂'s grid, any
 `z ∈ F₂` strictly below `target + 2^f₂` is at most `target`. -/
 theorem F₂_grid_floor
