@@ -1011,20 +1011,6 @@ theorem isOdd_iff_odd_at_canonical_mixed_subnormal {F : ParityFormat}
   isOdd_iff_odd_of_canonical
     (canonical_rep_mixed_subnormal_pne1 hp_eq hexp hk_ne h_log_k_lt_p) hp_ne_1
 
-/-- IsEven dual of `isOdd_iff_odd_at_canonical_mixed_normal`. -/
-theorem isEven_iff_even_at_canonical_mixed_normal {F : ParityFormat}
-    {p : ℕ+} (hp_eq : F.p = ((p : ℕ+) : WithTop ℕ+))
-    (hp_ne_1 : F.p ≠ ((1 : ℕ+) : WithTop ℕ+))
-    {e' : ℤ} (hexp : F.exp = (e' : WithBot ℤ))
-    {y : Dyadic} (hy_ne : (y : ℝ) ≠ 0)
-    (h_log_y_ge : ((p : ℕ) : ℤ) ≤ Int.log 2 |(y : ℝ)| - e' + 1)
-    {k e_c : ℤ} (h_y_eq : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e_c)
-    (hk_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |k|)
-    (hk_hi : |k| < (2 : ℤ) ^ (p : ℕ)) :
-    F.IsEven y ↔ Even k :=
-  isEven_iff_even_of_canonical
-    (canonical_rep_mixed_normal_pne1 hp_eq hexp hy_ne h_log_y_ge h_y_eq hk_lo hk_hi) hp_ne_1
-
 /-- IsEven dual of `isOdd_iff_odd_at_canonical_mixed_subnormal`. -/
 theorem isEven_iff_even_at_canonical_mixed_subnormal {F : ParityFormat}
     {p : ℕ+} (hp_eq : F.p = ((p : ℕ+) : WithTop ℕ+))

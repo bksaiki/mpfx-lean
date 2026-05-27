@@ -9,10 +9,6 @@ Nothing here mentions `Dyadic` or `Format`.
 
 namespace Mpfx
 
-/-- `(2 : ℝ) ^ e` is positive — convenience wrapper around `zpow_pos`. -/
-lemma two_zpow_pos (e : ℤ) : (0 : ℝ) < (2 : ℝ) ^ e :=
-  zpow_pos (by norm_num) _
-
 /-- `|c · 2^e| = |c| · 2^e` for `c : ℝ, e : ℤ`. -/
 lemma abs_mul_two_zpow (c : ℝ) (e : ℤ) :
     |c * (2 : ℝ) ^ e| = |c| * (2 : ℝ) ^ e := by

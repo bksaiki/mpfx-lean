@@ -254,25 +254,6 @@ theorem binade_le_floor {p : ℕ+} {x : ℝ} (hx : x ≠ 0)
       linarith
     linarith [h_x_ge]
 
-/-- Mirror of `binade_le_floor` for ceil/toPositive minimality. -/
-theorem ceil_le_binade {p : ℕ+} {x : ℝ} (hx : x ≠ 0)
-    {a e e_a : ℤ} (ha_bound : |a| < (2 : ℤ) ^ (p : ℕ))
-    (h_ea_lt : e_a < e) (h_e_eq_log : e = Int.log 2 |x| + 1 - (p : ℤ))
-    (hx_le_z : x ≤ (a : ℝ) * (2 : ℝ) ^ e_a) :
-    (⌈x * (2 : ℝ) ^ (-e)⌉ : ℝ) * (2 : ℝ) ^ e ≤ (a : ℝ) * (2 : ℝ) ^ e_a := by
-  have hnx : -x ≠ 0 := neg_ne_zero.mpr hx
-  have hna_bound : |(-a)| < (2 : ℤ) ^ (p : ℕ) := by rw [abs_neg]; exact ha_bound
-  have h_e_eq_log_neg : e = Int.log 2 |-x| + 1 - (p : ℤ) := by
-    rw [abs_neg]; exact h_e_eq_log
-  have h_neg_z_le : ((-a : ℤ) : ℝ) * (2 : ℝ) ^ e_a ≤ -x := by push_cast; linarith
-  have hh := binade_le_floor hnx hna_bound h_ea_lt h_e_eq_log_neg h_neg_z_le
-  have h_floor_eq : ⌊(-x) * (2 : ℝ) ^ (-e)⌋ = -⌈x * (2 : ℝ) ^ (-e)⌉ := by
-    rw [show (-x) * (2 : ℝ) ^ (-e) = -(x * (2 : ℝ) ^ (-e)) by ring,
-        Int.floor_neg]
-  rw [h_floor_eq] at hh
-  push_cast at hh
-  linarith
-
 /-- Generic floor-minimality: if `z ∈ F.unbounded` and `z ≤ x`, then `z` is
 ≤ the floor-projection of `x` at the canonical exponent. Used by `_toNegative`
 (directly) and by `_toZero` (for the `0 ≤ x` branch). -/
