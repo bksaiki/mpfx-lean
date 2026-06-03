@@ -854,4 +854,33 @@ theorem Rounds.toNegative_iff_awayZero_of_nonpos
   have h3 := (Rounds.neg_awayZero F x r).symm
   exact h1.trans (h2.trans h3)
 
+
+/-! ### Modes that are always defined -/
+
+theorem not_isUndefined_toZero (F : FiniteFormat) :
+    ¬ F.IsUndefined .toZero := by
+  rintro ⟨-, -, h | h⟩ <;> simp at h
+
+theorem not_isUndefined_awayZero (F : FiniteFormat) :
+    ¬ F.IsUndefined .awayZero := by
+  rintro ⟨-, -, h | h⟩ <;> simp at h
+
+/-- Directed modes are never undefined. -/
+theorem not_isUndefined_toNegative (F : FiniteFormat) :
+    ¬ F.IsUndefined .toNegative := by
+  rintro ⟨-, -, h | h⟩ <;> simp at h
+
+theorem not_isUndefined_toPositive (F : FiniteFormat) :
+    ¬ F.IsUndefined .toPositive := by
+  rintro ⟨-, -, h | h⟩ <;> simp at h
+
+/-- `2 ≤ F.p` rules out `IsUndefined` (which requires `p = 1`). -/
+theorem not_isUndefined_of_two_le_p {F : FiniteFormat} {rm : RoundingMode}
+    (hp : ((2 : ℕ+) : WithTop ℕ+) ≤ F.p) : ¬ F.IsUndefined rm := by
+  rintro ⟨h1, -, -⟩
+  rw [h1] at hp
+  have h2 : (2 : ℕ+) ≤ (1 : ℕ+) := by exact_mod_cast hp
+  have h3 : ((2 : ℕ+) : ℕ) ≤ ((1 : ℕ+) : ℕ) := h2
+  simp at h3
+
 end Mpfx

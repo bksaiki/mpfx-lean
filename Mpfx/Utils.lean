@@ -66,4 +66,24 @@ lemma Odd.abs {c : ℤ} (hodd : Odd c) : Odd |c| := by
   · simp [h] at hk; omega
   · rw [abs_of_pos h]; exact ⟨k, hk⟩
 
+
+/-! ### Sign and power helpers (used by the double-rounding development) -/
+
+/-- `|1| < 2^p` for any positive precision. -/
+theorem abs_one_lt_two_pow (p : ℕ+) : |(1 : ℤ)| < 2 ^ (p : ℕ) := by
+  have hp1 : 1 ≤ (p : ℕ) := p.pos
+  have h2 : (2 : ℤ) ^ 1 ≤ (2 : ℤ) ^ (p : ℕ) := pow_le_pow_right₀ (by norm_num) hp1
+  simp only [abs_one]
+  omega
+
+/-- Sign-transitivity through a nonzero pivot: if `y·x ≥ 0` and `z·x ≥ 0`,
+and `x = 0` implies `y = 0`, then `y·z ≥ 0`. -/
+theorem mul_nonneg_of_common_sign {x : ℝ} {y z : ℝ}
+    (hyx : y * x ≥ 0) (hzx : z * x ≥ 0) (hy0 : x = 0 → y = 0) :
+    y * z ≥ 0 := by
+  rcases eq_or_ne x 0 with hx | hx
+  · rw [hy0 hx, zero_mul]
+  · have hx2 : 0 < x ^ 2 := by positivity
+    nlinarith [mul_nonneg hyx hzx]
+
 end Mpfx
