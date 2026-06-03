@@ -1,18 +1,31 @@
 import Mpfx.Digits
 import Mpfx.Grid
 import Mpfx.Rounding
+import Mpfx.RoundOp
 
 /-!
 # Correct double rounding (§5.2, Fig. 9)
 
-The double-rounding rules, stated *spec-relationally*: given that `z` is the
-rounding of `x` in `F₂` and `w` is the rounding of `z` in `F₁` (with
-`F₁ ⊆ F₂`), conclude that `w` is also the rounding of `x` in `F₁` directly.
-This matches the paper's reasoning and sidesteps overflow bookkeeping —
-existence of `z`, `w` is taken as hypotheses.
+The double-rounding rules, in two layers:
 
-Stated over `RoundsFinite` (membership + mode condition, no separate bound
-check), the spec-relational analog of the paper's `rnd`-relation.
+* **`RoundsFinite` layer** (`rndRTZ_RTZ`, …): stated *spec-relationally* —
+  given that `z` is the rounding of `x` in `F₂` and `w` is the rounding of
+  `z` in `F₁` (with `F₁ ⊆ F₂`), conclude that `w` is also the rounding of
+  `x` in `F₁` directly. Stated over `RoundsFinite` (membership + mode
+  condition, no separate bound check), the spec-relational analog of the
+  paper's `rnd`-relation; overflow bookkeeping is sidestepped and the
+  existence of `z`, `w` is taken as hypotheses.
+
+* **`Rounds` layer** (`roundsRTZ_RTZ`, …, one per Fig. 9 rule): the full,
+  overflow-aware form. Given finite results for both roundings of the chain,
+  conclude that either rounding `x` directly in `F₁` *overflows*, or `w` is
+  the (finite) direct rounding of `x` in `F₁`. The overflow disjunct is
+  genuine: the containment hypotheses constrain only the *bounded* formats,
+  so the unbounded `F₁`-grid may contain out-of-bound values closer to `x`
+  than anything the chained rounding sees. The paper's side condition ("the
+  rules hold whenever `rnd_{F₁}(x)` does not overflow") is exactly the right
+  disjunct's guard, decided here by the total unbounded rounding
+  `rndUnbounded` from `Mpfx/RoundOp`.
 -/
 
 namespace Mpfx
@@ -155,14 +168,9 @@ theorem rndRAZ_RAZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
       rwa [Dyadic.coe_real_neg, abs_neg] at key
   · exact rndRAZ_RAZ_pos hsub hx_pos hz hw
 
-/-- Promote `F : FiniteFormat` to `ParityFormat` from a
-`¬ IsUndefined .toOdd` witness. (Local replica of the `private` definition
-in `Mpfx/RoundOp.lean`.) -/
-private def FiniteFormat.toParityFormatOfToOdd
-    (F : FiniteFormat) (h : ¬ F.IsUndefined .toOdd) : ParityFormat := by
-  refine ⟨F, ?_⟩
-  by_contra h_neg; push Not at h_neg
-  exact h ⟨h_neg.1, h_neg.2, Or.inl rfl⟩
+-- `FiniteFormat.toParityFormatOfToOdd` (promotion of `F : FiniteFormat` to
+-- `ParityFormat` from a `¬ IsUndefined .toOdd` witness) is provided by
+-- `Mpfx/RoundOp/Defs.lean`.
 
 /-- If `F₁ ⊆ F₂`, `F₁.exp = ⊥`, and `F₁` contains a nonzero element `z`, then
 `F₂.exp = ⊥` as well: an `exp = ⊥` (unbounded-quantum) format embeds values of
@@ -1795,5 +1803,593 @@ theorem rndRTN_RTN {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
       (RoundsFinite.toNegative_iff_toZero_of_nonneg F₁ hz_nn w).mp hw
     exact (RoundsFinite.toNegative_iff_toZero_of_nonneg F₁ hx_nn w).mpr
       (rndRTZ_RTZ hsub hz_RTZ hw_RTZ)
+
+/-! # `Rounds`-level double rounding (overflow-aware)
+
+The six Fig. 9 rules over the full `Rounds` relation. Shared infrastructure:
+membership bridges across `FiniteFormat.unbounded`, per-mode *restrict*
+(`unbounded spec + in-bound ⟹ bounded spec`) and *lift* (`bounded spec +
+in-bound unbounded rounding ⟹ unbounded spec`) lemmas, and parity-witness
+transport between formats agreeing on `(p, exp)`. -/
+
+/-! ## Membership bridges across `FiniteFormat.unbounded` -/
+
+/-- Bounded membership weakens to unbounded membership (drop the bound check). -/
+private theorem mem_unbounded_of_mem {F : FiniteFormat} {d : Dyadic}
+    (h : d ∈ F) : d ∈ F.unbounded :=
+  ⟨h.1, h.2.1, trivial⟩
+
+/-- Unbounded membership plus an explicit bound check gives bounded membership. -/
+private theorem mem_of_mem_unbounded_of_boundOK {F : FiniteFormat} {d : Dyadic}
+    (h : d ∈ F.unbounded) (hb : Format.boundOK F.b d) : d ∈ F :=
+  ⟨h.1, h.2.1, hb⟩
+
+/-! ## Restrict / lift for `.toZero` -/
+
+/-- **Restrict** (`.toZero`): an in-bound unbounded rounding is also the
+bounded rounding (competitors only shrink). -/
+private theorem RoundsFinite.toZero_restrict {F : FiniteFormat} {x : ℝ}
+    {y : Dyadic} (h : RoundsFinite F.unbounded .toZero x y)
+    (hb : Format.boundOK F.b y) : RoundsFinite F .toZero x y := by
+  obtain ⟨hmem, hbnd, hsign, hmax⟩ := h
+  exact ⟨mem_of_mem_unbounded_of_boundOK hmem hb, hbnd, hsign,
+    fun v hv => hmax v (mem_unbounded_of_mem hv)⟩
+
+/-- **Lift** (`.toZero`): if `w` is the bounded rounding of `x` and the
+unbounded rounding `y` of `x` happens to be in-bound, then `w` is also the
+unbounded rounding (any unbounded competitor is dominated by `y`, which is
+itself a bounded competitor). -/
+private theorem RoundsFinite.toZero_lift {F : FiniteFormat} {x : ℝ}
+    {w y : Dyadic} (hw : RoundsFinite F .toZero x w)
+    (hy : RoundsFinite F.unbounded .toZero x y)
+    (hb : Format.boundOK F.b y) : RoundsFinite F.unbounded .toZero x w := by
+  obtain ⟨hwmem, hwbnd, hwsign, hwmax⟩ := hw
+  obtain ⟨hymem, hybnd, hysign, hymax⟩ := hy
+  refine ⟨mem_unbounded_of_mem hwmem, hwbnd, hwsign, ?_⟩
+  intro v hv hvbnd hvsign
+  have h1 : |(v : ℝ)| ≤ |(y : ℝ)| := hymax v hv hvbnd hvsign
+  have h2 : |(y : ℝ)| ≤ |(w : ℝ)| :=
+    hwmax y (mem_of_mem_unbounded_of_boundOK hymem hb) hybnd hysign
+  exact le_trans h1 h2
+
+/-! ## Restrict / lift for `.awayZero` -/
+
+/-- **Restrict** (`.awayZero`): an in-bound unbounded rounding is also the
+bounded rounding (competitors only shrink). -/
+private theorem RoundsFinite.awayZero_restrict {F : FiniteFormat} {x : ℝ}
+    {y : Dyadic} (h : RoundsFinite F.unbounded .awayZero x y)
+    (hb : Format.boundOK F.b y) : RoundsFinite F .awayZero x y := by
+  obtain ⟨hmem, hbnd, hsign, hmin⟩ := h
+  exact ⟨mem_of_mem_unbounded_of_boundOK hmem hb, hbnd, hsign,
+    fun v hv => hmin v (mem_unbounded_of_mem hv)⟩
+
+/-- **Lift** (`.awayZero`): if `w` is the bounded rounding of `x` and the
+unbounded rounding `y` of `x` happens to be in-bound, then `w` is also the
+unbounded rounding (any unbounded competitor dominates `y`, which is itself
+a bounded competitor). -/
+private theorem RoundsFinite.awayZero_lift {F : FiniteFormat} {x : ℝ}
+    {w y : Dyadic} (hw : RoundsFinite F .awayZero x w)
+    (hy : RoundsFinite F.unbounded .awayZero x y)
+    (hb : Format.boundOK F.b y) : RoundsFinite F.unbounded .awayZero x w := by
+  obtain ⟨hwmem, hwbnd, hwsign, hwmin⟩ := hw
+  obtain ⟨hymem, hybnd, hysign, hymin⟩ := hy
+  refine ⟨mem_unbounded_of_mem hwmem, hwbnd, hwsign, ?_⟩
+  intro v hv hvbnd hvsign
+  have h1 : |(w : ℝ)| ≤ |(y : ℝ)| :=
+    hwmin y (mem_of_mem_unbounded_of_boundOK hymem hb) hybnd hysign
+  have h2 : |(y : ℝ)| ≤ |(v : ℝ)| := hymin v hv hvbnd hvsign
+  exact le_trans h1 h2
+
+/-! ## Parity transport across `unbounded`
+
+`numDigits`, `IsOdd`, and `IsUndefined` only read `p` and `exp`, so parity
+witnesses transport between formats that agree on `(p, exp)` — in particular
+between `F` and `F.unbounded`. -/
+
+/-- `numDigits` only reads `(p, exp)`. -/
+private theorem numDigits_congr {F G : FiniteFormat} (hp : F.p = G.p)
+    (he : F.exp = G.exp) (x : ℝ) : F.numDigits x = G.numDigits x := by
+  unfold FiniteFormat.numDigits
+  rw [hp, he]
+
+/-- Transport a parity witness (`∃ F', F'.toFormat = _ ∧ F'.IsOdd y`) between
+formats agreeing on `(p, exp)`. -/
+private theorem parity_witness_congr {F G : FiniteFormat} (hp : F.p = G.p)
+    (he : F.exp = G.exp) {y : Dyadic}
+    (h : ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsOdd y) :
+    ∃ F'' : ParityFormat, F''.toFormat = G.toFormat ∧ F''.IsOdd y := by
+  obtain ⟨F', hFeq, hodd⟩ := h
+  have hp' : F'.p = G.p := by rw [congrArg Format.p hFeq]; exact hp
+  have he' : F'.exp = G.exp := by rw [congrArg Format.exp hFeq]; exact he
+  refine ⟨⟨G, by rw [← hp', ← he']; exact F'.parity⟩, rfl, ?_⟩
+  obtain ⟨c, e, hrep, hpar⟩ := hodd
+  refine ⟨c, e, ?_, ?_⟩
+  · change Dyadic.IsRepresentableAtP (G.numDigits (y : ℝ)).toNat c e y
+    rwa [numDigits_congr (F := G) (G := F'.toFiniteFormat) hp'.symm he'.symm (y : ℝ)]
+  · change if G.p = ((1 : ℕ+) : WithTop ℕ+) then
+        Odd (e - WithBot.unbotD 0 G.exp + 1) else Odd c
+    rw [← hp', ← he']
+    exact hpar
+
+/-! ## Faithful-round restrict / lift -/
+
+/-- Directed modes are never undefined. -/
+private theorem not_isUndefined_toNegative (F : FiniteFormat) :
+    ¬ F.IsUndefined .toNegative := by
+  rintro ⟨-, -, h | h⟩ <;> simp at h
+
+private theorem not_isUndefined_toPositive (F : FiniteFormat) :
+    ¬ F.IsUndefined .toPositive := by
+  rintro ⟨-, -, h | h⟩ <;> simp at h
+
+/-- A dyadic between two in-bound dyadics is in-bound. -/
+private theorem boundOK_of_between {b : WithTop NonNegDyadic} {lo hi g : Dyadic}
+    (hblo : Format.boundOK b lo) (hbhi : Format.boundOK b hi)
+    (h1 : (lo : ℝ) ≤ (g : ℝ)) (h2 : (g : ℝ) ≤ (hi : ℝ)) :
+    Format.boundOK b g := by
+  cases b with
+  | top => trivial
+  | coe b =>
+    have h1' : (lo : ℚ) ≤ (g : ℚ) := by
+      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h1
+      exact_mod_cast h1
+    have h2' : (g : ℚ) ≤ (hi : ℚ) := by
+      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h2
+      exact_mod_cast h2
+    have hblo' : |(lo : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hblo
+    have hbhi' : |(hi : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hbhi
+    change |(g : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
+    exact abs_le.mpr ⟨by linarith [(abs_le.mp hblo').1], by linarith [(abs_le.mp hbhi').2]⟩
+
+/-- **Restrict** for `IsFaithfulRound`: a faithful rounding in `F.unbounded`
+that lies in `F` is faithful in `F` (competitors only shrink). -/
+private theorem IsFaithfulRound.restrict {F : FiniteFormat} {x : ℝ} {y : Dyadic}
+    (h : IsFaithfulRound F.unbounded x y) (hb : Format.boundOK F.b y) :
+    IsFaithfulRound F x y := by
+  rcases h with ⟨hmem, hle, hmax⟩ | ⟨hmem, hge, hmin⟩
+  · exact Or.inl ⟨mem_of_mem_unbounded_of_boundOK hmem hb, hle,
+      fun v hv => hmax v (mem_unbounded_of_mem hv)⟩
+  · exact Or.inr ⟨mem_of_mem_unbounded_of_boundOK hmem hb, hge,
+      fun v hv => hmin v (mem_unbounded_of_mem hv)⟩
+
+/-- **Lift** for `IsFaithfulRound`: a faithful rounding `w` of `x` in `F` is
+faithful in `F.unbounded`, provided *some* in-bound `y` is faithful in
+`F.unbounded` (no-overflow witness). Key step: the directed unbounded
+rounding on `w`'s side is squeezed between `w` and `y` (or equals `y`), hence
+in-bound, hence dominated by `w`'s maximality in `F`. -/
+private theorem IsFaithfulRound.unbounded_lift {F : FiniteFormat} {x : ℝ}
+    {w y : Dyadic} (hw : IsFaithfulRound F x w)
+    (hy : IsFaithfulRound F.unbounded x y) (hb : Format.boundOK F.b y) :
+    IsFaithfulRound F.unbounded x w := by
+  rcases hw with ⟨hwmem, hw_le, hw_max⟩ | ⟨hwmem, hw_ge, hw_min⟩
+  · -- RD side: w = max {v ∈ F : v ≤ x}. Show it is also the unbounded max.
+    left
+    refine ⟨mem_unbounded_of_mem hwmem, hw_le, ?_⟩
+    intro c hc hc_le
+    -- The unbounded RD rounding `g` of `x`.
+    obtain ⟨hgmem, hg_le, hg_max⟩ :=
+      rndUnbounded_satisfies F .toNegative x (not_isUndefined_toNegative F)
+    set g := rndUnbounded F .toNegative x (not_isUndefined_toNegative F)
+    have hc_g : (c : ℝ) ≤ (g : ℝ) := hg_max c hc hc_le
+    have hw_g : (w : ℝ) ≤ (g : ℝ) := hg_max w (mem_unbounded_of_mem hwmem) hw_le
+    -- `g` is in-bound: either `g = y` (y on the RD side) or `w ≤ g ≤ x ≤ y`.
+    have hg_bnd : Format.boundOK F.b g := by
+      rcases hy with ⟨hymem, hy_le, hy_max⟩ | ⟨hymem, hy_ge, _⟩
+      · have h1 : (g : ℝ) ≤ (y : ℝ) := hy_max g hgmem hg_le
+        exact boundOK_of_between hwmem.2.2 hb hw_g h1
+      · exact boundOK_of_between hwmem.2.2 hb hw_g (le_trans hg_le hy_ge)
+    -- So `g ∈ F`, hence `g ≤ w` by `w`'s maximality in `F`.
+    have hg_w : (g : ℝ) ≤ (w : ℝ) :=
+      hw_max g (mem_of_mem_unbounded_of_boundOK hgmem hg_bnd) hg_le
+    exact le_trans hc_g hg_w
+  · -- RU side: symmetric, with the unbounded RU rounding.
+    right
+    refine ⟨mem_unbounded_of_mem hwmem, hw_ge, ?_⟩
+    intro c hc hc_ge
+    obtain ⟨humem, hu_ge, hu_min⟩ :=
+      rndUnbounded_satisfies F .toPositive x (not_isUndefined_toPositive F)
+    set u := rndUnbounded F .toPositive x (not_isUndefined_toPositive F)
+    have hu_c : (u : ℝ) ≤ (c : ℝ) := hu_min c hc hc_ge
+    have hu_w : (u : ℝ) ≤ (w : ℝ) := hu_min w (mem_unbounded_of_mem hwmem) hw_ge
+    have hu_bnd : Format.boundOK F.b u := by
+      rcases hy with ⟨hymem, hy_le, _⟩ | ⟨hymem, hy_ge, hy_min⟩
+      · exact boundOK_of_between hb hwmem.2.2 (le_trans hy_le hu_ge) hu_w
+      · have h1 : (y : ℝ) ≤ (u : ℝ) := hy_min u humem hu_ge
+        exact boundOK_of_between hb hwmem.2.2 h1 hu_w
+    have hw_u : (w : ℝ) ≤ (u : ℝ) :=
+      hw_min u (mem_of_mem_unbounded_of_boundOK humem hu_bnd) hu_ge
+    exact le_trans hw_u hu_c
+
+/-! ## Restrict / lift for `.toOdd` -/
+
+/-- **Restrict** (`.toOdd`): an in-bound unbounded RTO rounding is also the
+bounded RTO rounding. -/
+private theorem RoundsFinite.toOdd_restrict {F : FiniteFormat} {x : ℝ}
+    {y : Dyadic} (h : RoundsFinite F.unbounded .toOdd x y)
+    (hb : Format.boundOK F.b y) : RoundsFinite F .toOdd x y := by
+  obtain ⟨hmem, hfaithful, hparity⟩ := h
+  exact ⟨mem_of_mem_unbounded_of_boundOK hmem hb,
+    IsFaithfulRound.restrict hfaithful hb,
+    fun hne => parity_witness_congr (F := F.unbounded) (G := F) rfl rfl (hparity hne)⟩
+
+/-- **Lift** (`.toOdd`): if `w` is the bounded RTO rounding of `x` and the
+unbounded RTO rounding `y` of `x` happens to be in-bound, then `w` is also
+the unbounded RTO rounding. -/
+private theorem RoundsFinite.toOdd_lift {F : FiniteFormat} {x : ℝ}
+    {w y : Dyadic} (hw : RoundsFinite F .toOdd x w)
+    (hy : RoundsFinite F.unbounded .toOdd x y)
+    (hb : Format.boundOK F.b y) : RoundsFinite F.unbounded .toOdd x w := by
+  obtain ⟨hwmem, hwfaithful, hwparity⟩ := hw
+  exact ⟨mem_unbounded_of_mem hwmem,
+    IsFaithfulRound.unbounded_lift hwfaithful hy.2.1 hb,
+    fun hne => parity_witness_congr (F := F) (G := F.unbounded) rfl rfl (hwparity hne)⟩
+
+/-- Transport an even-parity witness (`∃ F', F'.toFormat = _ ∧ F'.IsEven y`)
+between formats agreeing on `(p, exp)`. -/
+private theorem parity_witness_even_congr {F G : FiniteFormat} (hp : F.p = G.p)
+    (he : F.exp = G.exp) {y : Dyadic}
+    (h : ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsEven y) :
+    ∃ F'' : ParityFormat, F''.toFormat = G.toFormat ∧ F''.IsEven y := by
+  obtain ⟨F', hFeq, heven⟩ := h
+  have hp' : F'.p = G.p := by rw [congrArg Format.p hFeq]; exact hp
+  have he' : F'.exp = G.exp := by rw [congrArg Format.exp hFeq]; exact he
+  refine ⟨⟨G, by rw [← hp', ← he']; exact F'.parity⟩, rfl, ?_⟩
+  rcases heven with h0 | ⟨c, e, hrep, hpar⟩
+  · exact Or.inl h0
+  refine Or.inr ⟨c, e, ?_, ?_⟩
+  · change Dyadic.IsRepresentableAtP (G.numDigits (y : ℝ)).toNat c e y
+    rwa [numDigits_congr (F := G) (G := F'.toFiniteFormat) hp'.symm he'.symm (y : ℝ)]
+  · change if G.p = ((1 : ℕ+) : WithTop ℕ+) then
+        Even (e - WithBot.unbotD 0 G.exp + 1) else Even c
+    rw [← hp', ← he']
+    exact hpar
+
+/-! ## Faithful-rounding uniqueness per side -/
+
+/-- Two below-maximal (RD-side) faithful witnesses agree. -/
+private theorem faithful_below_unique {G : FiniteFormat} {ξ : ℝ} {a b : Dyadic}
+    (ha : a ∈ G ∧ (a : ℝ) ≤ ξ ∧ ∀ v : Dyadic, v ∈ G → (v : ℝ) ≤ ξ → (v : ℝ) ≤ (a : ℝ))
+    (hb : b ∈ G ∧ (b : ℝ) ≤ ξ ∧ ∀ v : Dyadic, v ∈ G → (v : ℝ) ≤ ξ → (v : ℝ) ≤ (b : ℝ)) :
+    a = b :=
+  (Dyadic.coe_real_inj a b).mp
+    (le_antisymm (hb.2.2 a ha.1 ha.2.1) (ha.2.2 b hb.1 hb.2.1))
+
+/-- Two above-minimal (RU-side) faithful witnesses agree. -/
+private theorem faithful_above_unique {G : FiniteFormat} {ξ : ℝ} {a b : Dyadic}
+    (ha : a ∈ G ∧ ξ ≤ (a : ℝ) ∧ ∀ v : Dyadic, v ∈ G → ξ ≤ (v : ℝ) → (a : ℝ) ≤ (v : ℝ))
+    (hb : b ∈ G ∧ ξ ≤ (b : ℝ) ∧ ∀ v : Dyadic, v ∈ G → ξ ≤ (v : ℝ) → (b : ℝ) ≤ (v : ℝ)) :
+    a = b :=
+  (Dyadic.coe_real_inj a b).mp
+    (le_antisymm (ha.2.2 b hb.1 hb.2.1) (hb.2.2 a ha.1 ha.2.1))
+
+/-- Three faithful witnesses with `c ∉ {w, y}` force `y = w` (there are at
+most two distinct faithful values, one per side). -/
+private theorem faithful_eq_of_third {F : FiniteFormat} {x : ℝ} {w y c : Dyadic}
+    (hwf : IsFaithfulRound F.unbounded x w)
+    (hyf : IsFaithfulRound F.unbounded x y)
+    (hcf : IsFaithfulRound F.unbounded x c)
+    (hc_ne_w : c ≠ w) (hc_ne_y : c ≠ y) : y = w := by
+  rcases hwf with wRD | wRU
+  · rcases hcf with cRD | cRU
+    · exact absurd (faithful_below_unique cRD wRD) hc_ne_w
+    · rcases hyf with yRD | yRU
+      · exact faithful_below_unique yRD wRD
+      · exact absurd (faithful_above_unique cRU yRU) hc_ne_y
+  · rcases hcf with cRD | cRU
+    · rcases hyf with yRD | yRU
+      · exact absurd (faithful_below_unique cRD yRD) hc_ne_y
+      · exact faithful_above_unique yRU wRU
+    · exact absurd (faithful_above_unique cRU wRU) hc_ne_w
+
+/-! ## Restrict / lift for `.nearest` -/
+
+/-- A bounded-faithful competitor `c` is dominated by the unbounded nearest
+rounding `y` in distance; and a *tie* upgrades `c` to an unbounded-faithful
+witness (it must coincide with the directed unbounded rounding on its own
+side). -/
+private theorem nearest_close_upgrade {F : FiniteFormat} {x : ℝ} {y c : Dyadic}
+    (hy_close : ∀ v : Dyadic, v ∈ F.unbounded → IsFaithfulRound F.unbounded x v →
+      |x - (y : ℝ)| ≤ |x - (v : ℝ)|)
+    (hc : c ∈ F) (hc_faithful : IsFaithfulRound F x c) :
+    |x - (y : ℝ)| ≤ |x - (c : ℝ)| ∧
+      (|x - (y : ℝ)| = |x - (c : ℝ)| → IsFaithfulRound F.unbounded x c) := by
+  rcases hc_faithful with ⟨hc_mem, hc_le, hc_max⟩ | ⟨hc_mem, hc_ge, hc_min⟩
+  · -- RD side: squeeze against the unbounded RD rounding `g`.
+    obtain ⟨hg_mem, hg_le, hg_max⟩ :=
+      rndUnbounded_satisfies F .toNegative x (not_isUndefined_toNegative F)
+    set g := rndUnbounded F .toNegative x (not_isUndefined_toNegative F) with hg_def
+    have hg_faithful : IsFaithfulRound F.unbounded x g := Or.inl ⟨hg_mem, hg_le, hg_max⟩
+    have h1 : |x - (y : ℝ)| ≤ |x - (g : ℝ)| := hy_close g hg_mem hg_faithful
+    have hcg : (c : ℝ) ≤ (g : ℝ) := hg_max c (mem_unbounded_of_mem hc) hc_le
+    have h2 : |x - (g : ℝ)| ≤ |x - (c : ℝ)| := by
+      rw [abs_of_nonneg (by linarith), abs_of_nonneg (by linarith)]
+      linarith
+    refine ⟨le_trans h1 h2, fun heq => ?_⟩
+    have h3 : |x - (g : ℝ)| = |x - (c : ℝ)| := le_antisymm h2 (heq ▸ h1)
+    have hgc_eq : (g : ℝ) = (c : ℝ) := by
+      rw [abs_of_nonneg (by linarith), abs_of_nonneg (by linarith)] at h3
+      linarith
+    rw [(Dyadic.coe_real_inj g c).mp hgc_eq] at hg_faithful
+    exact hg_faithful
+  · -- RU side: squeeze against the unbounded RU rounding `u`.
+    obtain ⟨hu_mem, hu_ge, hu_min⟩ :=
+      rndUnbounded_satisfies F .toPositive x (not_isUndefined_toPositive F)
+    set u := rndUnbounded F .toPositive x (not_isUndefined_toPositive F) with hu_def
+    have hu_faithful : IsFaithfulRound F.unbounded x u := Or.inr ⟨hu_mem, hu_ge, hu_min⟩
+    have h1 : |x - (y : ℝ)| ≤ |x - (u : ℝ)| := hy_close u hu_mem hu_faithful
+    have huc : (u : ℝ) ≤ (c : ℝ) := hu_min c (mem_unbounded_of_mem hc) hc_ge
+    have h2 : |x - (u : ℝ)| ≤ |x - (c : ℝ)| := by
+      rw [abs_of_nonpos (by linarith), abs_of_nonpos (by linarith)]
+      linarith
+    refine ⟨le_trans h1 h2, fun heq => ?_⟩
+    have h3 : |x - (u : ℝ)| = |x - (c : ℝ)| := le_antisymm h2 (heq ▸ h1)
+    have huc_eq : (u : ℝ) = (c : ℝ) := by
+      rw [abs_of_nonpos (by linarith), abs_of_nonpos (by linarith)] at h3
+      linarith
+    rw [(Dyadic.coe_real_inj u c).mp huc_eq] at hu_faithful
+    exact hu_faithful
+
+/-- **Restrict** (`.nearest tb`): an in-bound unbounded RN rounding is also
+the bounded RN rounding. -/
+private theorem RoundsFinite.nearest_restrict {F : FiniteFormat} {tb : TieBreak}
+    {x : ℝ} {y : Dyadic} (h : RoundsFinite F.unbounded (.nearest tb) x y)
+    (hb : Format.boundOK F.b y) : RoundsFinite F (.nearest tb) x y := by
+  cases tb with
+  | toEven =>
+    obtain ⟨hmem, hfaithful, hclose, htie⟩ := h
+    refine ⟨mem_of_mem_unbounded_of_boundOK hmem hb,
+      IsFaithfulRound.restrict hfaithful hb, ?_, ?_⟩
+    · intro c hcF hc_faithful
+      exact (nearest_close_upgrade hclose hcF hc_faithful).1
+    · rintro ⟨c, hcF, hc_faithful, hc_ne, hc_tie⟩
+      have hc_up := (nearest_close_upgrade hclose hcF hc_faithful).2 hc_tie
+      exact parity_witness_even_congr (F := F.unbounded) (G := F) rfl rfl
+        (htie ⟨c, mem_unbounded_of_mem hcF, hc_up, hc_ne, hc_tie⟩)
+  | awayZero =>
+    obtain ⟨hmem, hfaithful, hclose, htie⟩ := h
+    refine ⟨mem_of_mem_unbounded_of_boundOK hmem hb,
+      IsFaithfulRound.restrict hfaithful hb, ?_, ?_⟩
+    · intro c hcF hc_faithful
+      exact (nearest_close_upgrade hclose hcF hc_faithful).1
+    · intro c hcF hc_faithful hc_ne hc_tie
+      have hc_up := (nearest_close_upgrade hclose hcF hc_faithful).2 hc_tie
+      exact htie c (mem_unbounded_of_mem hcF) hc_up hc_ne hc_tie
+
+/-- **Lift** (`.nearest tb`): if `w` is the bounded RN rounding of `x` and
+the unbounded RN rounding `y` of `x` happens to be in-bound, then `w` is also
+the unbounded RN rounding. -/
+private theorem RoundsFinite.nearest_lift {F : FiniteFormat} {tb : TieBreak}
+    {x : ℝ} {w y : Dyadic} (hw : RoundsFinite F (.nearest tb) x w)
+    (hy : RoundsFinite F.unbounded (.nearest tb) x y)
+    (hb : Format.boundOK F.b y) : RoundsFinite F.unbounded (.nearest tb) x w := by
+  cases tb with
+  | toEven =>
+    obtain ⟨hwmem, hwfaithful, hwclose, hwtie⟩ := hw
+    obtain ⟨hymem, hyfaithful, hyclose, hytie⟩ := hy
+    have hyF : y ∈ F := mem_of_mem_unbounded_of_boundOK hymem hb
+    have hwy : |x - (w : ℝ)| ≤ |x - (y : ℝ)| :=
+      hwclose y hyF (IsFaithfulRound.restrict hyfaithful hb)
+    have hwf_u : IsFaithfulRound F.unbounded x w :=
+      IsFaithfulRound.unbounded_lift hwfaithful hyfaithful hb
+    refine ⟨mem_unbounded_of_mem hwmem, hwf_u, ?_, ?_⟩
+    · intro c hc hc_faithful
+      exact le_trans hwy (hyclose c hc hc_faithful)
+    · rintro ⟨c, hc, hc_faithful, hc_ne, hc_tie⟩
+      by_cases hcb : Format.boundOK F.b c
+      · exact parity_witness_even_congr (F := F) (G := F.unbounded) rfl rfl
+          (hwtie ⟨c, mem_of_mem_unbounded_of_boundOK hc hcb,
+            IsFaithfulRound.restrict hc_faithful hcb, hc_ne, hc_tie⟩)
+      · -- `c` out of bound forces `y = w`; fire `y`'s own tie clause.
+        have hc_ne_y : c ≠ y := fun h => hcb (h ▸ hb)
+        have hyw : y = w := faithful_eq_of_third hwf_u hyfaithful hc_faithful hc_ne hc_ne_y
+        rw [← hyw] at hc_ne hc_tie ⊢
+        exact hytie ⟨c, hc, hc_faithful, hc_ne, hc_tie⟩
+  | awayZero =>
+    obtain ⟨hwmem, hwfaithful, hwclose, hwtie⟩ := hw
+    obtain ⟨hymem, hyfaithful, hyclose, hytie⟩ := hy
+    have hyF : y ∈ F := mem_of_mem_unbounded_of_boundOK hymem hb
+    have hwy : |x - (w : ℝ)| ≤ |x - (y : ℝ)| :=
+      hwclose y hyF (IsFaithfulRound.restrict hyfaithful hb)
+    have hwf_u : IsFaithfulRound F.unbounded x w :=
+      IsFaithfulRound.unbounded_lift hwfaithful hyfaithful hb
+    refine ⟨mem_unbounded_of_mem hwmem, hwf_u, ?_, ?_⟩
+    · intro c hc hc_faithful
+      exact le_trans hwy (hyclose c hc hc_faithful)
+    · intro c hc hc_faithful hc_ne hc_tie
+      by_cases hcb : Format.boundOK F.b c
+      · exact hwtie c (mem_of_mem_unbounded_of_boundOK hc hcb)
+          (IsFaithfulRound.restrict hc_faithful hcb) hc_ne hc_tie
+      · have hc_ne_y : c ≠ y := fun h => hcb (h ▸ hb)
+        have hyw : y = w := faithful_eq_of_third hwf_u hyfaithful hc_faithful hc_ne hc_ne_y
+        rw [← hyw] at hc_ne hc_tie ⊢
+        exact hytie c hc hc_faithful hc_ne hc_tie
+
+/-! ## `Rounds`-level rnd-RTZ-RTZ -/
+
+/-- **rnd-RTZ-RTZ** (Fig. 9), `Rounds` form. If `z` is the (finite) RTZ
+rounding of `x` in `F₂` and `w` is the (finite) RTZ rounding of `z` in `F₁`,
+then either rounding `x` directly in `F₁` overflows, or `w` is the (finite)
+RTZ rounding of `x` in `F₁`. -/
+theorem roundsRTZ_RTZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+    {x : ℝ} {z w : Dyadic}
+    (hz : Rounds F₂ .toZero x (.finite z))
+    (hw : Rounds F₁ .toZero (z : ℝ) (.finite w)) :
+    (∃ b, Rounds F₁ .toZero x (.overflow b)) ∨ Rounds F₁ .toZero x (.finite w) := by
+  obtain ⟨h₂u, hz_fin, _⟩ := hz
+  obtain ⟨h₁u, hw_fin, hw_bnd⟩ := hw
+  -- The total unbounded rounding of `x` in `F₁` decides overflow.
+  have hy := rndUnbounded_satisfies F₁ .toZero x h₁u
+  set y := rndUnbounded F₁ .toZero x h₁u with hy_def
+  by_cases hbOK : Format.boundOK F₁.b y
+  · -- No overflow: compose the bounded roundings and lift back.
+    right
+    have hsub_u : F₁.toFormat ⊆ F₂.unbounded.toFormat := fun d hd =>
+      mem_unbounded_of_mem (F := F₂) (hsub d hd)
+    have hw_bdd : RoundsFinite F₁ .toZero (z : ℝ) w :=
+      RoundsFinite.toZero_restrict hw_fin hw_bnd
+    have hxw : RoundsFinite F₁ .toZero x w := rndRTZ_RTZ hsub_u hz_fin hw_bdd
+    exact ⟨h₁u, RoundsFinite.toZero_lift hxw hy hbOK, hw_bnd⟩
+  · -- Overflow: the unbounded rounding violates the bound.
+    left
+    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+
+/-! ## `Rounds`-level rnd-RAZ-RAZ -/
+
+/-- **rnd-RAZ-RAZ** (Fig. 9), `Rounds` form. If `z` is the (finite) RAZ
+rounding of `x` in `F₂` and `w` is the (finite) RAZ rounding of `z` in `F₁`,
+then either rounding `x` directly in `F₁` overflows, or `w` is the (finite)
+RAZ rounding of `x` in `F₁`. -/
+theorem roundsRAZ_RAZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+    {x : ℝ} {z w : Dyadic}
+    (hz : Rounds F₂ .awayZero x (.finite z))
+    (hw : Rounds F₁ .awayZero (z : ℝ) (.finite w)) :
+    (∃ b, Rounds F₁ .awayZero x (.overflow b)) ∨ Rounds F₁ .awayZero x (.finite w) := by
+  obtain ⟨h₂u, hz_fin, _⟩ := hz
+  obtain ⟨h₁u, hw_fin, hw_bnd⟩ := hw
+  -- The total unbounded rounding of `x` in `F₁` decides overflow.
+  have hy := rndUnbounded_satisfies F₁ .awayZero x h₁u
+  set y := rndUnbounded F₁ .awayZero x h₁u with hy_def
+  by_cases hbOK : Format.boundOK F₁.b y
+  · -- No overflow: compose the bounded roundings and lift back.
+    right
+    have hsub_u : F₁.toFormat ⊆ F₂.unbounded.toFormat := fun d hd =>
+      mem_unbounded_of_mem (F := F₂) (hsub d hd)
+    have hw_bdd : RoundsFinite F₁ .awayZero (z : ℝ) w :=
+      RoundsFinite.awayZero_restrict hw_fin hw_bnd
+    have hxw : RoundsFinite F₁ .awayZero x w := rndRAZ_RAZ hsub_u hz_fin hw_bdd
+    exact ⟨h₁u, RoundsFinite.awayZero_lift hxw hy hbOK, hw_bnd⟩
+  · -- Overflow: the unbounded rounding violates the bound.
+    left
+    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+
+/-! ## `Rounds`-level rnd-RTO-RTO -/
+
+/-- **rnd-RTO-RTO** (Fig. 9), `Rounds` form. If `z` is the (finite) RTO
+rounding of `x` in `F₂` and `w` is the (finite) RTO rounding of `z` in `F₁`,
+then either rounding `x` directly in `F₁` overflows, or `w` is the (finite)
+RTO rounding of `x` in `F₁`. Restricted to `F₂.p ≥ 2`. -/
+theorem roundsRTO_RTO {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p)
+    {x : ℝ} {z w : Dyadic}
+    (hz : Rounds F₂ .toOdd x (.finite z))
+    (hw : Rounds F₁ .toOdd (z : ℝ) (.finite w)) :
+    (∃ b, Rounds F₁ .toOdd x (.overflow b)) ∨ Rounds F₁ .toOdd x (.finite w) := by
+  obtain ⟨h₂u, hz_fin, _⟩ := hz
+  obtain ⟨h₁u, hw_fin, hw_bnd⟩ := hw
+  -- The total unbounded rounding of `x` in `F₁` decides overflow.
+  have hy := rndUnbounded_satisfies F₁ .toOdd x h₁u
+  set y := rndUnbounded F₁ .toOdd x h₁u with hy_def
+  by_cases hbOK : Format.boundOK F₁.b y
+  · -- No overflow: compose the bounded roundings and lift back.
+    right
+    have hsub_u : F₁.toFormat ⊆ F₂.unbounded.toFormat := fun d hd =>
+      mem_unbounded_of_mem (F := F₂) (hsub d hd)
+    have hw_bdd : RoundsFinite F₁ .toOdd (z : ℝ) w :=
+      RoundsFinite.toOdd_restrict hw_fin hw_bnd
+    have hxw : RoundsFinite F₁ .toOdd x w :=
+      rndRTO_RTO hsub_u hp_F₂ hz_fin hw_bdd
+    exact ⟨h₁u, RoundsFinite.toOdd_lift hxw hy hbOK, hw_bnd⟩
+  · -- Overflow: the unbounded rounding violates the bound.
+    left
+    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+
+/-! ## `Rounds`-level rnd-RTO-RTZ -/
+
+/-- **rnd-RTO-RTZ** (Fig. 9), `Rounds` form. If `z` is the (finite) RTO
+rounding of `x` in `F₂` and `w` is the (finite) RTZ rounding of `z` in `F₁`,
+then either rounding `x` directly in `F₁` overflows, or `w` is the (finite)
+RTZ rounding of `x` in `F₁`. Uses the paper's bound-aware containment
+`(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`. -/
+theorem roundsRTO_RTZ {F₁ F₂ : FiniteFormat}
+    (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
+    {x : ℝ} {z w : Dyadic}
+    (hz : Rounds F₂ .toOdd x (.finite z))
+    (hw : Rounds F₁ .toZero (z : ℝ) (.finite w)) :
+    (∃ b, Rounds F₁ .toZero x (.overflow b)) ∨ Rounds F₁ .toZero x (.finite w) := by
+  obtain ⟨h₂u, hz_fin, _⟩ := hz
+  obtain ⟨h₁u, hw_fin, hw_bnd⟩ := hw
+  -- The total unbounded rounding of `x` in `F₁` decides overflow.
+  have hy := rndUnbounded_satisfies F₁ .toZero x h₁u
+  set y := rndUnbounded F₁ .toZero x h₁u with hy_def
+  by_cases hbOK : Format.boundOK F₁.b y
+  · -- No overflow: compose the bounded roundings and lift back.
+    right
+    have hsub_u : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext)
+        ⊆ F₂.unbounded.toFormat := fun d hd =>
+      mem_unbounded_of_mem (F := F₂) (hsub d hd)
+    have hw_bdd : RoundsFinite F₁ .toZero (z : ℝ) w :=
+      RoundsFinite.toZero_restrict hw_fin hw_bnd
+    have hxw : RoundsFinite F₁ .toZero x w := rndRTO_RTZ hsub_u hz_fin hw_bdd
+    exact ⟨h₁u, RoundsFinite.toZero_lift hxw hy hbOK, hw_bnd⟩
+  · -- Overflow: the unbounded rounding violates the bound.
+    left
+    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+
+/-! ## `Rounds`-level rnd-RTO-RAZ -/
+
+/-- **rnd-RTO-RAZ** (Fig. 9), `Rounds` form. If `z` is the (finite) RTO
+rounding of `x` in `F₂` and `w` is the (finite) RAZ rounding of `z` in `F₁`,
+then either rounding `x` directly in `F₁` overflows, or `w` is the (finite)
+RAZ rounding of `x` in `F₁`. Uses the paper's bound-aware containment
+`(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`. -/
+theorem roundsRTO_RAZ {F₁ F₂ : FiniteFormat}
+    (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
+    {x : ℝ} {z w : Dyadic}
+    (hz : Rounds F₂ .toOdd x (.finite z))
+    (hw : Rounds F₁ .awayZero (z : ℝ) (.finite w)) :
+    (∃ b, Rounds F₁ .awayZero x (.overflow b)) ∨ Rounds F₁ .awayZero x (.finite w) := by
+  obtain ⟨h₂u, hz_fin, _⟩ := hz
+  obtain ⟨h₁u, hw_fin, hw_bnd⟩ := hw
+  -- The total unbounded rounding of `x` in `F₁` decides overflow.
+  have hy := rndUnbounded_satisfies F₁ .awayZero x h₁u
+  set y := rndUnbounded F₁ .awayZero x h₁u with hy_def
+  by_cases hbOK : Format.boundOK F₁.b y
+  · -- No overflow: compose the bounded roundings and lift back.
+    right
+    have hsub_u : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext)
+        ⊆ F₂.unbounded.toFormat := fun d hd =>
+      mem_unbounded_of_mem (F := F₂) (hsub d hd)
+    have hw_bdd : RoundsFinite F₁ .awayZero (z : ℝ) w :=
+      RoundsFinite.awayZero_restrict hw_fin hw_bnd
+    have hxw : RoundsFinite F₁ .awayZero x w := rndRTO_RAZ hsub_u hz_fin hw_bdd
+    exact ⟨h₁u, RoundsFinite.awayZero_lift hxw hy hbOK, hw_bnd⟩
+  · -- Overflow: the unbounded rounding violates the bound.
+    left
+    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+
+/-! ## `Rounds`-level rnd-RTO-RN -/
+
+/-- **rnd-RTO-RN** (Fig. 9), `Rounds` form, parameterized by the tie-break
+`tb` (covers RNE and RNA). If `z` is the (finite) RTO rounding of `x` in `F₂`
+and `w` is the (finite) RN rounding of `z` in `F₁`, then either rounding `x`
+directly in `F₁` overflows, or `w` is the (finite) RN rounding of `x` in
+`F₁`. Uses the paper's bound-aware containment
+`(F₁.extend 2).withBound (F₁.extend 1).boundAfterNext ⊆ F₂`. -/
+theorem roundsRTO_RN {F₁ F₂ : FiniteFormat}
+    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
+              ⊆ F₂.toFormat)
+    {tb : TieBreak} {x : ℝ} {z w : Dyadic}
+    (hz : Rounds F₂ .toOdd x (.finite z))
+    (hw : Rounds F₁ (.nearest tb) (z : ℝ) (.finite w)) :
+    (∃ b, Rounds F₁ (.nearest tb) x (.overflow b)) ∨
+      Rounds F₁ (.nearest tb) x (.finite w) := by
+  obtain ⟨h₂u, hz_fin, _⟩ := hz
+  obtain ⟨h₁u, hw_fin, hw_bnd⟩ := hw
+  -- The total unbounded rounding of `x` in `F₁` decides overflow.
+  have hy := rndUnbounded_satisfies F₁ (.nearest tb) x h₁u
+  set y := rndUnbounded F₁ (.nearest tb) x h₁u with hy_def
+  by_cases hbOK : Format.boundOK F₁.b y
+  · -- No overflow: compose the bounded roundings and lift back.
+    right
+    have hsub_u : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
+        ⊆ F₂.unbounded.toFormat := fun d hd =>
+      mem_unbounded_of_mem (F := F₂) (hsub d hd)
+    have hw_bdd : RoundsFinite F₁ (.nearest tb) (z : ℝ) w :=
+      RoundsFinite.nearest_restrict hw_fin hw_bnd
+    have hxw : RoundsFinite F₁ (.nearest tb) x w := rndRTO_RN hsub_u hz_fin hw_bdd
+    exact ⟨h₁u, RoundsFinite.nearest_lift hxw hy hbOK, hw_bnd⟩
+  · -- Overflow: the unbounded rounding violates the bound.
+    left
+    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
 
 end Mpfx
