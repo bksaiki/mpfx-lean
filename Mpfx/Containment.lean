@@ -226,8 +226,10 @@ def withBound (F : Format) (b' : WithTop NonNegDyadic) : Format := { F with b :=
 /-- The paper's `next_{F.p, F.exp}(b)` from §5.2 / Fig. 9: the smallest Dyadic
 in the grid `A(F.p, F.exp, ∞)` strictly above `b`.
 
-For `b ≥ 0` with finite `(F.p, F.exp)`, computed as `b + step` where the grid
-step depends on `b`'s magnitude:
+For `b > 0` with finite `(F.p, F.exp)`, computed as `b + step` where the grid
+step depends on `b`'s magnitude (for `b ≤ 0` the smallest positive grid
+point `2^F.exp` is returned, which is the successor at `b = 0` and junk
+for `b < 0`):
 - **Subnormal regime** (`|b| < 2^(F.exp + F.p − 1)`): step = `2^F.exp`.
 - **Normal regime**: step = `2^(⌊log₂ b⌋ − F.p + 1)` (binade-dependent).
 - Unified: step exponent = `max(F.exp, ⌊log₂ b⌋ − F.p + 1)`.
@@ -515,7 +517,7 @@ end FiniteFormat
 midpoints, and the paper containment formats -/
 
 /-- `b < F.next b` for finite `exp` (any `p`), `b ≥ 0`. -/
-theorem lt_next' {F : Format} {e : ℤ} (he : F.exp = (e : WithBot ℤ))
+private theorem lt_next' {F : Format} {e : ℤ} (he : F.exp = (e : WithBot ℤ))
     (b : Dyadic) (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
     ((b : Dyadic) : ℝ) < ((F.next b : Dyadic) : ℝ) := by
   rcases hp : F.p with _ | p
@@ -530,11 +532,9 @@ theorem lt_next'' {F : Format} (b : Dyadic)
   | bot => exact Format.lt_next_of_bot F he b
   | coe e => exact lt_next' he b hb
 
-/-- **Grid closure of `next`**: if `b ≥ 0` lies on the `(p, exp)` grid and
-`exp` is finite, then `F.next b` lies on the grid as well. (The `exp = ⊥`
-corner is genuinely false: there `next b = b + 1` under-approximates the grid
-successor for large `b`.) -/
-theorem next_mem_unbounded {F : FiniteFormat} {e : ℤ}
+/-- **Grid closure of `next`**, finite-`exp` case: if `b` lies on the
+`(p, exp)` grid, then `F.next b` does as well. -/
+private theorem next_mem_unbounded {F : FiniteFormat} {e : ℤ}
     (he : F.exp = (e : WithBot ℤ)) {b : Dyadic}
     (hb_mem : b ∈ F.unbounded) :
     F.toFormat.next b ∈ F.unbounded := by
@@ -553,9 +553,7 @@ theorem next_mem_unbounded {F : FiniteFormat} {e : ℤ}
     · change Dyadic.quantumAtLeast F.exp _
       rw [he, Dyadic.quantumAtLeast_coe_real]
       refine ⟨m + 1, ?_⟩
-      have hstep : ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) = (2 : ℝ) ^ e :=
-    coe_real_ofIntZpow_one e
-      rw [h_next, Dyadic.coe_real_add, hstep, hm]
+      rw [h_next, Dyadic.coe_real_add, coe_real_ofIntZpow_one e, hm]
       push_cast; ring
   | coe p =>
     by_cases hb0 : ((b : Dyadic) : ℝ) ≤ 0
@@ -578,11 +576,10 @@ theorem next_mem_unbounded {F : FiniteFormat} {e : ℤ}
       push Not at hb0
       have hb_p' : Dyadic.precisionAtMost ((p : ℕ+) : WithTop ℕ+) b := by
         rw [← hF_p]; exact hb_p
-      obtain ⟨c, q, hc_eq, hc_odd, hc_pos, hc_lb, hq_le_log, hlog_lt⟩ :=
+      obtain ⟨c, q, hc_eq, hc_odd, hc_pos, -, -, hlog_lt⟩ :=
         exists_odd_canonical_pos hb_p' hb0
       -- `e ≤ q`: an odd significand cannot absorb a coarser quantum.
       have hqe : e ≤ q := quantum_le_of_odd_rep (he ▸ hb_q) hc_odd hc_eq
-      -- The computed form of `next` (introduced before folding `logB`, `s`).
       have h_next := Format.next_eq_finite_pos F.toFormat he hF_p hb0
       set logB := Int.log 2 ((b : Dyadic) : ℝ) with hlogB_def
       -- step exponent `s`, with `e ≤ s ≤ q`.
@@ -594,9 +591,7 @@ theorem next_mem_unbounded {F : FiniteFormat} {e : ℤ}
         two_zpow_split_toNat hs_le_q
       have h_val : ((F.toFormat.next b : Dyadic) : ℝ)
           = ((c * 2 ^ ((q - s).toNat) + 1 : ℤ) : ℝ) * (2 : ℝ) ^ s := by
-        have hstep : ((Dyadic.ofIntZpow 1 s : Dyadic) : ℝ) = (2 : ℝ) ^ s :=
-    coe_real_ofIntZpow_one s
-        rw [h_next, Dyadic.coe_real_add, hstep, hc_eq, h2q_split]
+        rw [h_next, Dyadic.coe_real_add, coe_real_ofIntZpow_one s, hc_eq, h2q_split]
         push_cast; ring
       -- `c·2^(q−s) < 2^p`, hence the new significand is at most `2^p`.
       have hck_lt : c * 2 ^ ((q - s).toNat) < 2 ^ (p : ℕ) := by
@@ -656,7 +651,7 @@ theorem next_mem_unbounded {F : FiniteFormat} {e : ℤ}
 /-- Grid closure of `next`, `exp = ⊥` case (`p` is finite by
 `FiniteFormat.finite`; the step is purely binade-dependent, and `b = 0`
 falls back to `next 0 = 1`, which is also on the grid). -/
-theorem next_mem_unbounded_bot {F : FiniteFormat} (he : F.exp = ⊥)
+private theorem next_mem_unbounded_bot {F : FiniteFormat} (he : F.exp = ⊥)
     {b : Dyadic} (hb_mem : b ∈ F.unbounded) (hb_nn : 0 ≤ ((b : Dyadic) : ℝ)) :
     F.toFormat.next b ∈ F.unbounded := by
   obtain ⟨hb_p, hb_q, -⟩ := hb_mem
@@ -680,7 +675,7 @@ theorem next_mem_unbounded_bot {F : FiniteFormat} (he : F.exp = ⊥)
     push Not at hb0
     have hb_p' : Dyadic.precisionAtMost ((p : ℕ+) : WithTop ℕ+) b := by
       rw [← hF_p]; exact hb_p
-    obtain ⟨c, q, hc_eq, hc_odd, hc_pos, hc_lb, hq_le_log, hlog_lt⟩ :=
+    obtain ⟨c, q, hc_eq, -, hc_pos, -, -, hlog_lt⟩ :=
       exists_odd_canonical_pos hb_p' hb0
     have h_next := Format.next_eq_bot_pos F.toFormat he hF_p hb0
     set logB := Int.log 2 ((b : Dyadic) : ℝ) with hlogB_def
@@ -691,9 +686,7 @@ theorem next_mem_unbounded_bot {F : FiniteFormat} (he : F.exp = ⊥)
       two_zpow_split_toNat hs_le_q
     have h_val : ((F.toFormat.next b : Dyadic) : ℝ)
         = ((c * 2 ^ ((q - s).toNat) + 1 : ℤ) : ℝ) * (2 : ℝ) ^ s := by
-      have hstep : ((Dyadic.ofIntZpow 1 s : Dyadic) : ℝ) = (2 : ℝ) ^ s :=
-    coe_real_ofIntZpow_one s
-      rw [h_next, Dyadic.coe_real_add, hstep, hc_eq, h2q_split]
+      rw [h_next, Dyadic.coe_real_add, coe_real_ofIntZpow_one s, hc_eq, h2q_split]
       push_cast; ring
     have hck_lt : c * 2 ^ ((q - s).toNat) < 2 ^ (p : ℕ) := by
       have hb_ub : ((b : Dyadic) : ℝ) < (2 : ℝ) ^ (logB + 1) :=
@@ -753,7 +746,7 @@ theorem next_mem_unbounded' {F : FiniteFormat} {b : Dyadic}
 /-- **Grid minimality of `next`**: for `b ≥ 0` on the grid and finite `exp`,
 any grid point strictly above `b` is at least `F.next b` — i.e. the grid has
 no point in `(b, next b)`. -/
-theorem next_min {F : FiniteFormat} {e : ℤ}
+private theorem next_min {F : FiniteFormat} {e : ℤ}
     (he : F.exp = (e : WithBot ℤ)) {b g : Dyadic}
     (hb_mem : b ∈ F.unbounded) (hg_mem : g ∈ F.unbounded)
     (hb_nn : 0 ≤ ((b : Dyadic) : ℝ))
@@ -776,16 +769,14 @@ theorem next_min {F : FiniteFormat} {e : ℤ}
         rw [hmb, hmg] at hbg
         exact lt_of_mul_lt_mul_right hbg h2e_pos.le
       exact_mod_cast h1
-    have hstep : ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) = (2 : ℝ) ^ e :=
-    coe_real_ofIntZpow_one e
-    rw [h_next, Dyadic.coe_real_add, hstep, hmb, hmg]
+    rw [h_next, Dyadic.coe_real_add, coe_real_ofIntZpow_one e, hmb, hmg]
     have h1 : (mb : ℝ) + 1 ≤ (mg : ℝ) := by exact_mod_cast hm_lt
     nlinarith
   | coe p =>
     have hg_pos : 0 < ((g : Dyadic) : ℝ) := lt_of_le_of_lt hb_nn hbg
     have hg_p' : Dyadic.precisionAtMost ((p : ℕ+) : WithTop ℕ+) g := by
       rw [← hF_p]; exact hg_p
-    obtain ⟨cg, qg, hg_eq, hg_odd, hcg_pos, hg_lb, hg_le_log, hg_log_lt⟩ :=
+    obtain ⟨cg, qg, hg_eq, hg_odd, -, hg_lb, -, hg_log_lt⟩ :=
       exists_odd_canonical_pos hg_p' hg_pos
     have he_qg : e ≤ qg := quantum_le_of_odd_rep (he ▸ hg_q) hg_odd hg_eq
     by_cases hb0 : ((b : Dyadic) : ℝ) ≤ 0
@@ -805,7 +796,7 @@ theorem next_min {F : FiniteFormat} {e : ℤ}
       push Not at hb0
       have hb_p' : Dyadic.precisionAtMost ((p : ℕ+) : WithTop ℕ+) b := by
         rw [← hF_p]; exact hb_p
-      obtain ⟨cb, qb, hb_eq, hb_odd, hcb_pos, hb_lb, hqb_le_log, hb_log_lt⟩ :=
+      obtain ⟨cb, qb, hb_eq, hb_odd, -, -, -, hb_log_lt⟩ :=
         exists_odd_canonical_pos hb_p' hb0
       have he_qb : e ≤ qb := quantum_le_of_odd_rep (he ▸ hb_q) hb_odd hb_eq
       have h_next := Format.next_eq_finite_pos F.toFormat he hF_p hb0
@@ -829,9 +820,7 @@ theorem next_min {F : FiniteFormat} {e : ℤ}
           rw [hkb, hkg] at hbg
           exact lt_of_mul_lt_mul_right hbg h2s_pos.le
         exact_mod_cast h1
-      have hstep : ((Dyadic.ofIntZpow 1 s : Dyadic) : ℝ) = (2 : ℝ) ^ s :=
-    coe_real_ofIntZpow_one s
-      rw [h_next, Dyadic.coe_real_add, hstep, hkb, hkg]
+      rw [h_next, Dyadic.coe_real_add, coe_real_ofIntZpow_one s, hkb, hkg]
       have h1 : ((cb * 2 ^ ((qb - s).toNat) : ℤ) : ℝ) + 1
           ≤ ((cg * 2 ^ ((qg - s).toNat) : ℤ) : ℝ) := by
         exact_mod_cast Int.add_one_le_iff.mpr hk_lt
@@ -839,7 +828,7 @@ theorem next_min {F : FiniteFormat} {e : ℤ}
 
 /-- Grid minimality of `next`, `exp = ⊥` case. Requires `b > 0` (at `b = 0`
 no grid successor exists). -/
-theorem next_min_bot {F : FiniteFormat} (he : F.exp = ⊥) {b g : Dyadic}
+private theorem next_min_bot {F : FiniteFormat} (he : F.exp = ⊥) {b g : Dyadic}
     (hb_mem : b ∈ F.unbounded) (hg_mem : g ∈ F.unbounded)
     (hb_pos : 0 < ((b : Dyadic) : ℝ))
     (hbg : ((b : Dyadic) : ℝ) < ((g : Dyadic) : ℝ)) :
@@ -852,9 +841,9 @@ theorem next_min_bot {F : FiniteFormat} (he : F.exp = ⊥) {b g : Dyadic}
     rw [← hF_p]; exact hg_p
   have hb_p' : Dyadic.precisionAtMost ((p : ℕ+) : WithTop ℕ+) b := by
     rw [← hF_p]; exact hb_p
-  obtain ⟨cg, qg, hg_eq, hg_odd, hcg_pos, hg_lb, hg_le_log, hg_log_lt⟩ :=
+  obtain ⟨cg, qg, hg_eq, -, -, -, -, hg_log_lt⟩ :=
     exists_odd_canonical_pos hg_p' hg_pos
-  obtain ⟨cb, qb, hb_eq, hb_odd, hcb_pos, hb_lb, hqb_le_log, hb_log_lt⟩ :=
+  obtain ⟨cb, qb, hb_eq, -, -, -, -, hb_log_lt⟩ :=
     exists_odd_canonical_pos hb_p' hb_pos
   have h_next := Format.next_eq_bot_pos F.toFormat he hF_p hb_pos
   have hlog_qg' : Int.log 2 ((b : Dyadic) : ℝ) < qg + ((p : ℕ) : ℤ) :=
@@ -876,9 +865,7 @@ theorem next_min_bot {F : FiniteFormat} (he : F.exp = ⊥) {b g : Dyadic}
       rw [hkb, hkg] at hbg
       exact lt_of_mul_lt_mul_right hbg h2s_pos.le
     exact_mod_cast h1
-  have hstep : ((Dyadic.ofIntZpow 1 s : Dyadic) : ℝ) = (2 : ℝ) ^ s :=
-    coe_real_ofIntZpow_one s
-  rw [h_next, Dyadic.coe_real_add, hstep, hkb, hkg]
+  rw [h_next, Dyadic.coe_real_add, coe_real_ofIntZpow_one s, hkb, hkg]
   have h1 : ((cb * 2 ^ ((qb - s).toNat) : ℤ) : ℝ) + 1
       ≤ ((cg * 2 ^ ((qg - s).toNat) : ℤ) : ℝ) := by
     exact_mod_cast Int.add_one_le_iff.mpr hk_lt
@@ -995,7 +982,7 @@ theorem exp_bot_of_extend_bot {F₁ : FiniteFormat} {k : ℕ+}
 
 /-- `next` on `F₁.extend 1` lands exactly on the midpoint of `b` and
 `F₁.next b`: extending by one bit halves the grid step. -/
-theorem next_extend_midpoint {F₁ : FiniteFormat} {e₁ : ℤ}
+private theorem next_extend_midpoint {F₁ : FiniteFormat} {e₁ : ℤ}
     (he₁ : F₁.exp = (e₁ : WithBot ℤ)) {b : Dyadic}
     (hb_nn : 0 ≤ ((b : Dyadic) : ℝ)) :
     (((F₁.extend 1).toFormat.next b : Dyadic) : ℝ)
@@ -1005,8 +992,6 @@ theorem next_extend_midpoint {F₁ : FiniteFormat} {e₁ : ℤ}
     rw [he₁]
     rfl
   have h2 : (2 : ℝ) ≠ 0 := by norm_num
-  have hstep : ∀ k : ℤ, ((Dyadic.ofIntZpow 1 k : Dyadic) : ℝ) = (2 : ℝ) ^ k :=
-    coe_real_ofIntZpow_one
   cases hp : F₁.p with
   | top =>
     have hpx : (F₁.extend 1).toFormat.p = ⊤ := by
@@ -1015,7 +1000,7 @@ theorem next_extend_midpoint {F₁ : FiniteFormat} {e₁ : ℤ}
       rfl
     rw [Format.next_eq_p_top F₁.toFormat he₁ hp b,
       Format.next_eq_p_top (F₁.extend 1).toFormat he₁x hpx b,
-      Dyadic.coe_real_add, Dyadic.coe_real_add, hstep, hstep,
+      Dyadic.coe_real_add, Dyadic.coe_real_add, coe_real_ofIntZpow_one, coe_real_ofIntZpow_one,
       zpow_sub_one₀ h2]
     ring
   | coe p =>
@@ -1041,7 +1026,7 @@ theorem next_extend_midpoint {F₁ : FiniteFormat} {e₁ : ℤ}
           unfold Format.next; rw [he₁x, hpx]
         rw [h_eq, if_pos hb0]
       have hb_eq : ((b : Dyadic) : ℝ) = 0 := le_antisymm hb0 hb_nn
-      rw [h_next, h_nextx, hstep, hstep, hb_eq, zpow_sub_one₀ h2]
+      rw [h_next, h_nextx, coe_real_ofIntZpow_one, coe_real_ofIntZpow_one, hb_eq, zpow_sub_one₀ h2]
       ring
     · -- `b > 0`: the step exponent drops by exactly one.
       push Not at hb0
@@ -1055,12 +1040,12 @@ theorem next_extend_midpoint {F₁ : FiniteFormat} {e₁ : ℤ}
         rw [hcast]
         omega
       rw [h_next, h_nextx, h_max, Dyadic.coe_real_add, Dyadic.coe_real_add,
-        hstep, hstep, zpow_sub_one₀ h2]
+        coe_real_ofIntZpow_one, coe_real_ofIntZpow_one, zpow_sub_one₀ h2]
       ring
 
 /-- `next` on `F₁.extend 1`, `exp = ⊥` case: the binade step still halves.
 Requires `b > 0`. -/
-theorem next_extend_midpoint_bot {F₁ : FiniteFormat} (he₁ : F₁.exp = ⊥)
+private theorem next_extend_midpoint_bot {F₁ : FiniteFormat} (he₁ : F₁.exp = ⊥)
     {b : Dyadic} (hb_pos : 0 < ((b : Dyadic) : ℝ)) :
     (((F₁.extend 1).toFormat.next b : Dyadic) : ℝ)
       = (((b : Dyadic) : ℝ) + ((F₁.toFormat.next b : Dyadic) : ℝ)) / 2 := by
@@ -1074,8 +1059,6 @@ theorem next_extend_midpoint_bot {F₁ : FiniteFormat} (he₁ : F₁.exp = ⊥)
     rw [hF_p]
     rfl
   have h2 : (2 : ℝ) ≠ 0 := by norm_num
-  have hstep : ∀ k : ℤ, ((Dyadic.ofIntZpow 1 k : Dyadic) : ℝ) = (2 : ℝ) ^ k :=
-    coe_real_ofIntZpow_one
   rw [Format.next_eq_bot_pos F₁.toFormat he₁ hF_p hb_pos,
     Format.next_eq_bot_pos (F₁.extend 1).toFormat he₁x hpx hb_pos]
   have h_idx : Int.log 2 ((b : Dyadic) : ℝ) - (((p + 1 : ℕ+) : ℕ) : ℤ) + 1
@@ -1083,8 +1066,8 @@ theorem next_extend_midpoint_bot {F₁ : FiniteFormat} (he₁ : F₁.exp = ⊥)
     have hcast : (((p + 1 : ℕ+) : ℕ) : ℤ) = ((p : ℕ) : ℤ) + 1 := by
       push_cast; ring
     omega
-  rw [h_idx, Dyadic.coe_real_add, Dyadic.coe_real_add, hstep, hstep,
-    zpow_sub_one₀ h2]
+  rw [h_idx, Dyadic.coe_real_add, Dyadic.coe_real_add, coe_real_ofIntZpow_one,
+    coe_real_ofIntZpow_one, zpow_sub_one₀ h2]
   ring
 
 /-- `next` on `F₁.extend 1` is the midpoint, any `exp` (for `exp = ⊥` the

@@ -989,6 +989,16 @@ theorem rndRTO_RAZ {F₁ F₂ : FiniteFormat}
   · -- trivial case: F₁ = {0}.
     exact RoundsFinite.awayZero_of_trivial hF₁_triv hz hw
 
+/-- A nonzero member of `F₁` refutes the trivial branch of
+`hp_F₂_or_F₁_trivial`: the paper containment then forces `2 ≤ F₂.p`. -/
+private theorem two_le_p_of_nontrivial {F₁ F₂ : FiniteFormat}
+    (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
+    (hnt : F₁.toFormat.Nontrivial) : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p := by
+  rcases hp_F₂_or_F₁_trivial hsub with h | htriv
+  · exact h
+  · obtain ⟨d, hd, hne⟩ := hnt
+    exact absurd (htriv d hd) hne
+
 /-! ## Round-to-nearest helpers for `rndRTO_RN` (Stage A) -/
 
 /-- Helper for tie-break: from `|x - w'| = |x - z'|` with `w' ≠ z'`, derive
@@ -1296,6 +1306,16 @@ private theorem hp_F₂_or_F₁_trivial_RN {F₁ F₂ : FiniteFormat}
               - (((p : ℕ) : ℤ) + 1) + 1)) :=
           zpow_le_zpow_right₀ (by norm_num : (1 : ℝ) ≤ 2) (le_max_left _ _)
         linarith
+
+/-- RN variant of `two_le_p_of_nontrivial`. -/
+private theorem two_le_p_of_nontrivial_RN {F₁ F₂ : FiniteFormat}
+    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
+      ⊆ F₂.toFormat)
+    (hnt : F₁.toFormat.Nontrivial) : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p := by
+  rcases hp_F₂_or_F₁_trivial_RN hsub with h | htriv
+  · exact h
+  · obtain ⟨d, hd, hne⟩ := hnt
+    exact absurd (htriv d hd) hne
 
 /-- If `F₁` is trivial (contains only `0`) then `RoundsFinite F₁ (.nearest tb) x w'`
 holds for any real `x` and tie-break `tb`, whenever `w' ∈ F₁` (so `w' = 0`).
@@ -2230,8 +2250,9 @@ private theorem abs_lt_next_of_toZero_inbound {F₁ : FiniteFormat}
 
 /-- No-overflow propagation for RTZ-RTZ: if the unbounded RTZ rounding `y`
 of `x` in `F₁` is in-bound, then the unbounded RTZ rounding `z` of `x` in
-`F₂` is in-bound: `|x| < next(b₁)` by `abs_lt_next_of_toZero_inbound`, so
-`|z| ≤ |x| < next(b₁) ≤ b₂` via the containment. -/
+`F₂` is in-bound: `|x| < next(b₁)` by `abs_lt_next_of_toZero_inbound`, and
+`next(b₁) ∈ F₂` via the containment, so `|z| ≤ |x| < next(b₁)` is within
+`F₂`'s bound. -/
 private theorem toZero_noOverflow_F₂ {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     (hreg : ∀ b : NonNegDyadic, F₁.b = (b : WithTop NonNegDyadic) →
@@ -2244,7 +2265,7 @@ private theorem toZero_noOverflow_F₂ {F₁ F₂ : FiniteFormat}
   · -- `b₁ = ⊤` forces `b₂ = ⊤`.
     rw [bound_top_of_paper_subset hsub hF₁b]
     trivial
-  · obtain ⟨hb₁_mem, hguard⟩ := hreg b₁ hF₁b
+  · obtain ⟨hb₁_mem, -⟩ := hreg b₁ hF₁b
     obtain ⟨hb₁_nn, hN_lt, hN_nn, hN_mem⟩ := next_facts hb₁_mem
     set N := F₁.toFormat.next b₁.val with hN_def
     have hxN : |x| < (N : ℝ) :=
@@ -2743,8 +2764,7 @@ private theorem toOdd_nearest_noOverflow_chain {F₁ F₂ : FiniteFormat}
     rw [hF₁b] at hby; exact hby
   -- `|x| ≤ M`, hence `|z| ≤ M`.
   have hxM : |x| ≤ (M : ℝ) :=
-    abs_le_mid_of_nearest_inbound hF₁b hb₁_mem hguard hyfaithful hyclose
-      (by rw [hF₁b]; exact hby')
+    abs_le_mid_of_nearest_inbound hF₁b hb₁_mem hguard hyfaithful hyclose hby
   have hM_F₂ : M ∈ F₂ := hsub M (mid_mem_paperRN hF₁b hb₁_mem)
   have hzM : |(z : ℝ)| ≤ (M : ℝ) :=
     abs_faithful_le_of_le (mem_unbounded_of_mem hM_F₂) hxM hz.2.1
@@ -3430,13 +3450,7 @@ theorem roundsRTO_RTZ {F₁ F₂ : FiniteFormat}
     (∃ z w : Dyadic, Rounds F₂ .toOdd x (.finite z) ∧
       Rounds F₁ .toZero (z : ℝ) (.finite w) ∧
       Rounds F₁ .toZero x (.finite w)) := by
-  -- A nonzero member of `F₁` refutes the trivial branch of the containment
-  -- dichotomy, so `F₂` has at least two bits.
-  have hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p := by
-    rcases hp_F₂_or_F₁_trivial hsub with h | htriv
-    · exact h
-    · obtain ⟨d, hd, hne⟩ := hnt
-      exact absurd (htriv d hd) hne
+  have hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p := two_le_p_of_nontrivial hsub hnt
   -- Reduce to a bound that is on the grid (and positive when `exp = ⊥`)
   -- by replacing it with its grid floor.
   suffices key : ∀ F : FiniteFormat,
@@ -3545,14 +3559,8 @@ theorem roundsRTO_RAZ {F₁ F₂ : FiniteFormat}
     (∃ z w : Dyadic, Rounds F₂ .toOdd x (.finite z) ∧
       Rounds F₁ .awayZero (z : ℝ) (.finite w) ∧
       Rounds F₁ .awayZero x (.finite w)) := by
-  -- A nonzero member of `F₁` refutes the trivial branch of the containment
-  -- dichotomy, so `F₂` has at least two bits — in particular RTO is defined.
-  have h₂u : ¬ F₂.IsUndefined .toOdd := by
-    apply not_isUndefined_of_two_le_p
-    rcases hp_F₂_or_F₁_trivial hsub with h | htriv
-    · exact h
-    · obtain ⟨d, hd, hne⟩ := hnt
-      exact absurd (htriv d hd) hne
+  have h₂u : ¬ F₂.IsUndefined .toOdd :=
+    not_isUndefined_of_two_le_p (two_le_p_of_nontrivial hsub hnt)
   have h₁u := not_isUndefined_awayZero F₁
   have hy := rndUnbounded_satisfies F₁ .awayZero x h₁u
   set y := rndUnbounded F₁ .awayZero x h₁u with hy_def
@@ -3599,13 +3607,7 @@ theorem roundsRTO_RN {F₁ F₂ : FiniteFormat}
     (∃ z w : Dyadic, Rounds F₂ .toOdd x (.finite z) ∧
       Rounds F₁ (.nearest tb) (z : ℝ) (.finite w) ∧
       Rounds F₁ (.nearest tb) x (.finite w)) := by
-  -- A nonzero member of `F₁` refutes the trivial branch of the containment
-  -- dichotomy, so `F₂` has at least two bits.
-  have hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p := by
-    rcases hp_F₂_or_F₁_trivial_RN hsub with h | htriv
-    · exact h
-    · obtain ⟨d, hd, hne⟩ := hnt
-      exact absurd (htriv d hd) hne
+  have hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p := two_le_p_of_nontrivial_RN hsub hnt
   -- Reduce to a bound that is on the grid (and positive when `exp = ⊥`)
   -- by replacing it with its grid floor.
   suffices key : ∀ F : FiniteFormat,
