@@ -82,6 +82,10 @@ theorem neg_mem {F : Format} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F := by
 theorem mem_neg_iff (F : Format) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
   ⟨fun h => by simpa using neg_mem h, neg_mem⟩
 
+/-- `F` contains at least one nonzero value. -/
+def Nontrivial (F : Format) : Prop :=
+  ∃ d : Dyadic, d ∈ F ∧ (d : ℝ) ≠ 0
+
 /-- Zero is in every format. -/
 theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
   refine ⟨?_, ?_, ?_⟩

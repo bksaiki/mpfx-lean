@@ -3421,14 +3421,22 @@ theorem roundsRTO_RTO {F₁ F₂ : FiniteFormat}
 
 /-- **rnd-RTO-RTZ**, total form. Either rounding `x` directly in `F₁` (RTZ)
 overflows, or the RTO rounding of `x` in `F₂` does not overflow (finite `z`),
-the chained RTZ rounding is finite (`w`), and double rounding holds. -/
+the chained RTZ rounding is finite (`w`), and double rounding holds.
+Nontriviality of `F₁` forces `2 ≤ F₂.p` through the containment. -/
 theorem roundsRTO_RTZ {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
-    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p) (x : ℝ) :
+    (hnt : F₁.toFormat.Nontrivial) (x : ℝ) :
     (∃ b, Rounds F₁ .toZero x (.overflow b)) ∨
     (∃ z w : Dyadic, Rounds F₂ .toOdd x (.finite z) ∧
       Rounds F₁ .toZero (z : ℝ) (.finite w) ∧
       Rounds F₁ .toZero x (.finite w)) := by
+  -- A nonzero member of `F₁` refutes the trivial branch of the containment
+  -- dichotomy, so `F₂` has at least two bits.
+  have hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p := by
+    rcases hp_F₂_or_F₁_trivial hsub with h | htriv
+    · exact h
+    · obtain ⟨d, hd, hne⟩ := hnt
+      exact absurd (htriv d hd) hne
   -- Reduce to a bound that is on the grid (and positive when `exp = ⊥`)
   -- by replacing it with its grid floor.
   suffices key : ∀ F : FiniteFormat,
@@ -3527,15 +3535,24 @@ theorem roundsRTO_RTZ {F₁ F₂ : FiniteFormat}
 
 /-- **rnd-RTO-RAZ**, total form. Either rounding `x` directly in `F₁` (RAZ)
 overflows, or the RTO rounding of `x` in `F₂` does not overflow (finite `z`),
-the chained RAZ rounding is finite (`w`), and double rounding holds. Same
-containment hypothesis as the spec-relational form; `F₂` must support RTO. -/
+the chained RAZ rounding is finite (`w`), and double rounding holds.
+Nontriviality of `F₁` forces, through the containment, that `F₂` supports
+RTO. -/
 theorem roundsRTO_RAZ {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
-    (h₂u : ¬ F₂.IsUndefined .toOdd) (x : ℝ) :
+    (hnt : F₁.toFormat.Nontrivial) (x : ℝ) :
     (∃ b, Rounds F₁ .awayZero x (.overflow b)) ∨
     (∃ z w : Dyadic, Rounds F₂ .toOdd x (.finite z) ∧
       Rounds F₁ .awayZero (z : ℝ) (.finite w) ∧
       Rounds F₁ .awayZero x (.finite w)) := by
+  -- A nonzero member of `F₁` refutes the trivial branch of the containment
+  -- dichotomy, so `F₂` has at least two bits — in particular RTO is defined.
+  have h₂u : ¬ F₂.IsUndefined .toOdd := by
+    apply not_isUndefined_of_two_le_p
+    rcases hp_F₂_or_F₁_trivial hsub with h | htriv
+    · exact h
+    · obtain ⟨d, hd, hne⟩ := hnt
+      exact absurd (htriv d hd) hne
   have h₁u := not_isUndefined_awayZero F₁
   have hy := rndUnbounded_satisfies F₁ .awayZero x h₁u
   set y := rndUnbounded F₁ .awayZero x h₁u with hy_def
@@ -3571,16 +3588,24 @@ theorem roundsRTO_RAZ {F₁ F₂ : FiniteFormat}
 /-- **rnd-RTO-RN**, total form, parameterized by the tie-break `tb`. Either
 rounding `x` directly in `F₁` (RN) overflows, or the RTO rounding of `x` in
 `F₂` does not overflow (finite `z`), the chained RN rounding is finite (`w`),
-and double rounding holds. -/
+and double rounding holds. Nontriviality of `F₁` forces `2 ≤ F₂.p` through
+the containment; `F₁` must support the tie-break (vacuous for RNA). -/
 theorem roundsRTO_RN {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
       ⊆ F₂.toFormat)
-    (hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p)
+    (hnt : F₁.toFormat.Nontrivial)
     {tb : TieBreak} (h₁u : ¬ F₁.IsUndefined (.nearest tb)) (x : ℝ) :
     (∃ b, Rounds F₁ (.nearest tb) x (.overflow b)) ∨
     (∃ z w : Dyadic, Rounds F₂ .toOdd x (.finite z) ∧
       Rounds F₁ (.nearest tb) (z : ℝ) (.finite w) ∧
       Rounds F₁ (.nearest tb) x (.finite w)) := by
+  -- A nonzero member of `F₁` refutes the trivial branch of the containment
+  -- dichotomy, so `F₂` has at least two bits.
+  have hp_F₂ : ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p := by
+    rcases hp_F₂_or_F₁_trivial_RN hsub with h | htriv
+    · exact h
+    · obtain ⟨d, hd, hne⟩ := hnt
+      exact absurd (htriv d hd) hne
   -- Reduce to a bound that is on the grid (and positive when `exp = ⊥`)
   -- by replacing it with its grid floor.
   suffices key : ∀ F : FiniteFormat,
