@@ -82,6 +82,10 @@ theorem neg_mem {F : Format} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F := by
 theorem mem_neg_iff (F : Format) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
   ⟨fun h => by simpa using neg_mem h, neg_mem⟩
 
+/-- `F` contains at least one nonzero value. -/
+def Nontrivial (F : Format) : Prop :=
+  ∃ d : Dyadic, d ∈ F ∧ (d : ℝ) ≠ 0
+
 /-- Zero is in every format. -/
 theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
   refine ⟨?_, ?_, ?_⟩
@@ -1922,5 +1926,123 @@ theorem alternating_isEven_floating {F : ParityFormat}
     exact isEven_at_saturation_floating hp_eq hp_ne_1 hexp_bot hlo_sat
 
 end ParityFormat
+
+
+/-! ### Bound checks, `unbounded` membership, and parity transport -/
+
+/-- If `|g| ≤ |h|` (over ℝ) and `h` is in-bound, so is `g`. -/
+theorem boundOK_of_abs_le {b : WithTop NonNegDyadic} {g h : Dyadic}
+    (hle : |(g : ℝ)| ≤ |(h : ℝ)|) (hb : Format.boundOK b h) :
+    Format.boundOK b g := by
+  cases b with
+  | top => trivial
+  | coe b =>
+    have hle' : |(g : ℚ)| ≤ |(h : ℚ)| := by
+      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast,
+        ← Rat.cast_abs, ← Rat.cast_abs] at hle
+      exact_mod_cast hle
+    have hb' : |(h : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb
+    change |(g : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
+    linarith
+
+/-- A bound check against a finite bound, transferred to an absolute-value
+bound over `ℝ`. -/
+theorem abs_coe_real_le_of_boundOK {b₁ : NonNegDyadic} {y : Dyadic}
+    (h : Format.boundOK ((b₁ : WithTop NonNegDyadic)) y) :
+    |(y : ℝ)| ≤ ((b₁.val : Dyadic) : ℝ) := by
+  have h1 : |(y : ℚ)| ≤ ((b₁.val : Dyadic) : ℚ) := h
+  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
+  exact_mod_cast h1
+
+/-- A failed bound check, transferred to a strict absolute-value bound
+over `ℝ`. -/
+theorem lt_abs_coe_real_of_not_boundOK {b₁ : NonNegDyadic} {y : Dyadic}
+    (h : ¬ Format.boundOK ((b₁ : WithTop NonNegDyadic)) y) :
+    ((b₁.val : Dyadic) : ℝ) < |(y : ℝ)| := by
+  have h1 : ¬ |(y : ℚ)| ≤ ((b₁.val : Dyadic) : ℚ) := h
+  push Not at h1
+  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
+  exact_mod_cast h1
+
+/-- A dyadic between two in-bound dyadics is in-bound. -/
+theorem boundOK_of_between {b : WithTop NonNegDyadic} {lo hi g : Dyadic}
+    (hblo : Format.boundOK b lo) (hbhi : Format.boundOK b hi)
+    (h1 : (lo : ℝ) ≤ (g : ℝ)) (h2 : (g : ℝ) ≤ (hi : ℝ)) :
+    Format.boundOK b g := by
+  cases b with
+  | top => trivial
+  | coe b =>
+    have h1' : (lo : ℚ) ≤ (g : ℚ) := by
+      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h1
+      exact_mod_cast h1
+    have h2' : (g : ℚ) ≤ (hi : ℚ) := by
+      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h2
+      exact_mod_cast h2
+    have hblo' : |(lo : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hblo
+    have hbhi' : |(hi : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hbhi
+    change |(g : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
+    exact abs_le.mpr ⟨by linarith [(abs_le.mp hblo').1], by linarith [(abs_le.mp hbhi').2]⟩
+
+/-- Bounded membership weakens to unbounded membership (drop the bound check). -/
+theorem mem_unbounded_of_mem {F : FiniteFormat} {d : Dyadic}
+    (h : d ∈ F) : d ∈ F.unbounded :=
+  ⟨h.1, h.2.1, trivial⟩
+
+/-- Unbounded membership plus an explicit bound check gives bounded membership. -/
+theorem mem_of_mem_unbounded_of_boundOK {F : FiniteFormat} {d : Dyadic}
+    (h : d ∈ F.unbounded) (hb : Format.boundOK F.b d) : d ∈ F :=
+  ⟨h.1, h.2.1, hb⟩
+
+/-- A `FiniteFormat` with `exp = ⊥` has finite precision. -/
+theorem exists_p_coe_of_exp_bot {F : FiniteFormat} (he : F.exp = ⊥) :
+    ∃ p : ℕ+, F.p = ((p : ℕ+) : WithTop ℕ+) := by
+  cases hc : F.p with
+  | top => exact absurd F.finite (by push Not; exact ⟨hc, he⟩)
+  | coe p => exact ⟨p, rfl⟩
+
+/-- `numDigits` only reads `(p, exp)`. -/
+theorem numDigits_congr {F G : FiniteFormat} (hp : F.p = G.p)
+    (he : F.exp = G.exp) (x : ℝ) : F.numDigits x = G.numDigits x := by
+  unfold FiniteFormat.numDigits
+  rw [hp, he]
+
+/-- Transport a parity witness (`∃ F', F'.toFormat = _ ∧ F'.IsOdd y`) between
+formats agreeing on `(p, exp)`. -/
+theorem parity_witness_congr {F G : FiniteFormat} (hp : F.p = G.p)
+    (he : F.exp = G.exp) {y : Dyadic}
+    (h : ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsOdd y) :
+    ∃ F'' : ParityFormat, F''.toFormat = G.toFormat ∧ F''.IsOdd y := by
+  obtain ⟨F', hFeq, hodd⟩ := h
+  have hp' : F'.p = G.p := by rw [congrArg Format.p hFeq]; exact hp
+  have he' : F'.exp = G.exp := by rw [congrArg Format.exp hFeq]; exact he
+  refine ⟨⟨G, by rw [← hp', ← he']; exact F'.parity⟩, rfl, ?_⟩
+  obtain ⟨c, e, hrep, hpar⟩ := hodd
+  refine ⟨c, e, ?_, ?_⟩
+  · change Dyadic.IsRepresentableAtP (G.numDigits (y : ℝ)).toNat c e y
+    rwa [numDigits_congr (F := G) (G := F'.toFiniteFormat) hp'.symm he'.symm (y : ℝ)]
+  · change if G.p = ((1 : ℕ+) : WithTop ℕ+) then
+        Odd (e - WithBot.unbotD 0 G.exp + 1) else Odd c
+    rw [← hp', ← he']
+    exact hpar
+
+/-- Transport an even-parity witness (`∃ F', F'.toFormat = _ ∧ F'.IsEven y`)
+between formats agreeing on `(p, exp)`. -/
+theorem parity_witness_even_congr {F G : FiniteFormat} (hp : F.p = G.p)
+    (he : F.exp = G.exp) {y : Dyadic}
+    (h : ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsEven y) :
+    ∃ F'' : ParityFormat, F''.toFormat = G.toFormat ∧ F''.IsEven y := by
+  obtain ⟨F', hFeq, heven⟩ := h
+  have hp' : F'.p = G.p := by rw [congrArg Format.p hFeq]; exact hp
+  have he' : F'.exp = G.exp := by rw [congrArg Format.exp hFeq]; exact he
+  refine ⟨⟨G, by rw [← hp', ← he']; exact F'.parity⟩, rfl, ?_⟩
+  rcases heven with h0 | ⟨c, e, hrep, hpar⟩
+  · exact Or.inl h0
+  refine Or.inr ⟨c, e, ?_, ?_⟩
+  · change Dyadic.IsRepresentableAtP (G.numDigits (y : ℝ)).toNat c e y
+    rwa [numDigits_congr (F := G) (G := F'.toFiniteFormat) hp'.symm he'.symm (y : ℝ)]
+  · change if G.p = ((1 : ℕ+) : WithTop ℕ+) then
+        Even (e - WithBot.unbotD 0 G.exp + 1) else Even c
+    rw [← hp', ← he']
+    exact hpar
 
 end Mpfx

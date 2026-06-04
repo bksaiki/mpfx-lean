@@ -615,4 +615,91 @@ end Dyadic
 the carrier of magnitude bounds in `Format`. -/
 abbrev NonNegDyadic : Type := { d : Dyadic // 0 ≤ (d : ℚ) }
 
+
+/-! ### Canonical representations and casts (used by the grid lemmas) -/
+
+/-- `ofIntZpow 1 k` is `2^k` over `ℝ` (coefficient-free form). -/
+theorem coe_real_ofIntZpow_one (k : ℤ) :
+    ((Dyadic.ofIntZpow 1 k : Dyadic) : ℝ) = (2 : ℝ) ^ k := by
+  rw [Dyadic.coe_ofIntZpow]; push_cast; ring
+
+/-- A dyadic that is zero over `ℝ` is zero. -/
+theorem eq_zero_of_coe_real_zero {z : Dyadic} (h : (z : ℝ) = 0) : z = 0 :=
+  (Dyadic.coe_real_inj z 0).mp (by rw [h, Dyadic.coe_real_zero])
+
+/-- `2^k` (any `k`) has precision 1, hence fits any precision bound. -/
+theorem precisionAtMost_one_zpow {p : WithTop ℕ+} (k : ℤ) :
+    Dyadic.precisionAtMost p (Dyadic.ofIntZpow 1 k) := by
+  cases p with
+  | top => trivial
+  | coe p =>
+    rw [Dyadic.precisionAtMost_coe]
+    refine ⟨1, k, by rw [Dyadic.coe_rat_ofIntZpow], ?_⟩
+    have hp1 : 1 ≤ (p : ℕ) := p.pos
+    have h2 : (2 : ℤ) ^ 1 ≤ (2 : ℤ) ^ (p : ℕ) := pow_le_pow_right₀ (by norm_num) hp1
+    simp only [abs_one]
+    omega
+
+/-- An odd-significand representation cannot sit below the quantum: if
+`x = c·2^q` with `c` odd and `x` has quantum at least `e`, then `e ≤ q`. -/
+theorem quantum_le_of_odd_rep {e : ℤ} {x : Dyadic}
+    (hq : Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) x) {c q : ℤ}
+    (hodd : Odd c) (heq : ((x : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ q) :
+    e ≤ q := by
+  obtain ⟨m, hm⟩ : ∃ m : ℤ, ((x : Dyadic) : ℝ) = (m : ℝ) * (2 : ℝ) ^ e := by
+    rw [← Dyadic.quantumAtLeast_coe_real]; exact hq
+  by_contra hlt; push Not at hlt
+  have h2q_pos : (0 : ℝ) < (2 : ℝ) ^ q := zpow_pos (by norm_num) _
+  have h1 : (c : ℝ) * (2 : ℝ) ^ q = (m : ℝ) * (2 : ℝ) ^ e := by rw [← heq, hm]
+  have h2 : (m : ℝ) * (2 : ℝ) ^ (e - q) * (2 : ℝ) ^ q = (m : ℝ) * (2 : ℝ) ^ e := by
+    rw [mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), sub_add_cancel]
+  have hce : (c : ℝ) = (m : ℝ) * (2 : ℝ) ^ (e - q) :=
+    mul_right_cancel₀ (ne_of_gt h2q_pos) (h1.trans h2.symm)
+  have hcast : ((m * 2 ^ (e - q).toNat : ℤ) : ℝ) = (m : ℝ) * (2 : ℝ) ^ (e - q) := by
+    push_cast
+    rw [← zpow_natCast (2 : ℝ) ((e - q).toNat), Int.toNat_of_nonneg (by omega)]
+  have hc_int : c = m * 2 ^ (e - q).toNat := by
+    exact_mod_cast hce.trans hcast.symm
+  have h2dvd : (2 : ℤ) ∣ c := by
+    rw [hc_int]
+    exact dvd_mul_of_dvd_right (dvd_pow_self 2 (by omega)) m
+  rcases hodd with ⟨t, ht⟩
+  omega
+
+/-- Odd canonical representation of a positive dyadic at precision `p`,
+packaged with positivity and binade bounds: `b = c·2^q` with `c` odd and
+positive, `2^q ≤ b`, and `q ≤ ⌊log₂ b⌋ < q + p`. -/
+theorem exists_odd_canonical_pos {p : ℕ+} {b : Dyadic}
+    (hb_p : Dyadic.precisionAtMost ((p : ℕ+) : WithTop ℕ+) b)
+    (hb_pos : 0 < ((b : Dyadic) : ℝ)) :
+    ∃ c q : ℤ, ((b : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ q ∧ Odd c ∧ 0 < c ∧
+      (2 : ℝ) ^ q ≤ ((b : Dyadic) : ℝ) ∧
+      q ≤ Int.log 2 ((b : Dyadic) : ℝ) ∧
+      Int.log 2 ((b : Dyadic) : ℝ) < q + ((p : ℕ) : ℤ) := by
+  obtain ⟨c, q, hc_eq, hc_odd, hc_lt⟩ :=
+    Dyadic.exists_odd_canonical_of_precisionAtMost hb_p (ne_of_gt hb_pos)
+  have h2q_pos : (0 : ℝ) < (2 : ℝ) ^ q := zpow_pos (by norm_num) _
+  have hc_pos : 0 < c := by
+    by_contra h; push Not at h
+    have hcr : (c : ℝ) ≤ 0 := by exact_mod_cast h
+    nlinarith
+  have hc1 : (1 : ℝ) ≤ (c : ℝ) := by exact_mod_cast hc_pos
+  have h_lb : (2 : ℝ) ^ q ≤ ((b : Dyadic) : ℝ) := by rw [hc_eq]; nlinarith
+  have hcp : (c : ℝ) < (2 : ℝ) ^ ((p : ℕ) : ℤ) := by
+    rw [zpow_natCast]
+    have h1 : (c : ℝ) < ((2 ^ (p : ℕ) : ℤ) : ℝ) := by
+      exact_mod_cast lt_of_abs_lt hc_lt
+    push_cast at h1; exact h1
+  have h_ub : ((b : Dyadic) : ℝ) < (2 : ℝ) ^ (q + ((p : ℕ) : ℤ)) := by
+    rw [hc_eq, zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+    calc (c : ℝ) * (2 : ℝ) ^ q < (2 : ℝ) ^ ((p : ℕ) : ℤ) * (2 : ℝ) ^ q := by nlinarith
+      _ = (2 : ℝ) ^ q * (2 : ℝ) ^ ((p : ℕ) : ℤ) := by ring
+  exact ⟨c, q, hc_eq, hc_odd, hc_pos, h_lb,
+    (Int.zpow_le_iff_le_log (by norm_num) hb_pos).mp h_lb,
+    (Int.lt_zpow_iff_log_lt (by norm_num) hb_pos).mp h_ub⟩
+
+/-- A `NonNegDyadic` is non-negative over `ℝ`. -/
+theorem nonneg_coe_real (b : NonNegDyadic) : 0 ≤ ((b.val : Dyadic) : ℝ) := by
+  rw [Dyadic.coe_real_eq_ratCast]; exact_mod_cast b.2
+
 end Mpfx
