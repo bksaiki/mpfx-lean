@@ -3076,7 +3076,7 @@ private theorem rounds_total_of_zero_bound {F₁ F₂ : FiniteFormat}
     have hw_bnd : Format.boundOK F₁.b w := by rw [hwy]; exact hbOK
     exact ⟨z, w, ⟨h₂u, hz, hz_bnd⟩, ⟨h₁u, hw, hw_bnd⟩, ⟨h₁u, hw_x, hw_bnd⟩⟩
   · left
-    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+    exact rounds_overflow_of_not_boundOK h₁u hy hbOK
 
 /-- Grid-floor setup for a finite bound `b₁`: either the degenerate corner
 (`exp = ⊥` and `b₁ = 0`), or a floor `D` with a regular floor-adjusted
@@ -3181,6 +3181,39 @@ private theorem grid_floor_setup {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
     · exact next_mono hd_le
         (fun h => hguard (exp_bot_of_extend_bot (F₁ := F₁) (k := 1) h))
 
+/-- The grid-regularity hypothesis is vacuous when the bound is `⊤`. -/
+private theorem regular_of_bound_top {F : FiniteFormat} (hFb : F.b = ⊤) :
+    ∀ b : NonNegDyadic, F.b = (b : WithTop NonNegDyadic) →
+      b.val ∈ F ∧ (F.exp = ⊥ → 0 < ((b.val : Dyadic) : ℝ)) := by
+  intro b hb
+  rw [hFb] at hb
+  exact absurd hb.symm WithTop.coe_ne_top
+
+/-- Transport the total double-rounding conclusion from the floor-adjusted
+format `F₁.withBoundFF D` back to `F₁`, applying
+`rounds_withBoundFF_floor_iff` to each disjunct. -/
+private theorem rounds_floor_lift {F₁ F₂ : FiniteFormat} {D : NonNegDyadic}
+    (hD_le : Format.boundOK F₁.b D.val)
+    (hD_max : ∀ v : Dyadic, v ∈ F₁.unbounded → Format.boundOK F₁.b v →
+      Format.boundOK ((D : WithTop NonNegDyadic)) v)
+    {rm₁ rm₂ : RoundingMode} {x : ℝ}
+    (h : (∃ b, Rounds (FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic))
+            rm₁ x (.overflow b)) ∨
+      (∃ z w : Dyadic, Rounds F₂ rm₂ x (.finite z) ∧
+        Rounds (FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic))
+          rm₁ (z : ℝ) (.finite w) ∧
+        Rounds (FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic))
+          rm₁ x (.finite w))) :
+    (∃ b, Rounds F₁ rm₁ x (.overflow b)) ∨
+    (∃ z w : Dyadic, Rounds F₂ rm₂ x (.finite z) ∧
+      Rounds F₁ rm₁ (z : ℝ) (.finite w) ∧
+      Rounds F₁ rm₁ x (.finite w)) := by
+  rcases h with ⟨bb, hov⟩ | ⟨z, w, h1, h2, h3⟩
+  · exact Or.inl ⟨bb, (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr hov⟩
+  · exact Or.inr ⟨z, w, h1,
+      (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr h2,
+      (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr h3⟩
+
 /-! ## The total theorems
 
 Each proof first states a regular-bound core (`suffices key`: the bound is
@@ -3211,10 +3244,7 @@ theorem roundsRTZ_RTZ {F₁ F₂ : FiniteFormat}
         Rounds F .toZero (z : ℝ) (.finite w) ∧
         Rounds F .toZero x (.finite w)) by
     rcases hF₁b : F₁.b with _ | b₁
-    · refine key F₁ hsub ?_
-      intro b hb
-      rw [hF₁b] at hb
-      exact absurd hb.symm WithTop.coe_ne_top
+    · exact key F₁ hsub (regular_of_bound_top hF₁b)
     · rcases grid_floor_setup hF₁b with ⟨hexp, hb₁0⟩ |
         ⟨D, hreg_G, hD_le, hD_max, hmono, -⟩
       · exact rounds_total_of_zero_bound (not_isUndefined_toZero F₁)
@@ -3225,56 +3255,17 @@ theorem roundsRTZ_RTZ {F₁ F₂ : FiniteFormat}
             rw [abs_zero] at h
             exact abs_nonpos_iff.mp h)
           hF₁b hb₁0 x
-      · have hsub_G : ((FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic)).toFormat.withBound
-            (FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic)).toFormat.boundAfterNext)
-            ⊆ F₂.toFormat := by
-          intro v hv
-          apply hsub
-          refine ⟨hv.1, hv.2.1, ?_⟩
-          obtain ⟨hnnG, h_eqG⟩ := Format.boundAfterNext_coe
-            (show (FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic)).toFormat.b
-              = (D : WithTop NonNegDyadic) from rfl)
-          obtain ⟨hnn1, h_eq1⟩ := Format.boundAfterNext_coe hF₁b
-          have hbv := hv.2.2
-          rw [h_eqG] at hbv
-          change Format.boundOK F₁.toFormat.boundAfterNext v
-          rw [h_eq1]
-          have h1 : |(v : ℚ)| ≤ ((F₁.toFormat.next D.val : Dyadic) : ℚ) := hbv
-          have h2 : ((F₁.toFormat.next D.val : Dyadic) : ℚ)
-              ≤ ((F₁.toFormat.next b₁.val : Dyadic) : ℚ) := by
-            have h3 := hmono
-            rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h3
-            exact_mod_cast h3
-          change |(v : ℚ)| ≤ ((F₁.toFormat.next b₁.val : Dyadic) : ℚ)
-          linarith
-        rcases key _ hsub_G hreg_G with ⟨bb, hov⟩ | ⟨z, w, h1, h2, h3⟩
-        · exact Or.inl ⟨bb, (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr hov⟩
-        · exact Or.inr ⟨z, w, h1,
-            (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr h2,
-            (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr h3⟩
+      · exact rounds_floor_lift hD_le hD_max (key _
+          (fun v hv => hsub v ⟨hv.1, hv.2.1,
+            boundOK_boundAfterNext_mono
+              (G := FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic))
+              hF₁b rfl rfl hmono hv.2.2⟩) hreg_G)
   intro F hsub hreg
   have h₁u := not_isUndefined_toZero F
   have h₂u := not_isUndefined_toZero F₂
   -- Plain containment, recovered from the paper form.
-  have hsub' : F.toFormat ⊆ F₂.toFormat := by
-    intro d hd
-    apply hsub
-    refine ⟨hd.1, hd.2.1, ?_⟩
-    change Format.boundOK F.toFormat.boundAfterNext d
-    rcases hFb : F.b with _ | b₁
-    · rw [Format.boundAfterNext_top hFb]; trivial
-    · obtain ⟨hnn, h_eq⟩ := Format.boundAfterNext_coe hFb
-      rw [h_eq]
-      have hd_b : Format.boundOK F.b d := hd.2.2
-      rw [hFb] at hd_b
-      have hd_b' : |(d : ℚ)| ≤ ((b₁.val : Dyadic) : ℚ) := hd_b
-      have hb₁_nn : 0 ≤ ((b₁.val : Dyadic) : ℝ) := nonneg_coe_real b₁
-      have h_le : ((b₁.val : Dyadic) : ℚ) ≤ ((F.toFormat.next b₁.val : Dyadic) : ℚ) := by
-        have h := Format.self_le_next F.toFormat b₁.val hb₁_nn
-        rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h
-        exact_mod_cast h
-      change |(d : ℚ)| ≤ ((F.toFormat.next b₁.val : Dyadic) : ℚ)
-      linarith
+  have hsub' : F.toFormat ⊆ F₂.toFormat := fun d hd =>
+    hsub d ⟨hd.1, hd.2.1, boundOK_boundAfterNext_of_boundOK hd.2.2⟩
   have hy := rndUnbounded_satisfies F .toZero x h₁u
   set y := rndUnbounded F .toZero x h₁u with hy_def
   by_cases hbOK : Format.boundOK F.b y
@@ -3298,7 +3289,7 @@ theorem roundsRTZ_RTZ {F₁ F₂ : FiniteFormat}
     have hxw : RoundsFinite F .toZero x w := rndRTZ_RTZ hsub_u hz hw_bdd
     exact ⟨z, w, hzR, hwR, ⟨h₁u, RoundsFinite.toZero_lift hxw hy hbOK, hw_bnd⟩⟩
   · left
-    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+    exact rounds_overflow_of_not_boundOK h₁u hy hbOK
 
 /-- **rnd-RAZ-RAZ**, total form. Either rounding `x` directly in `F₁`
 overflows, or rounding `x` in `F₂` does not overflow (finite `z`), the
@@ -3335,7 +3326,7 @@ theorem roundsRAZ_RAZ {F₁ F₂ : FiniteFormat}
     have hxw : RoundsFinite F₁ .awayZero x w := rndRAZ_RAZ hsub_u hz hw_bdd
     exact ⟨z, w, hzR, hwR, ⟨h₁u, RoundsFinite.awayZero_lift hxw hy hbOK, hw_bnd⟩⟩
   · left
-    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+    exact rounds_overflow_of_not_boundOK h₁u hy hbOK
 
 /-- **rnd-RTO-RTO**, total form (unified — no parity split on `b₁`). Either
 rounding `x` directly in `F₁` (RTO) overflows, or the RTO rounding of `x` in
@@ -3361,43 +3352,18 @@ theorem roundsRTO_RTO {F₁ F₂ : FiniteFormat}
         Rounds F .toOdd (z : ℝ) (.finite w) ∧
         Rounds F .toOdd x (.finite w)) by
     rcases hF₁b : F₁.b with _ | b₁
-    · refine key F₁ hsub ?_ h₁u
-      intro b hb
-      rw [hF₁b] at hb
-      exact absurd hb.symm WithTop.coe_ne_top
+    · exact key F₁ hsub (regular_of_bound_top hF₁b) h₁u
     · rcases grid_floor_setup hF₁b with ⟨hexp, hb₁0⟩ |
         ⟨D, hreg_G, hD_le, hD_max, hmono, -⟩
       · exact rounds_total_of_zero_bound h₁u (not_isUndefined_of_two_le_p hp_F₂)
           (fun hy hy0 => eq_zero_of_faithful_zero hexp hy.2.1 hy0)
           (fun hz => by rw [toOdd_eq_zero_of_zero hz, Dyadic.coe_real_zero])
           hF₁b hb₁0 x
-      · have hsub_G : ((FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic)).toFormat.withBound
-            (FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic)).toFormat.boundAfterNext)
-            ⊆ F₂.toFormat := by
-          intro v hv
-          apply hsub
-          refine ⟨hv.1, hv.2.1, ?_⟩
-          obtain ⟨hnnG, h_eqG⟩ := Format.boundAfterNext_coe
-            (show (FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic)).toFormat.b
-              = (D : WithTop NonNegDyadic) from rfl)
-          obtain ⟨hnn1, h_eq1⟩ := Format.boundAfterNext_coe hF₁b
-          have hbv := hv.2.2
-          rw [h_eqG] at hbv
-          change Format.boundOK F₁.toFormat.boundAfterNext v
-          rw [h_eq1]
-          have h1 : |(v : ℚ)| ≤ ((F₁.toFormat.next D.val : Dyadic) : ℚ) := hbv
-          have h2 : ((F₁.toFormat.next D.val : Dyadic) : ℚ)
-              ≤ ((F₁.toFormat.next b₁.val : Dyadic) : ℚ) := by
-            have h3 := hmono
-            rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h3
-            exact_mod_cast h3
-          change |(v : ℚ)| ≤ ((F₁.toFormat.next b₁.val : Dyadic) : ℚ)
-          linarith
-        rcases key _ hsub_G hreg_G h₁u with ⟨bb, hov⟩ | ⟨z, w, h1, h2, h3⟩
-        · exact Or.inl ⟨bb, (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr hov⟩
-        · exact Or.inr ⟨z, w, h1,
-            (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr h2,
-            (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr h3⟩
+      · exact rounds_floor_lift hD_le hD_max (key _
+          (fun v hv => hsub v ⟨hv.1, hv.2.1,
+            boundOK_boundAfterNext_mono
+              (G := FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic))
+              hF₁b rfl rfl hmono hv.2.2⟩) hreg_G h₁u)
   intro F hsub hreg h₁u
   have h₂u : ¬ F₂.IsUndefined .toOdd := not_isUndefined_of_two_le_p hp_F₂
   have hy := rndUnbounded_satisfies F .toOdd x h₁u
@@ -3437,7 +3403,7 @@ theorem roundsRTO_RTO {F₁ F₂ : FiniteFormat}
     have hxw : RoundsFinite F .toOdd x w := rndRTO_RTO hsub_u hp_F₂ hz hw_bdd
     exact ⟨z, w, hzR, hwR, ⟨h₁u, RoundsFinite.toOdd_lift hxw hy hbOK, hw_bnd⟩⟩
   · left
-    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+    exact rounds_overflow_of_not_boundOK h₁u hy hbOK
 
 /-- **rnd-RTO-RTZ**, total form. Either rounding `x` directly in `F₁` (RTZ)
 overflows, or the RTO rounding of `x` in `F₂` does not overflow (finite `z`),
@@ -3462,10 +3428,7 @@ theorem roundsRTO_RTZ {F₁ F₂ : FiniteFormat}
         Rounds F .toZero (z : ℝ) (.finite w) ∧
         Rounds F .toZero x (.finite w)) by
     rcases hF₁b : F₁.b with _ | b₁
-    · refine key F₁ hsub ?_
-      intro b hb
-      rw [hF₁b] at hb
-      exact absurd hb.symm WithTop.coe_ne_top
+    · exact key F₁ hsub (regular_of_bound_top hF₁b)
     · rcases grid_floor_setup hF₁b with ⟨hexp, hb₁0⟩ |
         ⟨D, hreg_G, hD_le, hD_max, hmono, -⟩
       · exact rounds_total_of_zero_bound (not_isUndefined_toZero F₁)
@@ -3473,34 +3436,11 @@ theorem roundsRTO_RTZ {F₁ F₂ : FiniteFormat}
           (fun hy hy0 => eq_zero_of_toZero_zero hexp hy hy0)
           (fun hz => by rw [toOdd_eq_zero_of_zero hz, Dyadic.coe_real_zero])
           hF₁b hb₁0 x
-      · have hsub_G : (((FiniteFormat.withBoundFF F₁
-              (D : WithTop NonNegDyadic)).extend 1).toFormat.withBound
-            (FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic)).toFormat.boundAfterNext)
-            ⊆ F₂.toFormat := by
-          intro v hv
-          apply hsub
-          refine ⟨hv.1, hv.2.1, ?_⟩
-          obtain ⟨hnnG, h_eqG⟩ := Format.boundAfterNext_coe
-            (show (FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic)).toFormat.b
-              = (D : WithTop NonNegDyadic) from rfl)
-          obtain ⟨hnn1, h_eq1⟩ := Format.boundAfterNext_coe hF₁b
-          have hbv := hv.2.2
-          rw [h_eqG] at hbv
-          change Format.boundOK F₁.toFormat.boundAfterNext v
-          rw [h_eq1]
-          have h1 : |(v : ℚ)| ≤ ((F₁.toFormat.next D.val : Dyadic) : ℚ) := hbv
-          have h2 : ((F₁.toFormat.next D.val : Dyadic) : ℚ)
-              ≤ ((F₁.toFormat.next b₁.val : Dyadic) : ℚ) := by
-            have h3 := hmono
-            rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h3
-            exact_mod_cast h3
-          change |(v : ℚ)| ≤ ((F₁.toFormat.next b₁.val : Dyadic) : ℚ)
-          linarith
-        rcases key _ hsub_G hreg_G with ⟨bb, hov⟩ | ⟨z, w, h1, h2, h3⟩
-        · exact Or.inl ⟨bb, (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr hov⟩
-        · exact Or.inr ⟨z, w, h1,
-            (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr h2,
-            (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr h3⟩
+      · exact rounds_floor_lift hD_le hD_max (key _
+          (fun v hv => hsub v ⟨hv.1, hv.2.1,
+            boundOK_boundAfterNext_mono
+              (G := FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic))
+              hF₁b rfl rfl hmono hv.2.2⟩) hreg_G)
   intro F hsub hreg
   have h₁u := not_isUndefined_toZero F
   have h₂u : ¬ F₂.IsUndefined .toOdd := not_isUndefined_of_two_le_p hp_F₂
@@ -3545,7 +3485,7 @@ theorem roundsRTO_RTZ {F₁ F₂ : FiniteFormat}
     have hxw : RoundsFinite F .toZero x w := rndRTO_RTZ hsub_u hz hw_bdd
     exact ⟨z, w, hzR, hwR, ⟨h₁u, RoundsFinite.toZero_lift hxw hy hbOK, hw_bnd⟩⟩
   · left
-    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+    exact rounds_overflow_of_not_boundOK h₁u hy hbOK
 
 /-- **rnd-RTO-RAZ**, total form. Either rounding `x` directly in `F₁` (RAZ)
 overflows, or the RTO rounding of `x` in `F₂` does not overflow (finite `z`),
@@ -3591,7 +3531,7 @@ theorem roundsRTO_RAZ {F₁ F₂ : FiniteFormat}
     have hxw : RoundsFinite F₁ .awayZero x w := rndRTO_RAZ hsub_u hz hw_bdd
     exact ⟨z, w, hzR, hwR, ⟨h₁u, RoundsFinite.awayZero_lift hxw hy hbOK, hw_bnd⟩⟩
   · left
-    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+    exact rounds_overflow_of_not_boundOK h₁u hy hbOK
 
 /-- **rnd-RTO-RN**, total form, parameterized by the tie-break `tb`. Either
 rounding `x` directly in `F₁` (RN) overflows, or the RTO rounding of `x` in
@@ -3621,46 +3561,18 @@ theorem roundsRTO_RN {F₁ F₂ : FiniteFormat}
         Rounds F (.nearest tb) (z : ℝ) (.finite w) ∧
         Rounds F (.nearest tb) x (.finite w)) by
     rcases hF₁b : F₁.b with _ | b₁
-    · refine key F₁ hsub ?_ h₁u
-      intro b hb
-      rw [hF₁b] at hb
-      exact absurd hb.symm WithTop.coe_ne_top
+    · exact key F₁ hsub (regular_of_bound_top hF₁b) h₁u
     · rcases grid_floor_setup hF₁b with ⟨hexp, hb₁0⟩ |
         ⟨D, hreg_G, hD_le, hD_max, -, hmono_ext⟩
       · exact rounds_total_of_zero_bound h₁u (not_isUndefined_of_two_le_p hp_F₂)
           (fun hy hy0 => eq_zero_of_faithful_zero hexp (nearest_components hy).2.1 hy0)
           (fun hz => by rw [toOdd_eq_zero_of_zero hz, Dyadic.coe_real_zero])
           hF₁b hb₁0 x
-      · have hsub_G : (((FiniteFormat.withBoundFF F₁
-              (D : WithTop NonNegDyadic)).extend 2).toFormat.withBound
-            ((FiniteFormat.withBoundFF F₁
-              (D : WithTop NonNegDyadic)).extend 1).toFormat.boundAfterNext)
-            ⊆ F₂.toFormat := by
-          intro v hv
-          apply hsub
-          refine ⟨hv.1, hv.2.1, ?_⟩
-          obtain ⟨hnnG, h_eqG⟩ := Format.boundAfterNext_coe
-            (show ((FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic)).extend 1).toFormat.b
-              = (D : WithTop NonNegDyadic) from rfl)
-          obtain ⟨hnn1, h_eq1⟩ := Format.boundAfterNext_coe
-            (show (F₁.extend 1).toFormat.b = (b₁ : WithTop NonNegDyadic) from hF₁b)
-          have hbv := hv.2.2
-          rw [h_eqG] at hbv
-          change Format.boundOK (F₁.extend 1).toFormat.boundAfterNext v
-          rw [h_eq1]
-          have h1 : |(v : ℚ)| ≤ (((F₁.extend 1).toFormat.next D.val : Dyadic) : ℚ) := hbv
-          have h2 : (((F₁.extend 1).toFormat.next D.val : Dyadic) : ℚ)
-              ≤ (((F₁.extend 1).toFormat.next b₁.val : Dyadic) : ℚ) := by
-            have h3 := hmono_ext
-            rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h3
-            exact_mod_cast h3
-          change |(v : ℚ)| ≤ (((F₁.extend 1).toFormat.next b₁.val : Dyadic) : ℚ)
-          linarith
-        rcases key _ hsub_G hreg_G h₁u with ⟨bb, hov⟩ | ⟨z, w, h1, h2, h3⟩
-        · exact Or.inl ⟨bb, (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr hov⟩
-        · exact Or.inr ⟨z, w, h1,
-            (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr h2,
-            (rounds_withBoundFF_floor_iff hD_le hD_max _ _ _).mpr h3⟩
+      · exact rounds_floor_lift hD_le hD_max (key _
+          (fun v hv => hsub v ⟨hv.1, hv.2.1,
+            boundOK_boundAfterNext_mono (F := F₁.extend 1)
+              (G := (FiniteFormat.withBoundFF F₁ (D : WithTop NonNegDyadic)).extend 1)
+              hF₁b rfl rfl hmono_ext hv.2.2⟩) hreg_G h₁u)
   intro F hsub hreg h₁u
   have h₂u : ¬ F₂.IsUndefined .toOdd := not_isUndefined_of_two_le_p hp_F₂
   have hy := rndUnbounded_satisfies F (.nearest tb) x h₁u
@@ -3706,6 +3618,6 @@ theorem roundsRTO_RN {F₁ F₂ : FiniteFormat}
     have hxw : RoundsFinite F (.nearest tb) x w := rndRTO_RN hsub_u hz hw_bdd
     exact ⟨z, w, hzR, hwR, ⟨h₁u, RoundsFinite.nearest_lift hxw hy hbOK, hw_bnd⟩⟩
   · left
-    exact ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+    exact rounds_overflow_of_not_boundOK h₁u hy hbOK
 
 end Mpfx

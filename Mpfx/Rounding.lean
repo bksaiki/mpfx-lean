@@ -883,4 +883,12 @@ theorem not_isUndefined_of_two_le_p {F : FiniteFormat} {rm : RoundingMode}
   have h3 : ((2 : ℕ+) : ℕ) ≤ ((1 : ℕ+) : ℕ) := h2
   simp at h3
 
+/-- Package an out-of-bound unbounded rounding as an overflow `Rounds`
+result (with the sign bit computed from the witness). -/
+theorem rounds_overflow_of_not_boundOK {F : FiniteFormat} {rm : RoundingMode}
+    {x : ℝ} {y : Dyadic} (h₁u : ¬ F.IsUndefined rm)
+    (hy : RoundsFinite F.unbounded rm x y) (hbOK : ¬ Format.boundOK F.b y) :
+    ∃ b, Rounds F rm x (.overflow b) :=
+  ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
+
 end Mpfx
