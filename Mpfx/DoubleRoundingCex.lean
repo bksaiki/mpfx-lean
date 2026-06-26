@@ -136,28 +136,6 @@ private theorem two_e_mem_F₁_g (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ
     rw [Dyadic.quantumAtLeast_coe_real]
     exact ⟨1, by rw [coe_two_e_g]; push_cast; ring⟩
 
-/-- `2^N ∈ F₁_g` for any `N ≥ e`: precision `1 ≤ p`, quantum `N ≥ e`. The
-target format therefore contains arbitrarily large elements. -/
-private theorem zpow_mem_F₁_g (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ)
-    {N : ℤ} (hN : e ≤ N) :
-    Dyadic.ofIntZpow 1 N ∈ (F₁_g p hp_ge_2 e).toFormat := by
-  have h_real : ((Dyadic.ofIntZpow 1 N : Dyadic) : ℝ) = (2 : ℝ)^N := by
-    rw [Dyadic.coe_ofIntZpow]; push_cast; ring
-  refine ⟨?_, ?_, trivial⟩
-  · change Dyadic.precisionAtMost ((p : ℕ+) : WithTop ℕ+) _
-    rw [Dyadic.precisionAtMost_coe_real]
-    refine ⟨1, N, by rw [h_real]; push_cast; ring, ?_⟩
-    have h_pow : (2 : ℤ) ≤ (2 : ℤ)^(p : ℕ) :=
-      calc (2 : ℤ) = (2 : ℤ)^1 := by norm_num
-        _ ≤ (2 : ℤ)^(p : ℕ) := pow_le_pow_right₀ (by norm_num) (by omega)
-    have : |(1 : ℤ)| = 1 := by decide
-    omega
-  · change Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) _
-    rw [Dyadic.quantumAtLeast_coe_real]
-    refine ⟨(2 : ℤ)^(N - e).toNat, ?_⟩
-    rw [h_real, two_zpow_split N e hN]
-    push_cast; ring
-
 private theorem y_hi_mem_F₁_g (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ) :
     y_hi_g e ∈ (F₁_g p hp_ge_2 e).toFormat := by
   refine ⟨?_, ?_, trivial⟩
@@ -231,50 +209,23 @@ private theorem f₂_le_e_of_two_e_mem {e : ℤ} {F₂ : Format}
   have hc_int_lt : c < 1 := by exact_mod_cast h_lt_1
   omega
 
-/-- A format containing `2^N` for every `N ≥ e` has no finite bound. -/
-private theorem F₂_bound_top_of_zpow_mem {e : ℤ} (F₂ : FiniteFormat)
-    (h_zpow : ∀ N : ℤ, e ≤ N → Dyadic.ofIntZpow 1 N ∈ F₂.toFormat) :
-    F₂.b = ⊤ := by
-  by_contra h_b_ne
-  obtain ⟨b, hb_eq⟩ := WithTop.ne_top_iff_exists.mp h_b_ne
-  set N : ℤ := max e (Int.log 2 ((b.val : Dyadic) : ℝ) + 1) with hN_def
-  set y_huge : Dyadic := Dyadic.ofIntZpow 1 N with hy_huge_def
-  have hN_ge : e ≤ N := le_max_left _ _
-  have hy_huge_real : ((y_huge : Dyadic) : ℝ) = (2 : ℝ)^N := by
-    rw [hy_huge_def, Dyadic.coe_ofIntZpow]; push_cast; ring
-  have hy_huge_in_F₂ : y_huge ∈ F₂.toFormat := h_zpow N hN_ge
-  have hb_ok : Format.boundOK F₂.b y_huge := hy_huge_in_F₂.2.2
-  rw [← hb_eq] at hb_ok
-  change |((y_huge : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) at hb_ok
-  have hb_ok_real : |((y_huge : Dyadic) : ℝ)| ≤ ((b.val : Dyadic) : ℝ) := by
-    rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
-    exact_mod_cast hb_ok
-  rw [hy_huge_real] at hb_ok_real
-  have h_2N_pos : (0 : ℝ) < (2 : ℝ)^N := zpow_pos (by norm_num) _
-  rw [abs_of_pos h_2N_pos] at hb_ok_real
-  have hN_ge_log : Int.log 2 ((b.val : Dyadic) : ℝ) + 1 ≤ N := le_max_right _ _
-  by_cases hb_pos : 0 < ((b.val : Dyadic) : ℝ)
-  · have h_lt_log_succ :
-        ((b.val : Dyadic) : ℝ) < (2 : ℝ)^(Int.log 2 ((b.val : Dyadic) : ℝ) + 1) := by
-      have := Int.lt_zpow_succ_log_self (b := 2) (by norm_num : 1 < (2 : ℕ))
-        ((b.val : Dyadic) : ℝ)
-      rw [show ((2 : ℕ) : ℝ) = 2 from by push_cast; rfl] at this
-      exact this
-    have h_2N_ge : (2 : ℝ)^(Int.log 2 ((b.val : Dyadic) : ℝ) + 1) ≤ (2 : ℝ)^N :=
-      zpow_le_zpow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hN_ge_log
-    linarith
-  · push Not at hb_pos
-    linarith
+/-- An unbounded `.toZero` rounding whose result is in fact within `F`'s
+bound is a `.toZero` rounding against `F` itself: the bound only ever
+excludes candidates, so the maximality clause survives restriction. -/
+private theorem roundsFinite_toZero_of_unbounded {F : FiniteFormat} {x : ℝ}
+    {z : Dyadic} (h : RoundsFinite F.unbounded .toZero x z) (hz : z ∈ F.toFormat) :
+    RoundsFinite F .toZero x z := by
+  obtain ⟨_, h_abs, h_sign, h_max⟩ := h
+  exact ⟨hz, h_abs, h_sign,
+    fun v hv h1 h2 => h_max v (mem_unbounded_of_mem hv) h1 h2⟩
 
-/-- A `FiniteFormat` whose bound is already `⊤` equals its own unbounded
-relaxation. Lets `rndUnbounded_satisfies` produce roundings directly against
-`F₂` once `F₂_bound_top_of_zpow_mem` applies. -/
-private theorem unbounded_eq_self {F : FiniteFormat} (hb : F.b = ⊤) :
-    F.unbounded = F := by
-  obtain ⟨⟨q, f, b⟩, fin⟩ := F
-  have hb' : b = ⊤ := hb
-  subst hb'
-  rfl
+/-- The `.awayZero` companion of `roundsFinite_toZero_of_unbounded`. -/
+private theorem roundsFinite_awayZero_of_unbounded {F : FiniteFormat} {x : ℝ}
+    {z : Dyadic} (h : RoundsFinite F.unbounded .awayZero x z) (hz : z ∈ F.toFormat) :
+    RoundsFinite F .awayZero x z := by
+  obtain ⟨_, h_abs, h_sign, h_min⟩ := h
+  exact ⟨hz, h_abs, h_sign,
+    fun v hv h1 h2 => h_min v (mem_unbounded_of_mem hv) h1 h2⟩
 
 /-- If an F₂-element `y` equals `odd_c · 2^(e−1)` with `odd_c` odd, then
 `F₂`'s quantum exponent `f₂` satisfies `f₂ ≤ e − 1`. -/
@@ -1291,8 +1242,6 @@ private structure AnchorNeighborhood (F₁ : ParityFormat) where
     ((hi : Dyadic) : ℝ) ≤ ((v : Dyadic) : ℝ)
   /-- The midpoint of `(lo, hi)` is representable with one extra digit. -/
   mid_mem_ext1 : mid ∈ ((F₁.toFiniteFormat.extend 1).toFormat)
-  /-- Containing `F₁` forces an unbounded `F₂`. -/
-  f2_b_top : ∀ F₂ : FiniteFormat, F₁.toFormat ⊆ F₂.toFormat → F₂.b = ⊤
   /-- `F₂`-local gap below `hi`. -/
   f2_below_hi : ∀ F₂ : FiniteFormat, F₁.toFormat ⊆ F₂.toFormat →
     ∃ K : ℤ, K ≤ t ∧ ∀ z ∈ F₂.toFormat,
@@ -1780,7 +1729,6 @@ private theorem no_rndRTZ_RNE (F₂ : FiniteFormat)
       RoundsFinite F₁.toFiniteFormat (.nearest .toEven) (z : ℝ) w ∧
       ¬ RoundsFinite F₁.toFiniteFormat (.nearest .toEven) x w := by
   obtain ⟨K, hK_le, h_mid_below, h_mid_above⟩ := P.f2_mid_lo F₂ hsub
-  have hb_top := P.f2_b_top F₂ hsub
   have h_half_pos : (0 : ℝ) < (2 : ℝ) ^ (P.s - 1) := zpow_pos (by norm_num) _
   have h_2K1_pos : (0 : ℝ) < (2 : ℝ) ^ (K - 1) := zpow_pos (by norm_num) _
   have h_2K2_pos : (0 : ℝ) < (2 : ℝ) ^ (K - 2) := zpow_pos (by norm_num) _
@@ -1796,9 +1744,21 @@ private theorem no_rndRTZ_RNE (F₂ : FiniteFormat)
   have h_x_pos : 0 < x_val := by rw [hx_def]; linarith [P.lo2_pos]
   set z : Dyadic := rndUnbounded F₂ .toZero x_val (not_isUndefined_toZero F₂)
     with hz_def
-  have hz_rounds : RoundsFinite F₂ .toZero x_val z := by
-    have h := rndUnbounded_satisfies F₂ .toZero x_val (not_isUndefined_toZero F₂)
-    rwa [unbounded_eq_self hb_top] at h
+  have hz_unb : RoundsFinite F₂.unbounded .toZero x_val z :=
+    rndUnbounded_satisfies F₂ .toZero x_val (not_isUndefined_toZero F₂)
+  have h_z_mem : z ∈ F₂.toFormat := by
+    obtain ⟨hz_mem_unb, hz_abs', hz_sign', _⟩ := hz_unb
+    have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := nonneg_of_mul_nonneg_pos hz_sign' h_x_pos
+    have h_z_le_x : ((z : Dyadic) : ℝ) ≤ x_val := by
+      rwa [abs_of_nonneg h_z_nn, abs_of_pos h_x_pos] at hz_abs'
+    have h_x_lt_lo : x_val < ((P.lo : Dyadic) : ℝ) := by rw [P.coe_lo, hx_def]; linarith
+    have h_lo_pos : (0 : ℝ) < ((P.lo : Dyadic) : ℝ) :=
+      lt_of_le_of_lt h_z_nn (lt_of_le_of_lt h_z_le_x h_x_lt_lo)
+    refine mem_of_mem_unbounded_of_boundOK hz_mem_unb
+      (boundOK_of_abs_le ?_ (hsub _ P.mem_lo).2.2)
+    rw [abs_of_nonneg h_z_nn, abs_of_pos h_lo_pos]; linarith
+  have hz_rounds : RoundsFinite F₂ .toZero x_val z :=
+    roundsFinite_toZero_of_unbounded hz_unb h_z_mem
   obtain ⟨hz_mem, hz_abs, hz_sign, hz_max⟩ := hz_rounds
   have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := nonneg_of_mul_nonneg_pos hz_sign h_x_pos
   have h_z_le_x : ((z : Dyadic) : ℝ) ≤ x_val := by
@@ -1853,7 +1813,6 @@ private theorem no_rndRAZ_RNE (F₂ : FiniteFormat)
       RoundsFinite F₁.toFiniteFormat (.nearest .toEven) (z : ℝ) w ∧
       ¬ RoundsFinite F₁.toFiniteFormat (.nearest .toEven) x w := by
   obtain ⟨K, hK_le, h_mid_below, h_mid_above⟩ := P.f2_mid_hi F₂ hsub
-  have hb_top := P.f2_b_top F₂ hsub
   have h_half_pos : (0 : ℝ) < (2 : ℝ) ^ (P.t - 1) := zpow_pos (by norm_num) _
   have h_2K1_pos : (0 : ℝ) < (2 : ℝ) ^ (K - 1) := zpow_pos (by norm_num) _
   have h_2K2_pos : (0 : ℝ) < (2 : ℝ) ^ (K - 2) := zpow_pos (by norm_num) _
@@ -1873,18 +1832,32 @@ private theorem no_rndRAZ_RNE (F₂ : FiniteFormat)
   have h_x_pos : 0 < x_val := by rw [hx_def]; linarith
   set z : Dyadic := rndUnbounded F₂ .awayZero x_val (not_isUndefined_awayZero F₂)
     with hz_def
-  have hz_rounds : RoundsFinite F₂ .awayZero x_val z := by
-    have h := rndUnbounded_satisfies F₂ .awayZero x_val (not_isUndefined_awayZero F₂)
-    rwa [unbounded_eq_self hb_top] at h
+  have hz_unb : RoundsFinite F₂.unbounded .awayZero x_val z :=
+    rndUnbounded_satisfies F₂ .awayZero x_val (not_isUndefined_awayZero F₂)
+  have h_hi_in_F₂ : P.hi ∈ F₂.toFormat := hsub _ P.mem_hi
+  have h_x_lt_hi : x_val < ((P.hi : Dyadic) : ℝ) := by
+    rw [hx_def, P.coe_hi, P.coe_lo]
+    linarith
+  have h_z_mem : z ∈ F₂.toFormat := by
+    obtain ⟨hz_mem_unb, hz_abs', hz_sign', hz_min'⟩ := hz_unb
+    have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := nonneg_of_mul_nonneg_pos hz_sign' h_x_pos
+    have h_z_le_hi : ((z : Dyadic) : ℝ) ≤ ((P.hi : Dyadic) : ℝ) := by
+      have h_ge_abs : |x_val| ≤ |((P.hi : Dyadic) : ℝ)| := by
+        rw [abs_of_pos h_x_pos, abs_of_pos P.hi_pos]; linarith
+      have h_sign : ((P.hi : Dyadic) : ℝ) * x_val ≥ 0 :=
+        le_of_lt (mul_pos P.hi_pos h_x_pos)
+      have h := hz_min' P.hi (mem_unbounded_of_mem h_hi_in_F₂) h_ge_abs h_sign
+      rwa [abs_of_pos P.hi_pos, abs_of_nonneg h_z_nn] at h
+    refine mem_of_mem_unbounded_of_boundOK hz_mem_unb
+      (boundOK_of_abs_le ?_ h_hi_in_F₂.2.2)
+    rw [abs_of_nonneg h_z_nn, abs_of_pos P.hi_pos]; exact h_z_le_hi
+  have hz_rounds : RoundsFinite F₂ .awayZero x_val z :=
+    roundsFinite_awayZero_of_unbounded hz_unb h_z_mem
   obtain ⟨hz_mem, hz_abs, hz_sign, hz_min⟩ := hz_rounds
   have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := nonneg_of_mul_nonneg_pos hz_sign h_x_pos
   have h_z_ge_x : x_val ≤ ((z : Dyadic) : ℝ) := by
     have h := hz_abs
     rwa [abs_of_pos h_x_pos, abs_of_nonneg h_z_nn] at h
-  have h_hi_in_F₂ : P.hi ∈ F₂.toFormat := hsub _ P.mem_hi
-  have h_x_lt_hi : x_val < ((P.hi : Dyadic) : ℝ) := by
-    rw [hx_def, P.coe_hi, P.coe_lo]
-    linarith
   have h_z_le_hi : ((z : Dyadic) : ℝ) ≤ ((P.hi : Dyadic) : ℝ) := by
     have h_ge_abs : |x_val| ≤ |((P.hi : Dyadic) : ℝ)| := by
       rw [abs_of_pos h_x_pos, abs_of_pos P.hi_pos]
@@ -2123,8 +2096,6 @@ private noncomputable def quantumNeighborhood (p : ℕ+) (hp_ge_2 : 2 ≤ (p : �
     · change Dyadic.quantumAtLeast ((F₁_g p hp_ge_2 e).exp.map (· - (1 : ℤ))) (m_g e)
       rw [F₁_g_exp, WithBot.map_coe, Dyadic.quantumAtLeast_coe_real]
       exact ⟨7, by rw [coe_m_g]; push_cast; ring⟩
-  f2_b_top := fun F₂ hsub =>
-    F₂_bound_top_of_zpow_mem F₂ (fun N hN => hsub _ (zpow_mem_F₁_g p hp_ge_2 e hN))
   f2_below_hi := by
     intro F₂ hsub
     obtain ⟨K', hK'_le, h⟩ := gap_below_pow F₂ (E := e + 2)
@@ -2257,13 +2228,6 @@ private theorem y_hi_mem_F₁t_g (e : ℤ) : y_hi_g e ∈ (F₁t_g e).toFormat :
 
 private theorem two_e_mem_F₁t_g (e : ℤ) : two_e_g e ∈ (F₁t_g e).toFormat :=
   mem_F₁t_g e 1 (by rw [coe_two_e_g]; push_cast; ring)
-
-private theorem zpow_mem_F₁t_g (e : ℤ) {N : ℤ} (hN : e ≤ N) :
-    Dyadic.ofIntZpow 1 N ∈ (F₁t_g e).toFormat :=
-  mem_F₁t_g e ((2 : ℤ) ^ (N - e).toNat) (by
-    rw [Dyadic.coe_ofIntZpow, two_zpow_split N e hN]
-    push_cast
-    ring)
 
 /-- Quantum extraction: every `z ∈ F₁t_g` is `c · 2^e` for some `c : ℤ`. -/
 private theorem F₁t_g_quantum (e : ℤ) {z : Dyadic}
@@ -2443,8 +2407,6 @@ private noncomputable def topNeighborhood (e : ℤ) :
     change Dyadic.quantumAtLeast ((F₁t_g e).exp.map (· - (1 : ℤ))) (m_g e)
     rw [F₁t_g_exp, WithBot.map_coe, Dyadic.quantumAtLeast_coe_real]
     exact ⟨7, by rw [coe_m_g]; push_cast; ring⟩
-  f2_b_top := fun F₂ hsub =>
-    F₂_bound_top_of_zpow_mem F₂ (fun N hN => hsub _ (zpow_mem_F₁t_g e hN))
   f2_below_hi := by
     intro F₂ hsub
     obtain ⟨K', hK'_le, h⟩ := gap_below_pow F₂ (E := e + 2)
@@ -2901,39 +2863,6 @@ private theorem float_sub_data (q : ℕ+) (hq : 2 ≤ (q : ℕ))
   have hfs : fs q = 2 ^ ((q : ℕ) - 1) := rfl
   omega
 
-/-- Containing the floating format forces an unbounded `F₂` (it contains
-arbitrarily large powers of two). -/
-private theorem float_b_top (q : ℕ+) (hq : 2 ≤ (q : ℕ))
-    (F₂ : FiniteFormat) (hsub : (F₁f_g q hq).toFormat ⊆ F₂.toFormat) :
-    F₂.b = ⊤ := by
-  by_contra h_b_ne
-  obtain ⟨b, hb_eq⟩ := WithTop.ne_top_iff_exists.mp h_b_ne
-  set N : ℤ := Int.log 2 ((b.val : Dyadic) : ℝ) + 1 with hN_def
-  set y_huge : Dyadic := Dyadic.ofIntZpow 1 N with hy_huge_def
-  have hy_huge_real : ((y_huge : Dyadic) : ℝ) = (2 : ℝ) ^ N := by
-    rw [hy_huge_def, Dyadic.coe_ofIntZpow]; push_cast; ring
-  have hy_huge_in_F₂ : y_huge ∈ F₂.toFormat := hsub _ (zpow_mem_F₁f_g q hq N)
-  have hb_ok : Format.boundOK F₂.b y_huge := hy_huge_in_F₂.2.2
-  rw [← hb_eq] at hb_ok
-  change |((y_huge : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) at hb_ok
-  have hb_ok_real : |((y_huge : Dyadic) : ℝ)| ≤ ((b.val : Dyadic) : ℝ) := by
-    rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
-    exact_mod_cast hb_ok
-  rw [hy_huge_real] at hb_ok_real
-  have h_2N_pos : (0 : ℝ) < (2 : ℝ) ^ N := zpow_pos (by norm_num) _
-  rw [abs_of_pos h_2N_pos] at hb_ok_real
-  by_cases hb_pos : 0 < ((b.val : Dyadic) : ℝ)
-  · have h_lt_log_succ : ((b.val : Dyadic) : ℝ)
-        < (2 : ℝ) ^ (Int.log 2 ((b.val : Dyadic) : ℝ) + 1) := by
-      have := Int.lt_zpow_succ_log_self (b := 2) (by norm_num : 1 < (2 : ℕ))
-        ((b.val : Dyadic) : ℝ)
-      rw [show ((2 : ℕ) : ℝ) = 2 from by push_cast; rfl] at this
-      exact this
-    rw [hN_def] at hb_ok_real
-    linarith
-  · push Not at hb_pos
-    linarith
-
 /-- Shift an integer power-of-two factor into the exponent. -/
 private theorem int_mul_pow_shift (b : ℤ) (m : ℕ) (J : ℤ) :
     ((b * 2 ^ m : ℤ) : ℝ) * (2 : ℝ) ^ J = (b : ℝ) * (2 : ℝ) ^ (J + m) := by
@@ -3199,7 +3128,6 @@ private noncomputable def floatingNeighborhood (q : ℕ+) (hq : 2 ≤ (q : ℕ))
         omega
     · change Dyadic.quantumAtLeast ((F₁f_g q hq).exp.map (· - (1 : ℤ))) (fmid q t)
       exact trivial
-  f2_b_top := float_b_top q hq
   f2_below_hi := by
     intro F₂ hsub
     obtain ⟨q₂, hp, hq_le, _⟩ := float_sub_data q hq F₂ hsub
@@ -3396,11 +3324,6 @@ private theorem mem_F₁p_g (e : ℤ) {N : ℤ} (hN : e ≤ N) :
 
 private theorem two_e_mem_F₁p_g (e : ℤ) : two_e_g e ∈ (F₁p_g e).toFormat :=
   mem_F₁p_g e (le_refl e)
-
-/-- `2^N ∈ F₁p_g` for any `N ≥ e` (the format contains arbitrarily large
-powers of two), used to force `F₂.b = ⊤`. -/
-private theorem zpow_mem_F₁p_g (e : ℤ) {N : ℤ} (hN : e ≤ N) :
-    Dyadic.ofIntZpow 1 N ∈ (F₁p_g e).toFormat := mem_F₁p_g e hN
 
 private theorem two_zpow_log (j : ℤ) : Int.log 2 ((2 : ℝ)^j) = j := by
   rw [show (2 : ℝ)^j = ((2 : ℕ) : ℝ)^j by push_cast; rfl]
@@ -3624,8 +3547,6 @@ private noncomputable def powerOfTwoNeighborhood (e : ℤ) :
       refine ⟨3 * 2 ^ (e + 1 - (e - 1)).toNat, ?_⟩
       rw [coe_p_mid, two_zpow_split (e + 1) (e - 1) (by omega)]
       push_cast; ring
-  f2_b_top := fun F₂ hsub =>
-    F₂_bound_top_of_zpow_mem F₂ (fun N hN => hsub _ (zpow_mem_F₁p_g e hN))
   f2_below_hi := by
     intro F₂ hsub
     obtain ⟨K', hK'_le, h⟩ := gap_below_pow F₂ (E := e + 3)
