@@ -1,7 +1,7 @@
 # mpfx-lean
 
 A Lean 4 / Mathlib (`v4.29.0`) formalization of the abstract floating-point
-results in *When Double Rounding is Correct* (Saiki, Zorn, Richey, Tatlock).
+results in *When Double Rounding is Correct*.
 
 The paper studies the abstract format `𝒜(p, exp, b)` — `p` binary digits of
 precision, minimum quantum `2^exp`, magnitude bound `b` — and characterizes
@@ -9,13 +9,33 @@ when rounding a real into a wide format then into a narrow one agrees with
 rounding directly into the narrow format. This development mechanizes the
 appendix.
 
-## Theorems
+## Definitions and Theorems
 
 Each entry gives the paper result, the Lean name (relative to `namespace
 Mpfx`), and its file. To inspect a statement, qualify with `Mpfx.`, e.g.
 `#check @Mpfx.Format.containsPrec` or `#check @Mpfx.rndRTO_RN`.
 
-### §5.1 — Format containment (Fig. 8)
+### §3 — Number formats and rounding
+
+| Paper | Lean | File |
+| --- | --- | --- |
+| Dyadic numbers `ℤ[½]` (§3.1) | `Dyadic` | `Mpfx/Dyadic.lean` |
+| Representability of `x` in `F` (§3.1) | `Format.Mem` (`x ∈ F`) | `Mpfx/Format.lean` |
+| Rounding modes RNE, RNA, RTP, RTN, RTZ, RAZ, RTO (§3.2) | `RoundingMode` | `Mpfx/Rounding.lean` |
+| Rounding function `rnd_{F,rm}` (§3.2) | `RoundsFinite` / `Rounds` (spec), `rnd` (constructive) | `Mpfx/Rounding.lean`, `Mpfx/RoundOp.lean` |
+| Even/odd classification of representable values (§3.2) | `ParityFormat.IsEven` / `IsOdd` | `Mpfx/Format.lean` |
+
+### §4 — The abstract number format `𝒜(p, exp, b)`
+
+| Paper | Lean | File |
+| --- | --- | --- |
+| Precision-bound generator (`p < ∞`, §4.1) | `precisionAtMost` | `Mpfx/Dyadic.lean` |
+| Quantum-bound generator (`q > 0`, §4.1) | `quantumAtLeast` | `Mpfx/Dyadic.lean` |
+| Representable at precision `p` (§4.1) | `IsRepresentableAtP` | `Mpfx/Dyadic.lean` |
+| Abstract number format `𝒜(p, exp, b)` (§4.2) | `Format` / `FiniteFormat` | `Mpfx/Format.lean` |
+| Maximum representable value / overflow bound `b` (§4.2) | `Format.b`, `Format.boundOK` | `Mpfx/Format.lean` |
+
+### §5.1 — Format containment (Fig. 7)
 
 | Paper | Lean | File |
 | --- | --- | --- |
@@ -30,7 +50,7 @@ Mpfx`), and its file. To inspect a statement, qualify with `Mpfx.`, e.g.
 | Lemma 5.2 (`w₂ = w₁ + k`) | `FiniteFormat.numDigits_extend` | `Mpfx/Containment.lean` |
 | Lemma 5.3 (RTO padding preserves representability) | `IsOdd.transfer_of_subset` | `Mpfx/Digits.lean` |
 
-### §5.2 — Correct double rounding (Fig. 9)
+### §5.2 — Correct double rounding (Fig. 8)
 
 All positive rules, in `Mpfx/DoubleRounding.lean`. Each has the form: given
 `RoundsFinite F₂ rm₂ x z` and `RoundsFinite F₁ rm₁ z w` (with the stated
@@ -46,7 +66,7 @@ containment of `F₁` in `F₂`), then `RoundsFinite F₁ rm₁ x w`.
 | `rnd-RTO-RNE` / `rnd-RTO-RNA` | `rndRTO_RN` (one theorem, both tie-breaks) |
 | RTP→RTP, RTN→RTN (IEEE directed) | `rndRTP_RTP`, `rndRTN_RTN` |
 
-### §5.2 — Counterexamples for the invalid pairings
+### §5.2 — Counterexamples for the invalid pairings (Table 2)
 
 The ten mode pairings that are *not* correct double rounding, in
 `namespace Mpfx.Cex` (`Mpfx/DoubleRoundingCex.lean`). Each exhibits a witness
