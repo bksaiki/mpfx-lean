@@ -273,9 +273,48 @@ Also built and verified since:
   `canonicalExp_eq_of_lt_mid`.
 
 **Phase 2 is COMPLETE.** All of `Mpfx/NearestMidpoint.lean` builds, no `sorry`,
-axioms `[propext, Classical.choice, Quot.sound]`. Next: **Phase 3 — addition**
-(`rndAdd`, tight `p₂ ≥ 2p₁+1`) = `rnd_lt_mid'` (tiny-`y` case) + Roux Lemma 22 +
-`add_subset` (large-`y` exact case), glued by a `mag`-gap case split.
+axioms `[propext, Classical.choice, Quot.sound]`.
+
+## 7. Phase 3 — addition (in `Mpfx/DoubleRoundingAdd.lean`)
+
+Roux Theorem 20 (radix 2): tight `p₂ ≥ 2p₁+1`. Proof splits on the exponent gap:
+Case 1 (`ln y ≥ φ₁(ln x) − 1`) → `x+y` fits in `2p₁+1` bits, exact intermediate;
+Case 2 (`ln y ≤ φ₁(ln x) − 2`, tiny `y`) → `rnd_lt_mid'` + Roux Lemma 22.
+
+**Done & verified** (shared infrastructure):
+- `exists_canonical_rep` — positive `y ∈ F` (prec `p`) is `c·2^(canonicalExp y)`,
+  `|c| < 2^p`; unifies the `exp=⊥`/finite grid lemmas.
+- `canonicalExp_mono` — `canonicalExp` monotone in `|·|`.
+
+**Case 1 precision bound: DONE.**
+- `mantissa_pos` (helper) and `sum_precisionAtMost` — **proved**: for `x,y ∈ F₁`,
+  `0<y≤x`, gap `≤ p₁+1`, `x+y = C·2^(canonicalExp y)` with `|C| < 2^(2p₁+1)`
+  (integer-power algebra, `|C| ≤ 2^(2p₁+1)−2^p₁−1`). Gives `precisionAtMost (2p₁+1)`
+  + `quantumAtLeast (canonicalExp y)` for `x+y`. Axioms clean, no `sorry`.
+
+**`rndAdd_pos` (Roux's core case `0 < y ≤ x`, FLX): DONE.** Both cases proved:
+- **Case 1** (gap `≤ p₁+1`): `x+y ∈ F₂.unbounded` via `sum_precisionAtMost` +
+  `precisionAtMost_mono` + `exp=⊥` (quantum free), then `rndExact`.
+- **Case 2** (gap `> p₁+1`, tiny `y`): no binade crossing (since `cx < 2^p₁` ⟹
+  `x+y < 2^(ln x)`), so `rndDown F₁(x+y) = x`, `x+y` sits `< ¼·ulp₁` above it,
+  well below `midp − ½ulp₂`; `rnd_lt_mid'` closes it. All the `canonicalExp`/
+  `midp`/`ulp` facts computed from the shared binade `Int.log 2(x+y) = ex+p₁−1`.
+
+Axioms clean, no `sorry`; whole `Mpfx` aggregate builds.
+
+**`rndAdd` (all same-sign operands, FLX): DONE.** `rndAdd_nonneg` handles both
+`≥ 0` (swap via `add_comm` when `x < y`; a zero operand → exact `rndExact`);
+`rndAdd` lifts to `0 ≤ x·y` — the both-`≤ 0` case by joint negation
+(`RoundsFinite.neg_nearest`), the mixed-with-a-zero cases by exactness, and
+`x·y < 0` (true mixed sign) is excluded by the hypothesis. Axioms clean, no
+`sorry`; whole `Mpfx` builds. Addition is complete in the same-sign sense.
+
+**Remaining (optional / future):**
+- **Subtraction** (mixed signs `x·y < 0`): its own result (Roux §3.1). Needs an
+  above-midpoint double-rounding lemma (mirror of `rnd_lt_mid'`) + downward
+  binade handling. Not "addition" proper.
+- FLT (`exp` finite) versions with the `emin₂ ≤ emin₁` side condition.
+- √ (Thm 25), ÷ (Thm 29).
 
 **Open design decision (resolved — recorded for history):**
 1. **Represent `ulp`/`midp`/round-down how?** (a) real-valued
