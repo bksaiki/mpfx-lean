@@ -309,12 +309,36 @@ Axioms clean, no `sorry`; whole `Mpfx` aggregate builds.
 `x·y < 0` (true mixed sign) is excluded by the hypothesis. Axioms clean, no
 `sorry`; whole `Mpfx` builds. Addition is complete in the same-sign sense.
 
-**Remaining (optional / future):**
-- **Subtraction** (mixed signs `x·y < 0`): its own result (Roux §3.1). Needs an
-  above-midpoint double-rounding lemma (mirror of `rnd_lt_mid'`) + downward
-  binade handling. Not "addition" proper.
-- FLT (`exp` finite) versions with the `emin₂ ≤ emin₁` side condition.
-- √ (Thm 25), ÷ (Thm 29).
+### Closing the sign gap (subtraction / mixed-sign) — in progress
+
+**Above-midpoint toolkit: DONE & verified** (full mirror of the below-midpoint
+Lemma 16, in `NearestMidpoint.lean`):
+- neg-reflection helpers `canonicalExp_neg`, `ulp_neg`, `rndDown_neg_real`,
+  `RoundsFinite.neg_nearest`;
+- **`rnd_gt_mid`** — above-midpoint double rounding (given binade consistency),
+  obtained by *negation* of `rnd_lt_mid` (which needs no positivity);
+- **`canonicalExp_eq_of_gt_mid`** — above-midpoint binade consistency (simpler
+  than the `lt` version: upper bound is direct from an away-from-top hyp);
+- **`rnd_gt_mid'`** — hypothesis-free above-midpoint double rounding.
+
+**Subtraction Case-A: DONE** (`diff_precisionAtMost` — `x−y` fits `2p₁+1` bits
+when the gap `≤ p₁+1`), plus `canonicalExp_lt_of_prec_lt` (FLX `h21` free from
+`p₁ < p₂`, no binade).
+
+**Remaining — the subtraction assembly `rndSub_pos` (Roux's genuinely hard
+part):** for `r = x − y` with tiny `y` (gap `≥ p₁+2`), apply `rnd_gt_mid'`. The
+glue still to build:
+1. `rndUp F₁ r = x` (no `F₁`-value in `(r, x)`) — needs Grid F-adjacency.
+2. `hmid`/margin `y < ½ulp₁ − ½ulp₂` — delicate: uses that `y ∈ F₁` keeps `r`
+   away from the `F₁`-midpoint, with a **downward-binade** sub-case (`x` a power
+   of two).
+3. **`htop`** (r away from its binade top) and the **boundary `z`-exact
+   sub-case** (`y ≤ ½ulp₂`: `z` rounds up to `x` exactly, `rnd_gt_mid'`'s binade
+   consistency fails, handle via exactness).
+4. WLOG wrapper (swap `|y|≤|x|`, negate `x>0`, `r=0` cancellation) → general
+   all-sign `rndAdd`.
+
+**Also future:** FLT (`exp` finite, `emin₂ ≤ emin₁`); √ (Thm 25), ÷ (Thm 29).
 
 **Open design decision (resolved — recorded for history):**
 1. **Represent `ulp`/`midp`/round-down how?** (a) real-valued
