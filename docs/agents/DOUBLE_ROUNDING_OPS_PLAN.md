@@ -259,15 +259,23 @@ Also built and verified since:
   `◦₁(z) = a = rndDown F₁ x`, then `w = a` by nearest-uniqueness
   (`rndUnbounded_unique`), closing with L3 on `x`.
 
-**Remaining — deriving `hcexp` (Flocq `_further_place`):**
+**L4 — binade consistency: DONE.**
 
-- **L4** binade consistency: prove `F₁.canonicalExp z = F₁.canonicalExp x` from
-  the geometric hypotheses (`0 < x`, `hmid`, `hle : cexp₁ ≤ mag x`), discharging
-  `rnd_lt_mid`'s `hcexp` so Lemma 16 becomes hypothesis-free (matching Roux's
-  Theorem-level statement). Reduces to `Int.log 2 z` vs `Int.log 2 x` with the
-  clamp; the power-of-2 **boundary cases** are the crux Flocq isolates via
-  `mag_round_ge`/`mag_le_bpow` + the derived `x < 2^(mag x) − ½·ulp₂`. This is
-  the sole hard piece left before Phase 3 (addition).
+- `canonicalExp_eq_of_log_eq` — `canonicalExp` depends only on `Int.log 2 |·|`.
+- `canonicalExp_eq_of_lt_mid` — **proved** `F₁.canonicalExp z = F₁.canonicalExp x`
+  from `0 < x`, `h21`, `hle`, `hmid`. Clean argument (no `mag_round_ge` needed):
+  `z` lands in `x`'s binade `[2^k, 2^(k+1))` where `k = Int.log 2 x`, because
+  **(lower)** `h21 ⟹ F₂.canonicalExp x ≤ k ⟹ 2^k ∈ F₂`, and `z` (faithful) is
+  `≥` the `F₂` round-down `≥ 2^k`; **(upper)** `z < midp F₁ x < 2^(k+1)`, the
+  latter from `hle` via a floor bound on `rndDown F₁ x`.
+- `rnd_lt_mid'` — **Lemma 16, hypothesis-free** (Roux
+  `round_round_lt_mid_further_place`): discharges `hcexp` via
+  `canonicalExp_eq_of_lt_mid`.
+
+**Phase 2 is COMPLETE.** All of `Mpfx/NearestMidpoint.lean` builds, no `sorry`,
+axioms `[propext, Classical.choice, Quot.sound]`. Next: **Phase 3 — addition**
+(`rndAdd`, tight `p₂ ≥ 2p₁+1`) = `rnd_lt_mid'` (tiny-`y` case) + Roux Lemma 22 +
+`add_subset` (large-`y` exact case), glued by a `mag`-gap case split.
 
 **Open design decision (resolved — recorded for history):**
 1. **Represent `ulp`/`midp`/round-down how?** (a) real-valued

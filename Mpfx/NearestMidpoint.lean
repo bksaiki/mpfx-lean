@@ -361,4 +361,119 @@ theorem rnd_lt_mid {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
   rw [hw_eq]
   exact nearest_eq_rndDown_of_lt_midp F₁ tb₁ x hundef₁ hx_lt_midp
 
+/-! ## L4 — binade consistency (Flocq `_further_place`) -/
+
+/-- `canonicalExp` depends only on the binade `Int.log 2 |·|` (away from `0`):
+equal logs give equal canonical exponents. -/
+theorem canonicalExp_eq_of_log_eq (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0) (hz : z ≠ 0)
+    (h : Int.log 2 |y| = Int.log 2 |z|) : F.canonicalExp y = F.canonicalExp z := by
+  unfold FiniteFormat.canonicalExp
+  cases F.p <;> cases F.exp <;> simp only [if_neg hy, if_neg hz, h]
+
+/-- **Binade consistency.** Under Lemma 16's geometric hypotheses (with the
+`_further_place` bound `F₁.canonicalExp x ≤ Int.log 2 x + 1`), the intermediate
+nearest rounding `z` stays in `x`'s `F₁`-binade, so
+`F₁.canonicalExp z = F₁.canonicalExp x`. This discharges `rnd_lt_mid`'s `hcexp`.
+
+Lower bound `2^k ≤ z`: `h21` forces `F₂.canonicalExp x ≤ k`, so `2^k ∈ F₂`, and
+`z` (faithful) is `≥` the `F₂` round-down `≥ 2^k`. Upper bound `z < 2^(k+1)`:
+`z < midp F₁ x < 2^(k+1)`, the latter from `hle` via a floor bound on
+`rndDown F₁ x`. -/
+theorem canonicalExp_eq_of_lt_mid {F₁ F₂ : FiniteFormat} {tb₂ : TieBreak} {x : ℝ}
+    (hx : 0 < x)
+    (h21 : F₂.canonicalExp x < F₁.canonicalExp x)
+    (hle : F₁.canonicalExp x ≤ Int.log 2 x + 1)
+    (hmid : x < midp F₁ x - ulp F₂ x / 2)
+    {z : Dyadic}
+    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) x z) :
+    F₁.canonicalExp (z : ℝ) = F₁.canonicalExp x := by
+  set k := Int.log 2 x with hk
+  set e₁ := F₁.canonicalExp x with he₁
+  set e₂ := F₂.canonicalExp x with he₂
+  have hx0 : x ≠ 0 := ne_of_gt hx
+  have hxabs : |x| = x := abs_of_pos hx
+  have h2e₁ : (0 : ℝ) < (2 : ℝ) ^ e₁ := zpow_pos (by norm_num) _
+  -- x's binade
+  have h_xlo : (2 : ℝ) ^ k ≤ x := by
+    have := Int.zpow_log_le_self (b := 2) (by norm_num) hx
+    rw [← hk] at this; exact_mod_cast this
+  have h_xhi : x < (2 : ℝ) ^ (k + 1) := by
+    have := Int.lt_zpow_succ_log_self (b := 2) (by norm_num) x
+    rw [← hk] at this; exact_mod_cast this
+  have he₂_le_k : e₂ ≤ k := by omega
+  -- lower bound: `2^k ∈ F₂`, so z ≥ rndDown F₂ x ≥ 2^k
+  have hzf : IsFaithfulRound F₂.unbounded x z := by cases tb₂ <;> exact hz.2.1
+  have hdk_mem : Dyadic.ofIntZpow 1 k ∈ F₂.unbounded := by
+    refine ofIntZpow_mem_unbounded F₂
+      (fun he' => le_trans (F₂.exp_le_canonicalExp x he')
+        (show F₂.canonicalExp x ≤ k by rw [← he₂]; exact he₂_le_k))
+      (fun {p} _ => ?_)
+    rw [abs_one]; exact one_le_pow₀ (by norm_num)
+  have hdk_real : (Dyadic.ofIntZpow 1 k : ℝ) = (2 : ℝ) ^ k := by
+    rw [Dyadic.coe_ofIntZpow]; push_cast; ring
+  have hdk_le_x : (Dyadic.ofIntZpow 1 k : ℝ) ≤ x := by rw [hdk_real]; exact h_xlo
+  have h_zlo : (2 : ℝ) ^ k ≤ (z : ℝ) := by
+    rcases hzf with ⟨_, _, hmax⟩ | ⟨_, hxz, _⟩
+    · have := hmax (Dyadic.ofIntZpow 1 k) hdk_mem hdk_le_x; rw [hdk_real] at this; exact this
+    · linarith [h_xlo]
+  have hz_pos : (0 : ℝ) < (z : ℝ) := lt_of_lt_of_le (zpow_pos (by norm_num) k) h_zlo
+  -- upper bound: z < midp F₁ x < 2^(k+1)
+  have hz_err := abs_le.mp (nearest_error_le_half_ulp hz)
+  have hz_lt_midp : (z : ℝ) < midp F₁ x := by
+    have h1 : (z : ℝ) - x ≤ ulp F₂ x / 2 := hz_err.2
+    linarith [hmid]
+  have hmidp_lt : midp F₁ x < (2 : ℝ) ^ (k + 1) := by
+    set m : ℤ := ⌊x * (2 : ℝ) ^ (-e₁)⌋ with hm
+    have hA : (rndDown F₁ x : ℝ) = (m : ℝ) * (2 : ℝ) ^ e₁ := by
+      rw [rndDown_eq, Dyadic.coe_ofIntZpow, ← he₁, ← hm]
+    -- m < 2^(k+1-e₁)
+    have hxs : x * (2 : ℝ) ^ (-e₁) < (2 : ℝ) ^ (k + 1 - e₁) := by
+      have key : (2 : ℝ) ^ (k + 1 - e₁) = (2 : ℝ) ^ (k + 1) * (2 : ℝ) ^ (-e₁) := by
+        rw [show k + 1 - e₁ = (k + 1) + (-e₁) from by ring,
+            zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+      rw [key]; exact mul_lt_mul_of_pos_right h_xhi (zpow_pos (by norm_num) _)
+    set N : ℤ := (2 : ℤ) ^ (k + 1 - e₁).toNat with hN
+    have hN_real : (N : ℝ) = (2 : ℝ) ^ (k + 1 - e₁) := by
+      rw [hN]; push_cast
+      rw [← zpow_natCast (2 : ℝ) ((k + 1 - e₁).toNat),
+          Int.toNat_of_nonneg (by omega : (0 : ℤ) ≤ k + 1 - e₁)]
+    have hm_lt_N : m < N := by
+      have hmfl : (m : ℝ) ≤ x * (2 : ℝ) ^ (-e₁) := Int.floor_le _
+      have : (m : ℝ) < (N : ℝ) := by rw [hN_real]; linarith [hmfl, hxs]
+      exact_mod_cast this
+    have hNe₁ : (N : ℝ) * (2 : ℝ) ^ e₁ = (2 : ℝ) ^ (k + 1) := by
+      rw [hN_real, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
+    have hA_le : (rndDown F₁ x : ℝ) ≤ (2 : ℝ) ^ (k + 1) - (2 : ℝ) ^ e₁ := by
+      rw [hA]
+      have hmN : (m : ℝ) ≤ (N : ℝ) - 1 := by
+        have : (m : ℤ) ≤ N - 1 := by omega
+        exact_mod_cast this
+      nlinarith [hmN, h2e₁, hNe₁]
+    unfold midp ulp; rw [← he₁]; linarith [hA_le, h2e₁]
+  have hz_hi : (z : ℝ) < (2 : ℝ) ^ (k + 1) := lt_trans hz_lt_midp hmidp_lt
+  -- z is in x's binade
+  have hlogz : Int.log 2 (z : ℝ) = k := by
+    have h1 : k ≤ Int.log 2 (z : ℝ) :=
+      (Int.zpow_le_iff_le_log (b := 2) (by norm_num) hz_pos).mp (by exact_mod_cast h_zlo)
+    have h2 : Int.log 2 (z : ℝ) < k + 1 :=
+      (Int.lt_zpow_iff_log_lt (b := 2) (by norm_num) hz_pos).mp (by exact_mod_cast hz_hi)
+    omega
+  have hzabs : |(z : ℝ)| = (z : ℝ) := abs_of_pos hz_pos
+  exact (canonicalExp_eq_of_log_eq F₁ (ne_of_gt hz_pos) hx0
+    (by rw [hzabs, hxabs, hlogz, ← hk])).trans rfl
+
+/-- **Lemma 16 (Roux `round_round_lt_mid_further_place`).** The hypothesis-free
+form: binade consistency is derived from `hle` via `canonicalExp_eq_of_lt_mid`. -/
+theorem rnd_lt_mid' {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
+    {z w : Dyadic}
+    (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
+    (hx : 0 < x)
+    (h21 : F₂.canonicalExp x < F₁.canonicalExp x)
+    (hle : F₁.canonicalExp x ≤ Int.log 2 x + 1)
+    (hmid : x < midp F₁ x - ulp F₂ x / 2)
+    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) x z)
+    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
+    RoundsFinite F₁.unbounded (.nearest tb₁) x w :=
+  rnd_lt_mid hundef₁ h21 hmid (canonicalExp_eq_of_lt_mid hx h21 hle hmid hz) hz hw
+
 end Mpfx
