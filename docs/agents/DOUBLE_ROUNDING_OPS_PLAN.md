@@ -346,7 +346,51 @@ when `|v − g| < ½·2^(cexp v)`).
 
 All new theorems verified; axioms `[propext, Classical.choice, Quot.sound]`.
 
-**Still future:** FLT (`exp` finite, `emin₂ ≤ emin₁`); √ (Thm 25), ÷ (Thm 29).
+### Underflow gap (FLT) — status
+
+**Multiplication FLT: already done.** `rndMul`/`rndMul_of_params`
+(`DoubleRoundingOps.lean`) are stated via the format-generic containment
+`opMul F₁ F₁ ⊆ F₂` / `containsPrec`, whose `exp₂ ≤ 2·exp₁` conjunct *is* Roux's
+Table-II condition `emin₂ ≤ 2·emin₁`. No FLX assumption anywhere — the FLT (and
+FTZ) corollaries are immediate.
+
+**Addition/subtraction FLT: DONE & verified.** Roux's Table II for `+`/`−`
+(β=2): keep `p₂ ≥ 2p₁+1` and add `emin₂ ≤ emin₁`. The top-level `rndAdd`,
+`rndDiff`, `rndSub_pos`, `rndAdd_pos`, `rndAdd_nonneg` all now take the single
+hypothesis **`hexp : F₂.exp ≤ F₁.exp`** in place of `F₁.exp = ⊥ ∧ F₂.exp = ⊥` —
+one statement covering FLX (`⊥ ≤ ⊥`) and FLT (`↑emin₂ ≤ ↑emin₁`). Arbitrary
+signs, all round-to-nearest tie-breaks.
+
+The clean structure (as implemented):
+
+> Split on whether `x±y ∈ F₂`. The complement forces **every** relevant value
+> into the *normal* range (`canonicalExp = log+1−p`, no `emin` clamp), where the
+> FLX Case-2 midpoint proof runs verbatim.
+
+Why: if `x±y ∉ F₂` then its precision `> p₂ ≥ 2p₁+1`, so `mag(x±y) − ey > 2p₁`
+(`ey = canonicalExp F₁ y ≥ emin₁ ≥ emin₂`), giving `mag > emin₁+2p₁` — hence
+`x±y` normal in `F₁` and `F₂`, and `z ≈ x±y` normal in `F₁`. The exact case
+`x±y ∈ F₂` subsumes the old small-gap Case 1 **and** all subnormal cases
+(subnormals of `F₂` are always representable since `x±y` is a multiple of `2^ey`,
+`ey ≥ emin₂`).
+
+Implementation (`DoubleRoundingAdd.lean`):
+- **`canonicalExp_closed`** — FLX closed form under normality hyp
+  `F.exp ≤ ↑(log|v|+1−p)` (vacuous for `⊥`); `exp_le_canonicalExp_coe`.
+- **`quantumAtLeast_sub`/`quantumAtLeast_add`** — `x±y` inherits `F₁`'s quantum;
+  **`mem_F₂_of_subnormal`** — a subnormal-in-`F₂` result is exactly representable.
+- **`rndSub_pos_normal`/`rndAdd_pos_normal`** — the midpoint core, taking `hgap`
+  (gap `> p₁+1`) and `hF2norm` (`x±y` normal in `F₂`); discharge `F₁`-normality
+  of `x`/`x±y`/`z` via `cE1` (a local `canonicalExp_closed` wrapper) using the
+  binade facts the body already computes.
+- **`rndSub_pos`/`rndAdd_pos`** — three-case dispatchers (small-gap exact /
+  subnormal exact / normal→`_normal`).
+
+All verified; axioms `[propext, Classical.choice, Quot.sound]`.
+
+**Still future:** √ (Thm 25), ÷ (Thm 29). (These are the genuinely new
+operations — they produce non-`Dyadic` results, so "exact intermediate" no
+longer applies; they need Roux's operation-specific algebra on top of Lemma 16.)
 
 **Open design decision (resolved — recorded for history):**
 1. **Represent `ulp`/`midp`/round-down how?** (a) real-valued
