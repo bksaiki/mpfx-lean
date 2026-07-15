@@ -309,36 +309,44 @@ Axioms clean, no `sorry`; whole `Mpfx` aggregate builds.
 `x·y < 0` (true mixed sign) is excluded by the hypothesis. Axioms clean, no
 `sorry`; whole `Mpfx` builds. Addition is complete in the same-sign sense.
 
-### Closing the sign gap (subtraction / mixed-sign) — in progress
+### Closing the sign gap (subtraction / mixed-sign) — DONE & verified
 
-**Above-midpoint toolkit: DONE & verified** (full mirror of the below-midpoint
-Lemma 16, in `NearestMidpoint.lean`):
-- neg-reflection helpers `canonicalExp_neg`, `ulp_neg`, `rndDown_neg_real`,
-  `RoundsFinite.neg_nearest`;
-- **`rnd_gt_mid`** — above-midpoint double rounding (given binade consistency),
-  obtained by *negation* of `rnd_lt_mid` (which needs no positivity);
-- **`canonicalExp_eq_of_gt_mid`** — above-midpoint binade consistency (simpler
-  than the `lt` version: upper bound is direct from an away-from-top hyp);
-- **`rnd_gt_mid'`** — hypothesis-free above-midpoint double rounding.
+The FLX sign gap with Flocq is **closed**: the top-level **`rndAdd` now takes
+arbitrary-sign operands** (no `hsign` hypothesis) and matches Flocq's
+`round_round_plus` in generality.
 
-**Subtraction Case-A: DONE** (`diff_precisionAtMost` — `x−y` fits `2p₁+1` bits
-when the gap `≤ p₁+1`), plus `canonicalExp_lt_of_prec_lt` (FLX `h21` free from
-`p₁ < p₂`, no binade).
+**Above-midpoint toolkit** (`NearestMidpoint.lean`): neg-reflection helpers
+`canonicalExp_neg`, `ulp_neg`, `rndDown_neg_real`, `RoundsFinite.neg_nearest`;
+`rnd_gt_mid`/`rnd_gt_mid'` (above-midpoint double rounding by negation of
+`rnd_lt_mid`); `canonicalExp_eq_of_gt_mid`; and the unifiers
+`nearest_eq_of_close` / `nearest_eq_of_close'` (nearest rounding = grid point `g`
+when `|v − g| < ½·2^(cexp v)`).
 
-**Remaining — the subtraction assembly `rndSub_pos` (Roux's genuinely hard
-part):** for `r = x − y` with tiny `y` (gap `≥ p₁+2`), apply `rnd_gt_mid'`. The
-glue still to build:
-1. `rndUp F₁ r = x` (no `F₁`-value in `(r, x)`) — needs Grid F-adjacency.
-2. `hmid`/margin `y < ½ulp₁ − ½ulp₂` — delicate: uses that `y ∈ F₁` keeps `r`
-   away from the `F₁`-midpoint, with a **downward-binade** sub-case (`x` a power
-   of two).
-3. **`htop`** (r away from its binade top) and the **boundary `z`-exact
-   sub-case** (`y ≤ ½ulp₂`: `z` rounds up to `x` exactly, `rnd_gt_mid'`'s binade
-   consistency fails, handle via exactness).
-4. WLOG wrapper (swap `|y|≤|x|`, negate `x>0`, `r=0` cancellation) → general
-   all-sign `rndAdd`.
+**Subtraction (`DoubleRoundingAdd.lean`):**
+- `diff_precisionAtMost` — `x−y` fits `2p₁+1` bits when the gap `≤ p₁+1`;
+  `canonicalExp_lt_of_prec_lt`, `canonicalExp_FLX`.
+- **`sub_key_bound`** — the boundary inequality `2^(k−p₂−1) + y < 2^(k−p₁−1)`
+  (i.e. `½ulp₂ + y < ¼ulp₁`) when `x = 2^k`. This is what dissolves the feared
+  "double-tie edge": it is **strict**, so the intermediate `z = ◦₂(x−y)` never
+  lands on the F₁ midpoint. Strictness comes exactly from `y ∈ F₁`
+  (`y ≤ 2^(ey+p₁) − 2^ey`, i.e. mantissa `≤ 2^p₁−1`) together with `p₂ ≥ 2p₁+1`,
+  via a two-way case split on `eb` vs `k−p₂−1`. (The earlier worry that this hits
+  *equality* was mis-analysis: `y ∈ F₁` forces `y` strictly below the edge.)
+- **`rndSub_pos`** — `0 < y < x`. Case 1 (gap `≤ p₁+1`): exact via
+  `diff_precisionAtMost`. Case 2 (`y` tiny): split on whether `x` is a binade
+  boundary. **2a** (`2^k < x`): `x−y` stays in `x`'s binade, `z` stays there too,
+  both `◦₁(x−y)` and `◦₁(z)` equal `x` via `nearest_eq_of_close'` at scale `ex`.
+  **2b** (`x = 2^k`): `x−y` drops a binade; `sub_key_bound` gives `|z−x| < ¼ulp₁`,
+  and a `z < 2^k` / `z ≥ 2^k` split feeds `nearest_eq_of_close'` at the right
+  scale. `w = x` by nearest-uniqueness in both.
+- **`rndDiff`** — `0 ≤ a, 0 ≤ b`: `a−b ∈ F₁` ⟹ exact; else `rndSub_pos` (order
+  `a<b` by negation).
+- **`rndAdd`** (all signs): same-sign ⟹ `rndAdd_nonneg` (+ joint negation);
+  mixed ⟹ `rndDiff` on `x−(−y)` or `y−(−x)`.
 
-**Also future:** FLT (`exp` finite, `emin₂ ≤ emin₁`); √ (Thm 25), ÷ (Thm 29).
+All new theorems verified; axioms `[propext, Classical.choice, Quot.sound]`.
+
+**Still future:** FLT (`exp` finite, `emin₂ ≤ emin₁`); √ (Thm 25), ÷ (Thm 29).
 
 **Open design decision (resolved — recorded for history):**
 1. **Represent `ulp`/`midp`/round-down how?** (a) real-valued

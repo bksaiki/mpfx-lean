@@ -590,4 +590,83 @@ theorem rnd_gt_mid' {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ
     RoundsFinite F₁.unbounded (.nearest tb₁) x w :=
   rnd_gt_mid hundef₁ h21 hmid (canonicalExp_eq_of_gt_mid hx h21 hle htop hz) hz hw
 
+/-- **Nearest of a value close to a grid point.** If `v` is within half an ulp
+of the grid point `m · 2^(canonicalExp v)` (i.e. its scaled mantissa is within
+`½` of the integer `m`), then that grid point *is* the nearest rounding of `v`.
+Generalises `nearest_eq_of_lt_midp`/`_gt_midp`: the nearest integer to the scaled
+mantissa is `m` regardless of which side. -/
+theorem nearest_eq_of_close (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
+    (hundef : ¬ F.IsUndefined (.nearest tb)) {m : ℤ}
+    (h : |v * (2 : ℝ) ^ (-(F.canonicalExp v)) - (m : ℝ)| < 1 / 2) :
+    RoundsFinite F.unbounded (.nearest tb) v (Dyadic.ofIntZpow m (F.canonicalExp v)) := by
+  have hspec := rndUnbounded_satisfies_nearest F tb v hundef
+  suffices heq : rndUnbounded F (.nearest tb) v hundef = Dyadic.ofIntZpow m (F.canonicalExp v) by
+    rw [← heq]; exact hspec
+  set e := F.canonicalExp v with he
+  rw [abs_lt] at h
+  rcases lt_or_ge (v * (2 : ℝ) ^ (-e)) (m : ℝ) with hsm | hsm
+  · -- `s < m`: floor is `m − 1`, fraction `> ½`, both modes select the ceiling `m`.
+    have hfloor : ⌊v * (2 : ℝ) ^ (-e)⌋ = m - 1 := by
+      rw [Int.floor_eq_iff]; refine ⟨?_, ?_⟩ <;> push_cast <;> linarith [h.1, hsm]
+    have hδ : (1 : ℝ) / 2 < v * (2 : ℝ) ^ (-e) - (⌊v * (2 : ℝ) ^ (-e)⌋ : ℝ) := by
+      rw [hfloor]; push_cast; linarith [h.1]
+    have hδ_not : ¬ v * (2 : ℝ) ^ (-e) - (⌊v * (2 : ℝ) ^ (-e)⌋ : ℝ) < 1 / 2 :=
+      not_lt.mpr (le_of_lt hδ)
+    cases tb with
+    | awayZero =>
+      unfold rndUnbounded
+      rw [dif_neg (by decide : (RoundingMode.nearest .awayZero) ≠ .toOdd),
+          dif_neg (by decide : (RoundingMode.nearest .awayZero) ≠ .nearest .toEven)]
+      simp only [rndInt, ← he, if_neg hδ_not, if_pos hδ]
+      rw [hfloor]; congr 1; omega
+    | toEven =>
+      unfold rndUnbounded
+      rw [dif_neg (by decide : (RoundingMode.nearest .toEven) ≠ .toOdd), dif_pos rfl]
+      simp only [rndParity, ← he, if_neg hδ_not, if_pos hδ]
+      rw [hfloor]; congr 1; omega
+  · -- `s ≥ m`: floor is `m`, fraction `< ½`, both modes select the floor `m`.
+    have hfloor : ⌊v * (2 : ℝ) ^ (-e)⌋ = m := by
+      rw [Int.floor_eq_iff]; exact ⟨hsm, by linarith [h.2]⟩
+    have hδ : v * (2 : ℝ) ^ (-e) - (⌊v * (2 : ℝ) ^ (-e)⌋ : ℝ) < 1 / 2 := by
+      rw [hfloor]; linarith [h.2]
+    cases tb with
+    | awayZero =>
+      unfold rndUnbounded
+      rw [dif_neg (by decide : (RoundingMode.nearest .awayZero) ≠ .toOdd),
+          dif_neg (by decide : (RoundingMode.nearest .awayZero) ≠ .nearest .toEven)]
+      simp only [rndInt, ← he, if_pos hδ]
+      rw [hfloor]
+    | toEven =>
+      unfold rndUnbounded
+      rw [dif_neg (by decide : (RoundingMode.nearest .toEven) ≠ .toOdd), dif_pos rfl]
+      simp only [rndParity, ← he, if_pos hδ]
+      rw [hfloor]
+
+/-- Dyadic-grid-point form of `nearest_eq_of_close`: if `g ∈ F`-grid at `v`'s
+scale (`quantumAtLeast (canonicalExp v) g`) and `|v − g| < ½·ulp F v`, then `g`
+is the nearest rounding of `v`. The convenient interface for callers holding a
+representable candidate `g`. -/
+theorem nearest_eq_of_close' (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
+    (hundef : ¬ F.IsUndefined (.nearest tb)) {g : Dyadic}
+    (hg : Dyadic.quantumAtLeast ((F.canonicalExp v : ℤ) : WithBot ℤ) g)
+    (hclose : |v - (g : ℝ)| < (2 : ℝ) ^ (F.canonicalExp v) / 2) :
+    RoundsFinite F.unbounded (.nearest tb) v g := by
+  obtain ⟨m, hm⟩ := (Dyadic.quantumAtLeast_coe_real (F.canonicalExp v) g).mp hg
+  have hgeq : Dyadic.ofIntZpow m (F.canonicalExp v) = g :=
+    (Dyadic.coe_real_inj _ _).mp (by rw [Dyadic.coe_ofIntZpow, hm])
+  rw [← hgeq]
+  refine nearest_eq_of_close F tb v hundef ?_
+  have h2pos : (0 : ℝ) < (2 : ℝ) ^ (-(F.canonicalExp v)) := zpow_pos (by norm_num) _
+  have hrw : v * (2 : ℝ) ^ (-(F.canonicalExp v)) - (m : ℝ)
+      = (v - (g : ℝ)) * (2 : ℝ) ^ (-(F.canonicalExp v)) := by
+    rw [hm, sub_mul, mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), add_neg_cancel,
+        zpow_zero, mul_one]
+  rw [hrw, abs_mul, abs_of_pos h2pos]
+  have hcc : (2 : ℝ) ^ (F.canonicalExp v) * (2 : ℝ) ^ (-(F.canonicalExp v)) = 1 := by
+    rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), add_neg_cancel, zpow_zero]
+  calc |v - (g : ℝ)| * (2 : ℝ) ^ (-(F.canonicalExp v))
+      < (2 : ℝ) ^ (F.canonicalExp v) / 2 * (2 : ℝ) ^ (-(F.canonicalExp v)) :=
+        mul_lt_mul_of_pos_right hclose h2pos
+    _ = 1 / 2 := by rw [div_mul_eq_mul_div, hcc]
+
 end Mpfx
