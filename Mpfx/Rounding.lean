@@ -278,6 +278,65 @@ theorem RoundsFinite.toOdd_unique_of_mem {F : FiniteFormat} {x : Dyadic}
     have hyx : (y : ℝ) ≤ (x : ℝ) := hmin x hx (le_refl _)
     exact (Dyadic.coe_real_inj y x).mp (le_antisymm hyx hxy)
 
+/-- A representable value is its own faithful rounding: `d` is the largest
+`F`-element `≤ d` (the round-down disjunct). -/
+theorem isFaithfulRound_self {F : FiniteFormat} {d : Dyadic} (hd : d ∈ F) :
+    IsFaithfulRound F (d : ℝ) d :=
+  Or.inl ⟨hd, le_rfl, fun _ _ hz => hz⟩
+
+/-- Two reals with equal magnitude and a common sign are equal. -/
+private theorem eq_of_abs_eq_of_mul_nonneg {a b : ℝ}
+    (habs : |a| = |b|) (hsign : 0 ≤ a * b) : a = b := by
+  rcases abs_eq_abs.mp habs with h | h
+  · exact h
+  · -- `a = -b` forces `b = 0` (else the product is strictly negative), so `a = b`.
+    subst h
+    have hbb : b * b = 0 :=
+      le_antisymm (by nlinarith) (mul_self_nonneg b)
+    have hb : b = 0 := mul_self_eq_zero.mp hbb
+    rw [hb]; ring
+
+/-- **Rounding fixes representable values** — the spec-relational form of
+Flocq's `round_generic` (paper Def. 7: `∀ f ∈ F, ◦(f) = f`). If `d ∈ F` and
+`y` is the `rm`-rounding of `(d : ℝ)` in `F`, then `y = d`, for *any* mode `rm`
+(including the degenerate `IsUndefined` formats — `RoundsFinite` never consults
+`IsUndefined`). -/
+theorem RoundsFinite.eq_of_mem {F : FiniteFormat} {rm : RoundingMode} {d : Dyadic}
+    (hd : d ∈ F) {y : Dyadic} (h : RoundsFinite F rm (d : ℝ) y) : y = d := by
+  obtain ⟨hyF, hcond⟩ := h
+  have coe_inj : (y : ℝ) = (d : ℝ) → y = d := (Dyadic.coe_real_inj y d).mp
+  cases rm with
+  | toNegative =>
+      obtain ⟨hle, hmax⟩ := hcond
+      exact coe_inj (le_antisymm hle (hmax d hd le_rfl))
+  | toPositive =>
+      obtain ⟨hle, hmin⟩ := hcond
+      exact coe_inj (le_antisymm (hmin d hd le_rfl) hle)
+  | toZero =>
+      obtain ⟨habs, hsign, hmax⟩ := hcond
+      have hge : |(d : ℝ)| ≤ |(y : ℝ)| := hmax d hd le_rfl (mul_self_nonneg _)
+      exact coe_inj (eq_of_abs_eq_of_mul_nonneg (le_antisymm habs hge) hsign)
+  | awayZero =>
+      obtain ⟨habs, hsign, hmin⟩ := hcond
+      have hle : |(y : ℝ)| ≤ |(d : ℝ)| := hmin d hd le_rfl (mul_self_nonneg _)
+      exact coe_inj (eq_of_abs_eq_of_mul_nonneg (le_antisymm hle habs) hsign)
+  | toOdd =>
+      exact RoundsFinite.toOdd_unique_of_mem hd ⟨hyF, hcond⟩
+  | nearest tb =>
+      cases tb with
+      | toEven =>
+          obtain ⟨_, hnear, _⟩ := hcond
+          have hle := hnear d hd (isFaithfulRound_self hd)
+          rw [sub_self, abs_zero] at hle
+          have : (d : ℝ) - (y : ℝ) = 0 := abs_eq_zero.mp (le_antisymm hle (abs_nonneg _))
+          exact coe_inj (by linarith)
+      | awayZero =>
+          obtain ⟨_, hnear, _⟩ := hcond
+          have hle := hnear d hd (isFaithfulRound_self hd)
+          rw [sub_self, abs_zero] at hle
+          have : (d : ℝ) - (y : ℝ) = 0 := abs_eq_zero.mp (le_antisymm hle (abs_nonneg _))
+          exact coe_inj (by linarith)
+
 /-! ## Sign-symmetry of `Rounds`
 
 For each rounding mode we relate `Rounds F rm x r` to `Rounds F rm' (-x) r.neg`,
