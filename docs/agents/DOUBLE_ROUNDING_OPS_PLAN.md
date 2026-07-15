@@ -182,7 +182,97 @@ theorem rndMul {F₁ F₂ rm₁ rm₂} {x y : Dyadic}
 -- explicit-parameter corollary: 2·p₁ ≤ p₂ ∧ exp₂ ≤ 2·exp₁ ∧ b₁² ≤ b₂ → rndMul hyp
 ```
 
-## 6. References
+## 6. Phase 2 scoping (Lemma 16) — gate for addition/√/÷
+
+**Status:** scoped, *not* started. This is the review gate from §5.1.
+
+**Goal.** Roux Lemma 16 `round_round_lt_mid_further_place` in the mpfx
+`RoundsFinite (.nearest _)` world — the sole engine behind tight addition,
+√, and ÷.
+
+**What exists / what's missing.**
+- Have: `Dyadic.midpoint` (of two dyadics), `FiniteFormat.canonicalExp`
+  (= Flocq `cexp` = `ϕ(mag x)`), `Int.log 2` (= `mag` up to `+1`), and a
+  large RN/faithful toolbox in `DoubleRounding.lean` (`nearest_components`,
+  `abs_le_mid_of_nearest_inbound`, `faithful_below/above_unique`,
+  `nearest_close_upgrade`, `F_adjacent_of_RN_round_pair`, Grid F-adjacency).
+- Missing: `ulp F x := (2:ℝ) ^ F.canonicalExp x`; `midp F x` (the midpoint
+  *bracketing a real* `x`, = round-down value `+ ulp/2`); a `mag` wrapper; and
+  the key step **"`ξ` strictly below `midp F x` ⟹ nearest rounds `ξ` down"**.
+- **`ulp` is not a new notion.** Grid.lean's grid step
+  `k = max(exp, ⌊log₂ y⌋ − p + 1)` *is* `canonicalExp`, and `exists_grid_rep` /
+  `F_adjacent_step_form` already prove F-adjacent values differ by exactly
+  `2^k`. So `ulp F x := (2:ℝ)^(F.canonicalExp x)` coincides with the step the
+  whole Grid theory rests on — the adjacency/step lemmas are reusable directly,
+  and `quantumAtLeast` supplies the "multiple of `2^k`" facts. This is the main
+  de-risking finding for Phase 2.
+
+**Proposed statement (relational, matching the project).**
+```lean
+theorem rnd_lt_mid {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
+    (hx : 0 < x)
+    (h21 : F₂.canonicalExp x < F₁.canonicalExp x)
+    (hle : F₁.canonicalExp x ≤ Int.log 2 x + 1)          -- ϕ₁(mag x) ≤ mag x
+    (hmid : x < midp F₁ x - ulp F₂ x / 2)
+    {z w : Dyadic}
+    (hz : RoundsFinite F₂ (.nearest tb₂) x z)
+    (hw : RoundsFinite F₁ (.nearest tb₁) (z : ℝ) w) :
+    RoundsFinite F₁ (.nearest tb₁) x w
+```
+**Proof sketch.** `x < midp₁` ⟹ nearest-`F₁` of `x` is the round-down `a`.
+Nearest-`F₂` gives `|z − x| ≤ ulp₂/2`, and `hmid` ⟹ `z < midp₁`; `h21`/`hle`
+(⟹ `ulp₂ < ulp₁`) keep `z` in `[a, midp₁)`, so nearest-`F₁` of `z` is also `a`.
+Hence `w = a =` direct rounding. The `[a, midp₁)` containment is the fiddly
+core (Roux's Fig. 2; Flocq splits off `round_round_lt_mid_further_place'`).
+
+**Estimated shape:** ~3 defs (`ulp`, `midp`, `mag`) + ~6–10 supporting lemmas
+(below-midpoint⟹round-down, ulp monotonicity, the interval containment) + the
+main proof. Then Phase 3 addition = Lemma 16 + Roux Lemma 22 (small-`y` exact
+case) + `add_subset` (large-`y` case) glued by a `mag`-gap split.
+
+### Phase 2 progress (in `Mpfx/NearestMidpoint.lean`)
+
+Built and verified (all rest on `[propext, Classical.choice, Quot.sound]`, no `sorry`):
+
+- **Definitions:** `ulp`, `rndDown`, `rndUp`, `midp` (as agreed — real-valued
+  `ulp = 2^canonicalExp`, `rndDown/rndUp` from `rndUnbounded`, `midp = rndDown + ulp/2`).
+- **Foundations:** `ulp_pos`, `rndDown_le/_mem/_max`, `lt_rndDown_add_ulp`
+  (`x < rndDown + ulp`), `le_rndUp`/`rndUp_min`/`rndUp_mem`,
+  `rndUp_le_rndDown_add_ulp` (`rndUp ≤ rndDown + ulp`).
+- **L1** `ulp_le_half_ulp_of_canonicalExp_lt`: `cexp₂ < cexp₁ ⟹ ulp₂ ≤ ulp₁/2`.
+- **L2** `nearest_error_le_half_ulp`: `|z − x| ≤ ulp/2` for a nearest `z`
+  (stated over `F.unbounded`, overflow-free — matches Roux's FLX setting).
+- **L3** `nearest_eq_rndDown_of_lt_midp`: `x < midp F x ⟹` nearest rounds to
+  `rndDown F x`. Proved via the *constructive* rounding (`x < midp` ⟺ scaled
+  fraction `< ½` ⟺ `rndInt`/`rndParity` pick the floor) — cheaper than the
+  faithful-competitor/adjacency route.
+
+**Remaining (the delicate core):**
+
+- **L3′** (mirror): `midp F x < x ⟹` nearest rounds to `rndUp F x` (frac `> ½`).
+- **L4** binade consistency: `canonicalExp F₁ z = canonicalExp F₁ x` under the
+  hypotheses. Reduces to `Int.log 2 z = Int.log 2 x`; the **boundary cases**
+  (z straddling a power-of-2 binade edge) are the crux Flocq isolates in
+  `round_round_lt_mid_further_place'` via `mag_round_ge`/`mag_le_bpow`, using the
+  derived `x < 2^(mag x) − ½·ulp₂` (from `hle : cexp₁ ≤ mag x` + `hmid`).
+- **L_core** + **assembly**: from `|z − a| < ulp₁/2` (L2+L1) and L4, get
+  `◦₁(z) = a = ◦₁(x)` (a below/above sub-case via L3/L3′), then `w = a` by
+  nearest-uniqueness (`rndUnbounded_unique_nearest`). Yields Lemma 16.
+
+L4 is the sole hard part left; L3/L3′/L_core are mechanical given it.
+
+**Open design decision (resolved — recorded for history):**
+1. **Represent `ulp`/`midp`/round-down how?** (a) real-valued
+   `ulp F x : ℝ := (2:ℝ)^F.canonicalExp x` with the round-down value taken from
+   the constructive `rndUnbounded`/`rnd` layer (`RoundOp.lean`); or (b) keep it
+   fully relational (round-down as a `RoundsFinite .toNegative` witness, no new
+   functions). (a) is closer to Flocq and reads cleanly; (b) avoids depending on
+   the constructive layer. *Recommendation:* (a).
+2. **Commit now?** Phase 2+3 is a large, multi-lemma effort with the fiddly
+   interval-containment core. Multiplication (Phases 0–1) is already a complete,
+   self-contained result. Confirm before I invest.
+
+## 7. References
 - `flocq-4.2.2/src/Prop/Double_rounding.v`: `round_round_mult` (L661),
   `round_round_mult_hyp` (L613), `round_round_lt_mid_further_place` (L167),
   `round_round_plus` (L1562), `round_round_sqrt` (L2804), `round_round_div`.
