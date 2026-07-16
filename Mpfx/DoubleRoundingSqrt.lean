@@ -11,8 +11,8 @@ Roux's Theorem 25 (radix 2, FLX): double rounding of `√x` is innocuous when
 `RoundsFinite` rounds a *real*, so the statement simply takes `Real.sqrt x` as
 the value and leans on the two-sided midpoint engine (`round_round_mid_cases`).
 The new mathematical content is the *separation lemma* `round_round_sqrt_aux`:
-`√x` is never within `½·ulp₂` of an `F₁`-midpoint. `rndSqrt` assembles it, with
-one statement covering both the FLX and FLT configurations.
+`√x` is never within `½·ulp₂` of an `F₁`-midpoint. `rndSqrt_FLX` and `rndSqrt_FLT`
+assemble it (via the shared `rndSqrt_core`) for the two format configurations.
 -/
 
 namespace Mpfx
@@ -230,25 +230,14 @@ theorem rndSqrt_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : �
   round_round_mid_cases hundef₁ (Real.sqrt_pos.mpr hx) (by omega) hle hz hw
     (fun hmid => absurd hmid (not_le.mpr (round_round_sqrt_aux hx hxrep hf1 hle hquant)))
 
-/-- **rnd-sqrt** (Roux Theorem 25, radix 2). For `x ∈ F₁` with `0 < x`, double
-rounding of `√x` (nearest in `F₂` then in `F₁`) is innocuous when `p₂ ≥ 2p₁ + 2`
-and the formats' minimum exponents are compatible. The single `hexp` covers both
-supported configurations:
-
-* **FLX** (`F₁.exp = F₂.exp = ⊥`, no underflow) — no extra condition; or
-* **FLT** (`F₁.exp = emin₁`, `F₂.exp = emin₂`) — with `emin₁ ≤ 0` and Roux's
-  Table-II underflow bound `emin₂ ≤ emin₁ − p₁ − 2 ∨ 2·emin₂ ≤ emin₁ − 4p₁ − 2`.
-
-Both branches discharge the `rndSqrt_core` hypotheses; `omega` closes the
-canonical-exponent inequalities (handling the `max` and the underflow
-disjunction for the FLT case). -/
-theorem rndSqrt {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+/-- **rnd-sqrt, FLX** (Roux Theorem 25, radix 2). For `x ∈ F₁` with `0 < x` in an
+FLX format (`exp = ⊥`), double rounding of `√x` (nearest in `F₂` then in `F₁`) is
+innocuous when `p₂ ≥ 2p₁ + 2`. Discharges the `rndSqrt_core` hypotheses from the
+FLX closed form `canonicalExp = log₂|·| + 1 − p` + `log_sqrt_bounds` + `omega`. -/
+theorem rndSqrt_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hpp : (2 * p₁ + 2 : ℕ+) ≤ p₂)
-    (hexp : (F₁.exp = ⊥ ∧ F₂.exp = ⊥) ∨
-      (∃ emin₁ emin₂ : ℤ, F₁.exp = (emin₁ : WithBot ℤ) ∧ F₂.exp = (emin₂ : WithBot ℤ) ∧
-        emin₁ ≤ 0 ∧
-        (emin₂ ≤ emin₁ - (p₁ : ℤ) - 2 ∨ 2 * emin₂ ≤ emin₁ - 4 * (p₁ : ℤ) - 2)))
+    (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {x : Dyadic} (hx : x ∈ F₁) (hxpos : 0 < (x : ℝ))
     {z w : Dyadic}
@@ -264,46 +253,72 @@ theorem rndSqrt {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ :
   obtain ⟨hloglo, hloghi⟩ := log_sqrt_bounds hxpos
   have hxrep : ∃ mx : ℤ, (x : ℝ) = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp (x : ℝ)) := by
     obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ hx hxpos; exact ⟨c, hc⟩
-  rcases hexp with ⟨hexp₁, hexp₂⟩ | ⟨emin₁, emin₂, hexp₁, hexp₂, hemin1, hE⟩
-  · -- FLX
-    have hcE1s : F₁.canonicalExp (Real.sqrt (x : ℝ))
-        = Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₁ : ℤ) := by
-      rw [canonicalExp_FLX hp₁ hexp₁ (ne_of_gt hs_pos), habs]
-    have hcE2s : F₂.canonicalExp (Real.sqrt (x : ℝ))
-        = Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₂ : ℤ) := by
-      rw [canonicalExp_FLX hp₂ hexp₂ (ne_of_gt hs_pos), habs]
-    have hcE1x : F₁.canonicalExp (x : ℝ) = Int.log 2 (x : ℝ) + 1 - (p₁ : ℤ) := by
-      rw [canonicalExp_FLX hp₁ hexp₁ (ne_of_gt hxpos), abs_of_pos hxpos]
-    refine rndSqrt_core hxpos hundef₁ hxrep ?_ ?_ ?_ hz hw
-    · rw [hcE1s, hcE1x]; omega
-    · rw [hcE1s]; omega
-    · rw [hcE1s, hcE2s]; omega
-  · -- FLT
-    have hx_ge : (2 : ℝ) ^ emin₁ ≤ (x : ℝ) := by
-      obtain ⟨c, hc⟩ := (Dyadic.quantumAtLeast_coe_real emin₁ x).mp (hexp₁ ▸ hx.2.1)
-      have h2 : (0 : ℝ) < (2 : ℝ) ^ emin₁ := zpow_pos (by norm_num) _
-      have hc_pos : 0 < c := by
-        rcases lt_or_ge 0 c with h | h
-        · exact h
-        · exfalso
-          have : (x : ℝ) ≤ 0 := by
-            rw [hc]; exact mul_nonpos_of_nonpos_of_nonneg (by exact_mod_cast h) h2.le
-          linarith [hxpos]
-      have hc1 : (1 : ℝ) ≤ (c : ℝ) := by exact_mod_cast hc_pos
-      rw [hc]; nlinarith [h2, hc1]
-    have hLge : emin₁ ≤ Int.log 2 (x : ℝ) :=
-      (Int.zpow_le_iff_le_log (b := 2) (by norm_num) hxpos).mp (by exact_mod_cast hx_ge)
-    have hcE1s : F₁.canonicalExp (Real.sqrt (x : ℝ))
-        = max (Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₁ : ℤ)) emin₁ := by
-      rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hs_pos), habs]
-    have hcE2s : F₂.canonicalExp (Real.sqrt (x : ℝ))
-        = max (Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₂ : ℤ)) emin₂ := by
-      rw [canonicalExp_FLT hp₂ hexp₂ (ne_of_gt hs_pos), habs]
-    have hcE1x : F₁.canonicalExp (x : ℝ) = max (Int.log 2 (x : ℝ) + 1 - (p₁ : ℤ)) emin₁ := by
-      rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hxpos), abs_of_pos hxpos]
-    refine rndSqrt_core hxpos hundef₁ hxrep ?_ ?_ ?_ hz hw
-    · rw [hcE1s, hcE1x]; omega
-    · rw [hcE1s]; omega
-    · rw [hcE1s, hcE2s]; rcases hE with h | h <;> omega
+  have hcE1s : F₁.canonicalExp (Real.sqrt (x : ℝ))
+      = Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₁ : ℤ) := by
+    rw [canonicalExp_FLX hp₁ hexp₁ (ne_of_gt hs_pos), habs]
+  have hcE2s : F₂.canonicalExp (Real.sqrt (x : ℝ))
+      = Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₂ : ℤ) := by
+    rw [canonicalExp_FLX hp₂ hexp₂ (ne_of_gt hs_pos), habs]
+  have hcE1x : F₁.canonicalExp (x : ℝ) = Int.log 2 (x : ℝ) + 1 - (p₁ : ℤ) := by
+    rw [canonicalExp_FLX hp₁ hexp₁ (ne_of_gt hxpos), abs_of_pos hxpos]
+  refine rndSqrt_core hxpos hundef₁ hxrep ?_ ?_ ?_ hz hw
+  · rw [hcE1s, hcE1x]; omega
+  · rw [hcE1s]; omega
+  · rw [hcE1s, hcE2s]; omega
+
+/-- **rnd-sqrt, FLT** (Roux Theorem 25, radix 2). The FLT version (`F₁.exp = emin₁`,
+`F₂.exp = emin₂`) with `p₂ ≥ 2p₁ + 2`, `emin₁ ≤ 0`, and Roux's Table-II underflow
+bound `emin₂ ≤ emin₁ − p₁ − 2 ∨ 2·emin₂ ≤ emin₁ − 4p₁ − 2`. Discharges the
+`rndSqrt_core` hypotheses from the FLT closed form `max(log₂|·| + 1 − p, emin)` +
+`log_sqrt_bounds` + the member bound `2^emin₁ ≤ x`; `omega` handles the `max` and
+the underflow disjunction. -/
+theorem rndSqrt_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+    {emin₁ emin₂ : ℤ}
+    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+    (hpp : (2 * p₁ + 2 : ℕ+) ≤ p₂)
+    (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
+    (hemin1 : emin₁ ≤ 0)
+    (hE : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2 ∨ 2 * emin₂ ≤ emin₁ - 4 * (p₁ : ℤ) - 2)
+    (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
+    {x : Dyadic} (hx : x ∈ F₁) (hxpos : 0 < (x : ℝ))
+    {z w : Dyadic}
+    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (Real.sqrt (x : ℝ)) z)
+    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
+    RoundsFinite F₁.unbounded (.nearest tb₁) (Real.sqrt (x : ℝ)) w := by
+  have hs_pos : 0 < Real.sqrt (x : ℝ) := Real.sqrt_pos.mpr hxpos
+  have habs : |Real.sqrt (x : ℝ)| = Real.sqrt (x : ℝ) := abs_of_pos hs_pos
+  have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hpp' : 2 * (p₁ : ℤ) + 2 ≤ (p₂ : ℤ) := by
+    have : ((2 * p₁ + 2 : ℕ+) : ℤ) ≤ ((p₂ : ℕ+) : ℤ) := by exact_mod_cast hpp
+    push_cast at this; omega
+  obtain ⟨hloglo, hloghi⟩ := log_sqrt_bounds hxpos
+  have hxrep : ∃ mx : ℤ, (x : ℝ) = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp (x : ℝ)) := by
+    obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ hx hxpos; exact ⟨c, hc⟩
+  have hx_ge : (2 : ℝ) ^ emin₁ ≤ (x : ℝ) := by
+    obtain ⟨c, hc⟩ := (Dyadic.quantumAtLeast_coe_real emin₁ x).mp (hexp₁ ▸ hx.2.1)
+    have h2 : (0 : ℝ) < (2 : ℝ) ^ emin₁ := zpow_pos (by norm_num) _
+    have hc_pos : 0 < c := by
+      rcases lt_or_ge 0 c with h | h
+      · exact h
+      · exfalso
+        have : (x : ℝ) ≤ 0 := by
+          rw [hc]; exact mul_nonpos_of_nonpos_of_nonneg (by exact_mod_cast h) h2.le
+        linarith [hxpos]
+    have hc1 : (1 : ℝ) ≤ (c : ℝ) := by exact_mod_cast hc_pos
+    rw [hc]; nlinarith [h2, hc1]
+  have hLge : emin₁ ≤ Int.log 2 (x : ℝ) :=
+    (Int.zpow_le_iff_le_log (b := 2) (by norm_num) hxpos).mp (by exact_mod_cast hx_ge)
+  have hcE1s : F₁.canonicalExp (Real.sqrt (x : ℝ))
+      = max (Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₁ : ℤ)) emin₁ := by
+    rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hs_pos), habs]
+  have hcE2s : F₂.canonicalExp (Real.sqrt (x : ℝ))
+      = max (Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₂ : ℤ)) emin₂ := by
+    rw [canonicalExp_FLT hp₂ hexp₂ (ne_of_gt hs_pos), habs]
+  have hcE1x : F₁.canonicalExp (x : ℝ) = max (Int.log 2 (x : ℝ) + 1 - (p₁ : ℤ)) emin₁ := by
+    rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hxpos), abs_of_pos hxpos]
+  refine rndSqrt_core hxpos hundef₁ hxrep ?_ ?_ ?_ hz hw
+  · rw [hcE1s, hcE1x]; omega
+  · rw [hcE1s]; omega
+  · rw [hcE1s, hcE2s]; rcases hE with h | h <;> omega
 
 end Mpfx

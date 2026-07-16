@@ -442,18 +442,16 @@ lands on `2^(mag x)`, which is in `F₁`, and `nearest_eq_of_close'` closes both
   `◦₁(x)=z` (both close via `nearest_eq_of_close'`). `round_round_mid_cases` no longer
   takes `htop`. This is reused directly by `÷`.
 
-- (d) **DONE** — square root FLX+FLT, unified into a **single top-level `rndSqrt`**.
-  `rndSqrt_core` is format-agnostic (takes the discharged `hxrep`/`hf1`/`hle`/`hquant`,
-  derives `h21` from `hquant`+`hle`, runs `round_round_mid_cases` + aux). The single
-  `rndSqrt` takes one `hexp` hypothesis that is a disjunction of the two supported
-  configs — FLX (`F₁.exp = F₂.exp = ⊥`, no extra condition) or FLT (`emin₁ ≤ 0` plus
-  Table-II `emin₂ ≤ emin₁−p₁−2 ∨ 2emin₂ ≤ emin₁−4p₁−2`) — and `rcases`es it, dispatching
-  to the shared core. Discharge via `canonicalExp_FLX`/`canonicalExp_FLT`
-  (`max(log|v|+1−p, emin)`) + member bound `2^emin₁ ≤ x` + `log_sqrt_bounds`, then
-  **`omega` (handles `max` on ℤ)** closes `hf1`/`hle`/`hquant` (`rcases hE <;> omega` for
-  the FLT underflow disjunction). No `Valid_exp` machinery needed. Verified, axioms clean.
-  (`rndSqrt`'s disjunctive `hexp` differs from `rndAdd`'s single `F₂.exp ≤ F₁.exp` only
-  because √'s underflow bound is genuinely not a single `≤`.) **Square root complete.**
+- (d) **DONE** — square root FLX+FLT, as two explicit top-level theorems
+  **`rndSqrt_FLX`** and **`rndSqrt_FLT`** over a shared format-agnostic
+  **`rndSqrt_core`** (takes the discharged `hxrep`/`hf1`/`hle`/`hquant`, derives
+  `h21` from `hquant`+`hle`, runs `round_round_mid_cases` + aux). `rndSqrt_FLX`
+  (`F₁.exp = F₂.exp = ⊥`) and `rndSqrt_FLT` (`emin₁ ≤ 0` plus Table-II
+  `emin₂ ≤ emin₁−p₁−2 ∨ 2emin₂ ≤ emin₁−4p₁−2`) each discharge the core hypotheses
+  via `canonicalExp_FLX`/`canonicalExp_FLT` (`max(log|v|+1−p, emin)`) + member bound
+  `2^emin₁ ≤ x` + `log_sqrt_bounds`, then **`omega` (handles `max` on ℤ)** closes
+  `hf1`/`hle`/`hquant` (`rcases hE <;> omega` for the FLT underflow disjunction).
+  No `Valid_exp` machinery needed. Verified, axioms clean. **Square root complete.**
 
 **Division (Thm 29) — in progress** (`Mpfx/DoubleRoundingDiv.lean`). See the
 dedicated plan in §9 below.
@@ -538,44 +536,44 @@ binade-top/aux0 boundary is subsumed by `rnd_gt_mid_robust`.
 4. **DONE — `rndDiv_core`** (format-agnostic): runs `round_round_mid_cases`;
    discharges `hcmid` by `by_cases (v = midp₁ v)` → `midp_mem_F₂` (exact) /
    `absurd … (not_le.mpr (round_round_div_aux …))` (impossible).
-5. **DONE — `rndDiv_pos` / `rndDiv_posden` / `rndDiv` (FLX).** `rndDiv_pos` (a,b>0)
+5. **DONE — `rndDiv_pos` / `rndDiv_posden` / `rndDiv_FLX` (FLX).** `rndDiv_pos` (a,b>0)
    discharges the core hyps via `canonicalExp_FLX` + `log_div_bounds` + `omega`;
    `rndDiv_posden` adds arbitrary-sign numerator (`a<0` via `neg_nearest`, `a=0`
-   via `rndExact`); `rndDiv` adds negative denominator (`a/b = (−a)/(−b)`).
-   Full statement: `a,b ∈ F₁`, `b ≠ 0`, `p₂ ≥ 2p₁`, both roundings to nearest.
+   via `rndExact`); the top-level **`rndDiv_FLX`** adds negative denominator
+   (`a/b = (−a)/(−b)`). Full statement: `a,b ∈ F₁`, `b ≠ 0`, `p₂ ≥ 2p₁`, nearest.
 
-**FLT division — partial; a structural obstacle found.** Flocq's
-`round_round_div_FLT` bound is `emin₂ ≤ emin₁ − p₁ − 2` ∧ `p₂ ≥ 2p₁`. FLT `x/y`
-splits (Flocq `round_round_all_mid_cases`) into three regimes by `cexp₁ v` vs
-`mag v`: deeply-subnormal (`round_round_really_zero`), boundary (`fexp₁(mag)=mag+1`,
-`round_round_zero` + `div_aux0`), and normal (our `round_round_mid_cases`). FLX only
-ever hits the normal regime (`cexp = mag − p₁ < mag`), which is why our engine
-sufficed for every FLX op.
+**FLT division — DONE** (`emin₂ ≤ emin₁ − p₁ − 2` ∧ `p₂ ≥ 2p₁`, Flocq
+`round_round_div_FLT`), after a **rework of the separation lemma**. FLT `x/y`
+splits by `cexp₁ v` vs `mag v` into: deeply-subnormal, boundary
+(`cexp₁ v = mag v + 1`), and normal (`cexp₁ v ≤ mag v`). FLX only ever hits the
+normal regime (`cexp = mag − p₁ < mag`), which is why the original FLX-tuned
+`round_round_div_aux` sufficed there but broke for FLT.
 
-*Built and verified for the underflow regime:*
-- `nearest_zero_of_small` — in FLT, `0 ≤ x' < 2^(emin₁−1)` rounds to `0`
-  (`nearest_eq_of_close` with `m = 0`).
-- `round_round_div_zero` — the non-sliver underflow case: `v` far below the
-  threshold `2^(emin₁−1)` ⟹ both `v` and `◦₂ v` round to `0` in `F₁`. Covers Flocq
-  `really_zero` + the non-sliver part of `zero`.
+*The obstacle (now solved).* The first `round_round_div_aux` fixed the integrality
+scale at `2^(cexp₁ v − 1 + cexp₁ b)`, needing `cexp₁ v − 1 + cexp₁ b ≤ cexp₁ a`. In
+FLT the `max` inflates a subnormal operand's `cexp` to `emin₁`, breaking it —
+counterexample `p₁=5, emin₁=5, a=512, b=32 ⇒ v=16` (all in `F₁`, regime 3): it
+wants `5−1+5 ≤ 5` (false); FLX gives `0 ≤ 5` ✓.
 
-*Two genuine obstacles (why FLT is a rework, not an extension):*
-1. **The separation `round_round_div_aux` is FLX-specific.** Its integrality
-   argument writes `x − m·y = K·2^(cexp₁ v − 1 + cexp₁ b)` with `K` integer,
-   needing `cexp₁ v − 1 + cexp₁ b ≤ cexp₁ a` (`hex_ge`). In FLT the `max` inflates a
-   subnormal operand's `cexp` to `emin₁`, breaking this. **Counterexample**
-   (regime 3!): `p₁=5, emin₁=5, a=512, b=32 ⇒ v=16`, all in `F₁`; `hex_ge` wants
-   `5−1+5 ≤ 5` (false). In FLX the same gives `0 ≤ 5` ✓. A min-scale variant
-   (`2^min(cexp₁a, cexp₁v−1+cexp₁b)`) also fails to yield a contradiction here.
-   Flocq's `div_aux1/2` use a **mag-based** scale + the 5-component
-   `round_round_div_hyp` precisely to avoid this — that is the rework needed.
-2. **The boundary sliver `div_aux0`** (`[2^(emin₁−1) − ½ulp₂, 2^(emin₁−1))`) is a
-   ~90-line dense Flocq proof (`bpow_simplify`/`IZR_Zpower`/`field_simplify`) with no
-   short analog; it shows a quotient cannot land in that sliver.
+*The fix (min-scale).* Reworked `round_round_div_aux` to a **`min`-scale**
+integrality `x − m·y = K·2^min(cexp₁ x, cexp₁ v−1+cexp₁ y)` — always valid with no
+ordering assumption. The contradiction then needs two bounds, taken as hypotheses:
+`hA : cexp₂ v + Int.log y ≤ cexp₁ x` and `hB : cexp₂ v + Int.log y ≤ cexp₁ v − 1 +
+cexp₁ y`. These are **`omega`-provable for both FLX and FLT** from `hquant`, the
+regime bound, `log_div_bounds`, and `cexp = max(…) ≥ mag − p₁` (`le_max_left`) —
+the `mag`-based lower bounds dodge the `cexp`-inflation. A bonus: because `hA`/`hB`
+hold in the boundary regime too, the reworked aux *itself* excludes the boundary
+sliver, so **Flocq's ~90-line `div_aux0` never had to be ported**.
 
-So FLT division needs `round_round_div_aux` re-derived on a mag-based scale (à la
-Flocq `div_hyp`) plus the `div_aux0` port — comparable in size to the whole FLX
-division. Deferred.
+*Pieces (all DONE, verified).* `round_round_div_aux` (min-scale, `hA`/`hB`);
+`nearest_zero_of_small` (FLT `0 ≤ x' < 2^(emin₁−1)` rounds to `0`);
+`round_round_div_zero` (deep-underflow: rounds to `0`); `rndDiv_pos_normal_FLT`
+(regime 3 via `rndDiv_core`); `rndDiv_pos_FLT` (regime dispatch: normal → regime-3
+lemma; underflow → far via `div_zero`, sliver → `div_aux` contradiction);
+`rndDiv_posden_FLT` / `rndDiv_FLT` (sign wrappers). Full statement: `a,b ∈ F₁`,
+`b ≠ 0`, `p₂ ≥ 2p₁`, `emin₂ ≤ emin₁ − p₁ − 2`, both roundings to nearest.
+
+**All operations complete: ×, +, −, √, ÷ for both FLX and FLT.**
 
 ## 7. References
 - `flocq-4.2.2/src/Prop/Double_rounding.v`: `round_round_mult` (L661),
