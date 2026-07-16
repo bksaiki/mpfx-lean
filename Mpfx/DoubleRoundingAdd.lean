@@ -778,25 +778,6 @@ private theorem mem_F₂_unbounded {F₁ F₂ : FiniteFormat} {p₁ p₂ : ℕ+}
   Format.mem_unbounded_of_le (p := F₁.p) (e := F₁.exp)
     (by rw [hp₁, hp₂]; exact_mod_cast hp1p2) hexp hd.1 hd.2.1
 
-/-- **Negation transport.** Double rounding commutes with negation (both roundings
-are to-nearest): to double-round `v`, it suffices to double-round `-v`. Feeding
-the negated data `(-z, -w)` to `hbase` and negating the result discharges the sign
-flip, factoring the `RoundsFinite.neg_nearest` dance shared by `rndDiff` and
-`rndAdd`. -/
-private theorem rndNeg {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {v : ℝ} {z w : Dyadic}
-    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) v z)
-    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w)
-    (hbase : ∀ (z' w' : Dyadic),
-      RoundsFinite F₂.unbounded (.nearest tb₂) (-v) z' →
-      RoundsFinite F₁.unbounded (.nearest tb₁) (z' : ℝ) w' →
-      RoundsFinite F₁.unbounded (.nearest tb₁) (-v) w') :
-    RoundsFinite F₁.unbounded (.nearest tb₁) v w := by
-  have hz' : RoundsFinite F₂.unbounded (.nearest tb₂) (-v) (-z) :=
-    (RoundsFinite.neg_nearest F₂.unbounded tb₂ v z).mp hz
-  have hw' : RoundsFinite F₁.unbounded (.nearest tb₁) ((-z : Dyadic) : ℝ) (-w) := by
-    rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ (z : ℝ) w).mp hw
-  exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ v w).mpr (hbase (-z) (-w) hz' hw')
-
 /-- Both operands nonnegative: reduce to `rndAdd_pos` (swap if `x < y`; a zero
 operand makes the sum exactly representable). -/
 private theorem rndAdd_nonneg {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}

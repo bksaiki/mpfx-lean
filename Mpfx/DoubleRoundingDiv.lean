@@ -527,18 +527,14 @@ private theorem rndDiv_posden_of_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : T
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) ((a : ℝ) / (b : ℝ)) w := by
   rcases lt_trichotomy (a : ℝ) 0 with haneg | hazero | hapos
-  · -- `a < 0`: negate the numerator (quotient flips sign)
+  · -- `a < 0`: negate the numerator (quotient flips sign), via `rndNeg`
     have hna : (-a) ∈ F₁ := FiniteFormat.neg_mem ha
     have hnapos : 0 < ((-a : Dyadic) : ℝ) := by rw [Dyadic.coe_real_neg]; linarith
     have hqval : ((-a : Dyadic) : ℝ) / (b : ℝ) = -((a : ℝ) / (b : ℝ)) := by
       rw [Dyadic.coe_real_neg, neg_div]
-    have hz2 : RoundsFinite F₂.unbounded (.nearest tb₂) (((-a : Dyadic) : ℝ) / (b : ℝ)) (-z) := by
-      rw [hqval]; exact (RoundsFinite.neg_nearest F₂.unbounded tb₂ ((a : ℝ) / (b : ℝ)) z).mp hz
-    have hw2 : RoundsFinite F₁.unbounded (.nearest tb₁) ((-z : Dyadic) : ℝ) (-w) := by
-      rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ (z : ℝ) w).mp hw
-    have hres := hpos (-a) b hna hb hnapos hbpos (-z) (-w) hz2 hw2
-    rw [hqval] at hres
-    exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ ((a : ℝ) / (b : ℝ)) w).mpr hres
+    refine rndNeg hz hw (fun z' w' hz' hw' => ?_)
+    rw [← hqval] at hz' ⊢
+    exact hpos (-a) b hna hb hnapos hbpos z' w' hz' hw'
   · -- `a = 0`: the quotient is `0`, exactly representable
     have hval : (a : ℝ) / (b : ℝ) = ((0 : Dyadic) : ℝ) := by rw [hazero, zero_div]; simp
     rw [hval] at hz ⊢
