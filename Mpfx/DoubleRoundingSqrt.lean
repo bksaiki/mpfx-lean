@@ -1,3 +1,4 @@
+import Mpfx.CanonicalExp
 import Mpfx.NearestMidpoint
 import Mpfx.DoubleRoundingOps
 import Mpfx.DoubleRoundingAdd
@@ -5,18 +6,13 @@ import Mpfx.DoubleRoundingAdd
 /-!
 # Operation-specific double rounding: square root (Roux 2014, Theorem 25)
 
-Phase 4 of `docs/agents/DOUBLE_ROUNDING_OPS_PLAN.md`. Roux's Theorem 25 (radix 2,
-FLX): double rounding of `√x` is innocuous when `p₂ ≥ 2p₁ + 2`. Unlike `×`/`+`,
-the result `√x` is generally irrational — but `RoundsFinite` rounds a *real*, so
-the statement simply takes `Real.sqrt x` as the value and leans on the two-sided
-midpoint engine (`round_round_mid_cases`). The new mathematical content is the
-*separation lemma*: `√x` is never within `½·ulp₂` of an `F₁`-midpoint.
-
-This file is built up in steps:
-* `log_sqrt_bounds` — the binade of `√x` (Flocq `mag_sqrt_disj`). **[done]**
-* `round_round_sqrt_aux` — the separation lemma. *[todo]*
-* `rndSqrt` — assembled via `round_round_mid_cases`, plus FLX/FLT corollaries.
-  *[todo]*
+Roux's Theorem 25 (radix 2, FLX): double rounding of `√x` is innocuous when
+`p₂ ≥ 2p₁ + 2`. Unlike `×`/`+`, the result `√x` is generally irrational — but
+`RoundsFinite` rounds a *real*, so the statement simply takes `Real.sqrt x` as
+the value and leans on the two-sided midpoint engine (`round_round_mid_cases`).
+The new mathematical content is the *separation lemma* `round_round_sqrt_aux`:
+`√x` is never within `½·ulp₂` of an `F₁`-midpoint. `rndSqrt` assembles it, with
+one statement covering both the FLX and FLT configurations.
 -/
 
 namespace Mpfx
@@ -142,7 +138,6 @@ theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 0 < x)
       rw [show (2 * e₁ - 2 : ℤ) = e₁ + e₁ + (-2) from by ring, zpow_add₀ hne, zpow_add₀ hne,
           show (2 : ℝ) ^ (-2 : ℤ) = 1 / 4 from by norm_num, pow_two]; ring
     rw [h1]; linarith [h2, h3]
-  -- assume the negation and derive `False`
   by_contra hcon
   rw [not_lt] at hcon
   have hmidp : midp F₁ s = a + (2 : ℝ) ^ e₁ / 2 := by unfold midp ulp; rw [ha_eq, ← he₁]
@@ -234,14 +229,6 @@ theorem rndSqrt_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : �
     RoundsFinite F₁.unbounded (.nearest tb₁) (Real.sqrt x) w :=
   round_round_mid_cases hundef₁ (Real.sqrt_pos.mpr hx) (by omega) hle hz hw
     (fun hmid => absurd hmid (not_le.mpr (round_round_sqrt_aux hx hxrep hf1 hle hquant)))
-
-/-- Closed form of `canonicalExp` in an FLT format (`exp = emin` finite):
-`max(log₂|v| + 1 − p, emin)`. -/
-private theorem canonicalExp_FLT {F : FiniteFormat} {p : ℕ+} {emin : ℤ}
-    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (hexp : F.exp = (emin : WithBot ℤ))
-    {v : ℝ} (hv : v ≠ 0) :
-    F.canonicalExp v = max (Int.log 2 |v| + 1 - (p : ℤ)) emin := by
-  unfold FiniteFormat.canonicalExp; simp only [hp, hexp, hv, if_false]
 
 /-- **rnd-sqrt** (Roux Theorem 25, radix 2). For `x ∈ F₁` with `0 < x`, double
 rounding of `√x` (nearest in `F₂` then in `F₁`) is innocuous when `p₂ ≥ 2p₁ + 2`

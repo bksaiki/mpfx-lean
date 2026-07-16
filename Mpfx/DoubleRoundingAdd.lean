@@ -1,3 +1,4 @@
+import Mpfx.CanonicalExp
 import Mpfx.NearestMidpoint
 import Mpfx.DoubleRoundingOps
 
@@ -14,100 +15,23 @@ splits on the exponent gap between the operands:
 * **Case 2** (`ln y ≤ φ₁(ln x) − 2`, `y` tiny): `x + y` sits just above its
   `F₁` round-down, well below the midpoint, so `rnd_lt_mid'` (Lemma 16) applies.
 
-`rndAdd_pos` proves the result for `0 < y ≤ x` (Roux's core case); `rndAdd`
-lifts it to **all same-sign operands** (`0 ≤ x·y`, any ordering) by swapping
-(`add_comm`), handling zeros exactly, and joint negation for the
-both-nonpositive case. Mixed signs (`x·y < 0`) are *subtraction*, a separate
-result (Roux §3.1) not covered here.
+`rndAdd_pos`/`rndSub_pos` prove the result for `0 < y ≤ x` (Roux's core cases);
+`rndAdd` lifts them to **arbitrary operands** by swapping (`add_comm`), handling
+zeros exactly, joint negation for the both-nonpositive case, and rewriting mixed
+signs `x + y` as a subtraction `x − (−y)` (Roux §3.1).
 -/
 
 namespace Mpfx
 
-/-- **Canonical grid representation.** A positive `y ∈ F` (precision `p`) is
-`c · 2^(canonicalExp y)` with `|c| < 2^p`. Unifies the `exp = ⊥` and finite-`exp`
-grid lemmas (both have grid step `= canonicalExp`). -/
-theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ+}
-    (hp : F.p = ((p : ℕ+) : WithTop ℕ+))
-    {y : Dyadic} (hmem : y ∈ F) (hpos : 0 < (y : ℝ)) :
-    ∃ c : ℤ, |c| < (2 : ℤ) ^ (p : ℕ) ∧
-      (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ (F.canonicalExp (y : ℝ)) := by
-  have hy_ne : (y : ℝ) ≠ 0 := ne_of_gt hpos
-  obtain ⟨hprec, hquant, _⟩ := hmem
-  cases hexp : F.exp with
-  | bot =>
-    obtain ⟨k, c, hc, hyeq, hk⟩ := exists_grid_rep_exp_bot F hp hprec hpos
-    have hcexp : F.canonicalExp (y : ℝ) = Int.log 2 (y : ℝ) + 1 - (p : ℤ) := by
-      unfold FiniteFormat.canonicalExp
-      simp only [hp, hexp, hy_ne, abs_of_pos hpos, if_false]
-    have hkexp : k = F.canonicalExp (y : ℝ) := by rw [hcexp, hk]; omega
-    exact ⟨c, hc, by rw [← hkexp]; exact hyeq⟩
-  | coe e =>
-    obtain ⟨k, c, _, hc, hyeq, hk⟩ :=
-      exists_grid_rep F hp hexp hprec (hexp ▸ hquant) hpos
-    have hcexp : F.canonicalExp (y : ℝ)
-        = max (Int.log 2 (y : ℝ) + 1 - (p : ℤ)) e := by
-      unfold FiniteFormat.canonicalExp
-      simp only [hp, hexp, hy_ne, abs_of_pos hpos, if_false]
-    have hkexp : k = F.canonicalExp (y : ℝ) := by rw [hcexp, hk]; omega
-    exact ⟨c, hc, by rw [← hkexp]; exact hyeq⟩
-
-/-- `canonicalExp` is monotone in magnitude. -/
-theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)
-    (hyz : |y| ≤ |z|) : F.canonicalExp y ≤ F.canonicalExp z := by
-  have hy_pos : 0 < |y| := abs_pos.mpr hy
-  have hz : z ≠ 0 := by
-    rintro rfl; rw [abs_zero] at hyz; exact absurd hyz (not_le.mpr hy_pos)
-  have hlog : Int.log 2 |y| ≤ Int.log 2 |z| := Int.log_mono_right hy_pos hyz
-  unfold FiniteFormat.canonicalExp
-  cases F.p with
-  | top => cases F.exp <;> simp
-  | coe p =>
-    cases F.exp with
-    | bot => simp only [hy, hz, if_false]; omega
-    | coe e => simp only [hy, hz, if_false]; omega
-
-/-- Closed form of `canonicalExp` in an FLX format (`exp = ⊥`): `log₂|v| + 1 − p`. -/
-theorem canonicalExp_FLX {F : FiniteFormat} {p : ℕ+}
-    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (hexp : F.exp = ⊥)
-    {v : ℝ} (hv : v ≠ 0) : F.canonicalExp v = Int.log 2 |v| + 1 - (p : ℤ) := by
-  unfold FiniteFormat.canonicalExp; simp only [hp, hexp, hv, if_false]
-
-/-- **Closed form of `canonicalExp` in the normal range** (unifies FLX and FLT).
-When `v` is nonzero and its FLX exponent `log₂|v| + 1 − p` is at least the
-format's minimum exponent `F.exp` (the *normal* regime — vacuous for `exp = ⊥`),
-`canonicalExp` takes the FLX form. This is the single lemma that lets the FLX
-proofs run unchanged for FLT: in the genuine-midpoint case all values are normal. -/
-theorem canonicalExp_closed {F : FiniteFormat} {p : ℕ+}
-    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) {v : ℝ} (hv : v ≠ 0)
-    (hnorm : F.exp ≤ ((Int.log 2 |v| + 1 - (p : ℤ) : ℤ) : WithBot ℤ)) :
-    F.canonicalExp v = Int.log 2 |v| + 1 - (p : ℤ) := by
-  unfold FiniteFormat.canonicalExp
-  cases hexp : F.exp with
-  | bot => simp only [hp, hv, if_false]
-  | coe e =>
-    simp only [hp, hv, if_false]
-    rw [hexp] at hnorm
-    exact max_eq_left (by exact_mod_cast hnorm)
-
-/-- `F.exp ≤ (F.canonicalExp x : WithBot ℤ)`, uniformly over `exp = ⊥`/finite. -/
-theorem exp_le_canonicalExp_coe (F : FiniteFormat) (x : ℝ) :
-    F.exp ≤ ((F.canonicalExp x : ℤ) : WithBot ℤ) := by
-  cases hexp : F.exp with
-  | bot => exact bot_le
-  | coe e => exact_mod_cast F.exp_le_canonicalExp x hexp
-
-/-- A difference of two quantum-aligned dyadics stays quantum-aligned. -/
-private theorem quantumAtLeast_sub {e : WithBot ℤ} {a b : Dyadic}
-    (ha : Dyadic.quantumAtLeast e a) (hb : Dyadic.quantumAtLeast e b) :
-    Dyadic.quantumAtLeast e (a - b) := by
+/-- Negation preserves quantum alignment. -/
+private theorem quantumAtLeast_neg {e : WithBot ℤ} {a : Dyadic}
+    (ha : Dyadic.quantumAtLeast e a) : Dyadic.quantumAtLeast e (-a) := by
   cases e with
   | bot => trivial
   | coe e =>
     obtain ⟨ca, hca⟩ := (Dyadic.quantumAtLeast_coe_real e a).mp ha
-    obtain ⟨cb, hcb⟩ := (Dyadic.quantumAtLeast_coe_real e b).mp hb
-    refine (Dyadic.quantumAtLeast_coe_real e (a - b)).mpr ⟨ca - cb, ?_⟩
-    rw [show ((a - b : Dyadic) : ℝ) = (a : ℝ) - (b : ℝ) from by push_cast; ring, hca, hcb]
-    push_cast; ring
+    refine (Dyadic.quantumAtLeast_coe_real e (-a)).mpr ⟨-ca, ?_⟩
+    rw [show ((-a : Dyadic) : ℝ) = -(a : ℝ) from by push_cast; ring, hca]; push_cast; ring
 
 /-- A sum of two quantum-aligned dyadics stays quantum-aligned. -/
 private theorem quantumAtLeast_add {e : WithBot ℤ} {a b : Dyadic}
@@ -121,6 +45,12 @@ private theorem quantumAtLeast_add {e : WithBot ℤ} {a b : Dyadic}
     refine (Dyadic.quantumAtLeast_coe_real e (a + b)).mpr ⟨ca + cb, ?_⟩
     rw [show ((a + b : Dyadic) : ℝ) = (a : ℝ) + (b : ℝ) from by push_cast; ring, hca, hcb]
     push_cast; ring
+
+/-- A difference of two quantum-aligned dyadics stays quantum-aligned. -/
+private theorem quantumAtLeast_sub {e : WithBot ℤ} {a b : Dyadic}
+    (ha : Dyadic.quantumAtLeast e a) (hb : Dyadic.quantumAtLeast e b) :
+    Dyadic.quantumAtLeast e (a - b) := by
+  rw [sub_eq_add_neg]; exact quantumAtLeast_add ha (quantumAtLeast_neg hb)
 
 /-- **FLT exact-representability of a subnormal result.** If `v` inherits `F₁`'s
 quantum (`quantumAtLeast F₁.exp v`, e.g. `v = x ± y` for `x, y ∈ F₁`) and is
@@ -160,17 +90,6 @@ private theorem mem_F₂_of_subnormal {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
     exact (Dyadic.precisionAtMost_coe_real p₂ v).mpr ⟨C, e₂, hC, hCbound⟩
   · rw [FiniteFormat.unbounded_exp]; exact Dyadic.quantumAtLeast_anti (le_of_eq he₂) hqe2
 
-/-- In two FLX formats with `p₁ < p₂`, the wider format's canonical exponent at
-any nonzero `v` is strictly smaller (no binade computation needed). -/
-theorem canonicalExp_lt_of_prec_lt {F₁ F₂ : FiniteFormat} {p₁ p₂ : ℕ+}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hexp₁ : F₁.exp = ⊥)
-    (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+)) (hexp₂ : F₂.exp = ⊥)
-    (hpp : (p₁ : ℤ) < (p₂ : ℤ)) {v : ℝ} (hv : v ≠ 0) :
-    F₂.canonicalExp v < F₁.canonicalExp v := by
-  unfold FiniteFormat.canonicalExp
-  simp only [hp₁, hexp₁, hp₂, hexp₂, hv, if_false]
-  omega
-
 /-- Sign/positivity extractor: from `(x:ℝ) = c·2^e > 0` with `2^e > 0`, get `c > 0`. -/
 private theorem mantissa_pos {c e : ℤ} {x : ℝ} (hxeq : x = (c : ℝ) * (2 : ℝ) ^ e)
     (hpos : 0 < x) : 0 < c := by
@@ -179,6 +98,56 @@ private theorem mantissa_pos {c e : ℤ} {x : ℝ} (hxeq : x = (c : ℝ) * (2 : 
   rcases mul_pos_iff.mp h with ⟨hc, _⟩ | ⟨_, hng⟩
   · exact_mod_cast hc
   · linarith
+
+/-- Shared setup for `sum_precisionAtMost`/`diff_precisionAtMost`. For `x, y ∈ F₁`
+with `0 < y ≤ x` and canonical-exponent gap `≤ p₁ + 1`, both operands are written
+over the common quantum `2^(canonicalExp y)` with positive mantissas `< 2^p₁`, and
+the exponent gap `n = ex − ey` satisfies `2^n ≤ 2·2^p₁`. -/
+private theorem add_sub_mantissa_setup {F₁ : FiniteFormat} {p₁ : ℕ+}
+    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+))
+    {x y : Dyadic} (hx : x ∈ F₁) (hy : y ∈ F₁)
+    (hxpos : 0 < (x : ℝ)) (hypos : 0 < (y : ℝ)) (hyx : (y : ℝ) ≤ (x : ℝ))
+    (hgap : F₁.canonicalExp (x : ℝ) - F₁.canonicalExp (y : ℝ) ≤ (p₁ : ℤ) + 1) :
+    ∃ (cx cy : ℤ) (n : ℕ), 0 < cx ∧ 0 < cy ∧
+      cx ≤ (2 : ℤ) ^ (p₁ : ℕ) - 1 ∧ cy ≤ (2 : ℤ) ^ (p₁ : ℕ) - 1 ∧
+      (2 : ℤ) ^ n ≤ 2 * (2 : ℤ) ^ (p₁ : ℕ) ∧
+      (x : ℝ) = (cx : ℝ) * (2 : ℝ) ^ n * (2 : ℝ) ^ (F₁.canonicalExp (y : ℝ)) ∧
+      (y : ℝ) = (cy : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp (y : ℝ)) := by
+  set ex := F₁.canonicalExp (x : ℝ) with hex
+  set ey := F₁.canonicalExp (y : ℝ) with hey
+  obtain ⟨cx, hcx_lt, hxeq⟩ := exists_canonical_rep F₁ hp₁ hx hxpos
+  obtain ⟨cy, hcy_lt, hyeq⟩ := exists_canonical_rep F₁ hp₁ hy hypos
+  rw [← hex] at hxeq; rw [← hey] at hyeq
+  have hcx_pos : 0 < cx := mantissa_pos hxeq hxpos
+  have hcy_pos : 0 < cy := mantissa_pos hyeq hypos
+  have hey_le_ex : ey ≤ ex := by
+    rw [hey, hex]
+    exact canonicalExp_mono F₁ (ne_of_gt hypos)
+      (by rw [abs_of_pos hypos, abs_of_pos hxpos]; exact hyx)
+  set n : ℕ := (ex - ey).toNat with hn
+  have hn_nat : n ≤ (p₁ : ℕ) + 1 := by
+    have : (n : ℤ) = ex - ey := by rw [hn, Int.toNat_of_nonneg (by omega)]
+    omega
+  have hsplit : (2 : ℝ) ^ ex = (2 : ℝ) ^ n * (2 : ℝ) ^ ey := by
+    rw [hn]; exact two_zpow_split_toNat hey_le_ex
+  have hcx_le : cx ≤ (2 : ℤ) ^ (p₁ : ℕ) - 1 := by rw [abs_of_pos hcx_pos] at hcx_lt; omega
+  have hcy_le : cy ≤ (2 : ℤ) ^ (p₁ : ℕ) - 1 := by rw [abs_of_pos hcy_pos] at hcy_lt; omega
+  have h2n_le : (2 : ℤ) ^ n ≤ 2 * (2 : ℤ) ^ (p₁ : ℕ) := by
+    calc (2 : ℤ) ^ n ≤ (2 : ℤ) ^ ((p₁ : ℕ) + 1) := pow_le_pow_right₀ (by norm_num) hn_nat
+      _ = 2 * (2 : ℤ) ^ (p₁ : ℕ) := by rw [pow_succ]; ring
+  exact ⟨cx, cy, n, hcx_pos, hcy_pos, hcx_le, hcy_le, h2n_le,
+    by rw [hxeq, hsplit]; ring, hyeq⟩
+
+/-- Common arithmetic tail: `2^(2p₁+1) = 2·A·A` (with `A = 2^p₁`) and the cast
+`((2p₁+1 : ℕ+) : ℕ) = 2p₁+1`, used to package both precision bounds. -/
+private theorem two_pow_two_p_split (p₁ : ℕ+) :
+    (2 : ℤ) ≤ (2 : ℤ) ^ (p₁ : ℕ) ∧
+    (2 : ℤ) ^ (2 * (p₁ : ℕ) + 1) = 2 * (2 : ℤ) ^ (p₁ : ℕ) * (2 : ℤ) ^ (p₁ : ℕ) ∧
+    ((2 * p₁ + 1 : ℕ+) : ℕ) = 2 * (p₁ : ℕ) + 1 := by
+  refine ⟨?_, ?_, by push_cast; ring⟩
+  · calc (2 : ℤ) = 2 ^ 1 := by norm_num
+      _ ≤ 2 ^ (p₁ : ℕ) := pow_le_pow_right₀ (by norm_num) p₁.one_le
+  · rw [show 2 * (p₁ : ℕ) + 1 = (p₁ : ℕ) + ((p₁ : ℕ) + 1) from by ring, pow_add, pow_succ]; ring
 
 /-- **Case 1 precision bound** (Roux Theorem 20, the exact-intermediate case).
 For `x, y ∈ F₁` with `0 < y ≤ x` and canonical-exponent gap `≤ p₁ + 1`, the sum
@@ -191,49 +160,20 @@ theorem sum_precisionAtMost {F₁ : FiniteFormat} {p₁ : ℕ+}
     (hgap : F₁.canonicalExp (x : ℝ) - F₁.canonicalExp (y : ℝ) ≤ (p₁ : ℤ) + 1) :
     Dyadic.precisionAtMost ((2 * p₁ + 1 : ℕ+) : WithTop ℕ+) (x + y) ∧
       Dyadic.quantumAtLeast ((F₁.canonicalExp (y : ℝ) : ℤ) : WithBot ℤ) (x + y) := by
-  set ex := F₁.canonicalExp (x : ℝ) with hex
+  obtain ⟨cx, cy, n, hcx_pos, hcy_pos, hcx_le, hcy_le, h2n_le, hx_rep, hy_rep⟩ :=
+    add_sub_mantissa_setup hp₁ hx hy hxpos hypos hyx hgap
   set ey := F₁.canonicalExp (y : ℝ) with hey
-  obtain ⟨cx, hcx_lt, hxeq⟩ := exists_canonical_rep F₁ hp₁ hx hxpos
-  obtain ⟨cy, hcy_lt, hyeq⟩ := exists_canonical_rep F₁ hp₁ hy hypos
-  rw [← hex] at hxeq; rw [← hey] at hyeq
-  have hcx_pos : 0 < cx := mantissa_pos hxeq hxpos
-  have hcy_pos : 0 < cy := mantissa_pos hyeq hypos
-  -- ey ≤ ex
-  have hey_le_ex : ey ≤ ex := by
-    rw [hey, hex]
-    exact canonicalExp_mono F₁ (ne_of_gt hypos)
-      (by rw [abs_of_pos hypos, abs_of_pos hxpos]; exact hyx)
-  set n : ℕ := (ex - ey).toNat with hn
-  have hn_nat : n ≤ (p₁ : ℕ) + 1 := by
-    have : (n : ℤ) = ex - ey := by rw [hn, Int.toNat_of_nonneg (by omega)]
-    omega
+  obtain ⟨hAge, h2A2, hpcast⟩ := two_pow_two_p_split p₁
   set C : ℤ := cx * (2 : ℤ) ^ n + cy with hC
-  -- real equation `x + y = C · 2^ey`
-  have hsplit : (2 : ℝ) ^ ex = (2 : ℝ) ^ n * (2 : ℝ) ^ ey := by
-    rw [hn]; exact two_zpow_split_toNat hey_le_ex
   have hxy_eq : ((x + y : Dyadic) : ℝ) = (C : ℝ) * (2 : ℝ) ^ ey := by
-    rw [Dyadic.coe_real_add, hxeq, hyeq, hsplit, hC]; push_cast; ring
-  -- integer bound `|C| < 2^(2p₁+1)`
-  set A : ℤ := (2 : ℤ) ^ (p₁ : ℕ) with hA
-  have hAge : (2 : ℤ) ≤ A := by
-    rw [hA]; calc (2 : ℤ) = 2 ^ 1 := by norm_num
-      _ ≤ 2 ^ (p₁ : ℕ) := pow_le_pow_right₀ (by norm_num) p₁.one_le
-  have hcx_le : cx ≤ A - 1 := by rw [abs_of_pos hcx_pos] at hcx_lt; omega
-  have hcy_le : cy ≤ A - 1 := by rw [abs_of_pos hcy_pos] at hcy_lt; omega
-  have h2n_le : (2 : ℤ) ^ n ≤ 2 * A := by
-    calc (2 : ℤ) ^ n ≤ (2 : ℤ) ^ ((p₁ : ℕ) + 1) := pow_le_pow_right₀ (by norm_num) hn_nat
-      _ = 2 * A := by rw [hA, pow_succ]; ring
-  have h2A2 : (2 : ℤ) ^ (2 * (p₁ : ℕ) + 1) = 2 * A * A := by
-    rw [hA, show 2 * (p₁ : ℕ) + 1 = (p₁ : ℕ) + ((p₁ : ℕ) + 1) from by ring, pow_add, pow_succ]
-    ring
+    rw [Dyadic.coe_real_add, hx_rep, hy_rep, hC]; push_cast; ring
   have hC_pos : 0 < C := by
     rw [hC]; have h1 : 0 < cx * (2 : ℤ) ^ n := mul_pos hcx_pos (by positivity); omega
   have hC_lt : C < (2 : ℤ) ^ (2 * (p₁ : ℕ) + 1) := by
     rw [h2A2, hC]
-    have hprod : cx * (2 : ℤ) ^ n ≤ (A - 1) * (2 * A) :=
+    have hprod : cx * (2 : ℤ) ^ n ≤ ((2 : ℤ) ^ (p₁ : ℕ) - 1) * (2 * (2 : ℤ) ^ (p₁ : ℕ)) :=
       mul_le_mul hcx_le h2n_le (by positivity) (by omega)
     nlinarith [hprod, hcy_le, hAge]
-  have hpcast : ((2 * p₁ + 1 : ℕ+) : ℕ) = 2 * (p₁ : ℕ) + 1 := by push_cast; ring
   refine ⟨?_, ?_⟩
   · rw [Dyadic.precisionAtMost_coe_real]
     exact ⟨C, ey, hxy_eq, by rw [hpcast, abs_of_pos hC_pos]; exact hC_lt⟩
@@ -250,46 +190,21 @@ theorem diff_precisionAtMost {F₁ : FiniteFormat} {p₁ : ℕ+}
     (hgap : F₁.canonicalExp (x : ℝ) - F₁.canonicalExp (y : ℝ) ≤ (p₁ : ℤ) + 1) :
     Dyadic.precisionAtMost ((2 * p₁ + 1 : ℕ+) : WithTop ℕ+) (x - y) ∧
       Dyadic.quantumAtLeast ((F₁.canonicalExp (y : ℝ) : ℤ) : WithBot ℤ) (x - y) := by
-  set ex := F₁.canonicalExp (x : ℝ) with hex
+  obtain ⟨cx, cy, n, hcx_pos, hcy_pos, hcx_le, hcy_le, h2n_le, hx_rep, hy_rep⟩ :=
+    add_sub_mantissa_setup hp₁ hx hy hxpos hypos hyx hgap
   set ey := F₁.canonicalExp (y : ℝ) with hey
-  obtain ⟨cx, hcx_lt, hxeq⟩ := exists_canonical_rep F₁ hp₁ hx hxpos
-  obtain ⟨cy, hcy_lt, hyeq⟩ := exists_canonical_rep F₁ hp₁ hy hypos
-  rw [← hex] at hxeq; rw [← hey] at hyeq
-  have hcx_pos : 0 < cx := mantissa_pos hxeq hxpos
-  have hcy_pos : 0 < cy := mantissa_pos hyeq hypos
-  have hey_le_ex : ey ≤ ex := by
-    rw [hey, hex]; exact canonicalExp_mono F₁ (ne_of_gt hypos)
-      (by rw [abs_of_pos hypos, abs_of_pos hxpos]; exact hyx)
-  set n : ℕ := (ex - ey).toNat with hn
-  have hn_nat : n ≤ (p₁ : ℕ) + 1 := by
-    have : (n : ℤ) = ex - ey := by rw [hn, Int.toNat_of_nonneg (by omega)]
-    omega
+  obtain ⟨hAge, h2A2, hpcast⟩ := two_pow_two_p_split p₁
   set C : ℤ := cx * (2 : ℤ) ^ n - cy with hC
-  have hsplit : (2 : ℝ) ^ ex = (2 : ℝ) ^ n * (2 : ℝ) ^ ey := by
-    rw [hn]; exact two_zpow_split_toNat hey_le_ex
   have hxy_eq : ((x - y : Dyadic) : ℝ) = (C : ℝ) * (2 : ℝ) ^ ey := by
     have hsub : ((x - y : Dyadic) : ℝ) = (x : ℝ) - (y : ℝ) := by push_cast; ring
-    rw [hsub, hxeq, hyeq, hsplit, hC]; push_cast; ring
-  set A : ℤ := (2 : ℤ) ^ (p₁ : ℕ) with hA
-  have hAge : (2 : ℤ) ≤ A := by
-    rw [hA]; calc (2 : ℤ) = 2 ^ 1 := by norm_num
-      _ ≤ 2 ^ (p₁ : ℕ) := pow_le_pow_right₀ (by norm_num) p₁.one_le
-  have hcx_le : cx ≤ A - 1 := by rw [abs_of_pos hcx_pos] at hcx_lt; omega
-  have hcy_le : cy ≤ A - 1 := by rw [abs_of_pos hcy_pos] at hcy_lt; omega
+    rw [hsub, hx_rep, hy_rep, hC]; push_cast; ring
   have h2n_pos : (0 : ℤ) < (2 : ℤ) ^ n := by positivity
-  have h2n_le : (2 : ℤ) ^ n ≤ 2 * A := by
-    calc (2 : ℤ) ^ n ≤ (2 : ℤ) ^ ((p₁ : ℕ) + 1) := pow_le_pow_right₀ (by norm_num) hn_nat
-      _ = 2 * A := by rw [hA, pow_succ]; ring
-  have h2A2 : (2 : ℤ) ^ (2 * (p₁ : ℕ) + 1) = 2 * A * A := by
-    rw [hA, show 2 * (p₁ : ℕ) + 1 = (p₁ : ℕ) + ((p₁ : ℕ) + 1) from by ring, pow_add, pow_succ]
-    ring
-  have hprod : cx * (2 : ℤ) ^ n ≤ (A - 1) * (2 * A) :=
+  have hprod : cx * (2 : ℤ) ^ n ≤ ((2 : ℤ) ^ (p₁ : ℕ) - 1) * (2 * (2 : ℤ) ^ (p₁ : ℕ)) :=
     mul_le_mul hcx_le h2n_le (le_of_lt h2n_pos) (by omega)
   have hcxn_pos : 0 < cx * (2 : ℤ) ^ n := mul_pos hcx_pos h2n_pos
   have habsC : |C| < (2 : ℤ) ^ (2 * (p₁ : ℕ) + 1) := by
     rw [h2A2, hC, abs_lt]
     exact ⟨by nlinarith [hcxn_pos, hcy_le, hAge], by nlinarith [hprod, hcy_pos, hAge]⟩
-  have hpcast : ((2 * p₁ + 1 : ℕ+) : ℕ) = 2 * (p₁ : ℕ) + 1 := by push_cast; ring
   refine ⟨?_, ?_⟩
   · rw [Dyadic.precisionAtMost_coe_real]
     exact ⟨C, ey, hxy_eq, by rw [hpcast]; exact habsC⟩
@@ -658,6 +573,43 @@ theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p
             rndUnbounded_unique F₁.unbounded (.nearest tb₁) (z : ℝ) hu₁ hzx_round]
       rw [hw_eq]; exact hrx_round
 
+/-- Small-gap / normal exact fallback: a result `r` fitting `2p₁+1` bits and
+inheriting `F₁`'s quantum is exactly `F₂`-representable, so `◦₁(◦₂ r) = ◦₁ r`. -/
+private theorem rndSmallGap_exact {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+    (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+)) (hpp : (2 * p₁ + 1 : ℕ+) ≤ p₂)
+    (hexp : F₂.exp ≤ F₁.exp) {r : Dyadic}
+    (hquant_r : Dyadic.quantumAtLeast F₁.exp r)
+    (hprec : Dyadic.precisionAtMost ((2 * p₁ + 1 : ℕ+) : WithTop ℕ+) r)
+    {z w : Dyadic}
+    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (r : ℝ) z)
+    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
+    RoundsFinite F₁.unbounded (.nearest tb₁) (r : ℝ) w := by
+  refine rndExact (F₂ := F₂.unbounded) ⟨?_, ?_, trivial⟩ hz hw
+  · refine Dyadic.precisionAtMost_mono ?_ hprec
+    rw [FiniteFormat.unbounded_p, hp₂]; exact_mod_cast hpp
+  · rw [FiniteFormat.unbounded_exp]; exact Dyadic.quantumAtLeast_anti hexp hquant_r
+
+/-- Subnormal exact fallback: a result `r` that inherits `F₁`'s quantum but is
+*subnormal* in `F₂` (FLX exponent below `F₂.exp`) is exactly `F₂`-representable,
+so double rounding is a no-op. -/
+private theorem rndSubnormal_exact {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₂ : ℕ+}
+    (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+)) (hexp : F₂.exp ≤ F₁.exp) {r : Dyadic}
+    (hquant_r : Dyadic.quantumAtLeast F₁.exp r)
+    (hF2norm : ¬ F₂.exp ≤ ((Int.log 2 |(r : ℝ)| + 1 - (p₂ : ℤ) : ℤ) : WithBot ℤ))
+    {z w : Dyadic}
+    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (r : ℝ) z)
+    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
+    RoundsFinite F₁.unbounded (.nearest tb₁) (r : ℝ) w := by
+  obtain ⟨e₂, he₂⟩ : ∃ e : ℤ, F₂.exp = (e : WithBot ℤ) := by
+    cases h : F₂.exp with
+    | bot => exact absurd (h ▸ bot_le) hF2norm
+    | coe e => exact ⟨e, rfl⟩
+  rw [he₂] at hF2norm
+  have hsublt : Int.log 2 |(r : ℝ)| + 1 - (p₂ : ℤ) < e₂ := by
+    by_contra hc; rw [not_lt] at hc; exact hF2norm (by exact_mod_cast hc)
+  exact rndExact (F₂ := F₂.unbounded)
+    (mem_F₂_of_subnormal hp₂ hexp hquant_r he₂ hsublt) hz hw
+
 /-- **rnd-minus, positive ordered case** (Roux Theorem 20, radix 2, FLX **and
 FLT**). For `x, y ∈ F₁` with `0 < y < x`, `p₂ ≥ 2p₁+1` and `emin₂ ≤ emin₁`
 (`hexp : F₂.exp ≤ F₁.exp`, which also covers FLX `⊥ ≤ ⊥`), double rounding of
@@ -677,32 +629,18 @@ theorem rndSub_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) ((x - y : Dyadic) : ℝ) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) ((x - y : Dyadic) : ℝ) w := by
-  have hr_real : ((x - y : Dyadic) : ℝ) = (x : ℝ) - (y : ℝ) := by push_cast; ring
-  have hrpos : 0 < ((x - y : Dyadic) : ℝ) := by rw [hr_real]; linarith
-  -- `x − y` inherits `F₁`'s quantum (difference of two `F₁` members)
   have hquant_r : Dyadic.quantumAtLeast F₁.exp (x - y) := quantumAtLeast_sub hx.2.1 hy.2.1
   by_cases hgap : F₁.canonicalExp (x : ℝ) - F₁.canonicalExp (y : ℝ) ≤ (p₁ : ℤ) + 1
   · -- small gap ⟹ `x − y` fits `2p₁+1` bits, exactly `F₂`-representable
-    obtain ⟨hprec, hquant⟩ := diff_precisionAtMost hp₁ hx hy hxpos hypos (le_of_lt hyx) hgap
-    refine rndExact (F₂ := F₂.unbounded) ⟨?_, ?_, trivial⟩ hz hw
-    · refine Dyadic.precisionAtMost_mono ?_ hprec
-      rw [FiniteFormat.unbounded_p, hp₂]; exact_mod_cast hpp
-    · rw [FiniteFormat.unbounded_exp]; exact Dyadic.quantumAtLeast_anti hexp hquant_r
+    obtain ⟨hprec, _⟩ := diff_precisionAtMost hp₁ hx hy hxpos hypos (le_of_lt hyx) hgap
+    exact rndSmallGap_exact hp₂ hpp hexp hquant_r hprec hz hw
   · rw [not_le] at hgap
     by_cases hF2norm : F₂.exp ≤
         ((Int.log 2 |((x - y : Dyadic) : ℝ)| + 1 - (p₂ : ℤ) : ℤ) : WithBot ℤ)
     · -- `x − y` normal in `F₂`: midpoint argument
       exact rndSub_pos_normal hp₁ hp₂ hpp hundef₁ hx hy hxpos hypos hyx hgap hF2norm hz hw
     · -- `x − y` subnormal in `F₂`: exactly representable
-      obtain ⟨e₂, he₂⟩ : ∃ e : ℤ, F₂.exp = (e : WithBot ℤ) := by
-        cases h : F₂.exp with
-        | bot => exact absurd (h ▸ bot_le) hF2norm
-        | coe e => exact ⟨e, rfl⟩
-      rw [he₂] at hF2norm
-      have hsublt : Int.log 2 |((x - y : Dyadic) : ℝ)| + 1 - (p₂ : ℤ) < e₂ := by
-        by_contra hc; rw [not_lt] at hc; exact hF2norm (by exact_mod_cast hc)
-      exact rndExact (F₂ := F₂.unbounded)
-        (mem_F₂_of_subnormal hp₂ hexp hquant_r he₂ hsublt) hz hw
+      exact rndSubnormal_exact hp₂ hexp hquant_r hF2norm hz hw
 
 /-- **rnd-plus, ordered positive, genuine-midpoint core** (radix 2, FLX/FLT).
 The `x + y` analog of `rndSub_pos_normal`: operand gap `> p₁+1` (`hgap`) and
@@ -872,24 +810,16 @@ theorem rndAdd_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
     RoundsFinite F₁.unbounded (.nearest tb₁) ((x + y : Dyadic) : ℝ) w := by
   have hquant_r : Dyadic.quantumAtLeast F₁.exp (x + y) := quantumAtLeast_add hx.2.1 hy.2.1
   by_cases hgap : F₁.canonicalExp (x : ℝ) - F₁.canonicalExp (y : ℝ) ≤ (p₁ : ℤ) + 1
-  · obtain ⟨hprec, hquant⟩ := sum_precisionAtMost hp₁ hx hy hxpos hypos hyx hgap
-    refine rndExact (F₂ := F₂.unbounded) ⟨?_, ?_, trivial⟩ hz hw
-    · refine Dyadic.precisionAtMost_mono ?_ hprec
-      rw [FiniteFormat.unbounded_p, hp₂]; exact_mod_cast hpp
-    · rw [FiniteFormat.unbounded_exp]; exact Dyadic.quantumAtLeast_anti hexp hquant_r
+  · -- small gap ⟹ `x + y` fits `2p₁+1` bits, exactly `F₂`-representable
+    obtain ⟨hprec, _⟩ := sum_precisionAtMost hp₁ hx hy hxpos hypos hyx hgap
+    exact rndSmallGap_exact hp₂ hpp hexp hquant_r hprec hz hw
   · rw [not_le] at hgap
     by_cases hF2norm : F₂.exp ≤
         ((Int.log 2 |((x + y : Dyadic) : ℝ)| + 1 - (p₂ : ℤ) : ℤ) : WithBot ℤ)
-    · exact rndAdd_pos_normal hp₁ hp₂ hpp hundef₁ hx hy hxpos hypos hyx hgap hF2norm hz hw
-    · obtain ⟨e₂, he₂⟩ : ∃ e : ℤ, F₂.exp = (e : WithBot ℤ) := by
-        cases h : F₂.exp with
-        | bot => exact absurd (h ▸ bot_le) hF2norm
-        | coe e => exact ⟨e, rfl⟩
-      rw [he₂] at hF2norm
-      have hsublt : Int.log 2 |((x + y : Dyadic) : ℝ)| + 1 - (p₂ : ℤ) < e₂ := by
-        by_contra hc; rw [not_lt] at hc; exact hF2norm (by exact_mod_cast hc)
-      exact rndExact (F₂ := F₂.unbounded)
-        (mem_F₂_of_subnormal hp₂ hexp hquant_r he₂ hsublt) hz hw
+    · -- `x + y` normal in `F₂`: midpoint argument
+      exact rndAdd_pos_normal hp₁ hp₂ hpp hundef₁ hx hy hxpos hypos hyx hgap hF2norm hz hw
+    · -- `x + y` subnormal in `F₂`: exactly representable
+      exact rndSubnormal_exact hp₂ hexp hquant_r hF2norm hz hw
 
 /-- A member of `F₁` (precision `p₁`) is in `F₂.unbounded` when `p₁ ≤ p₂` and
 `F₂.exp ≤ F₁.exp` (its quantum carries down). -/

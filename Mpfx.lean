@@ -10,6 +10,7 @@ import Mpfx.DoubleRounding
 import Mpfx.DoubleRoundingCex
 import Mpfx.FormatInference
 import Mpfx.DoubleRoundingOps
+import Mpfx.CanonicalExp
 import Mpfx.NearestMidpoint
 import Mpfx.DoubleRoundingAdd
 import Mpfx.DoubleRoundingSqrt
