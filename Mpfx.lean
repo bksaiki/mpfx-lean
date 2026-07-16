@@ -9,3 +9,9 @@ import Mpfx.Digits
 import Mpfx.DoubleRounding
 import Mpfx.DoubleRoundingCex
 import Mpfx.FormatInference
+import Mpfx.DoubleRoundingMul
+import Mpfx.CanonicalExp
+import Mpfx.NearestMidpoint
+import Mpfx.DoubleRoundingAdd
+import Mpfx.DoubleRoundingSqrt
+import Mpfx.DoubleRoundingDiv
