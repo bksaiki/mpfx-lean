@@ -415,11 +415,49 @@ gt-path to drop `htop` (the abstract crossing argument: the intermediate `z`
 lands on `2^(mag x)`, which is in `F₁`, and `nearest_eq_of_close'` closes both
 `◦₁(z)` and `◦₁(x)` to it).
 
-**Next (step 2): square root.** (a) `Int.log 2 (Real.sqrt x)` binade lemma
-(≈ Flocq `mag_sqrt`/`mag_sqrt_disj`); (b) the separation `round_round_sqrt_aux`
-(√x is `> ½ulp₂` from any `F₁`-midpoint, via squaring + bit-counting) — the hard
-mile; (c) assembly through `round_round_mid_cases` + FLX/FLT corollaries
-(`p₂ ≥ 2p₁+2`, plus the Table-II `emin` condition).
+**Step 2: square root** (in `Mpfx/DoubleRoundingSqrt.lean`).
+- (a) **DONE** — `log_sqrt_bounds`: `2L ≤ Int.log 2 x ≤ 2L+1` for `L = Int.log 2 √x`
+  (Flocq `mag_sqrt_disj`), by squaring the `Int.log` bounds on `√x`. Verified.
+- (b) **DONE** — `round_round_sqrt_aux`: `½ulp₂ < |√x − midp₁(√x)|`. Ported the
+  Figueroa squaring argument: assume `√x` within `½ulp₂` of the midpoint `a+½u₁`
+  (`a = rndDown₁ √x`), so `a+½(u₁−u₂) ≤ √x ≤ a+½(u₁+u₂)`; square (`x = (√x)²`) to
+  trap `x` strictly between `A := a²+u₁a` and `A + u₁²`; both `A` and `x` are integer
+  multiples of `M := 2^(2e₁) = u₁²` (using `a = ma·2^e₁`, `x = mx·2^(cexp₁ x)`,
+  `cexp₁ x ≥ 2e₁`), and no multiple of `M` lies strictly in `(A, A+M)`. Hypotheses:
+  `hxrep` (x on F₁ grid), `hf1` (`2e₁ ≤ cexp₁ x`), `hle`, `hquant`
+  (`e₂+log√x+1 ≤ 2e₁−2`, i.e. Roux's `p₂ ≥ 2p₁+2`). Key Lean notes: `clear_value`
+  the `let`s (`ma`,`a`,`A`,`M`) or `linarith`/`ring` `whnf`-timeout unfolding `⌊·⌋`;
+  watch `2^e₁^2` precedence (`(2^e₁)^2`). Verified, axioms clean.
+- (c) **DONE** — `rndSqrt` (FLX): `x ∈ F₁`, `0 < x`, `p₂ ≥ 2p₁+2` ⟹ double rounding
+  of `√x` innocuous. Assembled via `round_round_mid_cases`; `hcmid` discharged by
+  `absurd … (not_le.mpr (round_round_sqrt_aux …))`; `hf1`/`hle`/`hquant`/`h21` all
+  fall out of `canonicalExp_FLX` + `log_sqrt_bounds` + `omega`; `hxrep` from
+  `exists_canonical_rep`. Verified, axioms clean.
+
+  **`htop` sub-issue RESOLVED (option i, in `NearestMidpoint.lean`):** hardened the
+  midpoint engine — added `canonicalExp_eq_of_gt_mid'` (takes `z < 2^(mag x)`
+  directly) and **`rnd_gt_mid_robust`** (drops `htop`): if `z` stays in `x`'s binade
+  use `_gt_mid'`; else `z` crosses, and since `z` is the round-up of `x` bounded above
+  by `2^(mag x) ∈ F₂`, `z = 2^(mag x)` exactly ∈ `F₁`, so `◦₁(z)=z` and
+  `◦₁(x)=z` (both close via `nearest_eq_of_close'`). `round_round_mid_cases` no longer
+  takes `htop`. This is reused directly by `÷`.
+
+- (d) **DONE** — square root FLX+FLT, unified into a **single top-level `rndSqrt`**.
+  `rndSqrt_core` is format-agnostic (takes the discharged `hxrep`/`hf1`/`hle`/`hquant`,
+  derives `h21` from `hquant`+`hle`, runs `round_round_mid_cases` + aux). The single
+  `rndSqrt` takes one `hexp` hypothesis that is a disjunction of the two supported
+  configs — FLX (`F₁.exp = F₂.exp = ⊥`, no extra condition) or FLT (`emin₁ ≤ 0` plus
+  Table-II `emin₂ ≤ emin₁−p₁−2 ∨ 2emin₂ ≤ emin₁−4p₁−2`) — and `rcases`es it, dispatching
+  to the shared core. Discharge via `canonicalExp_FLX`/`canonicalExp_FLT`
+  (`max(log|v|+1−p, emin)`) + member bound `2^emin₁ ≤ x` + `log_sqrt_bounds`, then
+  **`omega` (handles `max` on ℤ)** closes `hf1`/`hle`/`hquant` (`rcases hE <;> omega` for
+  the FLT underflow disjunction). No `Valid_exp` machinery needed. Verified, axioms clean.
+  (`rndSqrt`'s disjunctive `hexp` differs from `rndAdd`'s single `F₂.exp ≤ F₁.exp` only
+  because √'s underflow bound is genuinely not a single `≤`.) **Square root complete.**
+
+**Still open:** division (Thm 29) — the last operation. Needs `mag_div` binade, the div
+separation `round_round_div_aux*`, and the even-radix exact-midpoint lemma
+(`round_round_eq_mid_beta_even`) since `x/y` *can* be an exact midpoint (unlike √x).
 
 **Open design decision (resolved — recorded for history):**
 1. **Represent `ulp`/`midp`/round-down how?** (a) real-valued

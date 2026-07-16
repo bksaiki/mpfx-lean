@@ -12,3 +12,4 @@ import Mpfx.FormatInference
 import Mpfx.DoubleRoundingOps
 import Mpfx.NearestMidpoint
 import Mpfx.DoubleRoundingAdd
+import Mpfx.DoubleRoundingSqrt

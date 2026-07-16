@@ -590,6 +590,44 @@ theorem rnd_gt_mid' {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ
     RoundsFinite F₁.unbounded (.nearest tb₁) x w :=
   rnd_gt_mid hundef₁ h21 hmid (canonicalExp_eq_of_gt_mid hx h21 hle htop hz) hz hw
 
+/-- Binade consistency, above-midpoint, taking the upper bound `z < 2^(mag x)`
+directly instead of an away-from-top hypothesis. -/
+theorem canonicalExp_eq_of_gt_mid' {F₁ F₂ : FiniteFormat} {tb₂ : TieBreak} {x : ℝ}
+    (hx : 0 < x)
+    (h21 : F₂.canonicalExp x < F₁.canonicalExp x)
+    (hle : F₁.canonicalExp x ≤ Int.log 2 x + 1)
+    {z : Dyadic}
+    (hzhi : (z : ℝ) < (2 : ℝ) ^ (Int.log 2 x + 1))
+    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) x z) :
+    F₁.canonicalExp (z : ℝ) = F₁.canonicalExp x := by
+  set k := Int.log 2 x with hk
+  have hx0 : x ≠ 0 := ne_of_gt hx
+  have hxabs : |x| = x := abs_of_pos hx
+  have h_xlo : (2 : ℝ) ^ k ≤ x := by
+    have := Int.zpow_log_le_self (b := 2) (by norm_num) hx; rw [← hk] at this; exact_mod_cast this
+  have he₂_le_k : F₂.canonicalExp x ≤ k := by omega
+  have hzf : IsFaithfulRound F₂.unbounded x z := by cases tb₂ <;> exact hz.2.1
+  have hdk_mem : Dyadic.ofIntZpow 1 k ∈ F₂.unbounded := by
+    refine ofIntZpow_mem_unbounded F₂
+      (fun he' => le_trans (F₂.exp_le_canonicalExp x he') he₂_le_k) (fun {p} _ => ?_)
+    rw [abs_one]; exact one_le_pow₀ (by norm_num)
+  have hdk_real : (Dyadic.ofIntZpow 1 k : ℝ) = (2 : ℝ) ^ k := by
+    rw [Dyadic.coe_ofIntZpow]; push_cast; ring
+  have h_zlo : (2 : ℝ) ^ k ≤ (z : ℝ) := by
+    rcases hzf with ⟨_, _, hmax⟩ | ⟨_, hxz, _⟩
+    · have := hmax _ hdk_mem (by rw [hdk_real]; exact h_xlo); rw [hdk_real] at this; exact this
+    · linarith [h_xlo]
+  have hz_pos : (0 : ℝ) < (z : ℝ) := lt_of_lt_of_le (zpow_pos (by norm_num) k) h_zlo
+  have hlogz : Int.log 2 (z : ℝ) = k := by
+    have h1 : k ≤ Int.log 2 (z : ℝ) :=
+      (Int.zpow_le_iff_le_log (b := 2) (by norm_num) hz_pos).mp (by exact_mod_cast h_zlo)
+    have h2 : Int.log 2 (z : ℝ) < k + 1 :=
+      (Int.lt_zpow_iff_log_lt (b := 2) (by norm_num) hz_pos).mp (by exact_mod_cast hzhi)
+    omega
+  have hzabs : |(z : ℝ)| = (z : ℝ) := abs_of_pos hz_pos
+  exact (canonicalExp_eq_of_log_eq F₁ (ne_of_gt hz_pos) hx0
+    (by rw [hzabs, hxabs, hlogz, ← hk])).trans rfl
+
 /-- **Nearest of a value close to a grid point.** If `v` is within half an ulp
 of the grid point `m · 2^(canonicalExp v)` (i.e. its scaled mantissa is within
 `½` of the integer `m`), then that grid point *is* the nearest rounding of `v`.
@@ -669,14 +707,81 @@ theorem nearest_eq_of_close' (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
         mul_lt_mul_of_pos_right hclose h2pos
     _ = 1 / 2 := by rw [div_mul_eq_mul_div, hcc]
 
+/-- **Above-midpoint double rounding, crossing-robust** (Flocq
+`round_round_gt_mid_further_place`, including the `x'' = bpow(mag x)` branch).
+Like `rnd_gt_mid'` but *without* the away-from-top hypothesis `htop`: if the
+intermediate `z` stays in `x`'s binade, binade consistency (`_gt_mid'`) applies;
+otherwise `z` crosses to `2^(mag x)`. In the crossing case `z` is the round-up of
+`x`, bounded above by `2^(mag x) ∈ F₂`, so `z = 2^(mag x)` exactly — a value of
+`F₁` — hence `◦₁(z) = z`, and `◦₁(x) = z` too since `x` is within `½·ulp₂` of it. -/
+theorem rnd_gt_mid_robust {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
+    {z w : Dyadic}
+    (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
+    (hx : 0 < x)
+    (h21 : F₂.canonicalExp x < F₁.canonicalExp x)
+    (hle : F₁.canonicalExp x ≤ Int.log 2 x + 1)
+    (hmid : (rndUp F₁ x : ℝ) - ulp F₁ x / 2 + ulp F₂ x / 2 < x)
+    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) x z)
+    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
+    RoundsFinite F₁.unbounded (.nearest tb₁) x w := by
+  set k := Int.log 2 x with hk
+  have hx_hi : x < (2 : ℝ) ^ (k + 1) := by
+    have := Int.lt_zpow_succ_log_self (b := 2) (by norm_num) x
+    rw [← hk] at this; exact_mod_cast this
+  by_cases hzc : (z : ℝ) < (2 : ℝ) ^ (k + 1)
+  · -- no crossing: binade consistency, then `rnd_gt_mid`
+    have hcexp : F₁.canonicalExp (z : ℝ) = F₁.canonicalExp x :=
+      canonicalExp_eq_of_gt_mid' hx h21 hle (by rw [← hk]; exact hzc) hz
+    exact rnd_gt_mid hundef₁ h21 hmid hcexp hz hw
+  · -- crossing: `z = 2^(k+1)`
+    rw [not_lt] at hzc
+    have hu2_le : ulp F₂ x ≤ ulp F₁ x / 2 := ulp_le_half_ulp_of_canonicalExp_lt h21
+    have hu1pos := ulp_pos F₁ x
+    have hz_err := abs_le.mp (nearest_error_le_half_ulp hz)
+    have hBmem₂ : Dyadic.ofIntZpow 1 (k + 1) ∈ F₂.unbounded := by
+      refine ofIntZpow_mem_unbounded F₂
+        (fun he' => le_trans (F₂.exp_le_canonicalExp x he') (by omega)) (fun {p} _ => ?_)
+      rw [abs_one]; exact one_le_pow₀ (by norm_num)
+    have hB_real : (Dyadic.ofIntZpow 1 (k + 1) : ℝ) = (2 : ℝ) ^ (k + 1) := by
+      rw [Dyadic.coe_ofIntZpow]; push_cast; ring
+    have hzf : IsFaithfulRound F₂.unbounded x z := by cases tb₂ <;> exact hz.2.1
+    have hz_eq : (z : ℝ) = (2 : ℝ) ^ (k + 1) := by
+      rcases hzf with ⟨_, hzx, _⟩ | ⟨_, _, hmin⟩
+      · exfalso; linarith [hzx, hx_hi, hzc]
+      · have := hmin _ hBmem₂ (by rw [hB_real]; exact le_of_lt hx_hi)
+        rw [hB_real] at this; linarith [this, hzc]
+    have hzmem₁ : z ∈ F₁.unbounded := by
+      have hzB : z = Dyadic.ofIntZpow 1 (k + 1) :=
+        (Dyadic.coe_real_inj _ _).mp (by rw [hz_eq, hB_real])
+      rw [hzB]
+      refine ofIntZpow_mem_unbounded F₁
+        (fun he' => le_trans (F₁.exp_le_canonicalExp x he') (by omega)) (fun {p} _ => ?_)
+      rw [abs_one]; exact one_le_pow₀ (by norm_num)
+    have hw_eq : w = z := RoundsFinite.eq_of_mem hzmem₁ hw
+    have hx_close : |x - (z : ℝ)| < (2 : ℝ) ^ (F₁.canonicalExp x) / 2 := by
+      have h1 : (2 : ℝ) ^ (k + 1) - x ≤ ulp F₂ x / 2 := by
+        have := hz_err.2; rw [hz_eq] at this; linarith
+      have hu1 : ulp F₁ x = (2 : ℝ) ^ (F₁.canonicalExp x) := rfl
+      rw [hz_eq, abs_of_nonpos (by linarith [hx_hi] : x - (2 : ℝ) ^ (k + 1) ≤ 0), ← hu1]
+      linarith [h1, hu2_le, hu1pos]
+    have hquant_z : Dyadic.quantumAtLeast ((F₁.canonicalExp x : ℤ) : WithBot ℤ) z := by
+      refine (Dyadic.quantumAtLeast_coe_real (F₁.canonicalExp x) z).mpr
+        ⟨2 ^ (k + 1 - F₁.canonicalExp x).toNat, ?_⟩
+      rw [hz_eq]; push_cast
+      rw [← zpow_natCast (2 : ℝ), Int.toNat_of_nonneg (by omega),
+          ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+      congr 1; ring
+    rw [hw_eq]
+    exact nearest_eq_of_close' F₁ tb₁ x hundef₁ hquant_z hx_close
+
 /-! ## Midpoint case dispatch (Flocq `round_round_mid_cases`)
 
 The shared entry point for the operation-specific results whose output can lie
 on *either* side of its `F₁`-midpoint (square root, division). Given `F₂` finer
 than `F₁` at `x`, the value is either far enough below the midpoint
-(`rnd_lt_mid'`), far enough above it (`rnd_gt_mid'`), or within `½·ulp₂` of it —
-the last case being where the *operation-specific* algebra shows the result can
-never land (so the caller discharges it, typically by `exfalso`). -/
+(`rnd_lt_mid'`), far enough above it (`rnd_gt_mid_robust`), or within `½·ulp₂` of
+it — the last case being where the *operation-specific* algebra shows the result
+can never land (so the caller discharges it, typically by `exfalso`). -/
 
 /-- **Upper midpoint** `rndUp F x − ½·ulp F x` (Flocq `midp'`). For `x` not
 representable in `F` this equals `midp F x`; the two split only at grid points. -/
@@ -684,19 +789,19 @@ noncomputable def midp' (F : FiniteFormat) (x : ℝ) : ℝ :=
   (rndUp F x : ℝ) - ulp F x / 2
 
 /-- **Midpoint case dispatch** (Flocq `round_round_mid_cases`). For `0 < x` with
-`F₂` strictly finer than `F₁` at `x` (`h21`), `x` inside its binade (`hle`), and
-bounded away from the binade top (`htop`), double rounding of `x` is innocuous
-*provided the near-midpoint case is handled*: if `|x − midp₁ x| ≤ ½·ulp₂` the
-caller supplies `hcmid`; otherwise `x` sits more than `½·ulp₂` below the midpoint
-(→ `rnd_lt_mid'`) or above it (→ `rnd_gt_mid'`). The `√`/`÷` proofs discharge
-`hcmid` by showing the result is never within `½·ulp₂` of a midpoint. -/
+`F₂` strictly finer than `F₁` at `x` (`h21`) and `x` inside its binade (`hle`),
+double rounding of `x` is innocuous *provided the near-midpoint case is handled*:
+if `|x − midp₁ x| ≤ ½·ulp₂` the caller supplies `hcmid`; otherwise `x` sits more
+than `½·ulp₂` below the midpoint (→ `rnd_lt_mid'`) or above it
+(→ `rnd_gt_mid_robust`, which needs no away-from-top hypothesis). The `√`/`÷`
+proofs discharge `hcmid` by showing the result is never within `½·ulp₂` of a
+midpoint. -/
 theorem round_round_mid_cases {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
     {z w : Dyadic}
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     (hx : 0 < x)
     (h21 : F₂.canonicalExp x < F₁.canonicalExp x)
     (hle : F₁.canonicalExp x ≤ Int.log 2 x + 1)
-    (htop : x + ulp F₂ x / 2 < (2 : ℝ) ^ (Int.log 2 x + 1))
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) x z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w)
     (hcmid : |x - midp F₁ x| ≤ ulp F₂ x / 2 →
@@ -709,7 +814,7 @@ theorem round_round_mid_cases {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak
     rw [hmidp]; linarith
   · rcases lt_or_ge ((ulp F₁ x + ulp F₂ x) / 2) (x - (rndDown F₁ x : ℝ)) with hgt | hmid
     · -- more than `½·ulp₂` above the midpoint
-      refine rnd_gt_mid' hundef₁ hx h21 hle htop ?_ hz hw
+      refine rnd_gt_mid_robust hundef₁ hx h21 hle ?_ hz hw
       have hup := rndUp_le_rndDown_add_ulp F₁ x
       linarith
     · -- within `½·ulp₂` of the midpoint
