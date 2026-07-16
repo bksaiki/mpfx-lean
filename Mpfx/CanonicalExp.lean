@@ -98,4 +98,13 @@ theorem exp_le_canonicalExp_coe (F : FiniteFormat) (x : ℝ) :
   | bot => exact bot_le
   | coe e => exact_mod_cast F.exp_le_canonicalExp x hexp
 
+/-- The FLX exponent lower-bounds `canonicalExp`: `log₂|v| + 1 − p ≤ canonicalExp v`
+(equality for `exp = ⊥`; `≤` via `le_max_left` for finite `exp`). -/
+theorem log_sub_prec_le_canonicalExp {F : FiniteFormat} {p : ℕ+}
+    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) {v : ℝ} (hv : v ≠ 0) :
+    Int.log 2 |v| + 1 - (p : ℤ) ≤ F.canonicalExp v := by
+  cases hexp : F.exp with
+  | bot => rw [canonicalExp_FLX hp hexp hv]
+  | coe e => rw [canonicalExp_FLT hp hexp hv]; exact le_max_left _ _
+
 end Mpfx

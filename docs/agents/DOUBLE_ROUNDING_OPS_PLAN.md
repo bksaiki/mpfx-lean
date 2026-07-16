@@ -455,9 +455,8 @@ lands on `2^(mag x)`, which is in `F₁`, and `nearest_eq_of_close'` closes both
   (`rndSqrt`'s disjunctive `hexp` differs from `rndAdd`'s single `F₂.exp ≤ F₁.exp` only
   because √'s underflow bound is genuinely not a single `≤`.) **Square root complete.**
 
-**Still open:** division (Thm 29) — the last operation. Needs `mag_div` binade, the div
-separation `round_round_div_aux*`, and the even-radix exact-midpoint lemma
-(`round_round_eq_mid_beta_even`) since `x/y` *can* be an exact midpoint (unlike √x).
+**Division (Thm 29) — in progress** (`Mpfx/DoubleRoundingDiv.lean`). See the
+dedicated plan in §9 below.
 
 **Open design decision (resolved — recorded for history):**
 1. **Represent `ulp`/`midp`/round-down how?** (a) real-valued
@@ -469,6 +468,114 @@ separation `round_round_div_aux*`, and the even-radix exact-midpoint lemma
 2. **Commit now?** Phase 2+3 is a large, multi-lemma effort with the fiddly
    interval-containment core. Multiplication (Phases 0–1) is already a complete,
    self-contained result. Confirm before I invest.
+
+## 8. Cleanup / refactor pass (2026-07-15)
+
+Structural cleanup only — no change to theorem statements or the mathematical
+content of proofs; all still verified, axioms `[propext, Classical.choice,
+Quot.sound]`. Current names/locations **supersede references earlier in this doc**:
+
+- **New module `Mpfx/CanonicalExp.lean`** holds the format-generic `canonicalExp`
+  lemmas, moved out of `DoubleRoundingAdd`/`DoubleRoundingSqrt`:
+  `exists_canonical_rep`, `canonicalExp_mono`, `canonicalExp_closed`,
+  `canonicalExp_FLX` (now a one-line corollary of `_closed`), `canonicalExp_FLT`
+  (no longer `private`), `exp_le_canonicalExp_coe`.
+- **`canonicalExp_eq_of_gt_mid'` → renamed `canonicalExp_eq_of_binade_top`** (the
+  shared "binade consistency from a direct upper bound `z < 2^(mag x)`" lemma);
+  `canonicalExp_eq_of_lt_mid` now derives the upper bound then calls it.
+- **`nearest_eq_rndDown_of_lt_midp` / `nearest_eq_rndUp_of_midp_lt`** are now thin
+  wrappers over `nearest_eq_of_close` (moved above them; the four grid-point
+  lemmas are colocated).
+- **`sum_precisionAtMost` / `diff_precisionAtMost`** share
+  `add_sub_mantissa_setup` + `two_pow_two_p_split`; the small-gap/subnormal
+  branches of `rndSub_pos`/`rndAdd_pos` share `rndSmallGap_exact` /
+  `rndSubnormal_exact`; `quantumAtLeast_sub` derives from `quantumAtLeast_add` +
+  a new `quantumAtLeast_neg`.
+- **Deleted (dead):** `rnd_gt_mid'`, `canonicalExp_eq_of_gt_mid` (non-primed),
+  `midp'`, `rndDown_lt_midp`, `midp_lt_rndDown_add_ulp` (NearestMidpoint);
+  `canonicalExp_lt_of_prec_lt` (Add). The two-sided engine's far cases now go to
+  `rnd_lt_mid'` / `rnd_gt_mid_robust` (the deleted `rnd_gt_mid'` and its `htop`
+  are gone — see §Step 1 caveat, resolved).
+
+## 9. Division (Theorem 29) — implementation plan
+
+**Statement (Roux Thm 29, radix 2 / even β).** For `p₂ ≥ 2p₁` (same bound as ×,
+and tight — Remark 30 counterexample at `p₂ = 2p₁−1`), `◦₁(◦₂(x/y)) = ◦₁(x/y)`
+for `x,y ∈ FLXp₁`, `y ≠ 0`, both roundings to nearest (any tie). Even radix is
+*required* (odd radices need a directed tie-break — out of scope). FLT variant
+also holds (no underflow issue for IEEE binary).
+
+**Engine reuse.** Unlike Flocq's finer `round_round_all_mid_cases` (which pre-splits
+the near-mid region into aux0/aux1/aux2/eq-mid), we reuse our existing
+`round_round_mid_cases`: it reduces to one near-mid obligation
+`hcmid : |x/y − midp₁| ≤ ½ulp₂ → RoundsFinite …`. Inside `hcmid` we case-split on
+`x/y = midp₁ (x/y)`:
+- **≠ (near but not equal):** *impossible* — the division separation lemma (below)
+  gives `¬ (0 < |x/y − midp₁| ≤ ½ulp₂)`. Analogue of `round_round_sqrt_aux`.
+- **= (exact midpoint):** the even-radix lemma (below) puts `x/y ∈ F₂`, so the
+  intermediate is exact (`z = x/y` via `RoundsFinite.eq_of_mem`), and
+  `◦₁(z) = ◦₁(x/y)` closes it (like `rndSmallGap_exact`/`rndSubnormal_exact`).
+
+Binade consistency + the two far cases (`< m−½ulp₂`, `> m+½ulp₂`) are already
+handled by `round_round_mid_cases` (`rnd_lt_mid'` / `rnd_gt_mid_robust`); the
+binade-top/aux0 boundary is subsumed by `rnd_gt_mid_robust`.
+
+**Pieces** (FLX all **DONE**, verified, axioms `[propext, Classical.choice, Quot.sound]`).
+1. **DONE — `log_div_bounds`** (Flocq `mag_div_disj`): `Lx−Ly−1 ≤ Int.log 2 (x/y)
+   ≤ Lx−Ly`. Proved by dividing the binade bounds on `x`, `y`.
+2. **DONE — `midp_mem_F₂` (even radix = radix 2).** If `0 < v`, `v = midp F₁ v`,
+   and `F₂.canonicalExp v ≤ F₁.canonicalExp v − 1`, then the midpoint dyadic
+   `g := ofIntZpow (2ma+1) (e₁−1)` (`ma = ⌊v·2^(−e₁)⌋`) has `(g:ℝ) = v` and
+   `g ∈ F₂`. Multiple of `2^(e₁−1)` with `e₁−1 ≥ e₂ ≥ F₂.exp` (quantum), and
+   `|v·2^(−e₂)| < 2^p₂` (precision, from `log_sub_prec_le_canonicalExp`). Mirrors
+   `mem_F₂_of_subnormal`.
+3. **DONE — `round_round_div_aux` (separation, Figueroa).** For `v = x/y` with
+   `x,y ∈ F₁`, if `v ≠ midp₁ v` then `½ulp₂ < |v − midp₁ v|`. Multiplying the
+   midpoint gap by `y` gives `x − m·y = K·2^(e₁−1+ey)` with `K` a *nonzero integer*
+   (`e₁−1+ey ≤ ex`, `hex_ge`); so `|x−m·y| ≥ 2^(e₁−1+ey)`, clashing with the
+   `≤ 2^(e₂−1)·y < 2^(e₂−1+ey+p₁)` bound once `e₂ ≤ e₁−p₁` (`hquant`, i.e.
+   `p₂ ≥ 2p₁`). Cleaner (linear/integrality) than the √ quadratic argument.
+4. **DONE — `rndDiv_core`** (format-agnostic): runs `round_round_mid_cases`;
+   discharges `hcmid` by `by_cases (v = midp₁ v)` → `midp_mem_F₂` (exact) /
+   `absurd … (not_le.mpr (round_round_div_aux …))` (impossible).
+5. **DONE — `rndDiv_pos` / `rndDiv_posden` / `rndDiv` (FLX).** `rndDiv_pos` (a,b>0)
+   discharges the core hyps via `canonicalExp_FLX` + `log_div_bounds` + `omega`;
+   `rndDiv_posden` adds arbitrary-sign numerator (`a<0` via `neg_nearest`, `a=0`
+   via `rndExact`); `rndDiv` adds negative denominator (`a/b = (−a)/(−b)`).
+   Full statement: `a,b ∈ F₁`, `b ≠ 0`, `p₂ ≥ 2p₁`, both roundings to nearest.
+
+**FLT division — partial; a structural obstacle found.** Flocq's
+`round_round_div_FLT` bound is `emin₂ ≤ emin₁ − p₁ − 2` ∧ `p₂ ≥ 2p₁`. FLT `x/y`
+splits (Flocq `round_round_all_mid_cases`) into three regimes by `cexp₁ v` vs
+`mag v`: deeply-subnormal (`round_round_really_zero`), boundary (`fexp₁(mag)=mag+1`,
+`round_round_zero` + `div_aux0`), and normal (our `round_round_mid_cases`). FLX only
+ever hits the normal regime (`cexp = mag − p₁ < mag`), which is why our engine
+sufficed for every FLX op.
+
+*Built and verified for the underflow regime:*
+- `nearest_zero_of_small` — in FLT, `0 ≤ x' < 2^(emin₁−1)` rounds to `0`
+  (`nearest_eq_of_close` with `m = 0`).
+- `round_round_div_zero` — the non-sliver underflow case: `v` far below the
+  threshold `2^(emin₁−1)` ⟹ both `v` and `◦₂ v` round to `0` in `F₁`. Covers Flocq
+  `really_zero` + the non-sliver part of `zero`.
+
+*Two genuine obstacles (why FLT is a rework, not an extension):*
+1. **The separation `round_round_div_aux` is FLX-specific.** Its integrality
+   argument writes `x − m·y = K·2^(cexp₁ v − 1 + cexp₁ b)` with `K` integer,
+   needing `cexp₁ v − 1 + cexp₁ b ≤ cexp₁ a` (`hex_ge`). In FLT the `max` inflates a
+   subnormal operand's `cexp` to `emin₁`, breaking this. **Counterexample**
+   (regime 3!): `p₁=5, emin₁=5, a=512, b=32 ⇒ v=16`, all in `F₁`; `hex_ge` wants
+   `5−1+5 ≤ 5` (false). In FLX the same gives `0 ≤ 5` ✓. A min-scale variant
+   (`2^min(cexp₁a, cexp₁v−1+cexp₁b)`) also fails to yield a contradiction here.
+   Flocq's `div_aux1/2` use a **mag-based** scale + the 5-component
+   `round_round_div_hyp` precisely to avoid this — that is the rework needed.
+2. **The boundary sliver `div_aux0`** (`[2^(emin₁−1) − ½ulp₂, 2^(emin₁−1))`) is a
+   ~90-line dense Flocq proof (`bpow_simplify`/`IZR_Zpower`/`field_simplify`) with no
+   short analog; it shows a quotient cannot land in that sliver.
+
+So FLT division needs `round_round_div_aux` re-derived on a mag-based scale (à la
+Flocq `div_hyp`) plus the `div_aux0` port — comparable in size to the whole FLX
+division. Deferred.
 
 ## 7. References
 - `flocq-4.2.2/src/Prop/Double_rounding.v`: `round_round_mult` (L661),
