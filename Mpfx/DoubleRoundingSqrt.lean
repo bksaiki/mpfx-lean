@@ -22,7 +22,7 @@ namespace Mpfx
 `2L ≤ Int.log 2 x ≤ 2L+1`. Equivalently `Int.log 2 (√x) = ⌊(Int.log 2 x)/2⌋`.
 Proof: square the defining bounds `2^L ≤ √x < 2^(L+1)` to get
 `2^(2L) ≤ x < 2^(2L+2)`, then read off `Int.log 2 x`. -/
-theorem log_sqrt_bounds {x : ℝ} (hx : 0 < x) :
+private theorem log_sqrt_bounds {x : ℝ} (hx : 0 < x) :
     2 * Int.log 2 (Real.sqrt x) ≤ Int.log 2 x ∧
       Int.log 2 x ≤ 2 * Int.log 2 (Real.sqrt x) + 1 := by
   set L := Int.log 2 (Real.sqrt x) with hL
@@ -66,7 +66,7 @@ traps `x` strictly between `A := a²+u₁a` and `A + u₁²`, where — because 
 `F₁` multiple of `2^e₁` and `x` is an `F₁` multiple of `2^(canonicalExp₁ x)` with
 `canonicalExp₁ x ≥ 2e₁` — both `A` and `x` are integer multiples of `M := 2^(2e₁)
 = u₁²`. A multiple of `M` cannot lie strictly between `A` and `A + M`. -/
-theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 0 < x)
+private theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 0 < x)
     (hxrep : ∃ mx : ℤ, x = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp x))
     (hf1 : 2 * F₁.canonicalExp (Real.sqrt x) ≤ F₁.canonicalExp x)
     (hle : F₁.canonicalExp (Real.sqrt x) ≤ Int.log 2 (Real.sqrt x) + 1)
@@ -212,7 +212,7 @@ theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 0 < x)
 double rounding of `√x` is innocuous. `round_round_mid_cases` reduces to the
 near-midpoint obligation, discharged by `round_round_sqrt_aux`; the strict
 `h21` (`F₂` finer than `F₁` at `√x`) follows from `hquant` and `hle`. -/
-theorem rndSqrt_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
+private theorem rndSqrt_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
     (hx : 0 < x)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     (hxrep : ∃ mx : ℤ, x = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp x))

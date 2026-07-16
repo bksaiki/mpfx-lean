@@ -34,7 +34,7 @@ binade of `x / y` is `Int.log 2 x − Int.log 2 y` or one less:
 `Lx − Ly − 1 ≤ Int.log 2 (x / y) ≤ Lx − Ly`. Proof: divide the defining bounds
 `2^Lx ≤ x < 2^(Lx+1)` and `2^Ly ≤ y < 2^(Ly+1)` to trap
 `2^(Lx−Ly−1) ≤ x/y < 2^(Lx−Ly+1)`, then read off `Int.log 2 (x/y)`. -/
-theorem log_div_bounds {x y : ℝ} (hx : 0 < x) (hy : 0 < y) :
+private theorem log_div_bounds {x y : ℝ} (hx : 0 < x) (hy : 0 < y) :
     Int.log 2 x - Int.log 2 y - 1 ≤ Int.log 2 (x / y) ∧
       Int.log 2 (x / y) ≤ Int.log 2 x - Int.log 2 y := by
   set Lx := Int.log 2 x with hLx
@@ -130,7 +130,7 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
 /-- **Small positive values round to zero** (FLT underflow). In an FLT format
 (`exp = emin`), any `0 ≤ x' < 2^(emin−1)` rounds to nearest to `0`: its scaled
 mantissa is `< ½`, and the grid point selected is `0`. -/
-theorem nearest_zero_of_small {F₁ : FiniteFormat} {tb₁ : TieBreak} {p₁ : ℕ+} {emin₁ : ℤ}
+private theorem nearest_zero_of_small {F₁ : FiniteFormat} {tb₁ : TieBreak} {p₁ : ℕ+} {emin₁ : ℤ}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {x' : ℝ} (hx'0 : 0 ≤ x') (hx'lt : x' < (2 : ℝ) ^ (emin₁ - 1)) :
@@ -163,7 +163,8 @@ land in `[0, 2^(emin₁−1))`, so both round to `0` in `F₁` and double roundi
 innocuous. Covers Flocq's `round_round_really_zero` regime and the non-sliver
 part of `round_round_zero`; the excluded sliver `[2^(emin₁−1) − ½ulp₂,
 2^(emin₁−1))` is where `round_round_div_aux0` shows a quotient cannot land. -/
-theorem round_round_div_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ : ℕ+} {emin₁ : ℤ}
+private theorem round_round_div_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
+    {p₁ : ℕ+} {emin₁ : ℤ}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {v : ℝ} (hv : 0 < v)
@@ -204,7 +205,7 @@ e₁−1+cexp₁ y`), which together give `s ≥ e₂ + Int.log y`. The `min`-sc
 makes this robust for FLT: unlike a fixed `cexp₁ x`-vs-`e₁−1+cexp₁ y` comparison,
 it needs no ordering of the operand exponents (that ordering fails when a
 subnormal operand's `cexp` is inflated to `emin₁`). -/
-theorem round_round_div_aux {F₁ F₂ : FiniteFormat} {x y v : ℝ}
+private theorem round_round_div_aux {F₁ F₂ : FiniteFormat} {x y v : ℝ}
     (hy : 0 < y) (hv : x = v * y)
     (hxrep : ∃ mx : ℤ, x = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp x))
     (hyrep : ∃ my : ℤ, y = (my : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp y))
@@ -285,7 +286,7 @@ separation bounds of `round_round_div_aux`), `hle` (`v` inside its binade), and
 Roux's `hquant` (`cexp₂ v ≤ cexp₁ v − p₁`, i.e. `p₂ ≥ 2p₁`). `round_round_mid_cases`
 reduces to the near-midpoint case, which splits: `v = m` is handled exactly by
 `midp_mem_F₂` (even radix), and `v ≠ m` is impossible by `round_round_div_aux`. -/
-theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {a b v : ℝ} {p₁ p₂ : ℕ+}
+private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {a b v : ℝ} {p₁ p₂ : ℕ+}
     (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     (ha : 0 < a) (hb : 0 < b) (hab : a = v * b)
@@ -320,7 +321,7 @@ theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {a b v :
 with `0 < a`, `0 < b` and `p₂ ≥ 2p₁`, double rounding of `a / b` is innocuous.
 The `rndDiv_core` hypotheses are discharged from the FLX closed form
 `canonicalExp = log₂|·| + 1 − p` and the quotient binade bounds `log_div_bounds`. -/
-theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
@@ -363,7 +364,7 @@ reworked `round_round_div_aux` uses a `min`-scale, so its bounds `hA`/`hB` are n
 `omega`-provable for FLT from `hquant`, `hle`, `log_div_bounds`, and the lower
 bounds `cexp₁ = max(…) ≥ mag − p₁` — dodging the subnormal-`cexp`-inflation that
 broke the FLX-style `hex_ge`. -/
-theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hpp : 2 * p₁ ≤ p₂)
@@ -415,7 +416,7 @@ theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak
   (`round_round_div_zero`); otherwise `v` is in the boundary sliver, which the
   reworked `round_round_div_aux` shows is impossible (`hA`/`hB` hold there too, so
   no separate `div_aux0` port is needed). -/
-theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hpp : 2 * p₁ ≤ p₂)
@@ -507,14 +508,19 @@ theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁
       have hsep := round_round_div_aux hbpos hab ⟨mx, hmx⟩ ⟨my, hmy⟩ hA hB hne_mid
       linarith [hsep, hclose]
 
-/-- **rnd-div, positive denominator** (FLX). Extends `rndDiv_pos` to any numerator
-`a ∈ F₁` (`b > 0`): `a > 0` is `rndDiv_pos`; `a < 0` negates to `−a > 0` (the
-quotient flips sign, handled by `RoundsFinite.neg_nearest`); `a = 0` gives the
-exactly-representable quotient `0` (`rndExact`). -/
-theorem rndDiv_posden {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
-    (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
-    (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
+/-- The both-positive division hypothesis (`0 < a, 0 < b`), shared by the FLX/FLT
+sign wrappers as the base case `hpos`. -/
+private abbrev DivPosCase (F₁ F₂ : FiniteFormat) (tb₁ tb₂ : TieBreak) : Prop :=
+  ∀ (a b : Dyadic), a ∈ F₁ → b ∈ F₁ → 0 < (a : ℝ) → 0 < (b : ℝ) →
+    ∀ (z w : Dyadic), RoundsFinite F₂.unbounded (.nearest tb₂) ((a : ℝ) / (b : ℝ)) z →
+      RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w →
+      RoundsFinite F₁.unbounded (.nearest tb₁) ((a : ℝ) / (b : ℝ)) w
+
+/-- Extend a both-positive division result (`hpos`) to any numerator sign, with a
+positive denominator: `a < 0` flips the quotient's sign (`RoundsFinite.neg_nearest`),
+`a = 0` gives the exactly-representable quotient `0` (`rndExact`). -/
+private theorem rndDiv_posden_of_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
+    (hpos : DivPosCase F₁ F₂ tb₁ tb₂)
     {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁) (hbpos : 0 < (b : ℝ))
     {z w : Dyadic}
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) ((a : ℝ) / (b : ℝ)) z)
@@ -530,7 +536,7 @@ theorem rndDiv_posden {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ 
       rw [hqval]; exact (RoundsFinite.neg_nearest F₂.unbounded tb₂ ((a : ℝ) / (b : ℝ)) z).mp hz
     have hw2 : RoundsFinite F₁.unbounded (.nearest tb₁) ((-z : Dyadic) : ℝ) (-w) := by
       rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ (z : ℝ) w).mp hw
-    have hres := rndDiv_pos hp₁ hp₂ hpp hexp₁ hexp₂ hundef₁ hna hb hnapos hbpos hz2 hw2
+    have hres := hpos (-a) b hna hb hnapos hbpos (-z) (-w) hz2 hw2
     rw [hqval] at hres
     exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ ((a : ℝ) / (b : ℝ)) w).mpr hres
   · -- `a = 0`: the quotient is `0`, exactly representable
@@ -538,17 +544,12 @@ theorem rndDiv_posden {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ 
     rw [hval] at hz ⊢
     exact rndExact (F₁ := F₁.unbounded) (F₂ := F₂.unbounded)
       (FiniteFormat.zero_mem F₂.unbounded) hz hw
-  · exact rndDiv_pos hp₁ hp₂ hpp hexp₁ hexp₂ hundef₁ ha hb hapos hbpos hz hw
+  · exact hpos a b ha hb hapos hbpos z w hz hw
 
-/-- **rnd-div, FLX** (Roux Theorem 29, radix 2). For **arbitrary** `a, b ∈ F₁`
-with `b ≠ 0` and `p₂ ≥ 2p₁`, double rounding of `a / b` (round to nearest in `F₂`,
-then in `F₁`) agrees with rounding `a / b` directly into `F₁`. A negative
-denominator reduces to `rndDiv_posden` via `a/b = (−a)/(−b)` (same value). This
-matches the generality of Flocq's `round_round_div_FLX`. -/
-theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
-    (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
-    (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
+/-- Extend a both-positive division result to any nonzero denominator: `b < 0`
+reduces to `a/b = (−a)/(−b)` (positive denominator, same value). -/
+private theorem rndDiv_of_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
+    (hpos : DivPosCase F₁ F₂ tb₁ tb₂)
     {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁) (hbne : (b : ℝ) ≠ 0)
     {z w : Dyadic}
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) ((a : ℝ) / (b : ℝ)) z)
@@ -562,46 +563,29 @@ theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
     have hval : (a : ℝ) / (b : ℝ) = ((-a : Dyadic) : ℝ) / ((-b : Dyadic) : ℝ) := by
       rw [Dyadic.coe_real_neg, Dyadic.coe_real_neg, neg_div_neg_eq]
     rw [hval] at hz ⊢
-    exact rndDiv_posden hp₁ hp₂ hpp hexp₁ hexp₂ hundef₁ hna hnb hnbpos hz hw
-  · exact rndDiv_posden hp₁ hp₂ hpp hexp₁ hexp₂ hundef₁ ha hb hbpos hz hw
+    exact rndDiv_posden_of_pos hpos hna hnb hnbpos hz hw
+  · exact rndDiv_posden_of_pos hpos ha hb hbpos hz hw
 
-/-- **rnd-div, positive denominator** (FLT). The FLT analogue of `rndDiv_posden`,
-extending `rndDiv_pos_FLT` to any numerator sign (`a < 0` by negation, `a = 0` by
-`rndExact`). -/
-theorem rndDiv_posden_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
-    {emin₁ emin₂ : ℤ}
+/-- **rnd-div, FLX** (Roux Theorem 29, radix 2). For **arbitrary** `a, b ∈ F₁`
+with `b ≠ 0` and `p₂ ≥ 2p₁`, double rounding of `a / b` (round to nearest in `F₂`,
+then in `F₁`) agrees with rounding `a / b` directly into `F₁`. Matches the
+generality of Flocq's `round_round_div_FLX`. -/
+theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
-    (hpp : 2 * p₁ ≤ p₂)
-    (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
-    (hemin : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2)
+    (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
-    {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁) (hbpos : 0 < (b : ℝ))
+    {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁) (hbne : (b : ℝ) ≠ 0)
     {z w : Dyadic}
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) ((a : ℝ) / (b : ℝ)) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
-    RoundsFinite F₁.unbounded (.nearest tb₁) ((a : ℝ) / (b : ℝ)) w := by
-  rcases lt_trichotomy (a : ℝ) 0 with haneg | hazero | hapos
-  · have hna : (-a) ∈ F₁ := FiniteFormat.neg_mem ha
-    have hnapos : 0 < ((-a : Dyadic) : ℝ) := by rw [Dyadic.coe_real_neg]; linarith
-    have hqval : ((-a : Dyadic) : ℝ) / (b : ℝ) = -((a : ℝ) / (b : ℝ)) := by
-      rw [Dyadic.coe_real_neg, neg_div]
-    have hz2 : RoundsFinite F₂.unbounded (.nearest tb₂) (((-a : Dyadic) : ℝ) / (b : ℝ)) (-z) := by
-      rw [hqval]; exact (RoundsFinite.neg_nearest F₂.unbounded tb₂ ((a : ℝ) / (b : ℝ)) z).mp hz
-    have hw2 : RoundsFinite F₁.unbounded (.nearest tb₁) ((-z : Dyadic) : ℝ) (-w) := by
-      rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ (z : ℝ) w).mp hw
-    have hres := rndDiv_pos_FLT hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ hna hb hnapos hbpos hz2 hw2
-    rw [hqval] at hres
-    exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ ((a : ℝ) / (b : ℝ)) w).mpr hres
-  · have hval : (a : ℝ) / (b : ℝ) = ((0 : Dyadic) : ℝ) := by rw [hazero, zero_div]; simp
-    rw [hval] at hz ⊢
-    exact rndExact (F₁ := F₁.unbounded) (F₂ := F₂.unbounded)
-      (FiniteFormat.zero_mem F₂.unbounded) hz hw
-  · exact rndDiv_pos_FLT hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ ha hb hapos hbpos hz hw
+    RoundsFinite F₁.unbounded (.nearest tb₁) ((a : ℝ) / (b : ℝ)) w :=
+  rndDiv_of_pos (fun _ _ ha hb hapos hbpos _ _ hz hw =>
+    rndDiv_pos hp₁ hp₂ hpp hexp₁ hexp₂ hundef₁ ha hb hapos hbpos hz hw) ha hb hbne hz hw
 
-/-- **rnd-div** (Roux Theorem 29, radix 2, FLT). For **arbitrary** `a, b ∈ F₁`
+/-- **rnd-div, FLT** (Roux Theorem 29, radix 2). For **arbitrary** `a, b ∈ F₁`
 (FLT) with `b ≠ 0`, `p₂ ≥ 2p₁`, and Roux's underflow bound `emin₂ ≤ emin₁ − p₁ − 2`,
-double rounding of `a / b` is innocuous — including underflowing quotients. This
-matches Flocq's `round_round_div_FLT`. -/
+double rounding of `a / b` is innocuous — including underflowing quotients. Matches
+Flocq's `round_round_div_FLT`. -/
 theorem rndDiv_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
@@ -613,15 +597,8 @@ theorem rndDiv_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
     {z w : Dyadic}
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) ((a : ℝ) / (b : ℝ)) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
-    RoundsFinite F₁.unbounded (.nearest tb₁) ((a : ℝ) / (b : ℝ)) w := by
-  rcases lt_or_gt_of_ne hbne with hbneg | hbpos
-  · have hna : (-a) ∈ F₁ := FiniteFormat.neg_mem ha
-    have hnb : (-b) ∈ F₁ := FiniteFormat.neg_mem hb
-    have hnbpos : 0 < ((-b : Dyadic) : ℝ) := by rw [Dyadic.coe_real_neg]; linarith
-    have hval : (a : ℝ) / (b : ℝ) = ((-a : Dyadic) : ℝ) / ((-b : Dyadic) : ℝ) := by
-      rw [Dyadic.coe_real_neg, Dyadic.coe_real_neg, neg_div_neg_eq]
-    rw [hval] at hz ⊢
-    exact rndDiv_posden_FLT hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ hna hnb hnbpos hz hw
-  · exact rndDiv_posden_FLT hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ ha hb hbpos hz hw
+    RoundsFinite F₁.unbounded (.nearest tb₁) ((a : ℝ) / (b : ℝ)) w :=
+  rndDiv_of_pos (fun _ _ ha hb hapos hbpos _ _ hz hw =>
+    rndDiv_pos_FLT hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ ha hb hapos hbpos hz hw) ha hb hbne hz hw
 
 end Mpfx
