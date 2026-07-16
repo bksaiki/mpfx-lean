@@ -46,6 +46,27 @@ theorem containsPrec {F₁ F₂ : Format}
          Dyadic.quantumAtLeast_anti he hex,
          boundOK_mono hb hbx⟩
 
+/-- **Containment into an unbounded format.** Since `F.unbounded.b = ⊤` accepts
+every magnitude, `𝒜-Contains-Prec` (`containsPrec`) reduces to the precision and
+quantum orderings alone: a format with precision at most `F.p` and quantum at
+least `F.exp` is contained in `F.unbounded`. This is the shared "the exact result
+is representable in the wide format" step behind every operation-specific
+double-rounding rule (§5.2). -/
+theorem subset_unbounded_of_le {F G : Format}
+    (hp : G.p ≤ F.p) (he : F.exp ≤ G.exp) : G ⊆ F.unbounded :=
+  containsPrec hp he le_top
+
+/-- Membership form of `subset_unbounded_of_le`: a value whose precision is at
+most `p ≤ F.p` and whose quantum is at least `e ≥ F.exp` lies in `F.unbounded`.
+The intermediate format `𝒜(p, e, ⊤)` witnesses the containment, so operations
+need only exhibit their result's precision/quantum and the format-widening
+inequalities. -/
+theorem mem_unbounded_of_le {F : Format} {p : WithTop ℕ+} {e : WithBot ℤ}
+    {v : Dyadic} (hp : p ≤ F.p) (he : F.exp ≤ e)
+    (hvp : Dyadic.precisionAtMost p v) (hvq : Dyadic.quantumAtLeast e v) :
+    v ∈ F.unbounded :=
+  subset_unbounded_of_le (G := { p := p, exp := e, b := ⊤ }) hp he v ⟨hvp, hvq, trivial⟩
+
 /-- The non-negative dyadic `2 ^ e = 1 · 2^e`. -/
 def nnPow (e : ℤ) : NonNegDyadic :=
   ⟨Dyadic.ofIntZpow 1 e, by rw [Dyadic.coe_rat_ofIntZpow]; positivity⟩

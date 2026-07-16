@@ -56,10 +56,9 @@ private theorem mem_F₂_of_subnormal {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
     have hcast : (|C| : ℝ) < ((2 : ℤ) ^ (p₂ : ℕ) : ℝ) := by
       push_cast; rw [h2p2]; exact hCR
     exact_mod_cast hcast
-  refine ⟨?_, ?_, trivial⟩
-  · rw [FiniteFormat.unbounded_p, hp₂]
-    exact (Dyadic.precisionAtMost_coe_real p₂ v).mpr ⟨C, e₂, hC, hCbound⟩
-  · rw [FiniteFormat.unbounded_exp]; exact Dyadic.quantumAtLeast_anti (le_of_eq he₂) hqe2
+  exact Format.mem_unbounded_of_le (p := ((p₂ : ℕ+) : WithTop ℕ+)) (e := ((e₂ : ℤ) : WithBot ℤ))
+    (le_of_eq hp₂.symm) (le_of_eq he₂)
+    ((Dyadic.precisionAtMost_coe_real p₂ v).mpr ⟨C, e₂, hC, hCbound⟩) hqe2
 
 /-- Sign/positivity extractor: from `(x:ℝ) = c·2^e > 0` with `2^e > 0`, get `c > 0`. -/
 private theorem mantissa_pos {c e : ℤ} {x : ℝ} (hxeq : x = (c : ℝ) * (2 : ℝ) ^ e)
@@ -534,10 +533,9 @@ private theorem rndSmallGap_exact {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (r : ℝ) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) (r : ℝ) w := by
-  refine rndExact (F₂ := F₂.unbounded) ⟨?_, ?_, trivial⟩ hz hw
-  · refine Dyadic.precisionAtMost_mono ?_ hprec
-    rw [FiniteFormat.unbounded_p, hp₂]; exact_mod_cast hpp
-  · rw [FiniteFormat.unbounded_exp]; exact Dyadic.quantumAtLeast_anti hexp hquant_r
+  refine rndExact (F₂ := F₂.unbounded)
+    (Format.mem_unbounded_of_le (p := ((2 * p₁ + 1 : ℕ+) : WithTop ℕ+)) (e := F₁.exp)
+      (by rw [hp₂]; exact_mod_cast hpp) hexp hprec hquant_r) hz hw
 
 /-- Subnormal exact fallback: a result `r` that inherits `F₁`'s quantum but is
 *subnormal* in `F₂` (FLX exponent below `F₂.exp`) is exactly `F₂`-representable,
@@ -776,11 +774,9 @@ private theorem rndAdd_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
 private theorem mem_F₂_unbounded {F₁ F₂ : FiniteFormat} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hexp : F₂.exp ≤ F₁.exp) (hp1p2 : p₁ ≤ p₂)
-    {d : Dyadic} (hd : d ∈ F₁) : d ∈ F₂.unbounded := by
-  refine ⟨?_, ?_, trivial⟩
-  · refine Dyadic.precisionAtMost_mono ?_ (hp₁ ▸ hd.1)
-    rw [FiniteFormat.unbounded_p, hp₂]; exact_mod_cast hp1p2
-  · rw [FiniteFormat.unbounded_exp]; exact Dyadic.quantumAtLeast_anti hexp hd.2.1
+    {d : Dyadic} (hd : d ∈ F₁) : d ∈ F₂.unbounded :=
+  Format.mem_unbounded_of_le (p := F₁.p) (e := F₁.exp)
+    (by rw [hp₁, hp₂]; exact_mod_cast hp1p2) hexp hd.1 hd.2.1
 
 /-- **Negation transport.** Double rounding commutes with negation (both roundings
 are to-nearest): to double-round `v`, it suffices to double-round `-v`. Feeding

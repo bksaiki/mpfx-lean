@@ -74,12 +74,13 @@ private theorem mul_mem_F₂_unbounded {F₁ F₂ : FiniteFormat} {p₁ p₂ : �
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hpp : 2 * p₁ ≤ p₂) (he : F₂.exp ≤ F₁.exp + F₁.exp)
     {x y : Dyadic} (hx : x ∈ F₁) (hy : y ∈ F₁) :
-    (x * y : Dyadic) ∈ F₂.unbounded := by
-  refine ⟨?_, ?_, trivial⟩
-  · rw [FiniteFormat.unbounded_p, hp₂]
-    exact mul_precisionAtMost hpp (hp₁ ▸ hx.1) (hp₁ ▸ hy.1)
-  · rw [FiniteFormat.unbounded_exp]
-    exact Dyadic.quantumAtLeast_anti he (quantumAtLeast_mul hx.2.1 hy.2.1)
+    (x * y : Dyadic) ∈ F₂.unbounded :=
+  -- the product lives in the intermediate format `𝒜(2p₁, exp₁+exp₁, ⊤)`, which
+  -- is contained in `F₂.unbounded` by `𝒜-Contains-Prec` (`mem_unbounded_of_le`).
+  Format.mem_unbounded_of_le (p := ((2 * p₁ : ℕ+) : WithTop ℕ+))
+    (by rw [hp₂]; exact_mod_cast hpp) he
+    (mul_precisionAtMost (p₂ := 2 * p₁) (le_refl _) (hp₁ ▸ hx.1) (hp₁ ▸ hy.1))
+    (quantumAtLeast_mul hx.2.1 hy.2.1)
 
 /-- **rnd-mult, FLX** (Roux Thm 10 / Figueroa, radix 2). For `x, y ∈ F₁` in an FLX
 format (`exp = ⊥`) with `p₂ ≥ 2p₁`, double rounding of `x · y` is innocuous for

@@ -95,37 +95,37 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
     (Dyadic.quantumAtLeast_coe_real (e₁ - 1) _).mpr ⟨2 * ma + 1, by rw [Dyadic.coe_ofIntZpow]⟩
   have he₂le : ((e₂ : ℤ) : WithBot ℤ) ≤ ((e₁ - 1 : ℤ) : WithBot ℤ) := by
     exact_mod_cast (show e₂ ≤ e₁ - 1 from by omega)
-  refine ⟨Dyadic.ofIntZpow (2 * ma + 1) (e₁ - 1), hg_real, ?_, ?_, trivial⟩
-  · -- precisionAtMost p₂: mantissa at scale e₂ fits p₂ bits
-    rw [FiniteFormat.unbounded_p, hp₂, Dyadic.precisionAtMost_coe_real]
-    have hq_e₂ := Dyadic.quantumAtLeast_anti he₂le hq_e₁
-    obtain ⟨C, hC⟩ := (Dyadic.quantumAtLeast_coe_real e₂ _).mp hq_e₂
-    rw [hg_real] at hC
-    refine ⟨C, e₂, by rw [hg_real]; exact hC, ?_⟩
-    -- `|C| < 2^p₂` from `|v| < 2^(mag v) ≤ 2^(e₂ + p₂)`
-    have h2e2 : (0 : ℝ) < (2 : ℝ) ^ e₂ := zpow_pos (by norm_num) _
-    have hbound : Int.log 2 v + 1 ≤ e₂ + (p₂ : ℤ) := by
-      have := log_sub_prec_le_canonicalExp hp₂ (ne_of_gt hv)
-      rw [abs_of_pos hv, ← he₂] at this; omega
-    have hvlt : |v| < (2 : ℝ) ^ (e₂ + (p₂ : ℤ)) := by
-      rw [abs_of_pos hv]
-      exact lt_of_lt_of_le (Int.lt_zpow_succ_log_self (b := 2) (by norm_num) v)
-        (zpow_le_zpow_right₀ (by norm_num) hbound)
-    have h2p2 : ((2 : ℝ) ^ (p₂ : ℕ)) = (2 : ℝ) ^ (p₂ : ℤ) := by rw [← zpow_natCast]
-    have hsplit : (2 : ℝ) ^ (e₂ + (p₂ : ℤ)) = (2 : ℝ) ^ (p₂ : ℤ) * (2 : ℝ) ^ e₂ := by
-      rw [show e₂ + (p₂ : ℤ) = (p₂ : ℤ) + e₂ from by ring, zpow_add₀ hne]
-    have hCR : |(C : ℝ)| < (2 : ℝ) ^ (p₂ : ℤ) := by
-      have hvC : |v| = |(C : ℝ)| * (2 : ℝ) ^ e₂ := by rw [hC, abs_mul, abs_of_pos h2e2]
-      rw [hvC, hsplit] at hvlt
-      exact lt_of_mul_lt_mul_right hvlt (le_of_lt h2e2)
-    have hcast : (|C| : ℝ) < ((2 : ℤ) ^ (p₂ : ℕ) : ℝ) := by push_cast; rw [h2p2]; exact hCR
-    exact_mod_cast hcast
-  · -- quantumAtLeast F₂.exp: `g` is a multiple of `2^(e₁−1) ≥ 2^(F₂.exp)`
-    rw [FiniteFormat.unbounded_exp]
-    have hF₂le : F₂.exp ≤ ((e₁ - 1 : ℤ) : WithBot ℤ) := by
-      refine le_trans (exp_le_canonicalExp_coe F₂ v) ?_
-      rw [← he₂]; exact he₂le
-    exact Dyadic.quantumAtLeast_anti hF₂le hq_e₁
+  -- `g = 𝒜(p₂, e₁−1, ⊤)`-representable, and that format is contained in
+  -- `F₂.unbounded` by `𝒜-Contains-Prec` (`mem_unbounded_of_le`).
+  have hF₂le : F₂.exp ≤ ((e₁ - 1 : ℤ) : WithBot ℤ) :=
+    le_trans (exp_le_canonicalExp_coe F₂ v) (by rw [← he₂]; exact he₂le)
+  refine ⟨Dyadic.ofIntZpow (2 * ma + 1) (e₁ - 1), hg_real,
+    Format.mem_unbounded_of_le (p := ((p₂ : ℕ+) : WithTop ℕ+))
+      (e := ((e₁ - 1 : ℤ) : WithBot ℤ)) (le_of_eq hp₂.symm) hF₂le ?_ hq_e₁⟩
+  -- precisionAtMost p₂: mantissa at scale e₂ fits p₂ bits
+  rw [Dyadic.precisionAtMost_coe_real]
+  have hq_e₂ := Dyadic.quantumAtLeast_anti he₂le hq_e₁
+  obtain ⟨C, hC⟩ := (Dyadic.quantumAtLeast_coe_real e₂ _).mp hq_e₂
+  rw [hg_real] at hC
+  refine ⟨C, e₂, by rw [hg_real]; exact hC, ?_⟩
+  -- `|C| < 2^p₂` from `|v| < 2^(mag v) ≤ 2^(e₂ + p₂)`
+  have h2e2 : (0 : ℝ) < (2 : ℝ) ^ e₂ := zpow_pos (by norm_num) _
+  have hbound : Int.log 2 v + 1 ≤ e₂ + (p₂ : ℤ) := by
+    have := log_sub_prec_le_canonicalExp hp₂ (ne_of_gt hv)
+    rw [abs_of_pos hv, ← he₂] at this; omega
+  have hvlt : |v| < (2 : ℝ) ^ (e₂ + (p₂ : ℤ)) := by
+    rw [abs_of_pos hv]
+    exact lt_of_lt_of_le (Int.lt_zpow_succ_log_self (b := 2) (by norm_num) v)
+      (zpow_le_zpow_right₀ (by norm_num) hbound)
+  have h2p2 : ((2 : ℝ) ^ (p₂ : ℕ)) = (2 : ℝ) ^ (p₂ : ℤ) := by rw [← zpow_natCast]
+  have hsplit : (2 : ℝ) ^ (e₂ + (p₂ : ℤ)) = (2 : ℝ) ^ (p₂ : ℤ) * (2 : ℝ) ^ e₂ := by
+    rw [show e₂ + (p₂ : ℤ) = (p₂ : ℤ) + e₂ from by ring, zpow_add₀ hne]
+  have hCR : |(C : ℝ)| < (2 : ℝ) ^ (p₂ : ℤ) := by
+    have hvC : |v| = |(C : ℝ)| * (2 : ℝ) ^ e₂ := by rw [hC, abs_mul, abs_of_pos h2e2]
+    rw [hvC, hsplit] at hvlt
+    exact lt_of_mul_lt_mul_right hvlt (le_of_lt h2e2)
+  have hcast : (|C| : ℝ) < ((2 : ℤ) ^ (p₂ : ℕ) : ℝ) := by push_cast; rw [h2p2]; exact hCR
+  exact_mod_cast hcast
 
 /-- **Small positive values round to zero** (FLT underflow). In an FLT format
 (`exp = emin`), any `0 ≤ x' < 2^(emin−1)` rounds to nearest to `0`: its scaled
