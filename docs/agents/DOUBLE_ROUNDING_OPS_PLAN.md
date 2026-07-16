@@ -575,6 +575,24 @@ lemma; underflow → far via `div_zero`, sliver → `div_aux` contradiction);
 
 **All operations complete: ×, +, −, √, ÷ for both FLX and FLT.**
 
+## API refinements (2026-07-16, per user)
+
+- **Explicit multiplication theorems.** Added `rndMul_FLX` (`p₂ ≥ 2p₁`, `exp=⊥`)
+  and `rndMul_FLT` (`p₂ ≥ 2p₁`, `emin₂ ≤ 2·emin₁`) over `F₂.unbounded`, stated with
+  explicit precision/exponent bounds instead of the `opMul`/containment condition.
+  They prove `x·y ∈ F₂.unbounded` directly (`mul_precisionAtMost` +
+  `quantumAtLeast_mul` → `mul_mem_F₂_unbounded`) then `rndExact`; still mode-generic
+  (`{rm₁ rm₂}`). The old containment-based `rndMul`/`rndMul_of_params` (via `opMul`)
+  were removed as dead in the cleanup pass.
+- **Square root accepts `x ≥ 0`.** `rndSqrt_FLX`/`rndSqrt_FLT` now take `0 ≤ x`; the
+  degenerate `x = 0` (`√0 = 0`) is dispatched to `rndSqrt_zero` (exact), leaving the
+  `0 < x` body unchanged.
+- **File rename.** `Mpfx/DoubleRoundingOps.lean` → `Mpfx/DoubleRoundingMul.lean`
+  (holds the multiplication theorems + the shared `rndExact` combinator), matching
+  the per-operation `Add`/`Sqrt`/`Div` naming.
+- Explicit `_FLX`/`_FLT` naming for √ and ÷ (`rndSqrt_FLX/FLT`, `rndDiv_FLX/FLT`);
+  the earlier unified disjunctive `rndSqrt` was undone.
+
 ## 7. References
 - `flocq-4.2.2/src/Prop/Double_rounding.v`: `round_round_mult` (L661),
   `round_round_mult_hyp` (L613), `round_round_lt_mid_further_place` (L167),

@@ -1,6 +1,6 @@
 import Mpfx.CanonicalExp
 import Mpfx.NearestMidpoint
-import Mpfx.DoubleRoundingOps
+import Mpfx.DoubleRoundingMul
 import Mpfx.DoubleRoundingAdd
 
 /-!
@@ -73,7 +73,7 @@ theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 0 < x)
     (hquant : F₂.canonicalExp (Real.sqrt x) + Int.log 2 (Real.sqrt x) + 1
                 ≤ 2 * F₁.canonicalExp (Real.sqrt x) - 2) :
     ulp F₂ (Real.sqrt x) / 2 < |Real.sqrt x - midp F₁ (Real.sqrt x)| := by
-  set s := Real.sqrt x with hs_def
+  set s := Real.sqrt x
   have hne : (2 : ℝ) ≠ 0 := by norm_num
   have hs_pos : 0 < s := Real.sqrt_pos.mpr hx
   have hsq : s ^ 2 = x := Real.sq_sqrt hx.le
@@ -124,10 +124,7 @@ theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 0 < x)
   -- `u₂ ≤ u₁/2`
   have hu2_le_half : (2 : ℝ) ^ e₂ ≤ (2 : ℝ) ^ e₁ / 2 := by
     have h1 : (2 : ℝ) ^ e₂ ≤ (2 : ℝ) ^ (e₁ - 1) := zpow_le_zpow_right₀ (by norm_num) (by omega)
-    have h2 : (2 : ℝ) ^ (e₁ - 1) = (2 : ℝ) ^ e₁ / 2 := by
-      rw [show (e₁ - 1 : ℤ) = e₁ + (-1) from by ring, zpow_add₀ hne,
-          show (2 : ℝ) ^ (-1 : ℤ) = 1 / 2 from by norm_num]; ring
-    linarith [h1, h2]
+    linarith [h1, two_zpow_half e₁]
   -- quantitative bound `u₂·2^(k+1) ≤ u₁²/4`
   have hqbound : (2 : ℝ) ^ e₂ * (2 : ℝ) ^ (k + 1) ≤ ((2 : ℝ) ^ e₁) ^ 2 / 4 := by
     have h1 : (2 : ℝ) ^ e₂ * (2 : ℝ) ^ (k + 1) = (2 : ℝ) ^ (e₂ + (k + 1)) := by
@@ -230,20 +227,35 @@ theorem rndSqrt_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : �
   round_round_mid_cases hundef₁ (Real.sqrt_pos.mpr hx) (by omega) hle hz hw
     (fun hmid => absurd hmid (not_le.mpr (round_round_sqrt_aux hx hxrep hf1 hle hquant)))
 
-/-- **rnd-sqrt, FLX** (Roux Theorem 25, radix 2). For `x ∈ F₁` with `0 < x` in an
+/-- Degenerate radicand `x = 0`: `√0 = 0` rounds to `0` in both formats, so double
+rounding is trivially innocuous. -/
+private theorem rndSqrt_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : Dyadic}
+    (hx0 : (0 : ℝ) = (x : ℝ))
+    {z w : Dyadic}
+    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (Real.sqrt (x : ℝ)) z)
+    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
+    RoundsFinite F₁.unbounded (.nearest tb₁) (Real.sqrt (x : ℝ)) w := by
+  rw [← hx0, Real.sqrt_zero, show (0 : ℝ) = ((0 : Dyadic) : ℝ) from by simp] at hz ⊢
+  exact rndExact (F₁ := F₁.unbounded) (F₂ := F₂.unbounded)
+    (FiniteFormat.zero_mem F₂.unbounded) hz hw
+
+/-- **rnd-sqrt, FLX** (Roux Theorem 25, radix 2). For `x ∈ F₁` with `0 ≤ x` in an
 FLX format (`exp = ⊥`), double rounding of `√x` (nearest in `F₂` then in `F₁`) is
 innocuous when `p₂ ≥ 2p₁ + 2`. Discharges the `rndSqrt_core` hypotheses from the
-FLX closed form `canonicalExp = log₂|·| + 1 − p` + `log_sqrt_bounds` + `omega`. -/
+FLX closed form `canonicalExp = log₂|·| + 1 − p` + `log_sqrt_bounds` + `omega`
+(the `x = 0` case is `rndSqrt_zero`). -/
 theorem rndSqrt_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hpp : (2 * p₁ + 2 : ℕ+) ≤ p₂)
     (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
-    {x : Dyadic} (hx : x ∈ F₁) (hxpos : 0 < (x : ℝ))
+    {x : Dyadic} (hx : x ∈ F₁) (hxpos : 0 ≤ (x : ℝ))
     {z w : Dyadic}
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (Real.sqrt (x : ℝ)) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) (Real.sqrt (x : ℝ)) w := by
+  rcases eq_or_lt_of_le hxpos with hx0 | hxpos
+  · exact rndSqrt_zero hx0 hz hw
   have hs_pos : 0 < Real.sqrt (x : ℝ) := Real.sqrt_pos.mpr hxpos
   have habs : |Real.sqrt (x : ℝ)| = Real.sqrt (x : ℝ) := abs_of_pos hs_pos
   have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
@@ -280,11 +292,13 @@ theorem rndSqrt_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
     (hemin1 : emin₁ ≤ 0)
     (hE : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2 ∨ 2 * emin₂ ≤ emin₁ - 4 * (p₁ : ℤ) - 2)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
-    {x : Dyadic} (hx : x ∈ F₁) (hxpos : 0 < (x : ℝ))
+    {x : Dyadic} (hx : x ∈ F₁) (hxpos : 0 ≤ (x : ℝ))
     {z w : Dyadic}
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (Real.sqrt (x : ℝ)) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) (Real.sqrt (x : ℝ)) w := by
+  rcases eq_or_lt_of_le hxpos with hx0 | hxpos
+  · exact rndSqrt_zero hx0 hz hw
   have hs_pos : 0 < Real.sqrt (x : ℝ) := Real.sqrt_pos.mpr hxpos
   have habs : |Real.sqrt (x : ℝ)| = Real.sqrt (x : ℝ) := abs_of_pos hs_pos
   have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le

@@ -1,6 +1,6 @@
 import Mpfx.CanonicalExp
 import Mpfx.NearestMidpoint
-import Mpfx.DoubleRoundingOps
+import Mpfx.DoubleRoundingMul
 
 /-!
 # Operation-specific double rounding: addition (Roux 2014, §3)
@@ -22,35 +22,6 @@ signs `x + y` as a subtraction `x − (−y)` (Roux §3.1).
 -/
 
 namespace Mpfx
-
-/-- Negation preserves quantum alignment. -/
-private theorem quantumAtLeast_neg {e : WithBot ℤ} {a : Dyadic}
-    (ha : Dyadic.quantumAtLeast e a) : Dyadic.quantumAtLeast e (-a) := by
-  cases e with
-  | bot => trivial
-  | coe e =>
-    obtain ⟨ca, hca⟩ := (Dyadic.quantumAtLeast_coe_real e a).mp ha
-    refine (Dyadic.quantumAtLeast_coe_real e (-a)).mpr ⟨-ca, ?_⟩
-    rw [show ((-a : Dyadic) : ℝ) = -(a : ℝ) from by push_cast; ring, hca]; push_cast; ring
-
-/-- A sum of two quantum-aligned dyadics stays quantum-aligned. -/
-private theorem quantumAtLeast_add {e : WithBot ℤ} {a b : Dyadic}
-    (ha : Dyadic.quantumAtLeast e a) (hb : Dyadic.quantumAtLeast e b) :
-    Dyadic.quantumAtLeast e (a + b) := by
-  cases e with
-  | bot => trivial
-  | coe e =>
-    obtain ⟨ca, hca⟩ := (Dyadic.quantumAtLeast_coe_real e a).mp ha
-    obtain ⟨cb, hcb⟩ := (Dyadic.quantumAtLeast_coe_real e b).mp hb
-    refine (Dyadic.quantumAtLeast_coe_real e (a + b)).mpr ⟨ca + cb, ?_⟩
-    rw [show ((a + b : Dyadic) : ℝ) = (a : ℝ) + (b : ℝ) from by push_cast; ring, hca, hcb]
-    push_cast; ring
-
-/-- A difference of two quantum-aligned dyadics stays quantum-aligned. -/
-private theorem quantumAtLeast_sub {e : WithBot ℤ} {a b : Dyadic}
-    (ha : Dyadic.quantumAtLeast e a) (hb : Dyadic.quantumAtLeast e b) :
-    Dyadic.quantumAtLeast e (a - b) := by
-  rw [sub_eq_add_neg]; exact quantumAtLeast_add ha (quantumAtLeast_neg hb)
 
 /-- **FLT exact-representability of a subnormal result.** If `v` inherits `F₁`'s
 quantum (`quantumAtLeast F₁.exp v`, e.g. `v = x ± y` for `x, y ∈ F₁`) and is
@@ -283,15 +254,10 @@ theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p
   have hr_real : ((x - y : Dyadic) : ℝ) = (x : ℝ) - (y : ℝ) := by push_cast; ring
   have hrpos : 0 < ((x - y : Dyadic) : ℝ) := by rw [hr_real]; linarith
   have hr_ne : ((x - y : Dyadic) : ℝ) ≠ 0 := ne_of_gt hrpos
-  -- power helpers (avoid self-referential `rw [show var = ...]`)
-  have pow_pred : ∀ a : ℤ, (2 : ℝ) ^ a = (2 : ℝ) ^ (a - 1) * 2 := fun a => by
-    have h : (2 : ℝ) ^ ((a - 1) + 1) = (2 : ℝ) ^ (a - 1) * (2 : ℝ) ^ (1 : ℤ) :=
-      zpow_add₀ hne (a - 1) 1
-    rw [zpow_one, show (a - 1) + 1 = a from by ring] at h; exact h
-  have pow_half : ∀ a : ℤ, (2 : ℝ) ^ a / 2 = (2 : ℝ) ^ (a - 1) := fun a => by
-    rw [pow_pred a]; ring
-  have pow_dbl : ∀ a : ℤ, (2 : ℝ) ^ a = 2 * (2 : ℝ) ^ (a - 1) := fun a => by
-    rw [pow_pred a]; ring
+  -- power helpers (shared `two_zpow_*` from `CanonicalExp`)
+  have pow_pred := two_zpow_pred
+  have pow_half := two_zpow_half
+  have pow_dbl := two_zpow_dbl
   set ex := F₁.canonicalExp (x : ℝ) with hex
   set ey := F₁.canonicalExp (y : ℝ) with hey
   by_cases hgapc : ex - ey ≤ (p₁ : ℤ) + 1
@@ -468,7 +434,7 @@ theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p
     · -- Sub-case 2a: `2^k < x`, `x − y` stays in `x`'s binade.
       have hbot' : (2 : ℝ) ^ k < (x : ℝ) := lt_of_le_of_ne hx_lo (fun h => hbot h.symm)
       have hexk : ex ≤ k := by omega
-      set d : ℕ := (k - ex).toNat with hd_def
+      set d : ℕ := (k - ex).toNat
       have hd : (d : ℤ) = k - ex := Int.toNat_of_nonneg (by omega)
       have hsplitk : (2 : ℝ) ^ k = (2 : ℝ) ^ (d : ℤ) * (2 : ℝ) ^ ex := by
         rw [← zpow_add₀ hne]; congr 1; omega

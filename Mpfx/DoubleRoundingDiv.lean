@@ -1,6 +1,6 @@
 import Mpfx.CanonicalExp
 import Mpfx.NearestMidpoint
-import Mpfx.DoubleRoundingOps
+import Mpfx.DoubleRoundingMul
 import Mpfx.DoubleRoundingAdd
 
 /-!
@@ -16,15 +16,15 @@ as a real and leans on the two-sided midpoint engine (`round_round_mid_cases`).
 The new subtlety vs `√`: `x / y` **can** land exactly on an `F₁`-midpoint `m`.
 The near-midpoint obligation therefore splits:
 
-* `x / y ≠ m` but within `½·ulp₂` of it — *impossible*, by a separation argument
-  analogous to `round_round_sqrt_aux` (`round_round_div_aux`, still to port); and
-* `x / y = m` exactly — here the **even radix** makes `m ∈ F₂` (its canonical
-  exponent drops by ≥ 1, absorbing the trailing `½·ulp₁`), so the intermediate
-  rounding is exact (`round_round_eq_mid_beta_even`, still to port).
+* `x / y ≠ m` but within `½·ulp₂` of it — *impossible*, by the separation lemma
+  `round_round_div_aux` (analogue of `round_round_sqrt_aux`); and
+* `x / y = m` exactly — here the **even radix** makes `m ∈ F₂` (`midp_mem_F₂`: its
+  canonical exponent drops by ≥ 1, absorbing the trailing `½·ulp₁`), so the
+  intermediate rounding is exact.
 
-Status: `log_div_bounds` (binade lemma, Flocq `mag_div_disj`) is proved below;
-the separation lemma, the even-radix exact-midpoint lemma, the `rndDiv_FLX` assembly
-and the FLT variant remain (see `docs/agents/DOUBLE_ROUNDING_OPS_PLAN.md` §Division).
+Top-level results: `rndDiv_FLX` and `rndDiv_FLT` (arbitrary operands, `b ≠ 0`);
+the FLT underflow regimes go through `nearest_zero_of_small`/`round_round_div_zero`.
+See `docs/agents/DOUBLE_ROUNDING_OPS_PLAN.md` §9.
 -/
 
 namespace Mpfx
@@ -88,12 +88,7 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
   have hg_real : (Dyadic.ofIntZpow (2 * ma + 1) (e₁ - 1) : ℝ) = v := by
     have hmidp : midp F₁ v = (ma : ℝ) * (2 : ℝ) ^ e₁ + (2 : ℝ) ^ e₁ / 2 := by
       unfold midp ulp; rw [rndDown_eq, ← he₁, ← hma, Dyadic.coe_ofIntZpow]
-    rw [Dyadic.coe_ofIntZpow, hmid, hmidp]
-    have h2 : (2 : ℝ) ^ e₁ = 2 * (2 : ℝ) ^ (e₁ - 1) := by
-      have hsplit : (2 : ℝ) ^ e₁ = (2 : ℝ) ^ (e₁ - 1) * (2 : ℝ) ^ (1 : ℤ) := by
-        rw [← zpow_add₀ hne]; congr 1; ring
-      rw [hsplit, zpow_one]; ring
-    rw [h2]; push_cast; ring
+    rw [Dyadic.coe_ofIntZpow, hmid, hmidp, two_zpow_dbl e₁]; push_cast; ring
   -- `g` is a multiple of `2^(e₁−1)`, hence at any coarser quantum
   have hq_e₁ : Dyadic.quantumAtLeast ((e₁ - 1 : ℤ) : WithBot ℤ)
       (Dyadic.ofIntZpow (2 * ma + 1) (e₁ - 1)) :=
@@ -219,8 +214,8 @@ theorem round_round_div_aux {F₁ F₂ : FiniteFormat} {x y v : ℝ}
     ulp F₂ v / 2 < |v - midp F₁ v| := by
   set e₁ := F₁.canonicalExp v with he₁
   set e₂ := F₂.canonicalExp v with he₂
-  set ex := F₁.canonicalExp x with hex
-  set ey := F₁.canonicalExp y with hey
+  set ex := F₁.canonicalExp x
+  set ey := F₁.canonicalExp y
   set Ly := Int.log 2 y with hLy
   have hne : (2 : ℝ) ≠ 0 := by norm_num
   have hy_ne : y ≠ 0 := ne_of_gt hy
@@ -228,12 +223,7 @@ theorem round_round_div_aux {F₁ F₂ : FiniteFormat} {x y v : ℝ}
   have hmidp : midp F₁ v = ((2 * ma + 1 : ℤ) : ℝ) * (2 : ℝ) ^ (e₁ - 1) := by
     have hmv : midp F₁ v = (ma : ℝ) * (2 : ℝ) ^ e₁ + (2 : ℝ) ^ e₁ / 2 := by
       unfold midp ulp; rw [rndDown_eq, ← he₁, ← hma, Dyadic.coe_ofIntZpow]
-    rw [hmv]
-    have h2 : (2 : ℝ) ^ e₁ = 2 * (2 : ℝ) ^ (e₁ - 1) := by
-      have hs : (2 : ℝ) ^ e₁ = (2 : ℝ) ^ (e₁ - 1) * (2 : ℝ) ^ (1 : ℤ) := by
-        rw [← zpow_add₀ hne]; congr 1; ring
-      rw [hs, zpow_one]; ring
-    rw [h2]; push_cast; ring
+    rw [hmv, two_zpow_dbl e₁]; push_cast; ring
   obtain ⟨mx, hmx⟩ := hxrep
   obtain ⟨my, hmy⟩ := hyrep
   -- integrality at the common scale `s = min(ex, e₁−1+ey)`
@@ -269,9 +259,7 @@ theorem round_round_div_aux {F₁ F₂ : FiniteFormat} {x y v : ℝ}
   -- upper bound (from the negated conclusion)
   by_contra hcon
   rw [not_lt, show ulp F₂ v = (2 : ℝ) ^ e₂ from by unfold ulp; rw [← he₂]] at hcon
-  have h2e2half : (2 : ℝ) ^ e₂ / 2 = (2 : ℝ) ^ (e₂ - 1) := by
-    rw [show (e₂ - 1 : ℤ) = e₂ + (-1) from by ring, zpow_add₀ hne,
-        show (2 : ℝ) ^ (-1 : ℤ) = 1 / 2 from by norm_num]; ring
+  have h2e2half : (2 : ℝ) ^ e₂ / 2 = (2 : ℝ) ^ (e₂ - 1) := two_zpow_half e₂
   have hupp : |x - midp F₁ v * y| < (2 : ℝ) ^ (e₂ + Ly) := by
     have hxmy_eq : |x - midp F₁ v * y| = |v - midp F₁ v| * y := by
       rw [hv, ← sub_mul, abs_mul, abs_of_pos hy]
@@ -450,9 +438,7 @@ theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁
   · exact rndDiv_pos_normal_FLT hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ ha hb hapos hbpos hle hz hw
   · -- underflow regime: `cexp₁ v = emin₁ > mag v`
     rw [not_le] at hle
-    have hhalf : ∀ k : ℤ, (2 : ℝ) ^ (k - 1) = (2 : ℝ) ^ k / 2 := fun k => by
-      rw [show (k - 1 : ℤ) = k + (-1) from by ring, zpow_add₀ hne,
-          show (2 : ℝ) ^ (-1 : ℤ) = 1 / 2 from by norm_num]; ring
+    have hhalf : ∀ k : ℤ, (2 : ℝ) ^ (k - 1) = (2 : ℝ) ^ k / 2 := fun k => (two_zpow_half k).symm
     have hcvmax : F₁.canonicalExp v = max (Int.log 2 v + 1 - (p₁ : ℤ)) emin₁ := by
       rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hv_pos), abs_of_pos hv_pos]
     have hcv_emin : F₁.canonicalExp v = emin₁ := by rw [hcvmax] at hle ⊢; omega

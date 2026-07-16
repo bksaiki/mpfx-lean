@@ -312,11 +312,11 @@ theorem nearest_eq_rndUp_of_midp_lt (F : FiniteFormat) (tb : TieBreak) (ξ : ℝ
 
 /-! ## Lemma 16 — double rounding below the midpoint (given binade consistency)
 
-Flocq `round_round_lt_mid_further_place`, in the `_place'` form: we take the
-binade-consistency `F₁.canonicalExp z = F₁.canonicalExp x` (⟺ Flocq's
-`mag x'' = mag x`) as an explicit hypothesis. Deriving it from `hmid` and
-`F₁.canonicalExp x ≤ Int.log 2 x + 1` (Flocq's `mag_round_ge`/`mag_le_bpow`
-argument) is the remaining sub-lemma — see the plan doc §6. -/
+Flocq `round_round_lt_mid_further_place`, in the `_place'` form: `rnd_lt_mid`
+takes the binade-consistency `F₁.canonicalExp z = F₁.canonicalExp x` (⟺ Flocq's
+`mag x'' = mag x`) as an explicit hypothesis; `canonicalExp_eq_of_lt_mid` derives
+it from `hmid` and `F₁.canonicalExp x ≤ Int.log 2 x + 1`, and `rnd_lt_mid'` is the
+resulting hypothesis-free form. -/
 
 /-- **Lemma 16 (with binade consistency).** For `0 < x` sitting more than
 `½·ulp₂` below its `F₁`-midpoint, with `F₂`'s canonical exponent strictly finer
@@ -406,6 +406,15 @@ theorem rnd_lt_mid {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
 
 /-! ## L4 — binade consistency (Flocq `_further_place`) -/
 
+/-- Read off `Int.log 2 x = k` from the binade bounds `2^k ≤ x < 2^(k+1)`. -/
+theorem log_eq_of_zpow_bounds {x : ℝ} {k : ℤ} (hx : 0 < x)
+    (hlo : (2 : ℝ) ^ k ≤ x) (hhi : x < (2 : ℝ) ^ (k + 1)) : Int.log 2 x = k := by
+  have h1 : k ≤ Int.log 2 x :=
+    (Int.zpow_le_iff_le_log (b := 2) (by norm_num) hx).mp (by exact_mod_cast hlo)
+  have h2 : Int.log 2 x < k + 1 :=
+    (Int.lt_zpow_iff_log_lt (b := 2) (by norm_num) hx).mp (by exact_mod_cast hhi)
+  omega
+
 /-- `canonicalExp` depends only on the binade `Int.log 2 |·|` (away from `0`):
 equal logs give equal canonical exponents. -/
 theorem canonicalExp_eq_of_log_eq (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0) (hz : z ≠ 0)
@@ -446,12 +455,7 @@ theorem canonicalExp_eq_of_binade_top {F₁ F₂ : FiniteFormat} {tb₂ : TieBre
     · have := hmax _ hdk_mem (by rw [hdk_real]; exact h_xlo); rw [hdk_real] at this; exact this
     · linarith [h_xlo]
   have hz_pos : (0 : ℝ) < (z : ℝ) := lt_of_lt_of_le (zpow_pos (by norm_num) k) h_zlo
-  have hlogz : Int.log 2 (z : ℝ) = k := by
-    have h1 : k ≤ Int.log 2 (z : ℝ) :=
-      (Int.zpow_le_iff_le_log (b := 2) (by norm_num) hz_pos).mp (by exact_mod_cast h_zlo)
-    have h2 : Int.log 2 (z : ℝ) < k + 1 :=
-      (Int.lt_zpow_iff_log_lt (b := 2) (by norm_num) hz_pos).mp (by exact_mod_cast hzhi)
-    omega
+  have hlogz : Int.log 2 (z : ℝ) = k := log_eq_of_zpow_bounds hz_pos h_zlo hzhi
   have hzabs : |(z : ℝ)| = (z : ℝ) := abs_of_pos hz_pos
   exact (canonicalExp_eq_of_log_eq F₁ (ne_of_gt hz_pos) hx0
     (by rw [hzabs, hxabs, hlogz, ← hk])).trans rfl

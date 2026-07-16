@@ -107,4 +107,76 @@ theorem log_sub_prec_le_canonicalExp {F : FiniteFormat} {p : ℕ+}
   | bot => rw [canonicalExp_FLX hp hexp hv]
   | coe e => rw [canonicalExp_FLT hp hexp hv]; exact le_max_left _ _
 
+/-! ### Powers of two: predecessor identities
+
+Shared replacements for the `2^a = 2·2^(a-1)` etc. identities re-proved inline
+throughout the operation-specific proofs (`⌊·⌋`-based `set` variables make
+`rw [show a = (a-1)+1 …]` self-referential, so these avoid rewriting the
+exponent variable). -/
+
+/-- `2^a = 2^(a-1) · 2`. -/
+theorem two_zpow_pred (a : ℤ) : (2 : ℝ) ^ a = (2 : ℝ) ^ (a - 1) * 2 := by
+  have h : (2 : ℝ) ^ ((a - 1) + 1) = (2 : ℝ) ^ (a - 1) * (2 : ℝ) ^ (1 : ℤ) :=
+    zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0) (a - 1) 1
+  rw [zpow_one, show (a - 1) + 1 = a from by ring] at h; exact h
+
+/-- `2^a / 2 = 2^(a-1)`. -/
+theorem two_zpow_half (a : ℤ) : (2 : ℝ) ^ a / 2 = (2 : ℝ) ^ (a - 1) := by
+  rw [two_zpow_pred a]; ring
+
+/-- `2^a = 2 · 2^(a-1)`. -/
+theorem two_zpow_dbl (a : ℤ) : (2 : ℝ) ^ a = 2 * (2 : ℝ) ^ (a - 1) := by
+  rw [two_zpow_pred a]; ring
+
+/-! ### Quantum alignment under arithmetic
+
+A value's *quantum* (`Dyadic.quantumAtLeast e`) is preserved/combined under
+negation, `±`, and `×`. Shared by the addition and multiplication proofs. -/
+
+/-- Negation preserves quantum alignment. -/
+theorem quantumAtLeast_neg {e : WithBot ℤ} {a : Dyadic}
+    (ha : Dyadic.quantumAtLeast e a) : Dyadic.quantumAtLeast e (-a) := by
+  cases e with
+  | bot => trivial
+  | coe e =>
+    obtain ⟨ca, hca⟩ := (Dyadic.quantumAtLeast_coe_real e a).mp ha
+    refine (Dyadic.quantumAtLeast_coe_real e (-a)).mpr ⟨-ca, ?_⟩
+    rw [show ((-a : Dyadic) : ℝ) = -(a : ℝ) from by push_cast; ring, hca]; push_cast; ring
+
+/-- A sum of two quantum-aligned dyadics stays quantum-aligned. -/
+theorem quantumAtLeast_add {e : WithBot ℤ} {a b : Dyadic}
+    (ha : Dyadic.quantumAtLeast e a) (hb : Dyadic.quantumAtLeast e b) :
+    Dyadic.quantumAtLeast e (a + b) := by
+  cases e with
+  | bot => trivial
+  | coe e =>
+    obtain ⟨ca, hca⟩ := (Dyadic.quantumAtLeast_coe_real e a).mp ha
+    obtain ⟨cb, hcb⟩ := (Dyadic.quantumAtLeast_coe_real e b).mp hb
+    refine (Dyadic.quantumAtLeast_coe_real e (a + b)).mpr ⟨ca + cb, ?_⟩
+    rw [show ((a + b : Dyadic) : ℝ) = (a : ℝ) + (b : ℝ) from by push_cast; ring, hca, hcb]
+    push_cast; ring
+
+/-- A difference of two quantum-aligned dyadics stays quantum-aligned. -/
+theorem quantumAtLeast_sub {e : WithBot ℤ} {a b : Dyadic}
+    (ha : Dyadic.quantumAtLeast e a) (hb : Dyadic.quantumAtLeast e b) :
+    Dyadic.quantumAtLeast e (a - b) := by
+  rw [sub_eq_add_neg]; exact quantumAtLeast_add ha (quantumAtLeast_neg hb)
+
+/-- A product is quantum-aligned at the *sum* of the operands' quanta. -/
+theorem quantumAtLeast_mul {e₁ e₂ : WithBot ℤ} {x y : Dyadic}
+    (hx : Dyadic.quantumAtLeast e₁ x) (hy : Dyadic.quantumAtLeast e₂ y) :
+    Dyadic.quantumAtLeast (e₁ + e₂) (x * y) := by
+  cases e₁ with
+  | bot => rw [show (⊥ + e₂ : WithBot ℤ) = ⊥ from by simp]; trivial
+  | coe a =>
+    cases e₂ with
+    | bot => rw [show ((a : WithBot ℤ) + ⊥) = ⊥ from by simp]; trivial
+    | coe b =>
+      obtain ⟨cx, hcx⟩ := (Dyadic.quantumAtLeast_coe_real a x).mp hx
+      obtain ⟨cy, hcy⟩ := (Dyadic.quantumAtLeast_coe_real b y).mp hy
+      rw [← WithBot.coe_add]
+      refine (Dyadic.quantumAtLeast_coe_real (a + b) (x * y)).mpr ⟨cx * cy, ?_⟩
+      rw [show ((x * y : Dyadic) : ℝ) = (x : ℝ) * (y : ℝ) from by push_cast; ring, hcx, hcy,
+          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; push_cast; ring
+
 end Mpfx
