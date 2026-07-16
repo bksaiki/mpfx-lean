@@ -378,6 +378,20 @@ private theorem gap_of_ne_half_aligned {c a K E : ℤ} (hK : K ≤ E + 1)
     (by omega) hne'
   rwa [h_resc] at h
 
+/-- Package a two-sided distance bound `g ≤ |z − A|` into the below-side gap
+`z ≤ A − g` (given `z < A`). Shared tail of the `gap_*` dispatch helpers,
+absorbing the repeated `abs_sub_comm` / `abs_of_nonneg` / `linarith` step. -/
+private theorem gap_bound_below {z A g : ℝ} (hz_lt : z < A) (h_gap : g ≤ |z - A|) :
+    z ≤ A - g := by
+  rw [abs_sub_comm, abs_of_nonneg (by linarith : (0 : ℝ) ≤ A - z)] at h_gap
+  linarith
+
+/-- Dual of `gap_bound_below`: `g ≤ |z − A|` with `A < z` gives `A + g ≤ z`. -/
+private theorem gap_bound_above {z A g : ℝ} (hz_gt : A < z) (h_gap : g ≤ |z - A|) :
+    A + g ≤ z := by
+  rw [abs_of_nonneg (by linarith : (0 : ℝ) ≤ z - A)] at h_gap
+  linarith
+
 /-- **Binade quantization.** In a format with finite precision `q₂`, every
 element of the binade `[2^E, 2^(E+1))` is an integer multiple of the local
 step `2^(E − q₂ + 1)`. -/
@@ -518,10 +532,8 @@ private theorem gap_below_pow (F₂ : FiniteFormat) {E : ℤ}
         exact ne_of_lt hz_lt
       have h_gap := gap_of_ne_aligned (c := c) (a := 1)
         (K := E - (q₂ : ℕ)) (E := E) (by omega) hne
-      rw [h_one, ← hc, abs_sub_comm,
-          abs_of_nonneg (by linarith : (0 : ℝ) ≤ (2 : ℝ)^E - ((z : Dyadic) : ℝ))]
-        at h_gap
-      linarith
+      rw [h_one, ← hc] at h_gap
+      exact gap_bound_below hz_lt h_gap
   · -- `exp = f₂` finite: the global quantum grid.
     have hexpc : F₂.exp = (f₂ : WithBot ℤ) := hexp
     have hf₂E : f₂ ≤ E := h_exp_le f₂ hexpc
@@ -572,10 +584,8 @@ private theorem gap_above_pow (F₂ : FiniteFormat) {E : ℤ}
         exact (ne_of_lt hz_gt).symm
       have h_gap := gap_of_ne_aligned (c := c) (a := 1)
         (K := E - (q₂ : ℕ) + 1) (E := E) (by omega) hne
-      rw [h_one, ← hc,
-          abs_of_nonneg (by linarith : (0 : ℝ) ≤ ((z : Dyadic) : ℝ) - (2 : ℝ)^E)]
-        at h_gap
-      linarith
+      rw [h_one, ← hc] at h_gap
+      exact gap_bound_above hz_gt h_gap
     · -- At or above the binade top: `z ≥ 2^(E+1) = 2^E + 2^E ≥ 2^E + 2^K`.
       linarith
   · -- `exp = f₂` finite: the global quantum grid.
@@ -650,9 +660,8 @@ private theorem gap_around_mid (F₂ : FiniteFormat) {e a : ℤ}
           exact ne_of_lt hz_lt
         have h_gap := gap_of_ne_half_aligned (c := c) (a := a)
           (K := e - (q₂ : ℕ) + 2) (E := e - 1) (by omega) hne
-        rw [← hc, abs_sub_comm, abs_of_nonneg (by linarith :
-            (0 : ℝ) ≤ (a : ℝ) * (2 : ℝ)^(e - 1) - ((z : Dyadic) : ℝ))] at h_gap
-        linarith
+        rw [← hc] at h_gap
+        exact gap_bound_below hz_lt h_gap
     · intro z hz hz_gt
       rcases lt_or_ge ((z : Dyadic) : ℝ) ((2 : ℝ)^(e + 2)) with h_in | h_above
       · -- In binade `e+1` (since `z > A ≥ 5·2^(e−1) > 2^(e+1)`).
@@ -670,9 +679,8 @@ private theorem gap_around_mid (F₂ : FiniteFormat) {e a : ℤ}
           exact (ne_of_lt hz_gt).symm
         have h_gap := gap_of_ne_half_aligned (c := c) (a := a)
           (K := e - (q₂ : ℕ) + 2) (E := e - 1) (by omega) hne
-        rw [← hc, abs_of_nonneg (by linarith :
-            (0 : ℝ) ≤ ((z : Dyadic) : ℝ) - (a : ℝ) * (2 : ℝ)^(e - 1))] at h_gap
-        linarith
+        rw [← hc] at h_gap
+        exact gap_bound_above hz_gt h_gap
       · -- At or above the binade top: `z ≥ 8·2^(e−1) ≥ A + 2^(K−1)`.
         rw [h_e2_split] at h_above
         linarith
@@ -692,9 +700,8 @@ private theorem gap_around_mid (F₂ : FiniteFormat) {e a : ℤ}
         exact ne_of_lt hz_lt
       have h_gap := gap_of_ne_half_aligned (c := c) (a := a)
         (K := f₂) (E := e - 1) (by omega) hne
-      rw [← hc, abs_sub_comm, abs_of_nonneg (by linarith :
-          (0 : ℝ) ≤ (a : ℝ) * (2 : ℝ)^(e - 1) - ((z : Dyadic) : ℝ))] at h_gap
-      linarith
+      rw [← hc] at h_gap
+      exact gap_bound_below hz_lt h_gap
     · intro z hz hz_gt
       obtain ⟨_, hq, _⟩ := hz
       rw [hexpc, Dyadic.quantumAtLeast_coe_real] at hq
@@ -704,9 +711,8 @@ private theorem gap_around_mid (F₂ : FiniteFormat) {e a : ℤ}
         exact (ne_of_lt hz_gt).symm
       have h_gap := gap_of_ne_half_aligned (c := c) (a := a)
         (K := f₂) (E := e - 1) (by omega) hne
-      rw [← hc, abs_of_nonneg (by linarith :
-          (0 : ℝ) ≤ ((z : Dyadic) : ℝ) - (a : ℝ) * (2 : ℝ)^(e - 1))] at h_gap
-      linarith
+      rw [← hc] at h_gap
+      exact gap_bound_above hz_gt h_gap
 
 /-- **Shape dispatch: full-step gaps around the representable midpoint**
 `m = 7·2^(e−1)` when `m ∈ F₂`: there is a local step `2^K` (`K ≤ e − 1`)
@@ -769,9 +775,8 @@ private theorem gap_around_m_mem (F₂ : FiniteFormat) {e : ℤ}
           exact ne_of_lt hz_lt
         have h_gap := gap_of_ne_aligned (c := c)
           (a := 7 * (2 : ℤ)^((e - 1) - K).toNat) (K := K) (E := K) le_rfl hne
-        rw [← hc, ← h_m_grid, abs_sub_comm, abs_of_nonneg (by linarith :
-            (0 : ℝ) ≤ (7 : ℝ) * (2 : ℝ)^(e - 1) - ((z : Dyadic) : ℝ))] at h_gap
-        linarith
+        rw [← hc, ← h_m_grid] at h_gap
+        exact gap_bound_below hz_lt h_gap
     · intro z hz hz_gt
       rcases lt_or_ge ((z : Dyadic) : ℝ) ((2 : ℝ)^(e + 2)) with h_in | h_above
       · have h_in_lo : (2 : ℝ)^(e + 1) ≤ ((z : Dyadic) : ℝ) := by
@@ -788,9 +793,8 @@ private theorem gap_around_m_mem (F₂ : FiniteFormat) {e : ℤ}
           exact (ne_of_lt hz_gt).symm
         have h_gap := gap_of_ne_aligned (c := c)
           (a := 7 * (2 : ℤ)^((e - 1) - K).toNat) (K := K) (E := K) le_rfl hne
-        rw [← hc, ← h_m_grid, abs_of_nonneg (by linarith :
-            (0 : ℝ) ≤ ((z : Dyadic) : ℝ) - (7 : ℝ) * (2 : ℝ)^(e - 1))] at h_gap
-        linarith
+        rw [← hc, ← h_m_grid] at h_gap
+        exact gap_bound_above hz_gt h_gap
       · rw [h_e2_split] at h_above
         linarith
   · -- `exp = f₂` finite: `m ∈ F₂` forces `f₂ ≤ e − 1`; the quantum grid,
@@ -815,9 +819,8 @@ private theorem gap_around_m_mem (F₂ : FiniteFormat) {e : ℤ}
         exact ne_of_lt hz_lt
       have h_gap := gap_of_ne_aligned (c := c)
         (a := 7 * (2 : ℤ)^((e - 1) - f₂).toNat) (K := f₂) (E := f₂) le_rfl hne
-      rw [← hc, ← h_m_grid, abs_sub_comm, abs_of_nonneg (by linarith :
-          (0 : ℝ) ≤ (7 : ℝ) * (2 : ℝ)^(e - 1) - ((z : Dyadic) : ℝ))] at h_gap
-      linarith
+      rw [← hc, ← h_m_grid] at h_gap
+      exact gap_bound_below hz_lt h_gap
     · intro z hz hz_gt
       obtain ⟨_, hq, _⟩ := hz
       rw [hexpc, Dyadic.quantumAtLeast_coe_real] at hq
@@ -828,9 +831,8 @@ private theorem gap_around_m_mem (F₂ : FiniteFormat) {e : ℤ}
         exact (ne_of_lt hz_gt).symm
       have h_gap := gap_of_ne_aligned (c := c)
         (a := 7 * (2 : ℤ)^((e - 1) - f₂).toNat) (K := f₂) (E := f₂) le_rfl hne
-      rw [← hc, ← h_m_grid, abs_of_nonneg (by linarith :
-          (0 : ℝ) ≤ ((z : Dyadic) : ℝ) - (7 : ℝ) * (2 : ℝ)^(e - 1))] at h_gap
-      linarith
+      rw [← hc, ← h_m_grid] at h_gap
+      exact gap_bound_above hz_gt h_gap
 
 /-- **Shape dispatch for `a = 3`: half-step gaps around `A = 3·2^(E−1)`.**
 The midpoints of the power-of-two neighborhood are odd multiples `3·2^k`,
@@ -877,9 +879,8 @@ private theorem gap_around_mid3 (F₂ : FiniteFormat) {E : ℤ}
         have h_gap := gap_of_ne_half_aligned (c := c) (a := 3)
           (K := E - (q₂ : ℕ) + 1) (E := E - 1) (by omega) hne
         push_cast at h_gap
-        rw [← hc, abs_sub_comm, abs_of_nonneg (by linarith :
-            (0 : ℝ) ≤ (3 : ℝ) * (2 : ℝ)^(E - 1) - ((z : Dyadic) : ℝ))] at h_gap
-        linarith
+        rw [← hc] at h_gap
+        exact gap_bound_below hz_lt h_gap
     · intro z hz hz_gt
       rcases lt_or_ge ((z : Dyadic) : ℝ) ((2 : ℝ)^(E + 1)) with h_in | h_above
       · have h_in_lo : (2 : ℝ)^E ≤ ((z : Dyadic) : ℝ) := by
@@ -892,9 +893,8 @@ private theorem gap_around_mid3 (F₂ : FiniteFormat) {E : ℤ}
         have h_gap := gap_of_ne_half_aligned (c := c) (a := 3)
           (K := E - (q₂ : ℕ) + 1) (E := E - 1) (by omega) hne
         push_cast at h_gap
-        rw [← hc, abs_of_nonneg (by linarith :
-            (0 : ℝ) ≤ ((z : Dyadic) : ℝ) - (3 : ℝ) * (2 : ℝ)^(E - 1))] at h_gap
-        linarith
+        rw [← hc] at h_gap
+        exact gap_bound_above hz_gt h_gap
       · rw [h_hi_split] at h_above
         linarith
   · -- `exp = f₂` finite: the global quantum grid; `K = f₂ ≤ E`.
@@ -910,9 +910,8 @@ private theorem gap_around_mid3 (F₂ : FiniteFormat) {E : ℤ}
       have h_gap := gap_of_ne_half_aligned (c := c) (a := 3)
         (K := f₂) (E := E - 1) (by omega) hne
       push_cast at h_gap
-      rw [← hc, abs_sub_comm, abs_of_nonneg (by linarith :
-          (0 : ℝ) ≤ (3 : ℝ) * (2 : ℝ)^(E - 1) - ((z : Dyadic) : ℝ))] at h_gap
-      linarith
+      rw [← hc] at h_gap
+      exact gap_bound_below hz_lt h_gap
     · intro z hz hz_gt
       obtain ⟨_, hq, _⟩ := hz
       rw [hexpc, Dyadic.quantumAtLeast_coe_real] at hq
@@ -922,9 +921,8 @@ private theorem gap_around_mid3 (F₂ : FiniteFormat) {E : ℤ}
       have h_gap := gap_of_ne_half_aligned (c := c) (a := 3)
         (K := f₂) (E := E - 1) (by omega) hne
       push_cast at h_gap
-      rw [← hc, abs_of_nonneg (by linarith :
-          (0 : ℝ) ≤ ((z : Dyadic) : ℝ) - (3 : ℝ) * (2 : ℝ)^(E - 1))] at h_gap
-      linarith
+      rw [← hc] at h_gap
+      exact gap_bound_above hz_gt h_gap
 
 /-- **Full-step gaps around `A = 3·2^(E−1)` when `A ∈ F₂`.** The `a = 3`
 analogue of `gap_around_m_mem`. -/
@@ -983,9 +981,8 @@ private theorem gap_around_mid3_mem (F₂ : FiniteFormat) {E : ℤ}
           rw [← hc, ← h_m_grid]; exact ne_of_lt hz_lt
         have h_gap := gap_of_ne_aligned (c := c)
           (a := 3 * (2 : ℤ)^((E - 1) - K).toNat) (K := K) (E := K) le_rfl hne
-        rw [← hc, ← h_m_grid, abs_sub_comm, abs_of_nonneg (by linarith :
-            (0 : ℝ) ≤ (3 : ℝ) * (2 : ℝ)^(E - 1) - ((z : Dyadic) : ℝ))] at h_gap
-        linarith
+        rw [← hc, ← h_m_grid] at h_gap
+        exact gap_bound_below hz_lt h_gap
     · intro z hz hz_gt
       rcases lt_or_ge ((z : Dyadic) : ℝ) ((2 : ℝ)^(E + 1)) with h_in | h_above
       · have h_in_lo : (2 : ℝ)^E ≤ ((z : Dyadic) : ℝ) := by
@@ -997,9 +994,8 @@ private theorem gap_around_mid3_mem (F₂ : FiniteFormat) {E : ℤ}
           rw [← hc, ← h_m_grid]; exact (ne_of_lt hz_gt).symm
         have h_gap := gap_of_ne_aligned (c := c)
           (a := 3 * (2 : ℤ)^((E - 1) - K).toNat) (K := K) (E := K) le_rfl hne
-        rw [← hc, ← h_m_grid, abs_of_nonneg (by linarith :
-            (0 : ℝ) ≤ ((z : Dyadic) : ℝ) - (3 : ℝ) * (2 : ℝ)^(E - 1))] at h_gap
-        linarith
+        rw [← hc, ← h_m_grid] at h_gap
+        exact gap_bound_above hz_gt h_gap
       · rw [h_hi_split] at h_above
         linarith
   · -- `exp = f₂` finite: `A ∈ F₂` forces `f₂ ≤ E − 1`; the quantum grid.
@@ -1021,9 +1017,8 @@ private theorem gap_around_mid3_mem (F₂ : FiniteFormat) {E : ℤ}
         rw [← hc, ← h_m_grid]; exact ne_of_lt hz_lt
       have h_gap := gap_of_ne_aligned (c := c)
         (a := 3 * (2 : ℤ)^((E - 1) - f₂).toNat) (K := f₂) (E := f₂) le_rfl hne
-      rw [← hc, ← h_m_grid, abs_sub_comm, abs_of_nonneg (by linarith :
-          (0 : ℝ) ≤ (3 : ℝ) * (2 : ℝ)^(E - 1) - ((z : Dyadic) : ℝ))] at h_gap
-      linarith
+      rw [← hc, ← h_m_grid] at h_gap
+      exact gap_bound_below hz_lt h_gap
     · intro z hz hz_gt
       obtain ⟨_, hq, _⟩ := hz
       rw [hexpc, Dyadic.quantumAtLeast_coe_real] at hq
@@ -1033,9 +1028,8 @@ private theorem gap_around_mid3_mem (F₂ : FiniteFormat) {E : ℤ}
         rw [← hc, ← h_m_grid]; exact (ne_of_lt hz_gt).symm
       have h_gap := gap_of_ne_aligned (c := c)
         (a := 3 * (2 : ℤ)^((E - 1) - f₂).toNat) (K := f₂) (E := f₂) le_rfl hne
-      rw [← hc, ← h_m_grid, abs_of_nonneg (by linarith :
-          (0 : ℝ) ≤ ((z : Dyadic) : ℝ) - (3 : ℝ) * (2 : ℝ)^(E - 1))] at h_gap
-      linarith
+      rw [← hc, ← h_m_grid] at h_gap
+      exact gap_bound_above hz_gt h_gap
 
 /-- RTO at an F-exact value is the identity (vacuous parity clause since
 `x = y`). -/
