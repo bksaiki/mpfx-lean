@@ -669,4 +669,51 @@ theorem nearest_eq_of_close' (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
         mul_lt_mul_of_pos_right hclose h2pos
     _ = 1 / 2 := by rw [div_mul_eq_mul_div, hcc]
 
+/-! ## Midpoint case dispatch (Flocq `round_round_mid_cases`)
+
+The shared entry point for the operation-specific results whose output can lie
+on *either* side of its `F₁`-midpoint (square root, division). Given `F₂` finer
+than `F₁` at `x`, the value is either far enough below the midpoint
+(`rnd_lt_mid'`), far enough above it (`rnd_gt_mid'`), or within `½·ulp₂` of it —
+the last case being where the *operation-specific* algebra shows the result can
+never land (so the caller discharges it, typically by `exfalso`). -/
+
+/-- **Upper midpoint** `rndUp F x − ½·ulp F x` (Flocq `midp'`). For `x` not
+representable in `F` this equals `midp F x`; the two split only at grid points. -/
+noncomputable def midp' (F : FiniteFormat) (x : ℝ) : ℝ :=
+  (rndUp F x : ℝ) - ulp F x / 2
+
+/-- **Midpoint case dispatch** (Flocq `round_round_mid_cases`). For `0 < x` with
+`F₂` strictly finer than `F₁` at `x` (`h21`), `x` inside its binade (`hle`), and
+bounded away from the binade top (`htop`), double rounding of `x` is innocuous
+*provided the near-midpoint case is handled*: if `|x − midp₁ x| ≤ ½·ulp₂` the
+caller supplies `hcmid`; otherwise `x` sits more than `½·ulp₂` below the midpoint
+(→ `rnd_lt_mid'`) or above it (→ `rnd_gt_mid'`). The `√`/`÷` proofs discharge
+`hcmid` by showing the result is never within `½·ulp₂` of a midpoint. -/
+theorem round_round_mid_cases {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
+    {z w : Dyadic}
+    (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
+    (hx : 0 < x)
+    (h21 : F₂.canonicalExp x < F₁.canonicalExp x)
+    (hle : F₁.canonicalExp x ≤ Int.log 2 x + 1)
+    (htop : x + ulp F₂ x / 2 < (2 : ℝ) ^ (Int.log 2 x + 1))
+    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) x z)
+    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w)
+    (hcmid : |x - midp F₁ x| ≤ ulp F₂ x / 2 →
+      RoundsFinite F₁.unbounded (.nearest tb₁) x w) :
+    RoundsFinite F₁.unbounded (.nearest tb₁) x w := by
+  have hmidp : midp F₁ x = (rndDown F₁ x : ℝ) + ulp F₁ x / 2 := rfl
+  rcases lt_or_ge (x - (rndDown F₁ x : ℝ)) ((ulp F₁ x - ulp F₂ x) / 2) with hlt | hge
+  · -- more than `½·ulp₂` below the midpoint
+    refine rnd_lt_mid' hundef₁ hx h21 hle ?_ hz hw
+    rw [hmidp]; linarith
+  · rcases lt_or_ge ((ulp F₁ x + ulp F₂ x) / 2) (x - (rndDown F₁ x : ℝ)) with hgt | hmid
+    · -- more than `½·ulp₂` above the midpoint
+      refine rnd_gt_mid' hundef₁ hx h21 hle htop ?_ hz hw
+      have hup := rndUp_le_rndDown_add_ulp F₁ x
+      linarith
+    · -- within `½·ulp₂` of the midpoint
+      refine hcmid ?_
+      rw [abs_le, hmidp]; exact ⟨by linarith, by linarith⟩
+
 end Mpfx

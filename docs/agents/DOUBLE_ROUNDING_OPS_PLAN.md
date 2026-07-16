@@ -388,9 +388,38 @@ Implementation (`DoubleRoundingAdd.lean`):
 
 All verified; axioms `[propext, Classical.choice, Quot.sound]`.
 
-**Still future:** √ (Thm 25), ÷ (Thm 29). (These are the genuinely new
-operations — they produce non-`Dyadic` results, so "exact intermediate" no
-longer applies; they need Roux's operation-specific algebra on top of Lemma 16.)
+**Still future:** √ (Thm 25), ÷ (Thm 29). These produce non-`Dyadic` results, so
+"exact intermediate" no longer applies — but that is *fine*: `RoundsFinite`
+rounds a real, so the statements just take `Real.sqrt x` / `x / y` as input and
+lean entirely on the midpoint engine (which is two-sided: `rnd_lt_mid'` +
+`rnd_gt_mid'`). What they add is operation-specific algebra bounding the result
+away from `F₁`-midpoints.
+
+### Step 1 (shared √/÷ prerequisite): DONE — `round_round_mid_cases`
+
+Built in `NearestMidpoint.lean`: **`midp'`** (upper midpoint `rndUp − ½ulp`) and
+**`round_round_mid_cases`** (Flocq's dispatcher). Given `0 < x`, `F₂` finer at
+`x` (`h21`), `hle`, `htop`, it reduces double rounding to a *near-midpoint*
+obligation `hcmid : |x − midp₁ x| ≤ ½ulp₂ → …`; the two far cases go to
+`rnd_lt_mid'` / `rnd_gt_mid'`. The √/÷ proofs discharge `hcmid` by `exfalso` from
+the separation lemma. Verified, axioms `[propext, Classical.choice, Quot.sound]`.
+
+*Caveat / known follow-up:* `round_round_mid_cases` currently carries `htop`
+(result bounded `½ulp₂` away from the binade top `2^(mag x)`), inherited from
+`rnd_gt_mid'`. Flocq's `gt_mid_further_place` instead handles the binade-top
+crossing internally (`round_round_gt_mid_further_place'`, the `x'' = bpow(mag x)`
+branch). For √/÷ this is expected to be dischargeable by the *same* separation
+argument that kills `hcmid` (the result is not within `½ulp₂` of `2^(mag x)`
+either, since that is an `F₁` point); if a case genuinely needs it, harden the
+gt-path to drop `htop` (the abstract crossing argument: the intermediate `z`
+lands on `2^(mag x)`, which is in `F₁`, and `nearest_eq_of_close'` closes both
+`◦₁(z)` and `◦₁(x)` to it).
+
+**Next (step 2): square root.** (a) `Int.log 2 (Real.sqrt x)` binade lemma
+(≈ Flocq `mag_sqrt`/`mag_sqrt_disj`); (b) the separation `round_round_sqrt_aux`
+(√x is `> ½ulp₂` from any `F₁`-midpoint, via squaring + bit-counting) — the hard
+mile; (c) assembly through `round_round_mid_cases` + FLX/FLT corollaries
+(`p₂ ≥ 2p₁+2`, plus the Table-II `emin` condition).
 
 **Open design decision (resolved — recorded for history):**
 1. **Represent `ulp`/`midp`/round-down how?** (a) real-valued
