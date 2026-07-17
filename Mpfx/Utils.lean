@@ -45,6 +45,38 @@ lemma two_zpow_split_minus_two (f : ℤ) :
     rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
   rw [h_eq, show (2 : ℝ) ^ (2 : ℤ) = 4 by norm_num]; ring
 
+/-- Re-base a canonical rep to a coarser exponent (ℝ): shift `(c:ℝ)·2^e` down to
+quantum `k ≤ e`, folding the extra powers of two into an integer coefficient. -/
+lemma two_zpow_shift_real (c : ℤ) {e k : ℤ} (h : k ≤ e) :
+    (c : ℝ) * (2 : ℝ) ^ e = ((c * (2 : ℤ) ^ (e - k).toNat : ℤ) : ℝ) * (2 : ℝ) ^ k := by
+  rw [two_zpow_split e k h]; push_cast; ring
+
+/-- Re-base a canonical rep to a coarser exponent (ℚ), the ℚ twin of
+`two_zpow_shift_real`. -/
+lemma two_zpow_shift_rat (c : ℤ) {e k : ℤ} (h : k ≤ e) :
+    (c : ℚ) * (2 : ℚ) ^ e = ((c * (2 : ℤ) ^ (e - k).toNat : ℤ) : ℚ) * (2 : ℚ) ^ k := by
+  have hn : ((e - k).toNat : ℤ) = e - k := Int.toNat_of_nonneg (by omega)
+  have hsplit : (2 : ℚ) ^ e = (2 : ℚ) ^ ((e - k).toNat : ℤ) * (2 : ℚ) ^ k := by
+    rw [← zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), hn]; congr 1; ring
+  rw [hsplit, zpow_natCast]; push_cast; ring
+
+/-- Inverse of the shift (ℝ): if two canonical reps of the same real agree with
+`e₁ ≤ e₂`, the finer coefficient is the coarser one scaled by `2^(e₂-e₁)`. -/
+lemma coeff_eq_of_shift_real {c₁ c₂ e₁ e₂ : ℤ} (h : e₁ ≤ e₂)
+    (heq : (c₁ : ℝ) * (2 : ℝ) ^ e₁ = (c₂ : ℝ) * (2 : ℝ) ^ e₂) :
+    c₁ = c₂ * (2 : ℤ) ^ (e₂ - e₁).toNat := by
+  rw [two_zpow_shift_real c₂ h] at heq
+  have h2 : (0 : ℝ) < (2 : ℝ) ^ e₁ := zpow_pos (by norm_num) _
+  exact_mod_cast mul_right_cancel₀ (ne_of_gt h2) heq
+
+/-- Inverse of the shift (ℚ), the ℚ twin of `coeff_eq_of_shift_real`. -/
+lemma coeff_eq_of_shift_rat {c₁ c₂ e₁ e₂ : ℤ} (h : e₁ ≤ e₂)
+    (heq : (c₁ : ℚ) * (2 : ℚ) ^ e₁ = (c₂ : ℚ) * (2 : ℚ) ^ e₂) :
+    c₁ = c₂ * (2 : ℤ) ^ (e₂ - e₁).toNat := by
+  rw [two_zpow_shift_rat c₂ h] at heq
+  have h2 : (0 : ℚ) < (2 : ℚ) ^ e₁ := zpow_pos (by norm_num) _
+  exact_mod_cast mul_right_cancel₀ (ne_of_gt h2) heq
+
 /-- If `z·x ≥ 0` and `0 < x`, then `0 ≤ z`. -/
 lemma nonneg_of_mul_nonneg_pos {z x : ℝ} (h_sign : z * x ≥ 0) (hx : 0 < x) :
     0 ≤ z := by

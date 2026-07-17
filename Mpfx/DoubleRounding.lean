@@ -504,12 +504,31 @@ auxiliary `2 ≤ F₂.p` is *derived* (rather than assumed). These helpers bridg
 the paper form to the `_pos` private bodies (which keep the simpler
 `F₁.extend 1 ⊆ F₂` + `2 ≤ F₂.p` form). -/
 
+/-- `(F.extend 1).extend 1` and `F.extend 2` agree on precision and quantum
+(`(n+1)+1 = n+2`, `(e-1)-1 = e-2`); their bounds are both `F.b`. Used to bridge
+the RN lemmas (stated over `F₁.extend 2`) to the generic ones (stated over an
+arbitrary base extended once). -/
+private theorem extend_one_extend_one_p_exp (F : FiniteFormat) :
+    ((F.extend 1).extend 1).p = (F.extend 2).p ∧
+    ((F.extend 1).extend 1).exp = (F.extend 2).exp := by
+  refine ⟨?_, ?_⟩
+  · change (F.p.map (· + (1 : ℕ+))).map (· + (1 : ℕ+)) = F.p.map (· + (2 : ℕ+))
+    cases hF : F.p with
+    | top => rfl
+    | coe n => rw [WithTop.map_coe, WithTop.map_coe, WithTop.map_coe,
+        show n + 1 + 1 = n + 2 from PNat.coe_injective (by push_cast; ring)]
+  · change (F.exp.map (· - (1 : ℤ))).map (· - (1 : ℤ)) = F.exp.map (· - (2 : ℤ))
+    cases hF : F.exp with
+    | bot => rfl
+    | coe e => rw [WithBot.map_coe, WithBot.map_coe, WithBot.map_coe]; congr 1; ring
+
 /-- Given the paper-aligned containment
-`(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`, derive the weaker
-`F₁.extend 1 ⊆ F₂` form (used by the `_pos` private theorems). The bound
-`F₁.boundAfterNext = next(F₁.b)` is at least as large as `F₁.b`, so any
-`y ∈ F₁.extend 1` (whose bound is `F₁.b`) also satisfies the relaxed bound. -/
-private theorem extend_one_subset_of_paper_subset {F₁ F₂ : FiniteFormat}
+`(G.extend 1).withBound G.boundAfterNext ⊆ F₂`, derive the weaker
+`G.extend 1 ⊆ F₂` form (used by the `_pos` private theorems). The bound
+`G.boundAfterNext = next(G.b)` is at least as large as `G.b`, so any
+`y ∈ G.extend 1` (whose bound is `G.b`) also satisfies the relaxed bound.
+Generic in the base format `G`; the `k = 1`/`k = 2` cases specialize it. -/
+private theorem extend_subset_of_paper_subset {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat) :
     (F₁.extend 1).toFormat ⊆ F₂.toFormat := by
   intro y hy
@@ -539,6 +558,12 @@ private theorem extend_one_subset_of_paper_subset {F₁ F₂ : FiniteFormat}
       exact_mod_cast h_le_next
     exact le_trans h_y_le_b h_le_next_q
 
+/-- `k = 1` specialization of `extend_subset_of_paper_subset`. -/
+private theorem extend_one_subset_of_paper_subset {F₁ F₂ : FiniteFormat}
+    (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat) :
+    (F₁.extend 1).toFormat ⊆ F₂.toFormat :=
+  extend_subset_of_paper_subset hsub
+
 /-- From the paper-aligned containment
 `(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`, either `F₂.p ≥ 2` (the
 auxiliary needed for Lemma 5.3) or `F₁` contains only `0`. The proof either
@@ -546,7 +571,7 @@ constructs a precision-2 witness `v = 3·2^k` lying in
 `(F₁.extend 1).withBound F₁.boundAfterNext` (forcing `F₂.p ≥ 2` via
 `two_le_p_of_precision_two_witness`), or shows `F₁` is trivial. The witness
 exists exactly when `F₁` contains some nonzero element. -/
-private theorem hp_F₂_or_F₁_trivial {F₁ F₂ : FiniteFormat}
+private theorem hp_F₂_or_F₁_trivial_extend {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat) :
     ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p ∨ ∀ d : Dyadic, d ∈ F₁ → (d : ℝ) = 0 := by
   by_contra h
@@ -721,6 +746,12 @@ private theorem hp_F₂_or_F₁_trivial {F₁ F₂ : FiniteFormat}
             (2 : ℝ)^(max e (Int.log 2 ((b.val : Dyadic) : ℝ) - ((p : ℕ) : ℤ) + 1)) :=
           zpow_le_zpow_right₀ (by norm_num : (1 : ℝ) ≤ 2) (le_max_left _ _)
         linarith
+
+/-- `k = 1` specialization of `hp_F₂_or_F₁_trivial_extend`. -/
+private theorem hp_F₂_or_F₁_trivial {F₁ F₂ : FiniteFormat}
+    (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat) :
+    ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p ∨ ∀ d : Dyadic, d ∈ F₁ → (d : ℝ) = 0 :=
+  hp_F₂_or_F₁_trivial_extend hsub
 
 /-- If `F₁` is trivial (contains only `0`) and `w' ∈ F₁`, then
 `RoundsFinite F₁ .toZero x w'` holds for any real `x` (since `w' = 0`). -/
@@ -1076,236 +1107,52 @@ private theorem midpoint_F₁_in_F₂_of_F_adjacent {F₁ F₂ : FiniteFormat}
     Dyadic.midpoint y₁ y₂ ∈ F₂ :=
   hsub _ (midpoint_in_F₁_extend_one_of_F_adjacent hy₁F hy₂F h_lt h_adj)
 
-/-- RN analog of `extend_one_subset_of_paper_subset`: from the paper-aligned
-containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext) ⊆ F₂`,
-derive the weaker `F₁.extend 2 ⊆ F₂` form. -/
+/-- RN analog (`k = 2` case) of `extend_one_subset_of_paper_subset`: from the
+paper-aligned containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext)
+⊆ F₂`, derive the weaker `F₁.extend 2 ⊆ F₂` form. Obtained from the generic
+`extend_subset_of_paper_subset` at base `F₁.extend 1`, bridging the
+`(F₁.extend 1).extend 1` / `F₁.extend 2` mismatch via `extend_one_extend_one_p_exp`. -/
 private theorem extend_two_subset_of_paper_RN_subset {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
               ⊆ F₂.toFormat) :
     (F₁.extend 2).toFormat ⊆ F₂.toFormat := by
+  obtain ⟨he_p, he_exp⟩ := extend_one_extend_one_p_exp F₁
+  have hsub' : (((F₁.extend 1).extend 1).toFormat.withBound
+      (F₁.extend 1).toFormat.boundAfterNext) ⊆ F₂.toFormat := by
+    intro y hy
+    obtain ⟨hp, hq, hb⟩ := hy
+    apply hsub
+    refine ⟨?_, ?_, hb⟩
+    · rw [Format.withBound_p] at hp ⊢; rwa [he_p] at hp
+    · rw [Format.withBound_exp] at hq ⊢; rwa [he_exp] at hq
   intro y hy
-  apply hsub
-  obtain ⟨hp_y, hq_y, hb_y⟩ := hy
-  refine ⟨hp_y, hq_y, ?_⟩
-  change Format.boundOK (F₁.extend 1).toFormat.boundAfterNext y
-  cases hF_b : (F₁.extend 1).b with
-  | top =>
-    rw [Format.boundAfterNext_top hF_b]; trivial
-  | coe b =>
-    obtain ⟨h_nn, h_after⟩ := Format.boundAfterNext_coe hF_b
-    rw [h_after]
-    change |((y : Dyadic) : ℚ)| ≤ (((F₁.extend 1).toFormat.next b.val : Dyadic) : ℚ)
-    -- y ∈ F₁.extend 2 has |y| ≤ (F₁.extend 2).b = F₁.b = (F₁.extend 1).b = b.
-    change Format.boundOK (F₁.extend 2).b y at hb_y
-    rw [show (F₁.extend 2).b = (F₁.extend 1).b from rfl, hF_b] at hb_y
-    have h_y_le_b : |((y : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb_y
-    have hb_nn : 0 ≤ ((b.val : Dyadic) : ℝ) := nonneg_coe_real b
-    have h_le_next : ((b.val : Dyadic) : ℝ)
-        ≤ (((F₁.extend 1).toFormat.next b.val : Dyadic) : ℝ) :=
-      Format.self_le_next (F₁.extend 1).toFormat b.val hb_nn
-    have h_le_next_q : ((b.val : Dyadic) : ℚ)
-        ≤ (((F₁.extend 1).toFormat.next b.val : Dyadic) : ℚ) := by
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h_le_next
-      exact_mod_cast h_le_next
-    exact le_trans h_y_le_b h_le_next_q
+  refine extend_subset_of_paper_subset hsub' y ?_
+  obtain ⟨hp, hq, hb⟩ := hy
+  exact ⟨by rwa [he_p], by rwa [he_exp], hb⟩
 
-/-- RN analog of `hp_F₂_or_F₁_trivial`. From the paper-aligned RN containment
-`((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext) ⊆ F₂`, either
-`F₂.p ≥ 2` or `F₁` contains only `0`. Same precision-2 witness `3·2^k`; the
-looser precision (`F₁.p + 2`) and quantum (`exp - 2`) only make the witness
-easier to place, and the bound `(F₁.extend 1).boundAfterNext` is large enough. -/
+/-- RN analog (`k = 2` case) of `hp_F₂_or_F₁_trivial`. From the paper-aligned RN
+containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext) ⊆ F₂`, either
+`F₂.p ≥ 2` or `F₁` contains only `0`. Obtained from the generic
+`hp_F₂_or_F₁_trivial_extend` at base `F₁.extend 1`: the hypothesis is bridged from
+`F₁.extend 2` to `(F₁.extend 1).extend 1` via `extend_one_extend_one_p_exp`, and
+`F₁.extend 1` trivial (the conclusion at that base) implies `F₁` trivial since
+`F₁ ⊆ F₁.extend 1`. -/
 private theorem hp_F₂_or_F₁_trivial_RN {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
               ⊆ F₂.toFormat) :
     ((2 : ℕ+) : WithTop ℕ+) ≤ F₂.p ∨ ∀ d : Dyadic, d ∈ F₁ → (d : ℝ) = 0 := by
-  by_contra h
-  push Not at h
-  obtain ⟨h_p_lt, ⟨d, hd_mem, hd_ne⟩⟩ := h
-  -- F₁⁺².p = F₁.p + 2 ≥ 2.
-  have h_F₁ext2_p_ge_2 :
-      ((2 : ℕ+) : WithTop ℕ+) ≤ (F₁.extend 2).p := by
-    change ((2 : ℕ+) : WithTop ℕ+) ≤ F₁.p.map (· + (2 : ℕ+))
-    cases hp : F₁.p with
-    | top => simp
-    | coe n =>
-      rw [WithTop.map_coe]
-      refine WithTop.coe_le_coe.mpr ?_
-      change (2 : ℕ+) ≤ n + 2
-      have h2 : ((2 : ℕ+) : ℕ) ≤ ((n + 2 : ℕ+) : ℕ) := by push_cast; try omega
-      exact_mod_cast h2
-  -- Reduce to producing a precision-2 witness.
-  suffices h_witness : ∃ v : Dyadic,
-      v ∈ ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext) ∧
-      ¬ Dyadic.precisionAtMost ((1 : ℕ+) : WithTop ℕ+) v by
-    obtain ⟨v, hv_mem, hv_not_p1⟩ := h_witness
-    exact absurd (Format.two_le_p_of_precision_two_witness (hsub v hv_mem) hv_not_p1)
-      (not_le.mpr h_p_lt)
-  -- Reusable builder: from quantum + bound for v, package full membership.
-  have h_mk_member : ∀ k : ℤ,
-      Dyadic.quantumAtLeast (F₁.exp.map (· - (2 : ℤ))) (Dyadic.ofIntZpow 3 k) →
-      Format.boundOK (F₁.extend 1).toFormat.boundAfterNext (Dyadic.ofIntZpow 3 k) →
-      Dyadic.ofIntZpow 3 k ∈
-        ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext) := by
-    intro k hq hb
-    refine ⟨?_, ?_, ?_⟩
-    · change Dyadic.precisionAtMost (F₁.extend 2).p _
-      exact Dyadic.precisionAtMost_mono h_F₁ext2_p_ge_2
-        (Dyadic.precisionAtMost_two_three_zpow k)
-    · change Dyadic.quantumAtLeast (F₁.extend 2).exp _
-      exact hq
-    · change Format.boundOK (F₁.extend 1).toFormat.boundAfterNext _
-      exact hb
-  rcases hF_exp : F₁.exp with _ | e
-  · -- F₁.exp = ⊥. F₁⁺².exp = ⊥ ⇒ quantumAtLeast trivial.
-    have h_q_triv : ∀ k : ℤ, Dyadic.quantumAtLeast (F₁.exp.map (· - (2 : ℤ)))
-        (Dyadic.ofIntZpow 3 k) := by
-      intro k; rw [hF_exp]; exact trivial
-    rcases hF_b : (F₁.extend 1).b with _ | b
-    · -- (F₁.extend 1).b = ⊤. Witness 3.
-      refine ⟨Dyadic.ofIntZpow 3 0, h_mk_member 0 (h_q_triv 0) ?_,
-        Dyadic.not_precisionAtMost_one_three_zpow 0⟩
-      rw [Format.boundAfterNext_top hF_b]; trivial
-    · -- (F₁.extend 1).b = (b : NonNegDyadic). Pick the witness scale by cases on `b`.
-      have h_ext1_exp : (F₁.extend 1).exp = ⊥ := by
-        change F₁.exp.map (· - ((1 : ℕ+) : ℤ)) = ⊥; rw [hF_exp]; rfl
-      have hb_nn_r : 0 ≤ ((b.val : Dyadic) : ℝ) := nonneg_coe_real b
-      by_cases hb0 : ((b.val : Dyadic) : ℝ) ≤ 0
-      · -- `b = 0`: `next b = b + 1 ≥ 1`. Witness 3·2^(-2) = 3/4 ≤ 1.
-        refine ⟨Dyadic.ofIntZpow 3 (-2), h_mk_member (-2) (h_q_triv (-2)) ?_,
-          Dyadic.not_precisionAtMost_one_three_zpow (-2)⟩
-        obtain ⟨_, h_bAfter⟩ := Format.boundAfterNext_coe hF_b
-        rw [h_bAfter]
-        change |((Dyadic.ofIntZpow 3 (-2) : Dyadic) : ℚ)|
-          ≤ (((F₁.extend 1).toFormat.next b.val : Dyadic) : ℚ)
-        have h_next_eq : (F₁.extend 1).toFormat.next b.val = b.val + 1 :=
-          Format.next_eq_bot_nonpos (F₁.extend 1).toFormat h_ext1_exp hb0
-        rw [h_next_eq]
-        have hb_nn : (0 : ℚ) ≤ ((b.val : Dyadic) : ℚ) := b.2
-        rw [Dyadic.coe_rat_ofIntZpow]
-        push_cast
-        have h_v_eq : (3 : ℚ) * (2 : ℚ) ^ (-2 : ℤ) = 3/4 := by norm_num
-        rw [h_v_eq, abs_of_nonneg (by linarith : (0 : ℚ) ≤ 3/4)]
-        linarith
-      · -- `b > 0`: witness 3·2^(⌊log₂ b⌋ − 2) = (3/4)·2^⌊log₂ b⌋ ≤ b ≤ next b.
-        push Not at hb0
-        set K := Int.log 2 ((b.val : Dyadic) : ℝ) - 2 with hK_def
-        refine ⟨Dyadic.ofIntZpow 3 K, h_mk_member K (h_q_triv K) ?_,
-          Dyadic.not_precisionAtMost_one_three_zpow K⟩
-        obtain ⟨_, h_bAfter⟩ := Format.boundAfterNext_coe hF_b
-        rw [h_bAfter]
-        change |((Dyadic.ofIntZpow 3 K : Dyadic) : ℚ)|
-          ≤ (((F₁.extend 1).toFormat.next b.val : Dyadic) : ℚ)
-        suffices h_real : |((Dyadic.ofIntZpow 3 K : Dyadic) : ℝ)|
-            ≤ (((F₁.extend 1).toFormat.next b.val : Dyadic) : ℝ) by
-          rw [Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs] at h_real
-          rw [Dyadic.coe_real_eq_ratCast] at h_real
-          exact_mod_cast h_real
-        have h_v_eq : ((Dyadic.ofIntZpow 3 K : Dyadic) : ℝ) = (3 : ℝ) * (2 : ℝ) ^ K := by
-          rw [Dyadic.coe_ofIntZpow]; push_cast; ring
-        rw [h_v_eq, abs_of_pos (by positivity : (0 : ℝ) < (3 : ℝ) * (2 : ℝ) ^ K)]
-        have h_log : (2 : ℝ) ^ (Int.log 2 ((b.val : Dyadic) : ℝ)) ≤ ((b.val : Dyadic) : ℝ) :=
-          Int.zpow_log_le_self (by norm_num) hb0
-        have h_le_next : ((b.val : Dyadic) : ℝ)
-            ≤ (((F₁.extend 1).toFormat.next b.val : Dyadic) : ℝ) :=
-          Format.self_le_next (F₁.extend 1).toFormat b.val hb_nn_r
-        have h_split : (3 : ℝ) * (2 : ℝ) ^ K
-            = (3 / 4) * (2 : ℝ) ^ (Int.log 2 ((b.val : Dyadic) : ℝ)) := by
-          rw [hK_def, zpow_sub₀ (by norm_num : (2 : ℝ) ≠ 0),
-            (by norm_num : (2 : ℝ) ^ (2 : ℤ) = 4)]
-          ring
-        rw [h_split]
-        linarith
-  · -- F₁.exp = (e : ℤ). Use d ≠ 0 to derive |d| ≥ 2^e.
-    have h_q_d : Dyadic.quantumAtLeast (F₁.exp) d := hd_mem.2.1
-    rw [hF_exp] at h_q_d
-    have hd_abs_ge : (2 : ℝ)^e ≤ |(d : ℝ)| :=
-      Dyadic.abs_ge_two_zpow_of_quantum h_q_d hd_ne
-    have h_q_v : ∀ k : ℤ, k ≥ e - 2 →
-        Dyadic.quantumAtLeast (F₁.exp.map (· - (2 : ℤ))) (Dyadic.ofIntZpow 3 k) := by
-      intro k hk
-      rw [hF_exp]
-      change Dyadic.quantumAtLeast (((e - 2 : ℤ) : WithBot ℤ)) _
-      rw [Dyadic.quantumAtLeast_coe]
-      refine ⟨3 * 2 ^ (k - (e - 2)).toNat, ?_⟩
-      rw [Dyadic.coe_rat_ofIntZpow]
-      have h2 : (2 : ℚ) ≠ 0 := by norm_num
-      have hsub' : ((k - (e - 2)).toNat : ℤ) = k - (e - 2) := Int.toNat_of_nonneg (by omega)
-      have h_split : (2 : ℚ) ^ k = (2 : ℚ) ^ (k - (e - 2)).toNat * (2 : ℚ) ^ (e - 2) := by
-        rw [show ((2 : ℚ) ^ (k - (e - 2)).toNat : ℚ) = (2 : ℚ) ^ ((k - (e - 2)).toNat : ℤ) from
-            (zpow_natCast _ _).symm, ← zpow_add₀ h2, hsub']
-        congr 1; ring
-      push_cast
-      rw [h_split]
-      ring
-    -- (F₁.extend 1).b = F₁.b (extend doesn't change b).
-    have h_ext1_b : (F₁.extend 1).b = F₁.b := rfl
-    rcases hF_b : F₁.b with _ | b
-    · -- F₁.b = ⊤. Witness 3·2^(e-1).
-      refine ⟨Dyadic.ofIntZpow 3 (e - 1), h_mk_member (e - 1) (h_q_v (e - 1) (by omega)) ?_,
-        Dyadic.not_precisionAtMost_one_three_zpow (e - 1)⟩
-      have h_b_top : (F₁.extend 1).b = ⊤ := by rw [h_ext1_b, hF_b]; rfl
-      rw [Format.boundAfterNext_top h_b_top]; trivial
-    · -- F₁.b = (b : NonNegDyadic). |d| ≤ b. With |d| ≥ 2^e: b ≥ 2^e.
-      have hd_le_b_q : |((d : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := by
-        have hb_OK : Format.boundOK F₁.b d := hd_mem.2.2
-        rw [hF_b] at hb_OK; exact hb_OK
-      have hd_le_b : |((d : Dyadic) : ℝ)| ≤ ((b.val : Dyadic) : ℝ) := by
-        rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
-        exact_mod_cast hd_le_b_q
-      have hb_ge : (2 : ℝ)^e ≤ ((b.val : Dyadic) : ℝ) := le_trans hd_abs_ge hd_le_b
-      have h2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
-      have hb_pos : 0 < ((b.val : Dyadic) : ℝ) := lt_of_lt_of_le h2e_pos hb_ge
-      have h_ext1_b_coe : (F₁.extend 1).b = (b : WithTop NonNegDyadic) := by
-        rw [h_ext1_b, hF_b]; rfl
-      refine ⟨Dyadic.ofIntZpow 3 (e - 1), h_mk_member (e - 1) (h_q_v (e - 1) (by omega)) ?_,
-        Dyadic.not_precisionAtMost_one_three_zpow (e - 1)⟩
-      obtain ⟨_, h_bAfter⟩ := Format.boundAfterNext_coe h_ext1_b_coe
-      rw [h_bAfter]
-      change |((Dyadic.ofIntZpow 3 (e - 1) : Dyadic) : ℚ)|
-        ≤ (((F₁.extend 1).toFormat.next b.val : Dyadic) : ℚ)
-      suffices h_real : |((Dyadic.ofIntZpow 3 (e - 1) : Dyadic) : ℝ)|
-          ≤ (((F₁.extend 1).toFormat.next b.val : Dyadic) : ℝ) by
-        rw [Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs] at h_real
-        rw [Dyadic.coe_real_eq_ratCast] at h_real
-        exact_mod_cast h_real
-      -- |3·2^(e-1)| = 1.5·2^e ≤ next(b) (≥ b + step ≥ 2·2^e ≥ 1.5·2^e).
-      have h_v_eq : ((Dyadic.ofIntZpow 3 (e - 1) : Dyadic) : ℝ) = (3 : ℝ) * (2 : ℝ)^(e - 1) := by
-        rw [Dyadic.coe_ofIntZpow]; push_cast; ring
-      have h_v_pos : (0 : ℝ) ≤ (3 : ℝ) * (2 : ℝ)^(e - 1) := by positivity
-      have h_v_split : (3 : ℝ) * (2 : ℝ)^(e - 1) = (2 : ℝ)^e + (2 : ℝ)^(e - 1) := by
-        rw [zpow_sub₀ (by norm_num : (2 : ℝ) ≠ 0)]; field_simp; ring
-      have h_e1_le_e : (2 : ℝ)^(e - 1) ≤ (2 : ℝ)^e :=
-        zpow_le_zpow_right₀ (by norm_num : (1 : ℝ) ≤ 2) (by omega)
-      -- (F₁.extend 1).exp = e - 1, since F₁.exp = e.
-      have h_ext1_exp : (F₁.extend 1).exp = ((e - 1 : ℤ) : WithBot ℤ) := by
-        change F₁.exp.map (· - ((1 : ℕ+) : ℤ)) = _
-        rw [hF_exp]; rfl
-      rcases hF_p : F₁.p with _ | p
-      · -- F₁.p = ⊤ ⇒ (F₁.extend 1).p = ⊤. next b = b + 2^(e-1).
-        have h_ext1_p : (F₁.extend 1).p = ⊤ := by
-          change F₁.p.map (· + (1 : ℕ+)) = _; rw [hF_p]; rfl
-        have h_next_eq : (F₁.extend 1).toFormat.next b.val
-            = b.val + Dyadic.ofIntZpow 1 (e - 1) :=
-          Format.next_eq_p_top (F₁.extend 1).toFormat h_ext1_exp h_ext1_p b.val
-        rw [h_next_eq, h_v_eq, abs_of_nonneg h_v_pos, h_v_split]
-        push_cast
-        rw [Dyadic.coe_ofIntZpow]; push_cast
-        linarith
-      · -- F₁.p = (p : ℕ+) ⇒ (F₁.extend 1).p = p + 1. Step ≥ 2^(e-1).
-        have h_ext1_p : (F₁.extend 1).p = (((p + 1 : ℕ+)) : WithTop ℕ+) := by
-          change F₁.p.map (· + (1 : ℕ+)) = _; rw [hF_p]; rfl
-        have h_next_eq : (F₁.extend 1).toFormat.next b.val = b.val + Dyadic.ofIntZpow 1
-            (max (e - 1) (Int.log 2 ((b.val : Dyadic) : ℝ) - (((p + 1 : ℕ+) : ℕ) : ℤ) + 1)) :=
-          Format.next_eq_finite_pos (F₁.extend 1).toFormat h_ext1_exp h_ext1_p hb_pos
-        rw [h_next_eq, h_v_eq, abs_of_nonneg h_v_pos, h_v_split]
-        push_cast
-        rw [Dyadic.coe_ofIntZpow]; push_cast
-        rw [one_mul]
-        have h_step_pow : (2 : ℝ)^(e - 1) ≤
-            (2 : ℝ)^(max (e - 1) (Int.log 2 ((b.val : Dyadic) : ℝ)
-              - (((p : ℕ) : ℤ) + 1) + 1)) :=
-          zpow_le_zpow_right₀ (by norm_num : (1 : ℝ) ≤ 2) (le_max_left _ _)
-        linarith
+  obtain ⟨he_p, he_exp⟩ := extend_one_extend_one_p_exp F₁
+  have hsub' : (((F₁.extend 1).extend 1).toFormat.withBound
+      (F₁.extend 1).toFormat.boundAfterNext) ⊆ F₂.toFormat := by
+    intro y hy
+    obtain ⟨hp, hq, hb⟩ := hy
+    apply hsub
+    refine ⟨?_, ?_, hb⟩
+    · rw [Format.withBound_p] at hp ⊢; rwa [he_p] at hp
+    · rw [Format.withBound_exp] at hq ⊢; rwa [he_exp] at hq
+  rcases hp_F₂_or_F₁_trivial_extend hsub' with h | htriv
+  · exact Or.inl h
+  · exact Or.inr fun d hd => htriv d (Format.self_subset_extend F₁.toFormat 1 d hd)
 
 /-- RN variant of `two_le_p_of_nontrivial`. -/
 private theorem two_le_p_of_nontrivial_RN {F₁ F₂ : FiniteFormat}

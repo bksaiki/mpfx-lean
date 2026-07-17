@@ -13,6 +13,22 @@ build up to the F-adjacency and midpoint-membership results used there.
 
 namespace Mpfx
 
+/-- If `y₁` and `y₂` both satisfy the magnitude bound `B`, so does their
+midpoint (triangle inequality over `ℚ`). -/
+private theorem boundOK_midpoint {B : WithTop NonNegDyadic} {y₁ y₂ : Dyadic}
+    (h₁ : Format.boundOK B y₁) (h₂ : Format.boundOK B y₂) :
+    Format.boundOK B (Dyadic.midpoint y₁ y₂) := by
+  cases B with
+  | top => trivial
+  | coe B =>
+    change |((Dyadic.midpoint y₁ y₂ : Dyadic) : ℚ)| ≤ ((B.val : Dyadic) : ℚ)
+    change |((y₁ : Dyadic) : ℚ)| ≤ ((B.val : Dyadic) : ℚ) at h₁
+    change |((y₂ : Dyadic) : ℚ)| ≤ ((B.val : Dyadic) : ℚ) at h₂
+    rw [Dyadic.coe_rat_midpoint, abs_div, abs_of_pos (by norm_num : (0 : ℚ) < 2)]
+    have h_tri : |((y₁ : Dyadic) : ℚ) + ((y₂ : Dyadic) : ℚ)|
+        ≤ |((y₁ : Dyadic) : ℚ)| + |((y₂ : Dyadic) : ℚ)| := abs_add_le _ _
+    linarith
+
 /-- For a finite-precision finite-exp format `F` with `F.p = (p : ℕ+)`,
 `F.exp = (exp : ℤ)`, and a positive value `y ∈ F`, there exist `k : ℤ` with
 `k ≥ exp` and an integer `c` with `|c| < 2^p` such that `y = c·2^k`. The
@@ -46,26 +62,8 @@ theorem exists_grid_rep (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
     push Not at h_lt
     have h_e_can_lt : e_can < exp := h_lt
     -- We have c_can·2^e_can = c'·2^exp with e_can < exp.
-    have h_diff : c_can = c' * (2 : ℤ)^(exp - e_can).toNat := by
-      have hd_pos : 0 < exp - e_can := by omega
-      have hd_nn : 0 ≤ exp - e_can := le_of_lt hd_pos
-      have : (c_can : ℝ) * (2 : ℝ)^e_can = (c' : ℝ) * (2 : ℝ)^exp := hy_eq.symm.trans hc'_eq
-      have h_2_ne : (2 : ℝ) ≠ 0 := by norm_num
-      have h_2e_can_ne : (2 : ℝ)^e_can ≠ 0 := zpow_ne_zero _ h_2_ne
-      have h_eq2 : (c_can : ℝ) * (2 : ℝ)^e_can =
-          ((c' : ℝ) * (2 : ℝ)^(exp - e_can)) * (2 : ℝ)^e_can := by
-        have h_split :
-            (c' : ℝ) * (2 : ℝ)^(exp - e_can) * (2 : ℝ)^e_can = (c' : ℝ) * (2 : ℝ)^exp := by
-          rw [mul_assoc, ← zpow_add₀ h_2_ne]
-          congr 2; omega
-        rw [h_split]; exact this
-      have h_c_eq : (c_can : ℝ) = (c' : ℝ) * (2 : ℝ)^(exp - e_can) :=
-        mul_right_cancel₀ h_2e_can_ne h_eq2
-      lift (exp - e_can) to ℕ using hd_nn with d hd
-      rw [zpow_natCast] at h_c_eq
-      have : ((c_can : ℝ)) = ((c' * (2 : ℤ)^d : ℤ) : ℝ) := by
-        rw [h_c_eq]; push_cast; ring
-      exact_mod_cast this
+    have h_diff : c_can = c' * (2 : ℤ)^(exp - e_can).toNat :=
+      coeff_eq_of_shift_real (by omega) (hy_eq.symm.trans hc'_eq)
     have h_2_dvd_c_can : (2 : ℤ) ∣ c_can := by
       rw [h_diff]
       have hd_pos_nat : 0 < (exp - e_can).toNat := by
@@ -126,17 +124,7 @@ theorem exists_grid_rep (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
   · -- |d| < 2^p, where d = c_can · 2^(e_can - k).toNat.
     set d : ℤ := c_can * (2 : ℤ)^(e_can - k).toNat with hd_def
     have h_y_eq_d : ((y : Dyadic) : ℝ) = (d : ℝ) * (2 : ℝ)^k := by
-      rw [hy_eq, hd_def]
-      have h_diff_nn : 0 ≤ e_can - k := by omega
-      have h_split :
-          (c_can : ℝ) * (2 : ℝ)^e_can = (c_can : ℝ) * (2 : ℝ)^(e_can - k) * (2 : ℝ)^k := by
-        rw [mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-        congr 2; omega
-      rw [h_split]
-      have h_eq_zpow : (2 : ℝ)^(e_can - k) = (2 : ℝ)^((e_can - k).toNat : ℤ) := by
-        rw [Int.toNat_of_nonneg h_diff_nn]
-      rw [h_eq_zpow, zpow_natCast]
-      push_cast; ring
+      rw [hy_eq, hd_def]; exact two_zpow_shift_real c_can h_k_le_e_can
     have h_y_lt : ((y : Dyadic) : ℝ) < (2 : ℝ)^(k + ((p : ℕ) : ℤ)) := by
       have h_log_lt : Int.log 2 ((y : Dyadic) : ℝ) < k + ((p : ℕ) : ℤ) := by
         have hk_ge : Int.log 2 ((y : Dyadic) : ℝ) - ((p : ℕ) : ℤ) + 1 ≤ k := le_max_right _ _
@@ -164,17 +152,7 @@ theorem exists_grid_rep (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
     rw [h_abs]
     exact h_d_lt
   · -- y = d · 2^k.
-    rw [hy_eq]
-    have h_diff_nn : 0 ≤ e_can - k := by omega
-    have h_split :
-        (c_can : ℝ) * (2 : ℝ)^e_can = (c_can : ℝ) * (2 : ℝ)^(e_can - k) * (2 : ℝ)^k := by
-      rw [mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-      congr 2; omega
-    rw [h_split]
-    have h_eq_zpow : (2 : ℝ)^(e_can - k) = (2 : ℝ)^((e_can - k).toNat : ℤ) := by
-      rw [Int.toNat_of_nonneg h_diff_nn]
-    rw [h_eq_zpow, zpow_natCast]
-    push_cast; ring
+    rw [hy_eq]; exact two_zpow_shift_real c_can h_k_le_e_can
 
 /-- For a representation `y = c·2^k` with `y > 0`, the integer `c > 0`. -/
 theorem grid_rep_c_pos {y : Dyadic} (hy_pos : 0 < ((y : Dyadic) : ℝ))
@@ -247,18 +225,7 @@ theorem exists_grid_rep_exp_bot (F : FiniteFormat) {p : ℕ+}
   refine ⟨k, c_can * (2 : ℤ) ^ (e_can - k).toNat, ?_, ?_, rfl⟩
   · set d : ℤ := c_can * (2 : ℤ) ^ (e_can - k).toNat with hd_def
     have h_y_eq_d : ((y : Dyadic) : ℝ) = (d : ℝ) * (2 : ℝ) ^ k := by
-      rw [hy_eq, hd_def]
-      have h_diff_nn : 0 ≤ e_can - k := by omega
-      have h_split :
-          (c_can : ℝ) * (2 : ℝ) ^ e_can
-            = (c_can : ℝ) * (2 : ℝ) ^ (e_can - k) * (2 : ℝ) ^ k := by
-        rw [mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-        congr 2; omega
-      rw [h_split]
-      have h_eq_zpow : (2 : ℝ) ^ (e_can - k) = (2 : ℝ) ^ ((e_can - k).toNat : ℤ) := by
-        rw [Int.toNat_of_nonneg h_diff_nn]
-      rw [h_eq_zpow, zpow_natCast]
-      push_cast; ring
+      rw [hy_eq, hd_def]; exact two_zpow_shift_real c_can h_k_le_e_can
     have h_y_lt : ((y : Dyadic) : ℝ) < (2 : ℝ) ^ (k + ((p : ℕ) : ℤ)) := by
       have h_log_lt : Int.log 2 ((y : Dyadic) : ℝ) < k + ((p : ℕ) : ℤ) := by
         have hk_def : k = Int.log 2 ((y : Dyadic) : ℝ) - ((p : ℕ) : ℤ) + 1 := rfl
@@ -284,18 +251,7 @@ theorem exists_grid_rep_exp_bot (F : FiniteFormat) {p : ℕ+}
       exact_mod_cast this
     have h_abs : |d| = d := abs_of_pos h_d_pos
     rw [h_abs]; exact h_d_lt
-  · rw [hy_eq]
-    have h_diff_nn : 0 ≤ e_can - k := by omega
-    have h_split :
-        (c_can : ℝ) * (2 : ℝ) ^ e_can
-          = (c_can : ℝ) * (2 : ℝ) ^ (e_can - k) * (2 : ℝ) ^ k := by
-      rw [mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-      congr 2; omega
-    rw [h_split]
-    have h_eq_zpow : (2 : ℝ) ^ (e_can - k) = (2 : ℝ) ^ ((e_can - k).toNat : ℤ) := by
-      rw [Int.toNat_of_nonneg h_diff_nn]
-    rw [h_eq_zpow, zpow_natCast]
-    push_cast; ring
+  · rw [hy_eq]; exact two_zpow_shift_real c_can h_k_le_e_can
 
 /-- No F element lies strictly in the open interval `(c·2^k, (c+1)·2^k)` when
 `k = max(exp, ⌊log₂(c·2^k)⌋ - p + 1)` is the F-grid step exponent at `c·2^k`.
@@ -505,44 +461,20 @@ theorem F_adjacent_step_form (F : FiniteFormat) {p : ℕ+} {exp : ℤ}
     rw [he]
     rw [Dyadic.quantumAtLeast_coe_real]
     refine ⟨(c + 1) * (2 : ℤ) ^ (k - exp).toNat, ?_⟩
-    rw [hz_eq]
-    have h_diff_nn : 0 ≤ k - exp := by omega
-    have h_eq_zpow : (2 : ℝ) ^ k = (2 : ℝ) ^ ((k - exp).toNat : ℤ) * (2 : ℝ) ^ exp := by
-      rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-      congr 1
-      rw [Int.toNat_of_nonneg h_diff_nn]; ring
-    rw [h_eq_zpow, zpow_natCast]
-    push_cast; ring
+    rw [hz_eq]; exact two_zpow_shift_real (c + 1) (by omega)
   have hz_b : Format.boundOK F.b z := by
-    cases hF_b : F.b with
-    | top => trivial
-    | coe b =>
-      change |((z : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-      change Format.boundOK F.b y₂ at hb_y₂
-      rw [hF_b] at hb_y₂
-      have hy₂_le_b : |((y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb_y₂
-      have hz_pos : 0 < ((z : Dyadic) : ℝ) := by
-        rw [hz_eq]
-        have h_c1_pos : (0 : ℝ) < ((c + 1 : ℤ) : ℝ) := by
-          have : 0 < c + 1 := by omega
-          exact_mod_cast this
-        exact mul_pos h_c1_pos h_2k_pos
-      have hy₂_pos : 0 < ((y₂ : Dyadic) : ℝ) := lt_trans h_pos h_lt
-      have hz_le_y₂_real : ((z : Dyadic) : ℝ) ≤ ((y₂ : Dyadic) : ℝ) := by
-        rw [hz_eq]; exact h_y₂_ge
-      -- Transfer ordering/positivity to ℚ.
-      have hz_le_y₂_rat : ((z : Dyadic) : ℚ) ≤ ((y₂ : Dyadic) : ℚ) := by
-        rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at hz_le_y₂_real
-        exact_mod_cast hz_le_y₂_real
-      have hz_pos_rat : 0 < ((z : Dyadic) : ℚ) := by
-        rw [Dyadic.coe_real_eq_ratCast] at hz_pos
-        exact_mod_cast hz_pos
-      have hy₂_pos_rat : 0 < ((y₂ : Dyadic) : ℚ) := by
-        rw [Dyadic.coe_real_eq_ratCast] at hy₂_pos
-        exact_mod_cast hy₂_pos
-      rw [abs_of_pos hz_pos_rat]
-      rw [abs_of_pos hy₂_pos_rat] at hy₂_le_b
-      linarith
+    refine boundOK_of_abs_le ?_ hb_y₂
+    have hz_pos : 0 < ((z : Dyadic) : ℝ) := by
+      rw [hz_eq]
+      have h_c1_pos : (0 : ℝ) < ((c + 1 : ℤ) : ℝ) := by
+        have : 0 < c + 1 := by omega
+        exact_mod_cast this
+      exact mul_pos h_c1_pos h_2k_pos
+    have hy₂_pos : 0 < ((y₂ : Dyadic) : ℝ) := lt_trans h_pos h_lt
+    have hz_le_y₂_real : ((z : Dyadic) : ℝ) ≤ ((y₂ : Dyadic) : ℝ) := by
+      rw [hz_eq]; exact h_y₂_ge
+    rw [abs_of_pos hz_pos, abs_of_pos hy₂_pos]
+    linarith
   have hzF : z ∈ F := ⟨hz_p, hz_q, hz_b⟩
   -- Step 3: F-adjacency gives y₂ ≤ z = (c+1)·2^k.
   have h_z_gt_y₁ : ((y₁ : Dyadic) : ℝ) < ((z : Dyadic) : ℝ) := by
@@ -602,34 +534,18 @@ theorem F_adjacent_step_form_exp_bot (F : FiniteFormat) {p : ℕ+}
   have hz_q : Dyadic.quantumAtLeast F.exp z := by
     rw [he]; trivial
   have hz_b : Format.boundOK F.b z := by
-    cases hF_b : F.b with
-    | top => trivial
-    | coe b =>
-      change |((z : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-      change Format.boundOK F.b y₂ at hb_y₂
-      rw [hF_b] at hb_y₂
-      have hy₂_le_b : |((y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb_y₂
-      have hz_pos : 0 < ((z : Dyadic) : ℝ) := by
-        rw [hz_eq]
-        have h_c1_pos : (0 : ℝ) < ((c + 1 : ℤ) : ℝ) := by
-          have : 0 < c + 1 := by omega
-          exact_mod_cast this
-        exact mul_pos h_c1_pos h_2k_pos
-      have hy₂_pos : 0 < ((y₂ : Dyadic) : ℝ) := lt_trans h_pos h_lt
-      have hz_le_y₂_real : ((z : Dyadic) : ℝ) ≤ ((y₂ : Dyadic) : ℝ) := by
-        rw [hz_eq]; exact h_y₂_ge
-      have hz_le_y₂_rat : ((z : Dyadic) : ℚ) ≤ ((y₂ : Dyadic) : ℚ) := by
-        rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at hz_le_y₂_real
-        exact_mod_cast hz_le_y₂_real
-      have hz_pos_rat : 0 < ((z : Dyadic) : ℚ) := by
-        rw [Dyadic.coe_real_eq_ratCast] at hz_pos
-        exact_mod_cast hz_pos
-      have hy₂_pos_rat : 0 < ((y₂ : Dyadic) : ℚ) := by
-        rw [Dyadic.coe_real_eq_ratCast] at hy₂_pos
-        exact_mod_cast hy₂_pos
-      rw [abs_of_pos hz_pos_rat]
-      rw [abs_of_pos hy₂_pos_rat] at hy₂_le_b
-      linarith
+    refine boundOK_of_abs_le ?_ hb_y₂
+    have hz_pos : 0 < ((z : Dyadic) : ℝ) := by
+      rw [hz_eq]
+      have h_c1_pos : (0 : ℝ) < ((c + 1 : ℤ) : ℝ) := by
+        have : 0 < c + 1 := by omega
+        exact_mod_cast this
+      exact mul_pos h_c1_pos h_2k_pos
+    have hy₂_pos : 0 < ((y₂ : Dyadic) : ℝ) := lt_trans h_pos h_lt
+    have hz_le_y₂_real : ((z : Dyadic) : ℝ) ≤ ((y₂ : Dyadic) : ℝ) := by
+      rw [hz_eq]; exact h_y₂_ge
+    rw [abs_of_pos hz_pos, abs_of_pos hy₂_pos]
+    linarith
   have hzF : z ∈ F := ⟨hz_p, hz_q, hz_b⟩
   have h_z_gt_y₁ : ((y₁ : Dyadic) : ℝ) < ((z : Dyadic) : ℝ) := by
     rw [hy₁_eq, hz_eq]
@@ -707,31 +623,9 @@ theorem midpoint_mem_extend_one_of_F_adjacent_pos (F : FiniteFormat)
       rw [this]
     rw [h_exp_extend, Dyadic.quantumAtLeast_coe_real]
     refine ⟨(2 * c + 1) * (2 : ℤ) ^ (k - 1 - (exp - 1)).toNat, ?_⟩
-    rw [h_mid_eq]
-    have h_diff_nn : 0 ≤ k - 1 - (exp - 1) := by omega
-    have h_eq_zpow : (2 : ℝ) ^ (k - 1) =
-        (2 : ℝ) ^ ((k - 1 - (exp - 1)).toNat : ℤ) * (2 : ℝ) ^ (exp - 1) := by
-      rw [Int.toNat_of_nonneg h_diff_nn, ← zpow_add₀ h_2_ne]
-      congr 1; omega
-    rw [h_eq_zpow, zpow_natCast]; push_cast; ring
+    rw [h_mid_eq]; exact two_zpow_shift_real (2 * c + 1) (by omega)
   · -- bound: |midpoint| ≤ b, computed over ℚ.
-    show Format.boundOK (F.extend 1).b _
-    have h_b : (F.extend 1).b = F.b := rfl
-    rw [h_b]
-    cases hF_b : F.b with
-    | top => trivial
-    | coe b =>
-      change |((Dyadic.midpoint y₁ y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-      rw [Dyadic.coe_rat_midpoint]
-      have hy₁_b : Format.boundOK F.b y₁ := hy₁F.2.2
-      have hy₂_b : Format.boundOK F.b y₂ := hy₂F.2.2
-      rw [hF_b] at hy₁_b hy₂_b
-      have h1 : |((y₁ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hy₁_b
-      have h2 : |((y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hy₂_b
-      have h_tri : |((y₁ : Dyadic) : ℚ) + ((y₂ : Dyadic) : ℚ)|
-          ≤ |((y₁ : Dyadic) : ℚ)| + |((y₂ : Dyadic) : ℚ)| := abs_add_le _ _
-      rw [abs_div, abs_of_pos (by norm_num : (0 : ℚ) < 2)]
-      linarith
+    exact boundOK_midpoint hy₁F.2.2 hy₂F.2.2
 
 /-- Midpoint lemma for F.exp = ⊥, positive case. Same as the finite-exp version
 but quantum check is trivial. -/
@@ -836,21 +730,8 @@ theorem half_mem_extend_one (F : FiniteFormat) {p : ℕ+}
       have : ((1 : ℕ+) : ℤ) = 1 := rfl
       rw [this, zpow_sub₀ (by norm_num : (2 : ℚ) ≠ 0)]
       field_simp
-  · -- bound: |y/2| ≤ b.
-    show Format.boundOK (F.extend 1).b _
-    have h_b : (F.extend 1).b = F.b := rfl
-    rw [h_b]
-    cases hF_b : F.b with
-    | top => trivial
-    | coe b =>
-      change |((Dyadic.midpoint 0 y : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-      rw [h_mid_eq_rat]
-      have hb_y' : Format.boundOK F.b y := hb_y
-      rw [hF_b] at hb_y'
-      have h_b_nn : 0 ≤ ((b.val : Dyadic) : ℚ) := b.2
-      have hy_le : |((y : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb_y'
-      rw [abs_div, abs_of_pos (by norm_num : (0 : ℚ) < 2)]
-      linarith
+  · -- bound: |y/2| ≤ b (midpoint of 0 and y).
+    exact boundOK_midpoint (Format.boundOK_zero F.b) hb_y
 
 /-- Midpoint of F-adjacent values (general — both signs handled).
 
@@ -1018,22 +899,6 @@ theorem midpoint_mem_extend_one_of_p_top (F : FiniteFormat) {exp : ℤ}
     rw [zpow_sub₀ (by norm_num : (2 : ℚ) ≠ 0)]
     push_cast; field_simp
   · -- bound: |midpoint| ≤ b, over ℚ.
-    show Format.boundOK (F.extend 1).b _
-    have h_b : (F.extend 1).b = F.b := rfl
-    rw [h_b]
-    cases hF_b : F.b with
-    | top => trivial
-    | coe b =>
-      change |((Dyadic.midpoint y₁ y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-      rw [Dyadic.coe_rat_midpoint]
-      have hb_y₁' : Format.boundOK F.b y₁ := hb_y₁
-      have hb_y₂' : Format.boundOK F.b y₂ := hb_y₂
-      rw [hF_b] at hb_y₁' hb_y₂'
-      have h1 : |((y₁ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb_y₁'
-      have h2 : |((y₂ : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb_y₂'
-      have h_tri : |((y₁ : Dyadic) : ℚ) + ((y₂ : Dyadic) : ℚ)|
-          ≤ |((y₁ : Dyadic) : ℚ)| + |((y₂ : Dyadic) : ℚ)| := abs_add_le _ _
-      rw [abs_div, abs_of_pos (by norm_num : (0 : ℚ) < 2)]
-      linarith
+    exact boundOK_midpoint hb_y₁ hb_y₂
 
 end Mpfx
