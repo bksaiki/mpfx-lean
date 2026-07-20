@@ -812,12 +812,18 @@ private theorem rndAdd_nonneg {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak
       · rw [show (x + y : Dyadic) = y + x from add_comm x y] at hz ⊢
         exact rndAdd_pos hp₁ hp₂ hpp hexp hundef₁ hy hx hyp hxp hxy hz hw
 
-/-- **rnd-difference, nonnegative operands** (Roux Theorem 20, radix 2, FLX,
-subtraction). For `a, b ∈ F₁` with `0 ≤ a, 0 ≤ b`, if `p₂ ≥ 2p₁+1` then double
-rounding of `a − b` is innocuous. Reduces to `rndSub_pos` for the ordered
-positive case (`a > b` directly, `a < b` by joint negation), while a zero
-operand or `a = b` makes `a − b` a member of `F₁`, hence exactly
-`F₂`-representable. -/
+/-- **rnd-difference, nonnegative operands** (Roux Theorem 20, radix 2). With
+`F₁ = 𝒜(p₁, exp₁, b₁)` and `F₂ = 𝒜(p₂, exp₂, b₂)`, double rounding to nearest of
+`a − b` (`a, b ∈ F₁`, `0 ≤ a`, `0 ≤ b`) is innocuous when
+
+* **precision:** `p₂ ≥ 2·p₁ + 1`,
+* **exponent:** `exp₂ ≤ exp₁` (covers FLX `⊥ ≤ ⊥` and FLT `emin₂ ≤ emin₁`),
+* **bounds:** no relationship required (overflow-free `unbounded` roundings).
+
+The exponent condition `exp₂ ≤ exp₁` is exactly the *quantum half* of `F₁ ⊆ F₂`
+(`𝒜-Contains-Prec`): `F₂` is at least as fine as `F₁`. The `2p₁+1`-bit exact
+difference is either `F₂`-representable (a zero operand or `a = b`, exact case)
+or pinned by the midpoint argument. -/
 theorem rndDiff {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+))
     (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
@@ -860,13 +866,18 @@ theorem rndDiff {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ :
     · -- `a > b`: apply `rndSub_pos` directly.
       exact rndSub_pos hp₁ hp₂ hpp hexp hundef₁ ha hb hap hbp hab hz hw
 
-/-- **rnd-plus** (Roux Theorem 20, radix 2, FLX **and FLT**). For **arbitrary**
-`x, y ∈ F₁`, if `p₂ ≥ 2p₁ + 1` and `emin₂ ≤ emin₁` (`hexp : F₂.exp ≤ F₁.exp`,
-which subsumes the FLX case `⊥ ≤ ⊥`), then double rounding of `x + y` (round to
-nearest in `F₂`, then in `F₁`) agrees with rounding `x + y` directly into `F₁`.
-Same-sign operands go through `rndAdd_nonneg` (both nonpositive by joint
-negation); mixed signs are a subtraction handled by `rndDiff`. This matches the
-generality of Flocq's `round_round_plus_FLX`/`round_round_plus_FLT`. -/
+/-- **rnd-plus** (Roux Theorem 20, radix 2, FLX **and** FLT). With
+`F₁ = 𝒜(p₁, exp₁, b₁)` and `F₂ = 𝒜(p₂, exp₂, b₂)`, double rounding to nearest of
+`x + y` for **arbitrary** `x, y ∈ F₁` is innocuous when
+
+* **precision:** `p₂ ≥ 2·p₁ + 1`,
+* **exponent:** `exp₂ ≤ exp₁` (subsumes FLX `⊥ ≤ ⊥` and FLT `emin₂ ≤ emin₁`),
+* **bounds:** no relationship required (overflow-free `unbounded` roundings).
+
+`exp₂ ≤ exp₁` is the *quantum half* of `F₁ ⊆ F₂` (`𝒜-Contains-Prec`): `F₂` is at
+least as fine as `F₁`. Same-sign operands reduce to `rndAdd_nonneg` (both
+nonpositive by joint negation); mixed signs are a subtraction handled by
+`rndDiff`. Matches Flocq's `round_round_plus_FLX`/`round_round_plus_FLT`. -/
 theorem rndAdd {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+))
     (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))

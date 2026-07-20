@@ -82,10 +82,17 @@ private theorem mul_mem_F₂_unbounded {F₁ F₂ : FiniteFormat} {p₁ p₂ : �
     (mul_precisionAtMost (p₂ := 2 * p₁) (le_refl _) (hp₁ ▸ hx.1) (hp₁ ▸ hy.1))
     (quantumAtLeast_mul hx.2.1 hy.2.1)
 
-/-- **rnd-mult, FLX** (Roux Thm 10 / Figueroa, radix 2). For `x, y ∈ F₁` in an FLX
-format (`exp = ⊥`) with `p₂ ≥ 2p₁`, double rounding of `x · y` is innocuous for
-**any** rounding modes `rm₁, rm₂` — the product is exactly `F₂`-representable, so
-the intermediate rounding is a no-op (`rndExact`). -/
+/-- **rnd-mult, FLX** (Roux Thm 10 / Figueroa, radix 2). With FLX formats
+`F₁ = 𝒜(p₁, ⊥, b₁)` and `F₂ = 𝒜(p₂, ⊥, b₂)`, double rounding of a product `x · y`
+(`x, y ∈ F₁`) is innocuous for **any** rounding modes when
+
+* **precision:** `p₂ ≥ 2·p₁`,
+* **exponent:** both `⊥` (FLX, no minimum quantum),
+* **bounds:** no relationship required — the roundings are overflow-free (`unbounded`).
+
+*Containment view:* an exact product of two `p₁`-bit values needs `2p₁` bits, so
+`p₂ ≥ 2p₁` says the product format `𝒜(2p₁, ⊥, ⊤) ⊆ F₂`; hence `x · y` is exactly
+`F₂`-representable and the inner rounding is a no-op (`rndExact`). -/
 theorem rndMul_FLX {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
@@ -96,9 +103,17 @@ theorem rndMul_FLX {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁
   rndExact (mul_mem_F₂_unbounded hp₁ hp₂ hpp
     (by rw [hexp₁, hexp₂]; simp) hx hy) hz hw
 
-/-- **rnd-mult, FLT** (Roux Thm 10 / Figueroa, radix 2). The FLT version:
-`F₁.exp = emin₁`, `F₂.exp = emin₂`, with `p₂ ≥ 2p₁` and `emin₂ ≤ 2·emin₁`. Again
-holds for any modes, via exact representability of the product. -/
+/-- **rnd-mult, FLT** (Roux Thm 10, radix 2). With FLT formats
+`F₁ = 𝒜(p₁, emin₁, b₁)` and `F₂ = 𝒜(p₂, emin₂, b₂)`, double rounding of `x · y`
+(`x, y ∈ F₁`) is innocuous for **any** rounding modes when
+
+* **precision:** `p₂ ≥ 2·p₁`,
+* **exponent:** `emin₂ ≤ 2·emin₁`,
+* **bounds:** no relationship required (overflow-free `unbounded` roundings).
+
+*Containment view:* the exact product lives in `𝒜(2p₁, 2·emin₁, ⊤)` (precisions
+double, minimum quanta add), and the two conditions say that product format
+`⊆ F₂` — so `x · y` is exactly `F₂`-representable (`rndExact`). -/
 theorem rndMul_FLT {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁ p₂ : ℕ+}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))

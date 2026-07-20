@@ -239,11 +239,17 @@ private theorem rndSqrt_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
   exact rndExact (F₁ := F₁.unbounded) (F₂ := F₂.unbounded)
     (FiniteFormat.zero_mem F₂.unbounded) hz hw
 
-/-- **rnd-sqrt, FLX** (Roux Theorem 25, radix 2). For `x ∈ F₁` with `0 ≤ x` in an
-FLX format (`exp = ⊥`), double rounding of `√x` (nearest in `F₂` then in `F₁`) is
-innocuous when `p₂ ≥ 2p₁ + 2`. Discharges the `rndSqrt_core` hypotheses from the
-FLX closed form `canonicalExp = log₂|·| + 1 − p` + `log_sqrt_bounds` + `omega`
-(the `x = 0` case is `rndSqrt_zero`). -/
+/-- **rnd-sqrt, FLX** (Roux Theorem 25, radix 2). With FLX formats
+`F₁ = 𝒜(p₁, ⊥, b₁)` and `F₂ = 𝒜(p₂, ⊥, b₂)`, double rounding to nearest of `√x`
+(`x ∈ F₁`, `0 ≤ x`) is innocuous when
+
+* **precision:** `p₂ ≥ 2·p₁ + 2`,
+* **exponent:** both `⊥` (FLX),
+* **bounds:** no relationship required (overflow-free `unbounded` roundings).
+
+Unlike `×`/`+`, `√x` is generally irrational, so this is a precision *margin*
+(with `2p₁+2` bits `√x` never lands near an `F₁`-midpoint), not exact containment
+of a result format. -/
 theorem rndSqrt_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hpp : (2 * p₁ + 2 : ℕ+) ≤ p₂)
@@ -278,12 +284,17 @@ theorem rndSqrt_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
   · rw [hcE1s]; omega
   · rw [hcE1s, hcE2s]; omega
 
-/-- **rnd-sqrt, FLT** (Roux Theorem 25, radix 2). The FLT version (`F₁.exp = emin₁`,
-`F₂.exp = emin₂`) with `p₂ ≥ 2p₁ + 2`, `emin₁ ≤ 0`, and Roux's Table-II underflow
-bound `emin₂ ≤ emin₁ − p₁ − 2 ∨ 2·emin₂ ≤ emin₁ − 4p₁ − 2`. Discharges the
-`rndSqrt_core` hypotheses from the FLT closed form `max(log₂|·| + 1 − p, emin)` +
-`log_sqrt_bounds` + the member bound `2^emin₁ ≤ x`; `omega` handles the `max` and
-the underflow disjunction. -/
+/-- **rnd-sqrt, FLT** (Roux Theorem 25, radix 2). With FLT formats
+`F₁ = 𝒜(p₁, emin₁, b₁)` and `F₂ = 𝒜(p₂, emin₂, b₂)`, double rounding to nearest of
+`√x` (`x ∈ F₁`, `0 ≤ x`) is innocuous when
+
+* **precision:** `p₂ ≥ 2·p₁ + 2`,
+* **exponent:** `emin₁ ≤ 0` and the Table-II underflow bound
+  `emin₂ ≤ emin₁ − p₁ − 2  ∨  2·emin₂ ≤ emin₁ − 4·p₁ − 2`,
+* **bounds:** no relationship required (overflow-free `unbounded` roundings).
+
+A precision + underflow *margin* (not exact containment — `√x` is generally
+irrational). -/
 theorem rndSqrt_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))

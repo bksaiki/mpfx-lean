@@ -562,10 +562,17 @@ private theorem rndDiv_of_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak
     exact rndDiv_posden_of_pos hpos hna hnb hnbpos hz hw
   · exact rndDiv_posden_of_pos hpos ha hb hbpos hz hw
 
-/-- **rnd-div, FLX** (Roux Theorem 29, radix 2). For **arbitrary** `a, b ∈ F₁`
-with `b ≠ 0` and `p₂ ≥ 2p₁`, double rounding of `a / b` (round to nearest in `F₂`,
-then in `F₁`) agrees with rounding `a / b` directly into `F₁`. Matches the
-generality of Flocq's `round_round_div_FLX`. -/
+/-- **rnd-div, FLX** (Roux Theorem 29, radix 2). With FLX formats
+`F₁ = 𝒜(p₁, ⊥, b₁)` and `F₂ = 𝒜(p₂, ⊥, b₂)`, double rounding to nearest of `a / b`
+(**arbitrary** `a, b ∈ F₁`, `b ≠ 0`) is innocuous when
+
+* **precision:** `p₂ ≥ 2·p₁`,
+* **exponent:** both `⊥` (FLX),
+* **bounds:** no relationship required (overflow-free `unbounded` roundings).
+
+As with `√`, `a / b` is generally non-representable, so this is a precision
+*margin* (with `2p₁` bits a quotient never lands near an `F₁`-midpoint), not exact
+containment. Matches the generality of Flocq's `round_round_div_FLX`. -/
 theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
@@ -578,10 +585,17 @@ theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
   rndDiv_of_pos (fun _ _ ha hb hapos hbpos _ _ hz hw =>
     rndDiv_pos hp₁ hp₂ hpp hexp₁ hexp₂ hundef₁ ha hb hapos hbpos hz hw) ha hb hbne hz hw
 
-/-- **rnd-div, FLT** (Roux Theorem 29, radix 2). For **arbitrary** `a, b ∈ F₁`
-(FLT) with `b ≠ 0`, `p₂ ≥ 2p₁`, and Roux's underflow bound `emin₂ ≤ emin₁ − p₁ − 2`,
-double rounding of `a / b` is innocuous — including underflowing quotients. Matches
-Flocq's `round_round_div_FLT`. -/
+/-- **rnd-div, FLT** (Roux Theorem 29, radix 2). With FLT formats
+`F₁ = 𝒜(p₁, emin₁, b₁)` and `F₂ = 𝒜(p₂, emin₂, b₂)`, double rounding to nearest of
+`a / b` (**arbitrary** `a, b ∈ F₁`, `b ≠ 0`) is innocuous — including underflowing
+quotients — when
+
+* **precision:** `p₂ ≥ 2·p₁`,
+* **exponent:** the underflow bound `emin₂ ≤ emin₁ − p₁ − 2`,
+* **bounds:** no relationship required (overflow-free `unbounded` roundings).
+
+A precision + underflow *margin* (not exact containment — `a / b` is generally
+non-representable). Matches Flocq's `round_round_div_FLT`. -/
 theorem rndDiv_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
