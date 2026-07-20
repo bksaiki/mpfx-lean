@@ -95,37 +95,37 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
     (Dyadic.quantumAtLeast_coe_real (e₁ - 1) _).mpr ⟨2 * ma + 1, by rw [Dyadic.coe_ofIntZpow]⟩
   have he₂le : ((e₂ : ℤ) : WithBot ℤ) ≤ ((e₁ - 1 : ℤ) : WithBot ℤ) := by
     exact_mod_cast (show e₂ ≤ e₁ - 1 from by omega)
-  refine ⟨Dyadic.ofIntZpow (2 * ma + 1) (e₁ - 1), hg_real, ?_, ?_, trivial⟩
-  · -- precisionAtMost p₂: mantissa at scale e₂ fits p₂ bits
-    rw [FiniteFormat.unbounded_p, hp₂, Dyadic.precisionAtMost_coe_real]
-    have hq_e₂ := Dyadic.quantumAtLeast_anti he₂le hq_e₁
-    obtain ⟨C, hC⟩ := (Dyadic.quantumAtLeast_coe_real e₂ _).mp hq_e₂
-    rw [hg_real] at hC
-    refine ⟨C, e₂, by rw [hg_real]; exact hC, ?_⟩
-    -- `|C| < 2^p₂` from `|v| < 2^(mag v) ≤ 2^(e₂ + p₂)`
-    have h2e2 : (0 : ℝ) < (2 : ℝ) ^ e₂ := zpow_pos (by norm_num) _
-    have hbound : Int.log 2 v + 1 ≤ e₂ + (p₂ : ℤ) := by
-      have := log_sub_prec_le_canonicalExp hp₂ (ne_of_gt hv)
-      rw [abs_of_pos hv, ← he₂] at this; omega
-    have hvlt : |v| < (2 : ℝ) ^ (e₂ + (p₂ : ℤ)) := by
-      rw [abs_of_pos hv]
-      exact lt_of_lt_of_le (Int.lt_zpow_succ_log_self (b := 2) (by norm_num) v)
-        (zpow_le_zpow_right₀ (by norm_num) hbound)
-    have h2p2 : ((2 : ℝ) ^ (p₂ : ℕ)) = (2 : ℝ) ^ (p₂ : ℤ) := by rw [← zpow_natCast]
-    have hsplit : (2 : ℝ) ^ (e₂ + (p₂ : ℤ)) = (2 : ℝ) ^ (p₂ : ℤ) * (2 : ℝ) ^ e₂ := by
-      rw [show e₂ + (p₂ : ℤ) = (p₂ : ℤ) + e₂ from by ring, zpow_add₀ hne]
-    have hCR : |(C : ℝ)| < (2 : ℝ) ^ (p₂ : ℤ) := by
-      have hvC : |v| = |(C : ℝ)| * (2 : ℝ) ^ e₂ := by rw [hC, abs_mul, abs_of_pos h2e2]
-      rw [hvC, hsplit] at hvlt
-      exact lt_of_mul_lt_mul_right hvlt (le_of_lt h2e2)
-    have hcast : (|C| : ℝ) < ((2 : ℤ) ^ (p₂ : ℕ) : ℝ) := by push_cast; rw [h2p2]; exact hCR
-    exact_mod_cast hcast
-  · -- quantumAtLeast F₂.exp: `g` is a multiple of `2^(e₁−1) ≥ 2^(F₂.exp)`
-    rw [FiniteFormat.unbounded_exp]
-    have hF₂le : F₂.exp ≤ ((e₁ - 1 : ℤ) : WithBot ℤ) := by
-      refine le_trans (exp_le_canonicalExp_coe F₂ v) ?_
-      rw [← he₂]; exact he₂le
-    exact Dyadic.quantumAtLeast_anti hF₂le hq_e₁
+  -- `g = 𝒜(p₂, e₁−1, ⊤)`-representable, and that format is contained in
+  -- `F₂.unbounded` by `𝒜-Contains-Prec` (`mem_unbounded_of_le`).
+  have hF₂le : F₂.exp ≤ ((e₁ - 1 : ℤ) : WithBot ℤ) :=
+    le_trans (exp_le_canonicalExp_coe F₂ v) (by rw [← he₂]; exact he₂le)
+  refine ⟨Dyadic.ofIntZpow (2 * ma + 1) (e₁ - 1), hg_real,
+    Format.mem_unbounded_of_le (p := ((p₂ : ℕ+) : WithTop ℕ+))
+      (e := ((e₁ - 1 : ℤ) : WithBot ℤ)) (le_of_eq hp₂.symm) hF₂le ?_ hq_e₁⟩
+  -- precisionAtMost p₂: mantissa at scale e₂ fits p₂ bits
+  rw [Dyadic.precisionAtMost_coe_real]
+  have hq_e₂ := Dyadic.quantumAtLeast_anti he₂le hq_e₁
+  obtain ⟨C, hC⟩ := (Dyadic.quantumAtLeast_coe_real e₂ _).mp hq_e₂
+  rw [hg_real] at hC
+  refine ⟨C, e₂, by rw [hg_real]; exact hC, ?_⟩
+  -- `|C| < 2^p₂` from `|v| < 2^(mag v) ≤ 2^(e₂ + p₂)`
+  have h2e2 : (0 : ℝ) < (2 : ℝ) ^ e₂ := zpow_pos (by norm_num) _
+  have hbound : Int.log 2 v + 1 ≤ e₂ + (p₂ : ℤ) := by
+    have := log_sub_prec_le_canonicalExp hp₂ (ne_of_gt hv)
+    rw [abs_of_pos hv, ← he₂] at this; omega
+  have hvlt : |v| < (2 : ℝ) ^ (e₂ + (p₂ : ℤ)) := by
+    rw [abs_of_pos hv]
+    exact lt_of_lt_of_le (Int.lt_zpow_succ_log_self (b := 2) (by norm_num) v)
+      (zpow_le_zpow_right₀ (by norm_num) hbound)
+  have h2p2 : ((2 : ℝ) ^ (p₂ : ℕ)) = (2 : ℝ) ^ (p₂ : ℤ) := by rw [← zpow_natCast]
+  have hsplit : (2 : ℝ) ^ (e₂ + (p₂ : ℤ)) = (2 : ℝ) ^ (p₂ : ℤ) * (2 : ℝ) ^ e₂ := by
+    rw [show e₂ + (p₂ : ℤ) = (p₂ : ℤ) + e₂ from by ring, zpow_add₀ hne]
+  have hCR : |(C : ℝ)| < (2 : ℝ) ^ (p₂ : ℤ) := by
+    have hvC : |v| = |(C : ℝ)| * (2 : ℝ) ^ e₂ := by rw [hC, abs_mul, abs_of_pos h2e2]
+    rw [hvC, hsplit] at hvlt
+    exact lt_of_mul_lt_mul_right hvlt (le_of_lt h2e2)
+  have hcast : (|C| : ℝ) < ((2 : ℤ) ^ (p₂ : ℕ) : ℝ) := by push_cast; rw [h2p2]; exact hCR
+  exact_mod_cast hcast
 
 /-- **Small positive values round to zero** (FLT underflow). In an FLT format
 (`exp = emin`), any `0 ≤ x' < 2^(emin−1)` rounds to nearest to `0`: its scaled
@@ -527,18 +527,14 @@ private theorem rndDiv_posden_of_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : T
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) ((a : ℝ) / (b : ℝ)) w := by
   rcases lt_trichotomy (a : ℝ) 0 with haneg | hazero | hapos
-  · -- `a < 0`: negate the numerator (quotient flips sign)
+  · -- `a < 0`: negate the numerator (quotient flips sign), via `rndNeg`
     have hna : (-a) ∈ F₁ := FiniteFormat.neg_mem ha
     have hnapos : 0 < ((-a : Dyadic) : ℝ) := by rw [Dyadic.coe_real_neg]; linarith
     have hqval : ((-a : Dyadic) : ℝ) / (b : ℝ) = -((a : ℝ) / (b : ℝ)) := by
       rw [Dyadic.coe_real_neg, neg_div]
-    have hz2 : RoundsFinite F₂.unbounded (.nearest tb₂) (((-a : Dyadic) : ℝ) / (b : ℝ)) (-z) := by
-      rw [hqval]; exact (RoundsFinite.neg_nearest F₂.unbounded tb₂ ((a : ℝ) / (b : ℝ)) z).mp hz
-    have hw2 : RoundsFinite F₁.unbounded (.nearest tb₁) ((-z : Dyadic) : ℝ) (-w) := by
-      rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ (z : ℝ) w).mp hw
-    have hres := hpos (-a) b hna hb hnapos hbpos (-z) (-w) hz2 hw2
-    rw [hqval] at hres
-    exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ ((a : ℝ) / (b : ℝ)) w).mpr hres
+    refine rndNeg hz hw (fun z' w' hz' hw' => ?_)
+    rw [← hqval] at hz' ⊢
+    exact hpos (-a) b hna hb hnapos hbpos z' w' hz' hw'
   · -- `a = 0`: the quotient is `0`, exactly representable
     have hval : (a : ℝ) / (b : ℝ) = ((0 : Dyadic) : ℝ) := by rw [hazero, zero_div]; simp
     rw [hval] at hz ⊢
@@ -566,10 +562,17 @@ private theorem rndDiv_of_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak
     exact rndDiv_posden_of_pos hpos hna hnb hnbpos hz hw
   · exact rndDiv_posden_of_pos hpos ha hb hbpos hz hw
 
-/-- **rnd-div, FLX** (Roux Theorem 29, radix 2). For **arbitrary** `a, b ∈ F₁`
-with `b ≠ 0` and `p₂ ≥ 2p₁`, double rounding of `a / b` (round to nearest in `F₂`,
-then in `F₁`) agrees with rounding `a / b` directly into `F₁`. Matches the
-generality of Flocq's `round_round_div_FLX`. -/
+/-- **rnd-div, FLX** (Roux Theorem 29, radix 2). With FLX formats
+`F₁ = 𝒜(p₁, ⊥, b₁)` and `F₂ = 𝒜(p₂, ⊥, b₂)`, double rounding to nearest of `a / b`
+(**arbitrary** `a, b ∈ F₁`, `b ≠ 0`) is innocuous when
+
+* **precision:** `p₂ ≥ 2·p₁`,
+* **exponent:** both `⊥` (FLX),
+* **bounds:** no relationship required (overflow-free `unbounded` roundings).
+
+As with `√`, `a / b` is generally non-representable, so this is a precision
+*margin* (with `2p₁` bits a quotient never lands near an `F₁`-midpoint), not exact
+containment. Matches the generality of Flocq's `round_round_div_FLX`. -/
 theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
@@ -582,10 +585,17 @@ theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
   rndDiv_of_pos (fun _ _ ha hb hapos hbpos _ _ hz hw =>
     rndDiv_pos hp₁ hp₂ hpp hexp₁ hexp₂ hundef₁ ha hb hapos hbpos hz hw) ha hb hbne hz hw
 
-/-- **rnd-div, FLT** (Roux Theorem 29, radix 2). For **arbitrary** `a, b ∈ F₁`
-(FLT) with `b ≠ 0`, `p₂ ≥ 2p₁`, and Roux's underflow bound `emin₂ ≤ emin₁ − p₁ − 2`,
-double rounding of `a / b` is innocuous — including underflowing quotients. Matches
-Flocq's `round_round_div_FLT`. -/
+/-- **rnd-div, FLT** (Roux Theorem 29, radix 2). With FLT formats
+`F₁ = 𝒜(p₁, emin₁, b₁)` and `F₂ = 𝒜(p₂, emin₂, b₂)`, double rounding to nearest of
+`a / b` (**arbitrary** `a, b ∈ F₁`, `b ≠ 0`) is innocuous — including underflowing
+quotients — when
+
+* **precision:** `p₂ ≥ 2·p₁`,
+* **exponent:** the underflow bound `emin₂ ≤ emin₁ − p₁ − 2`,
+* **bounds:** no relationship required (overflow-free `unbounded` roundings).
+
+A precision + underflow *margin* (not exact containment — `a / b` is generally
+non-representable). Matches Flocq's `round_round_div_FLT`. -/
 theorem rndDiv_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))

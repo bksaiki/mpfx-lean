@@ -738,10 +738,7 @@ private theorem canonical_rep_floating {F : ParityFormat}
     intro h0; rw [h0, abs_zero] at hk_lo
     have hpos : (1 : ℤ) ≤ (2 : ℤ) ^ ((p : ℕ) - 1) := one_le_pow₀ (by norm_num)
     linarith
-  have h_y_ne : (y : ℝ) ≠ 0 := by
-    rw [h_y_real]
-    exact mul_ne_zero (Int.cast_ne_zero.mpr hk_ne)
-      (ne_of_gt (zpow_pos (by norm_num) _))
+  have h_y_ne : (y : ℝ) ≠ 0 := Dyadic.coe_ofIntZpow_ne_zero hk_ne e
   have h_nd_toNat : (F.toFiniteFormat.numDigits (y : ℝ)).toNat = (p : ℕ) := by
     rw [F.toFiniteFormat.numDigits_coe_bot h_y_ne hp_eq hexp_bot]; simp
   rw [h_nd_toNat]
@@ -783,14 +780,7 @@ private theorem canonical_rep_mixed_subnormal_pne1 {F : ParityFormat}
   set y : Dyadic := Dyadic.ofIntZpow k e'
   have h_y_real : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e' := Dyadic.coe_ofIntZpow k e'
   have h_y_rat : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e' := Dyadic.coe_rat_ofIntZpow k e'
-  have h_y_ne : (y : ℝ) ≠ 0 := by
-    rw [h_y_real]
-    exact mul_ne_zero (Int.cast_ne_zero.mpr hk_ne)
-      (ne_of_gt (zpow_pos (by norm_num) _))
-  have h_abs_k_pos : (0 : ℝ) < (|k| : ℝ) := by
-    have h1 : (1 : ℤ) ≤ |k| := Int.one_le_abs hk_ne
-    have h2 : (1 : ℝ) ≤ (|k| : ℝ) := by exact_mod_cast h1
-    linarith
+  have h_y_ne : (y : ℝ) ≠ 0 := Dyadic.coe_ofIntZpow_ne_zero hk_ne e'
   have h_log_k_nn : 0 ≤ Int.log 2 (|k| : ℝ) := by
     have h_one_le : (1 : ℝ) ≤ (|k| : ℝ) := by
       have : (1 : ℤ) ≤ |k| := Int.one_le_abs hk_ne
@@ -812,34 +802,7 @@ private theorem canonical_rep_mixed_subnormal_pne1 {F : ParityFormat}
       Int.toNat_of_nonneg h_log_k_nn
     omega
   rw [h_nd_toNat]
-  refine ⟨h_y_rat, ?_, ?_⟩
-  · have h_simp : (Int.log 2 (|k| : ℝ)).toNat + 1 - 1 = (Int.log 2 (|k| : ℝ)).toNat := by
-      omega
-    rw [h_simp]
-    have h_2pow_le : (2 : ℝ) ^ (Int.log 2 (|k| : ℝ)) ≤ (|k| : ℝ) :=
-      Int.zpow_log_le_self (by norm_num : (1 : ℕ) < 2) h_abs_k_pos
-    have h_log_nat_eq : ((Int.log 2 (|k| : ℝ)).toNat : ℤ) = Int.log 2 (|k| : ℝ) :=
-      Int.toNat_of_nonneg h_log_k_nn
-    have h_cast : ((2 : ℤ) ^ (Int.log 2 (|k| : ℝ)).toNat : ℝ) =
-        (2 : ℝ) ^ (Int.log 2 (|k| : ℝ)) := by
-      rw [show (Int.log 2 (|k| : ℝ)) = ((Int.log 2 (|k| : ℝ)).toNat : ℤ) from
-            h_log_nat_eq.symm, zpow_natCast]
-      push_cast; rfl
-    have h_real_le : ((2 : ℤ) ^ (Int.log 2 (|k| : ℝ)).toNat : ℝ) ≤ (|k| : ℝ) := by
-      rw [h_cast]; exact h_2pow_le
-    exact_mod_cast h_real_le
-  · have h_2pow_gt : (|k| : ℝ) < (2 : ℝ) ^ (Int.log 2 (|k| : ℝ) + 1) :=
-      Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
-    have h_cast : ((2 : ℤ) ^ ((Int.log 2 (|k| : ℝ)).toNat + 1) : ℝ) =
-        (2 : ℝ) ^ (Int.log 2 (|k| : ℝ) + 1) := by
-      push_cast
-      rw [← zpow_natCast (2 : ℝ) ((Int.log 2 (|k| : ℝ)).toNat + 1)]
-      congr 1
-      push_cast
-      omega
-    have h_real_lt : (|k| : ℝ) < ((2 : ℤ) ^ ((Int.log 2 (|k| : ℝ)).toNat + 1) : ℝ) := by
-      rw [h_cast]; exact h_2pow_gt
-    exact_mod_cast h_real_lt
+  exact Dyadic.isRepresentableAtP_of_log hk_ne h_y_rat
 
 /-- Canonical h_rep construction for the mixed `p = 1` case: when `|k| = 1`
 and `e_c ≥ e'`, the (k, e_c) pair is canonical at `numDigits = 1` bit. -/
@@ -855,10 +818,7 @@ private theorem canonical_rep_mixed_p1 {F : ParityFormat}
     intro h0; rw [h0] at hk_eq; simp at hk_eq
   have h_y_real : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e_c := Dyadic.coe_ofIntZpow k e_c
   have h_y_rat : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e_c := Dyadic.coe_rat_ofIntZpow k e_c
-  have h_y_ne : (y : ℝ) ≠ 0 := by
-    rw [h_y_real]
-    exact mul_ne_zero (Int.cast_ne_zero.mpr hk_ne)
-      (ne_of_gt (zpow_pos (by norm_num) _))
+  have h_y_ne : (y : ℝ) ≠ 0 := Dyadic.coe_ofIntZpow_ne_zero hk_ne e_c
   have h_log_eq : Int.log 2 |(y : ℝ)| = e_c := by
     rw [h_y_real, log_abs_mul_zpow hk_ne e_c]
     have h_abs_k_one : (|k| : ℝ) = 1 := by exact_mod_cast hk_eq
@@ -924,10 +884,7 @@ private theorem canonical_rep_at_saturation_floating {F : ParityFormat}
     intro h0; rw [h0, abs_zero] at hk_eq
     have hpos : (1 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := one_le_pow₀ (by norm_num)
     linarith
-  have h_y_ne : (y : ℝ) ≠ 0 := by
-    rw [h_y_real]
-    exact mul_ne_zero (Int.cast_ne_zero.mpr hk_ne)
-      (ne_of_gt (zpow_pos (by norm_num) _))
+  have h_y_ne : (y : ℝ) ≠ 0 := Dyadic.coe_ofIntZpow_ne_zero hk_ne e
   have h_nd_toNat : (F.toFiniteFormat.numDigits (y : ℝ)).toNat = (p : ℕ) := by
     rw [F.toFiniteFormat.numDigits_coe_bot h_y_ne hp_eq hexp_bot]; simp
   rw [h_nd_toNat]
@@ -1088,10 +1045,8 @@ theorem isEven_p1_iff_at_canonical_mixed {F : ParityFormat}
     F.IsEven (Dyadic.ofIntZpow k e_c) ↔ Even (e_c - e' + 1) := by
   have h_rep := canonical_rep_mixed_p1 hp_eq hexp hk_eq h_ec_ge
   have hk_ne : k ≠ 0 := by intro h0; rw [h0] at hk_eq; simp at hk_eq
-  have h_y_ne : ((Dyadic.ofIntZpow k e_c : Dyadic) : ℝ) ≠ 0 := by
-    rw [Dyadic.coe_ofIntZpow]
-    exact mul_ne_zero (Int.cast_ne_zero.mpr hk_ne)
-      (ne_of_gt (zpow_pos (by norm_num) _))
+  have h_y_ne : ((Dyadic.ofIntZpow k e_c : Dyadic) : ℝ) ≠ 0 :=
+    Dyadic.coe_ofIntZpow_ne_zero hk_ne e_c
   have h_unbot : WithBot.unbotD 0 F.exp = e' := by rw [hexp]; rfl
   refine ⟨?_, ?_⟩
   · rintro (h_y0 | ⟨c', e'', h_rep', h_par⟩)
@@ -1645,14 +1600,7 @@ private theorem canonical_rep_fixedpoint {F : ParityFormat}
   set y : Dyadic := Dyadic.ofIntZpow k e'
   have h_y_real : (y : ℝ) = (k : ℝ) * (2 : ℝ) ^ e' := Dyadic.coe_ofIntZpow k e'
   have h_y_rat : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e' := Dyadic.coe_rat_ofIntZpow k e'
-  have h_y_ne : (y : ℝ) ≠ 0 := by
-    rw [h_y_real]
-    exact mul_ne_zero (Int.cast_ne_zero.mpr hk_ne)
-      (ne_of_gt (zpow_pos (by norm_num) _))
-  have h_abs_pos : (0 : ℝ) < (|k| : ℝ) := by
-    have h1 : (1 : ℤ) ≤ |k| := Int.one_le_abs hk_ne
-    have h2 : (1 : ℝ) ≤ (|k| : ℝ) := by exact_mod_cast h1
-    linarith
+  have h_y_ne : (y : ℝ) ≠ 0 := Dyadic.coe_ofIntZpow_ne_zero hk_ne e'
   have h_log_nn : 0 ≤ Int.log 2 (|k| : ℝ) := by
     have h_one_le : (1 : ℝ) ≤ (|k| : ℝ) := by
       have : (1 : ℤ) ≤ |k| := Int.one_le_abs hk_ne
@@ -1671,33 +1619,7 @@ private theorem canonical_rep_fixedpoint {F : ParityFormat}
       Int.toNat_of_nonneg h_log_nn
     omega
   rw [h_nd_toNat]
-  refine ⟨h_y_rat, ?_, ?_⟩
-  · have h_simp : (Int.log 2 (|k| : ℝ)).toNat + 1 - 1 =
-        (Int.log 2 (|k| : ℝ)).toNat := by omega
-    rw [h_simp]
-    have h_2pow_le : (2 : ℝ) ^ (Int.log 2 (|k| : ℝ)) ≤ (|k| : ℝ) :=
-      Int.zpow_log_le_self (by norm_num : (1 : ℕ) < 2) h_abs_pos
-    have h_nat : ((Int.log 2 (|k| : ℝ)).toNat : ℤ) = Int.log 2 (|k| : ℝ) :=
-      Int.toNat_of_nonneg h_log_nn
-    have h_cast : ((2 : ℤ) ^ (Int.log 2 (|k| : ℝ)).toNat : ℝ) =
-        (2 : ℝ) ^ (Int.log 2 (|k| : ℝ)) := by
-      rw [show (Int.log 2 (|k| : ℝ)) = ((Int.log 2 (|k| : ℝ)).toNat : ℤ) from
-        h_nat.symm, zpow_natCast]
-      push_cast; rfl
-    have h_real_le : ((2 : ℤ) ^ (Int.log 2 (|k| : ℝ)).toNat : ℝ) ≤ (|k| : ℝ) := by
-      rw [h_cast]; exact h_2pow_le
-    exact_mod_cast h_real_le
-  · have h_2pow_gt : (|k| : ℝ) < (2 : ℝ) ^ (Int.log 2 (|k| : ℝ) + 1) :=
-      Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
-    have h_cast : ((2 : ℤ) ^ ((Int.log 2 (|k| : ℝ)).toNat + 1) : ℝ) =
-        (2 : ℝ) ^ (Int.log 2 (|k| : ℝ) + 1) := by
-      push_cast
-      rw [← zpow_natCast (2 : ℝ) ((Int.log 2 (|k| : ℝ)).toNat + 1)]
-      congr 1; push_cast; omega
-    have h_real_lt : (|k| : ℝ) <
-        ((2 : ℤ) ^ ((Int.log 2 (|k| : ℝ)).toNat + 1) : ℝ) := by
-      rw [h_cast]; exact h_2pow_gt
-    exact_mod_cast h_real_lt
+  exact Dyadic.isRepresentableAtP_of_log hk_ne h_y_rat
 
 /-- `IsOdd` depends only on `toFormat`: two `ParityFormat`s with equal `toFormat`
 agree on `IsOdd`. Uses Lean's proof irrelevance for the `finite`/`parity`

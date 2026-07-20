@@ -555,6 +555,25 @@ theorem RoundsFinite.neg_nearest (F : FiniteFormat) (tb : TieBreak) (a : ℝ) (v
   | toEven => exact RoundsFinite.neg_nearest_toEven F a v
   | awayZero => exact RoundsFinite.neg_nearest_awayZero F a v
 
+/-- **Double-rounding negation transport.** Both roundings being to-nearest,
+double rounding commutes with negation: to double-round `v` it suffices to
+double-round `-v` — feed the negated intermediate/result data `(-z, -w)` to
+`hbase` and the result negates back. Factors the `RoundsFinite.neg_nearest` dance
+shared by the sign-case reductions of `rndDiff`, `rndAdd`, and `rndDiv`. -/
+theorem rndNeg {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {v : ℝ} {z w : Dyadic}
+    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) v z)
+    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w)
+    (hbase : ∀ (z' w' : Dyadic),
+      RoundsFinite F₂.unbounded (.nearest tb₂) (-v) z' →
+      RoundsFinite F₁.unbounded (.nearest tb₁) (z' : ℝ) w' →
+      RoundsFinite F₁.unbounded (.nearest tb₁) (-v) w') :
+    RoundsFinite F₁.unbounded (.nearest tb₁) v w := by
+  have hz' : RoundsFinite F₂.unbounded (.nearest tb₂) (-v) (-z) :=
+    (RoundsFinite.neg_nearest F₂.unbounded tb₂ v z).mp hz
+  have hw' : RoundsFinite F₁.unbounded (.nearest tb₁) ((-z : Dyadic) : ℝ) (-w) := by
+    rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ (z : ℝ) w).mp hw
+  exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ v w).mpr (hbase (-z) (-w) hz' hw')
+
 /-- **Above-midpoint double rounding** (mirror of `rnd_lt_mid`, given binade
 consistency). If `x` sits more than `½·ulp₂` above its upper `F₁`-midpoint
 `rndUp F₁ x − ½·ulp₁`, double rounding agrees (it rounds *up*). Proved by

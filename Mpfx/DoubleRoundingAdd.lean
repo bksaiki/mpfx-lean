@@ -56,10 +56,9 @@ private theorem mem_F₂_of_subnormal {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
     have hcast : (|C| : ℝ) < ((2 : ℤ) ^ (p₂ : ℕ) : ℝ) := by
       push_cast; rw [h2p2]; exact hCR
     exact_mod_cast hcast
-  refine ⟨?_, ?_, trivial⟩
-  · rw [FiniteFormat.unbounded_p, hp₂]
-    exact (Dyadic.precisionAtMost_coe_real p₂ v).mpr ⟨C, e₂, hC, hCbound⟩
-  · rw [FiniteFormat.unbounded_exp]; exact Dyadic.quantumAtLeast_anti (le_of_eq he₂) hqe2
+  exact Format.mem_unbounded_of_le (p := ((p₂ : ℕ+) : WithTop ℕ+)) (e := ((e₂ : ℤ) : WithBot ℤ))
+    (le_of_eq hp₂.symm) (le_of_eq he₂)
+    ((Dyadic.precisionAtMost_coe_real p₂ v).mpr ⟨C, e₂, hC, hCbound⟩) hqe2
 
 /-- Sign/positivity extractor: from `(x:ℝ) = c·2^e > 0` with `2^e > 0`, get `c > 0`. -/
 private theorem mantissa_pos {c e : ℤ} {x : ℝ} (hxeq : x = (c : ℝ) * (2 : ℝ) ^ e)
@@ -534,10 +533,9 @@ private theorem rndSmallGap_exact {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (r : ℝ) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) (r : ℝ) w := by
-  refine rndExact (F₂ := F₂.unbounded) ⟨?_, ?_, trivial⟩ hz hw
-  · refine Dyadic.precisionAtMost_mono ?_ hprec
-    rw [FiniteFormat.unbounded_p, hp₂]; exact_mod_cast hpp
-  · rw [FiniteFormat.unbounded_exp]; exact Dyadic.quantumAtLeast_anti hexp hquant_r
+  refine rndExact (F₂ := F₂.unbounded)
+    (Format.mem_unbounded_of_le (p := ((2 * p₁ + 1 : ℕ+) : WithTop ℕ+)) (e := F₁.exp)
+      (by rw [hp₂]; exact_mod_cast hpp) hexp hprec hquant_r) hz hw
 
 /-- Subnormal exact fallback: a result `r` that inherits `F₁`'s quantum but is
 *subnormal* in `F₂` (FLX exponent below `F₂.exp`) is exactly `F₂`-representable,
@@ -776,30 +774,9 @@ private theorem rndAdd_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
 private theorem mem_F₂_unbounded {F₁ F₂ : FiniteFormat} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
     (hexp : F₂.exp ≤ F₁.exp) (hp1p2 : p₁ ≤ p₂)
-    {d : Dyadic} (hd : d ∈ F₁) : d ∈ F₂.unbounded := by
-  refine ⟨?_, ?_, trivial⟩
-  · refine Dyadic.precisionAtMost_mono ?_ (hp₁ ▸ hd.1)
-    rw [FiniteFormat.unbounded_p, hp₂]; exact_mod_cast hp1p2
-  · rw [FiniteFormat.unbounded_exp]; exact Dyadic.quantumAtLeast_anti hexp hd.2.1
-
-/-- **Negation transport.** Double rounding commutes with negation (both roundings
-are to-nearest): to double-round `v`, it suffices to double-round `-v`. Feeding
-the negated data `(-z, -w)` to `hbase` and negating the result discharges the sign
-flip, factoring the `RoundsFinite.neg_nearest` dance shared by `rndDiff` and
-`rndAdd`. -/
-private theorem rndNeg {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {v : ℝ} {z w : Dyadic}
-    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) v z)
-    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w)
-    (hbase : ∀ (z' w' : Dyadic),
-      RoundsFinite F₂.unbounded (.nearest tb₂) (-v) z' →
-      RoundsFinite F₁.unbounded (.nearest tb₁) (z' : ℝ) w' →
-      RoundsFinite F₁.unbounded (.nearest tb₁) (-v) w') :
-    RoundsFinite F₁.unbounded (.nearest tb₁) v w := by
-  have hz' : RoundsFinite F₂.unbounded (.nearest tb₂) (-v) (-z) :=
-    (RoundsFinite.neg_nearest F₂.unbounded tb₂ v z).mp hz
-  have hw' : RoundsFinite F₁.unbounded (.nearest tb₁) ((-z : Dyadic) : ℝ) (-w) := by
-    rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ (z : ℝ) w).mp hw
-  exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ v w).mpr (hbase (-z) (-w) hz' hw')
+    {d : Dyadic} (hd : d ∈ F₁) : d ∈ F₂.unbounded :=
+  Format.mem_unbounded_of_le (p := F₁.p) (e := F₁.exp)
+    (by rw [hp₁, hp₂]; exact_mod_cast hp1p2) hexp hd.1 hd.2.1
 
 /-- Both operands nonnegative: reduce to `rndAdd_pos` (swap if `x < y`; a zero
 operand makes the sum exactly representable). -/
@@ -835,12 +812,18 @@ private theorem rndAdd_nonneg {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak
       · rw [show (x + y : Dyadic) = y + x from add_comm x y] at hz ⊢
         exact rndAdd_pos hp₁ hp₂ hpp hexp hundef₁ hy hx hyp hxp hxy hz hw
 
-/-- **rnd-difference, nonnegative operands** (Roux Theorem 20, radix 2, FLX,
-subtraction). For `a, b ∈ F₁` with `0 ≤ a, 0 ≤ b`, if `p₂ ≥ 2p₁+1` then double
-rounding of `a − b` is innocuous. Reduces to `rndSub_pos` for the ordered
-positive case (`a > b` directly, `a < b` by joint negation), while a zero
-operand or `a = b` makes `a − b` a member of `F₁`, hence exactly
-`F₂`-representable. -/
+/-- **rnd-difference, nonnegative operands** (Roux Theorem 20, radix 2). With
+`F₁ = 𝒜(p₁, exp₁, b₁)` and `F₂ = 𝒜(p₂, exp₂, b₂)`, double rounding to nearest of
+`a − b` (`a, b ∈ F₁`, `0 ≤ a`, `0 ≤ b`) is innocuous when
+
+* **precision:** `p₂ ≥ 2·p₁ + 1`,
+* **exponent:** `exp₂ ≤ exp₁` (covers FLX `⊥ ≤ ⊥` and FLT `emin₂ ≤ emin₁`),
+* **bounds:** no relationship required (overflow-free `unbounded` roundings).
+
+The exponent condition `exp₂ ≤ exp₁` is exactly the *quantum half* of `F₁ ⊆ F₂`
+(`𝒜-Contains-Prec`): `F₂` is at least as fine as `F₁`. The `2p₁+1`-bit exact
+difference is either `F₂`-representable (a zero operand or `a = b`, exact case)
+or pinned by the midpoint argument. -/
 theorem rndDiff {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+))
     (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
@@ -883,13 +866,18 @@ theorem rndDiff {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ :
     · -- `a > b`: apply `rndSub_pos` directly.
       exact rndSub_pos hp₁ hp₂ hpp hexp hundef₁ ha hb hap hbp hab hz hw
 
-/-- **rnd-plus** (Roux Theorem 20, radix 2, FLX **and FLT**). For **arbitrary**
-`x, y ∈ F₁`, if `p₂ ≥ 2p₁ + 1` and `emin₂ ≤ emin₁` (`hexp : F₂.exp ≤ F₁.exp`,
-which subsumes the FLX case `⊥ ≤ ⊥`), then double rounding of `x + y` (round to
-nearest in `F₂`, then in `F₁`) agrees with rounding `x + y` directly into `F₁`.
-Same-sign operands go through `rndAdd_nonneg` (both nonpositive by joint
-negation); mixed signs are a subtraction handled by `rndDiff`. This matches the
-generality of Flocq's `round_round_plus_FLX`/`round_round_plus_FLT`. -/
+/-- **rnd-plus** (Roux Theorem 20, radix 2, FLX **and** FLT). With
+`F₁ = 𝒜(p₁, exp₁, b₁)` and `F₂ = 𝒜(p₂, exp₂, b₂)`, double rounding to nearest of
+`x + y` for **arbitrary** `x, y ∈ F₁` is innocuous when
+
+* **precision:** `p₂ ≥ 2·p₁ + 1`,
+* **exponent:** `exp₂ ≤ exp₁` (subsumes FLX `⊥ ≤ ⊥` and FLT `emin₂ ≤ emin₁`),
+* **bounds:** no relationship required (overflow-free `unbounded` roundings).
+
+`exp₂ ≤ exp₁` is the *quantum half* of `F₁ ⊆ F₂` (`𝒜-Contains-Prec`): `F₂` is at
+least as fine as `F₁`. Same-sign operands reduce to `rndAdd_nonneg` (both
+nonpositive by joint negation); mixed signs are a subtraction handled by
+`rndDiff`. Matches Flocq's `round_round_plus_FLX`/`round_round_plus_FLT`. -/
 theorem rndAdd {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
     (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+))
     (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))

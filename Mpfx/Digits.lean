@@ -79,40 +79,18 @@ theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ+} {y 
   obtain ⟨c₂, e₂, hy_eq₂, hc₂_low⟩ := hprec
   have heq_rat : (c₁ : ℚ) * (2 : ℚ) ^ e₁ = (c₂ : ℚ) * (2 : ℚ) ^ e₂ := by
     rw [← hy_eq₁]; exact hy_eq₂
-  have h2ne : (2 : ℚ) ≠ 0 := two_ne_zero
-  have h2pos : (0 : ℚ) < 2 := by norm_num
   rcases lt_or_ge e₁ e₂ with he | he
   · -- `e₁ < e₂`: `c₁ = c₂ · 2^(e₂-e₁)` is even, contradicting `Odd c₁`.
-    have h_nat : ((e₂ - e₁).toNat : ℤ) = e₂ - e₁ := Int.toNat_of_nonneg (by omega)
-    have heq_int : c₁ = c₂ * 2 ^ (e₂ - e₁).toNat := by
-      have h_rat : (c₁ : ℚ) = (c₂ : ℚ) * (2 : ℚ) ^ (e₂ - e₁).toNat := by
-        rw [show ((2 : ℚ) ^ (e₂ - e₁).toNat : ℚ) = (2 : ℚ) ^ ((e₂ - e₁).toNat : ℤ) from
-            (zpow_natCast _ _).symm, h_nat]
-        have h_step : (c₂ : ℚ) * (2 : ℚ) ^ (e₂ - e₁) * (2 : ℚ) ^ e₁
-            = (c₁ : ℚ) * (2 : ℚ) ^ e₁ := by
-          rw [mul_assoc, ← zpow_add₀ h2ne, show e₂ - e₁ + e₁ = e₂ from by ring]
-          exact heq_rat.symm
-        have h2e₁_pos : (0 : ℚ) < (2 : ℚ) ^ e₁ := zpow_pos h2pos _
-        exact (mul_right_cancel₀ (ne_of_gt h2e₁_pos) h_step).symm
-      exact_mod_cast h_rat
+    have heq_int : c₁ = c₂ * 2 ^ (e₂ - e₁).toNat :=
+      coeff_eq_of_shift_rat (le_of_lt he) heq_rat
     have h_even : Even c₁ := by
       rw [heq_int,
           show (e₂ - e₁).toNat = ((e₂ - e₁).toNat - 1) + 1 from by omega, pow_succ]
       exact ⟨c₂ * 2 ^ ((e₂ - e₁).toNat - 1), by ring⟩
     exact (Int.not_even_iff_odd.mpr hc₁_odd) h_even
   · -- `e₁ ≥ e₂`: `|c₂| = |c₁| · 2^(e₁-e₂) ≥ 2^(p_y-1) ≥ 2^w`, contradicting `|c₂| < 2^w`.
-    have h_nat : ((e₁ - e₂).toNat : ℤ) = e₁ - e₂ := Int.toNat_of_nonneg (by omega)
-    have heq_int : c₂ = c₁ * 2 ^ (e₁ - e₂).toNat := by
-      have h_rat : (c₂ : ℚ) = (c₁ : ℚ) * (2 : ℚ) ^ (e₁ - e₂).toNat := by
-        rw [show ((2 : ℚ) ^ (e₁ - e₂).toNat : ℚ) = (2 : ℚ) ^ ((e₁ - e₂).toNat : ℤ) from
-            (zpow_natCast _ _).symm, h_nat]
-        have h_step : (c₁ : ℚ) * (2 : ℚ) ^ (e₁ - e₂) * (2 : ℚ) ^ e₂
-            = (c₂ : ℚ) * (2 : ℚ) ^ e₂ := by
-          rw [mul_assoc, ← zpow_add₀ h2ne, show e₁ - e₂ + e₂ = e₁ from by ring]
-          exact heq_rat
-        have h2e₂_pos : (0 : ℚ) < (2 : ℚ) ^ e₂ := zpow_pos h2pos _
-        exact (mul_right_cancel₀ (ne_of_gt h2e₂_pos) h_step).symm
-      exact_mod_cast h_rat
+    have heq_int : c₂ = c₁ * 2 ^ (e₁ - e₂).toNat :=
+      coeff_eq_of_shift_rat he heq_rat.symm
     have h_abs : |c₂| = |c₁| * 2 ^ (e₁ - e₂).toNat := by
       rw [heq_int, abs_mul, abs_pow]; congr 1
     -- `2^(p_y - 1) ≤ |c₁|` (the low bound of `IsRepresentableAtP`).
@@ -310,17 +288,9 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
               exact lt_of_lt_of_le h_F₁_lt (min_le_right _ _)
           rw [h_log_y_eq] at h_inner_gt
           omega
-        have h_diff_nn : ((e - 1 - e₁).toNat : ℤ) = e - 1 - e₁ :=
-          Int.toNat_of_nonneg (by omega)
         refine ⟨c'' * 2 ^ (e - 1 - e₁).toNat, ?_⟩
         rw [Dyadic.coe_rat_ofIntZpow]
-        have h_pow_eq : (2 : ℚ) ^ (e - 1) =
-            (2 : ℚ) ^ ((e - 1 - e₁).toNat : ℤ) * (2 : ℚ) ^ e₁ := by
-          rw [← zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), h_diff_nn]
-          congr 1; ring
-        rw [h_pow_eq, zpow_natCast]
-        push_cast
-        ring
+        exact two_zpow_shift_rat c'' (by omega)
     · have hyF₁_bnd := hyF₁.2.2
       cases hb : F₁.b with
       | top => trivial
@@ -357,23 +327,8 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
     have h_diff_pos : 0 < e''' - (e - 1) := by omega
     have h_diff_nat : ((e''' - (e - 1)).toNat : ℤ) = e''' - (e - 1) :=
       Int.toNat_of_nonneg (le_of_lt h_diff_pos)
-    have h_c''_eq : (c'' : ℝ) = (c''' : ℝ) * (2 : ℝ) ^ (e''' - (e - 1)) := by
-      have h2eml_pos : (0 : ℝ) < (2 : ℝ) ^ (e - 1) := zpow_pos h2real_pos _
-      have hsplit : (2 : ℝ) ^ e''' =
-          (2 : ℝ) ^ (e''' - (e - 1)) * (2 : ℝ) ^ (e - 1) := by
-        rw [← zpow_add₀ h2real_ne]; congr 1; ring
-      rw [hy''_real] at h_eq
-      have key : (c'' : ℝ) * (2 : ℝ) ^ (e - 1) =
-          ((c''' : ℝ) * (2 : ℝ) ^ (e''' - (e - 1))) * (2 : ℝ) ^ (e - 1) := by
-        rw [h_eq, hsplit]; ring
-      exact mul_right_cancel₀ (ne_of_gt h2eml_pos) key
-    rw [show (2 : ℝ) ^ (e''' - (e - 1)) =
-        (2 : ℝ) ^ ((e''' - (e - 1)).toNat : ℤ) from by rw [h_diff_nat],
-        zpow_natCast] at h_c''_eq
-    have h_c''_int : c'' = c''' * 2 ^ (e''' - (e - 1)).toNat := by
-      have : ((c''' * 2 ^ (e''' - (e - 1)).toNat : ℤ) : ℝ) = (c'' : ℝ) := by
-        push_cast; linarith [h_c''_eq]
-      exact_mod_cast this.symm
+    have h_c''_int : c'' = c''' * 2 ^ (e''' - (e - 1)).toNat :=
+      coeff_eq_of_shift_real (by omega) (hy''_real.symm.trans h_eq)
     have h_pow_ge : 1 ≤ (e''' - (e - 1)).toNat := by
       have : ((e''' - (e - 1)).toNat : ℤ) ≥ 1 := by rw [h_diff_nat]; omega
       exact_mod_cast this
@@ -388,27 +343,8 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
       ((y'' : Dyadic) : ℝ) = (c''' : ℝ) * (2 : ℝ) ^ e''' → |c''| ≤ |c'''| := by
     intro c''' e''' h_eq
     have h_e_le := h_int_rep_le c''' e''' h_eq
-    have h_diff_nn : ((e - 1 - e''').toNat : ℤ) = e - 1 - e''' :=
-      Int.toNat_of_nonneg (by omega)
-    have h_c'''_eq : c''' = c'' * 2 ^ (e - 1 - e''').toNat := by
-      have h2_pos : (0 : ℝ) < (2 : ℝ) ^ e''' := zpow_pos h2real_pos _
-      rw [hy''_real] at h_eq
-      have hsplit : (2 : ℝ) ^ (e - 1) =
-          (2 : ℝ) ^ (e - 1 - e''') * (2 : ℝ) ^ e''' := by
-        rw [← zpow_add₀ h2real_ne]; congr 1; ring
-      have key : ((c'' : ℝ) * (2 : ℝ) ^ (e - 1 - e''')) * (2 : ℝ) ^ e''' =
-          (c''' : ℝ) * (2 : ℝ) ^ e''' := by
-        rw [show ((c'' : ℝ) * (2 : ℝ) ^ (e - 1 - e''')) * (2 : ℝ) ^ e''' =
-            (c'' : ℝ) * ((2 : ℝ) ^ (e - 1 - e''') * (2 : ℝ) ^ e''') from by ring]
-        rw [← hsplit]; exact h_eq
-      have h_real : (c'' : ℝ) * (2 : ℝ) ^ (e - 1 - e''') = (c''' : ℝ) :=
-        mul_right_cancel₀ (ne_of_gt h2_pos) key
-      rw [show (2 : ℝ) ^ (e - 1 - e''') =
-          (2 : ℝ) ^ ((e - 1 - e''').toNat : ℤ) from by rw [h_diff_nn],
-          zpow_natCast] at h_real
-      have : ((c'' * 2 ^ (e - 1 - e''').toNat : ℤ) : ℝ) = (c''' : ℝ) := by
-        push_cast; linarith [h_real]
-      exact_mod_cast this.symm
+    have h_c'''_eq : c''' = c'' * 2 ^ (e - 1 - e''').toNat :=
+      coeff_eq_of_shift_real h_e_le (h_eq.symm.trans hy''_real)
     rw [h_c'''_eq, abs_mul, abs_pow]
     have h2_abs : |(2 : ℤ)| = 2 := by decide
     rw [h2_abs]
@@ -626,22 +562,8 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
     have h_diff : 0 < e₁ - e := by omega
     have h_diff_nat : ((e₁ - e).toNat : ℤ) = e₁ - e :=
       Int.toNat_of_nonneg (le_of_lt h_diff)
-    have h_real : (c : ℝ) = (c'_q : ℝ) * (2 : ℝ) ^ (e₁ - e) := by
-      have h2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos h2real_pos _
-      have h_split : (2 : ℝ) ^ e₁ = (2 : ℝ) ^ (e₁ - e) * (2 : ℝ) ^ e := by
-        rw [← zpow_add₀ h2real_ne]; congr 1; ring
-      have key : (c : ℝ) * (2 : ℝ) ^ e =
-          ((c'_q : ℝ) * (2 : ℝ) ^ (e₁ - e)) * (2 : ℝ) ^ e := by
-        rw [show ((c'_q : ℝ) * (2 : ℝ) ^ (e₁ - e)) * (2 : ℝ) ^ e =
-            (c'_q : ℝ) * ((2 : ℝ) ^ (e₁ - e) * (2 : ℝ) ^ e) from by ring]
-        rw [← h_split, ← hc'_q_eq, h_y_eq_real]
-      exact mul_right_cancel₀ (ne_of_gt h2e_pos) key
-    rw [show (2 : ℝ) ^ (e₁ - e) = (2 : ℝ) ^ ((e₁ - e).toNat : ℤ) from by
-        rw [h_diff_nat], zpow_natCast] at h_real
-    have h_int_eq : c = c'_q * 2 ^ (e₁ - e).toNat := by
-      have : ((c'_q * 2 ^ (e₁ - e).toNat : ℤ) : ℝ) = (c : ℝ) := by
-        push_cast; linarith
-      exact_mod_cast this.symm
+    have h_int_eq : c = c'_q * 2 ^ (e₁ - e).toNat :=
+      coeff_eq_of_shift_real (by omega) (h_y_eq_real.symm.trans hc'_q_eq)
     have h_k_ge_1 : 1 ≤ (e₁ - e).toNat := by
       have : ((e₁ - e).toNat : ℤ) ≥ 1 := by rw [h_diff_nat]; omega
       exact_mod_cast this
@@ -747,31 +669,9 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
     by_contra h_gt
     push Not at h_gt
     have h_gt' : 0 < e₂ - e₁ := by omega
-    have h_diff_nat : ((e₂ - e₁).toNat : ℤ) = e₂ - e₁ :=
-      Int.toNat_of_nonneg (le_of_lt h_gt')
-    have h_real : (1 : ℝ) = (c''' : ℝ) * (2 : ℝ) ^ (e₂ - e₁) := by
-      rw [Dyadic.coe_rat_ofIntZpow] at hc'''_eq
-      have h_one : ((1 : ℤ) : ℚ) * (2 : ℚ) ^ e₁ =
-          (c''' : ℚ) * (2 : ℚ) ^ e₂ := hc'''_eq
-      have h_one_real : ((1 : ℤ) : ℝ) * (2 : ℝ) ^ e₁ =
-          (c''' : ℝ) * (2 : ℝ) ^ e₂ := by
-        have hcast := congrArg (fun q : ℚ => (q : ℝ)) h_one
-        push_cast at hcast ⊢; linarith
-      have h2e₁_pos : (0 : ℝ) < (2 : ℝ) ^ e₁ := zpow_pos h2real_pos _
-      have h_split : (2 : ℝ) ^ e₂ = (2 : ℝ) ^ (e₂ - e₁) * (2 : ℝ) ^ e₁ := by
-        rw [← zpow_add₀ h2real_ne]; congr 1; ring
-      have key : (1 : ℝ) * (2 : ℝ) ^ e₁ =
-          ((c''' : ℝ) * (2 : ℝ) ^ (e₂ - e₁)) * (2 : ℝ) ^ e₁ := by
-        rw [show ((1 : ℤ) : ℝ) = (1 : ℝ) from by push_cast; ring] at h_one_real
-        rw [h_one_real, h_split]; ring
-      exact mul_right_cancel₀ (ne_of_gt h2e₁_pos) key
-    rw [show (2 : ℝ) ^ (e₂ - e₁) =
-        (2 : ℝ) ^ ((e₂ - e₁).toNat : ℤ) from by rw [h_diff_nat],
-        zpow_natCast] at h_real
     have h_int_eq : (1 : ℤ) = c''' * 2 ^ (e₂ - e₁).toNat := by
-      have : ((1 : ℤ) : ℝ) = ((c''' * 2 ^ (e₂ - e₁).toNat : ℤ) : ℝ) := by
-        push_cast; linarith
-      exact_mod_cast this
+      rw [Dyadic.coe_rat_ofIntZpow] at hc'''_eq
+      exact coeff_eq_of_shift_rat (by omega) hc'''_eq
     have h_2_dvd : (2 : ℤ) ∣ c''' * 2 ^ (e₂ - e₁).toNat := by
       rw [show (e₂ - e₁).toNat = ((e₂ - e₁).toNat - 1) + 1 from by omega,
           pow_succ]

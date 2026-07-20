@@ -457,6 +457,56 @@ theorem isRepresentableAtP_of_saturation {p : ℕ} (hp : 1 ≤ p)
     have : (0 : ℤ) < (2 : ℤ) ^ (p - 1) := by positivity
     linarith
 
+/-- `((ofIntZpow k e : Dyadic) : ℝ) ≠ 0` whenever `k ≠ 0`. Packages the
+recurring `mul_ne_zero (cast) (zpow_pos)` idiom. -/
+theorem coe_ofIntZpow_ne_zero {k : ℤ} (hk : k ≠ 0) (e : ℤ) :
+    ((ofIntZpow k e : Dyadic) : ℝ) ≠ 0 := by
+  rw [coe_ofIntZpow]
+  exact mul_ne_zero (Int.cast_ne_zero.mpr hk) (ne_of_gt (zpow_pos (by norm_num) _))
+
+/-- The `Int.log`-based bounds core: for `k ≠ 0` and `y = k · 2^e'`, the pair
+`(k, e')` is the canonical representation of `y` at `log₂|k| + 1` bits. This
+captures the `2^(nd-1) ≤ |k| < 2^nd` derivation (via `Int.zpow_log_le_self` /
+`Int.lt_zpow_succ_log_self`) once, so the case-specific `numDigits` helpers can
+route through it. -/
+theorem isRepresentableAtP_of_log {k e' : ℤ} (hk : k ≠ 0) {y : Dyadic}
+    (hy : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e') :
+    IsRepresentableAtP ((Int.log 2 (|k| : ℝ)).toNat + 1) k e' y := by
+  have h_one_le : (1 : ℝ) ≤ (|k| : ℝ) := by
+    have h1 : (1 : ℤ) ≤ |k| := Int.one_le_abs hk
+    exact_mod_cast h1
+  have h_abs_pos : (0 : ℝ) < (|k| : ℝ) := by linarith
+  have h_log_nn : 0 ≤ Int.log 2 (|k| : ℝ) := by
+    rw [show (0 : ℤ) = Int.log 2 (1 : ℝ) by simp [Int.log_one_right]]
+    exact Int.log_mono_right (by norm_num) h_one_le
+  refine ⟨hy, ?_, ?_⟩
+  · have h_simp : (Int.log 2 (|k| : ℝ)).toNat + 1 - 1 = (Int.log 2 (|k| : ℝ)).toNat := by
+      omega
+    rw [h_simp]
+    have h_2pow_le : (2 : ℝ) ^ (Int.log 2 (|k| : ℝ)) ≤ (|k| : ℝ) :=
+      Int.zpow_log_le_self (by norm_num : (1 : ℕ) < 2) h_abs_pos
+    have h_nat : ((Int.log 2 (|k| : ℝ)).toNat : ℤ) = Int.log 2 (|k| : ℝ) :=
+      Int.toNat_of_nonneg h_log_nn
+    have h_cast : ((2 : ℤ) ^ (Int.log 2 (|k| : ℝ)).toNat : ℝ) =
+        (2 : ℝ) ^ (Int.log 2 (|k| : ℝ)) := by
+      rw [show (Int.log 2 (|k| : ℝ)) = ((Int.log 2 (|k| : ℝ)).toNat : ℤ) from
+        h_nat.symm, zpow_natCast]
+      push_cast; rfl
+    have h_real_le : ((2 : ℤ) ^ (Int.log 2 (|k| : ℝ)).toNat : ℝ) ≤ (|k| : ℝ) := by
+      rw [h_cast]; exact h_2pow_le
+    exact_mod_cast h_real_le
+  · have h_2pow_gt : (|k| : ℝ) < (2 : ℝ) ^ (Int.log 2 (|k| : ℝ) + 1) :=
+      Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
+    have h_cast : ((2 : ℤ) ^ ((Int.log 2 (|k| : ℝ)).toNat + 1) : ℝ) =
+        (2 : ℝ) ^ (Int.log 2 (|k| : ℝ) + 1) := by
+      push_cast
+      rw [← zpow_natCast (2 : ℝ) ((Int.log 2 (|k| : ℝ)).toNat + 1)]
+      congr 1; push_cast; omega
+    have h_real_lt : (|k| : ℝ) <
+        ((2 : ℤ) ^ ((Int.log 2 (|k| : ℝ)).toNat + 1) : ℝ) := by
+      rw [h_cast]; exact h_2pow_gt
+    exact_mod_cast h_real_lt
+
 /-- `IsRepresentableAtP p` pins down a unique `(c, e)` representation
 (for `p ≥ 1`). The exponent is determined by `|y|` (via `Int.log`),
 and the significand follows. -/
