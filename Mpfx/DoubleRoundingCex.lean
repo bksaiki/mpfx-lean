@@ -1043,26 +1043,31 @@ private theorem rounds_RTO_self {F : FiniteFormat} {y : Dyadic} (h : y ∈ F) :
 
 /-! ## Parity lemmas -/
 
+/-- `Int.log 2 (2^j) = j`: the log of a pure power of two. -/
+private theorem two_zpow_log (j : ℤ) : Int.log 2 ((2 : ℝ)^j) = j := by
+  rw [show (2 : ℝ)^j = ((2 : ℕ) : ℝ)^j by push_cast; rfl]
+  exact Int.log_zpow (R := ℝ) (by norm_num : 1 < 2) j
+
+/-- `numDigits` of an anchor `x = 2^N` in the quantum grid `F₁_g` is
+`min p (N − e + 1)`. -/
+private theorem F₁_g_numDigits (p : ℕ+) (hp : 2 ≤ (p : ℕ)) (e : ℤ) {x : ℝ} {N : ℤ}
+    (hx : x = (2 : ℝ) ^ N) :
+    (F₁_g p hp e).toFiniteFormat.numDigits x = min ((p : ℕ) : ℤ) (N - e + 1) := by
+  have h_pos : (0 : ℝ) < (2 : ℝ) ^ N := zpow_pos (by norm_num) _
+  have h_ne : x ≠ 0 := by rw [hx]; exact ne_of_gt h_pos
+  rw [(F₁_g p hp e).toFiniteFormat.numDigits_coe_coe h_ne
+    (F₁_g_p p hp e) (F₁_g_exp p hp e), hx, abs_of_pos h_pos, two_zpow_log]
+
 /-- `IsEven F₁ (4·2^e)` for any `p ≥ 2`. -/
 private theorem isEven_F₁_g_y_hi (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ) :
     (F₁_g p hp_ge_2 e).IsEven (y_hi_g e) := by
-  have h_coe : ((y_hi_g e : Dyadic) : ℝ) = (2 : ℝ)^(e + 2) := coe_y_hi_g e
   have h_coe_rat : ((y_hi_g e : Dyadic) : ℚ) = (2 : ℚ)^(e + 2) := by
     change ((Dyadic.ofIntZpow 1 (e + 2) : Dyadic) : ℚ) = _
     rw [Dyadic.coe_rat_ofIntZpow]; push_cast; ring
-  have h_2_pos : (0 : ℝ) < (2 : ℝ)^(e + 2) := zpow_pos (by norm_num) _
-  have h_y_ne_real : ((y_hi_g e : Dyadic) : ℝ) ≠ 0 := by
-    rw [h_coe]; exact ne_of_gt h_2_pos
-  have h_log : Int.log 2 |((y_hi_g e : Dyadic) : ℝ)| = e + 2 := by
-    rw [h_coe, abs_of_pos h_2_pos]
-    rw [show (2 : ℝ)^(e + 2) = ((2 : ℕ) : ℝ)^(e + 2) by push_cast; rfl]
-    exact Int.log_zpow (R := ℝ) (by omega : 1 < 2) (e + 2)
   -- Compute numDigits = min p 3.
   have h_nd : (F₁_g p hp_ge_2 e).toFiniteFormat.numDigits ((y_hi_g e : Dyadic) : ℝ)
         = min ((p : ℕ) : ℤ) 3 := by
-    rw [(F₁_g p hp_ge_2 e).toFiniteFormat.numDigits_coe_coe h_y_ne_real
-        (F₁_g_p p hp_ge_2 e) (F₁_g_exp p hp_ge_2 e), h_log]
-    congr 1; ring
+    rw [F₁_g_numDigits p hp_ge_2 e (coe_y_hi_g e), show e + 2 - e + 1 = 3 from by ring]
   have h_p_ne_1 : (F₁_g p hp_ge_2 e).p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
     rw [F₁_g_p]
     intro h
@@ -1107,22 +1112,12 @@ private theorem isEven_F₁_g_y_hi (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : �
 rounding precision `numDigits = min p 3 ≥ 2`. -/
 private theorem notIsOdd_F₁_g_y_hi (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ) :
     ¬ (F₁_g p hp_ge_2 e).IsOdd (y_hi_g e) := by
-  have h_coe : ((y_hi_g e : Dyadic) : ℝ) = (2 : ℝ)^(e + 2) := coe_y_hi_g e
   have h_coe_rat : ((y_hi_g e : Dyadic) : ℚ) = (2 : ℚ)^(e + 2) := by
     change ((Dyadic.ofIntZpow 1 (e + 2) : Dyadic) : ℚ) = _
     rw [Dyadic.coe_rat_ofIntZpow]; push_cast; ring
-  have h_2_pos : (0 : ℝ) < (2 : ℝ)^(e + 2) := zpow_pos (by norm_num) _
-  have h_y_ne_real : ((y_hi_g e : Dyadic) : ℝ) ≠ 0 := by
-    rw [h_coe]; exact ne_of_gt h_2_pos
-  have h_log : Int.log 2 |((y_hi_g e : Dyadic) : ℝ)| = e + 2 := by
-    rw [h_coe, abs_of_pos h_2_pos]
-    rw [show (2 : ℝ)^(e + 2) = ((2 : ℕ) : ℝ)^(e + 2) by push_cast; rfl]
-    exact Int.log_zpow (R := ℝ) (by omega : 1 < 2) (e + 2)
   have h_nd_eq : (F₁_g p hp_ge_2 e).toFiniteFormat.numDigits ((y_hi_g e : Dyadic) : ℝ)
         = min ((p : ℕ) : ℤ) 3 := by
-    rw [(F₁_g p hp_ge_2 e).toFiniteFormat.numDigits_coe_coe h_y_ne_real
-        (F₁_g_p p hp_ge_2 e) (F₁_g_exp p hp_ge_2 e), h_log]
-    congr 1; ring
+    rw [F₁_g_numDigits p hp_ge_2 e (coe_y_hi_g e), show e + 2 - e + 1 = 3 from by ring]
   have h_prec : Dyadic.precisionAtMost ((1 : ℕ+) : WithTop ℕ+) (y_hi_g e) := by
     rw [Dyadic.precisionAtMost_coe]
     refine ⟨1, e + 2, ?_, ?_⟩
@@ -1139,30 +1134,17 @@ private theorem notIsOdd_F₁_g_y_hi (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e :
 /-- `IsEven F₁_g y_lo_low_g`: at numDigits = 2, canonical significand is `2`. -/
 private theorem isEven_F₁_g_y_lo_low (p : ℕ+) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ) :
     (F₁_g p hp_ge_2 e).IsEven (y_lo_low_g e) := by
-  have h_coe : ((y_lo_low_g e : Dyadic) : ℝ) = 2 * (2 : ℝ)^e := coe_y_lo_low_g e
   have h_coe_rat : ((y_lo_low_g e : Dyadic) : ℚ) = 2 * (2 : ℚ)^e := by
     change ((Dyadic.ofIntZpow 2 e : Dyadic) : ℚ) = _
     rw [Dyadic.coe_rat_ofIntZpow]; push_cast; ring
-  have h_2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
-  have h_y_pos : (0 : ℝ) < ((y_lo_low_g e : Dyadic) : ℝ) := by rw [h_coe]; nlinarith
-  have h_y_ne_real : ((y_lo_low_g e : Dyadic) : ℝ) ≠ 0 := ne_of_gt h_y_pos
   have h_y_eq_2e1 : ((y_lo_low_g e : Dyadic) : ℝ) = (2 : ℝ)^(e + 1) := by
-    rw [h_coe, zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+    rw [coe_y_lo_low_g, zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
     rw [show (2 : ℝ)^(1 : ℤ) = 2 by norm_num]; ring
-  have h_log : Int.log 2 |((y_lo_low_g e : Dyadic) : ℝ)| = e + 1 := by
-    rw [h_y_eq_2e1, abs_of_pos (by rw [← h_y_eq_2e1]; exact h_y_pos)]
-    rw [show (2 : ℝ)^(e + 1) = ((2 : ℕ) : ℝ)^(e + 1) by push_cast; rfl]
-    exact Int.log_zpow (R := ℝ) (by omega : 1 < 2) (e + 1)
-  have h_nd_eq : (F₁_g p hp_ge_2 e).toFiniteFormat.numDigits
-        ((y_lo_low_g e : Dyadic) : ℝ) = min ((p : ℕ) : ℤ) 2 := by
-    rw [(F₁_g p hp_ge_2 e).toFiniteFormat.numDigits_coe_coe h_y_ne_real
-        (F₁_g_p p hp_ge_2 e) (F₁_g_exp p hp_ge_2 e), h_log]
-    congr 1; ring
   have h_nd_toNat : ((F₁_g p hp_ge_2 e).toFiniteFormat.numDigits
         ((y_lo_low_g e : Dyadic) : ℝ)).toNat = 2 := by
-    rw [h_nd_eq]
+    rw [F₁_g_numDigits p hp_ge_2 e h_y_eq_2e1]
     have hp_int : ((p : ℕ) : ℤ) ≥ 2 := by exact_mod_cast hp_ge_2
-    have h_min : min ((p : ℕ) : ℤ) 2 = 2 := by omega
+    have h_min : min ((p : ℕ) : ℤ) (e + 1 - e + 1) = 2 := by omega
     rw [h_min]; rfl
   have h_p_ne_1 : (F₁_g p hp_ge_2 e).p ≠ ((1 : ℕ+) : WithTop ℕ+) := by
     rw [F₁_g_p]
@@ -2266,25 +2248,24 @@ private theorem F₁t_g_p_ne_1 (e : ℤ) :
   rw [F₁t_g_p]
   exact WithTop.top_ne_coe
 
+/-- `numDigits` of an anchor `x = 2^N` in the integer grid `F₁t_g` is
+`N − e + 1` (no precision cap since `p = ⊤`). -/
+private theorem F₁t_g_numDigits (e : ℤ) {x : ℝ} {N : ℤ} (hx : x = (2 : ℝ) ^ N) :
+    (F₁t_g e).toFiniteFormat.numDigits x = N - e + 1 := by
+  have h_pos : (0 : ℝ) < (2 : ℝ) ^ N := zpow_pos (by norm_num) _
+  have h_ne : x ≠ 0 := by rw [hx]; exact ne_of_gt h_pos
+  rw [(F₁t_g e).toFiniteFormat.numDigits_top_coe h_ne
+    (F₁t_g_exp e) (F₁t_g_p e), hx, abs_of_pos h_pos, two_zpow_log]
+
 /-- `IsEven F₁t_g (4·2^e)`: at `numDigits = 3`, the canonical significand
 is `4`. -/
 private theorem isEven_F₁t_g_y_hi (e : ℤ) : (F₁t_g e).IsEven (y_hi_g e) := by
-  have h_coe : ((y_hi_g e : Dyadic) : ℝ) = (2 : ℝ)^(e + 2) := coe_y_hi_g e
   have h_coe_rat : ((y_hi_g e : Dyadic) : ℚ) = (2 : ℚ)^(e + 2) := by
     change ((Dyadic.ofIntZpow 1 (e + 2) : Dyadic) : ℚ) = _
     rw [Dyadic.coe_rat_ofIntZpow]; push_cast; ring
-  have h_2_pos : (0 : ℝ) < (2 : ℝ)^(e + 2) := zpow_pos (by norm_num) _
-  have h_y_ne_real : ((y_hi_g e : Dyadic) : ℝ) ≠ 0 := by
-    rw [h_coe]; exact ne_of_gt h_2_pos
-  have h_log : Int.log 2 |((y_hi_g e : Dyadic) : ℝ)| = e + 2 := by
-    rw [h_coe, abs_of_pos h_2_pos]
-    rw [show (2 : ℝ)^(e + 2) = ((2 : ℕ) : ℝ)^(e + 2) by push_cast; rfl]
-    exact Int.log_zpow (R := ℝ) (by omega : 1 < 2) (e + 2)
   have h_nd_toNat : ((F₁t_g e).toFiniteFormat.numDigits
       ((y_hi_g e : Dyadic) : ℝ)).toNat = 3 := by
-    rw [(F₁t_g e).toFiniteFormat.numDigits_top_coe h_y_ne_real
-        (F₁t_g_exp e) (F₁t_g_p e), h_log]
-    omega
+    rw [F₁t_g_numDigits e (coe_y_hi_g e)]; omega
   right
   refine ⟨4, e, ⟨?_, ?_, ?_⟩, ?_⟩
   · rw [h_coe_rat, zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0)]
@@ -2298,25 +2279,15 @@ private theorem isEven_F₁t_g_y_hi (e : ℤ) : (F₁t_g e).IsEven (y_hi_g e) :=
 is `2`. -/
 private theorem isEven_F₁t_g_y_lo_low (e : ℤ) :
     (F₁t_g e).IsEven (y_lo_low_g e) := by
-  have h_coe : ((y_lo_low_g e : Dyadic) : ℝ) = 2 * (2 : ℝ)^e := coe_y_lo_low_g e
   have h_coe_rat : ((y_lo_low_g e : Dyadic) : ℚ) = 2 * (2 : ℚ)^e := by
     change ((Dyadic.ofIntZpow 2 e : Dyadic) : ℚ) = _
     rw [Dyadic.coe_rat_ofIntZpow]; push_cast; ring
-  have h_2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
-  have h_y_pos : (0 : ℝ) < ((y_lo_low_g e : Dyadic) : ℝ) := by rw [h_coe]; nlinarith
-  have h_y_ne_real : ((y_lo_low_g e : Dyadic) : ℝ) ≠ 0 := ne_of_gt h_y_pos
   have h_y_eq_2e1 : ((y_lo_low_g e : Dyadic) : ℝ) = (2 : ℝ)^(e + 1) := by
-    rw [h_coe, zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+    rw [coe_y_lo_low_g, zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
     rw [show (2 : ℝ)^(1 : ℤ) = 2 by norm_num]; ring
-  have h_log : Int.log 2 |((y_lo_low_g e : Dyadic) : ℝ)| = e + 1 := by
-    rw [h_y_eq_2e1, abs_of_pos (by rw [← h_y_eq_2e1]; exact h_y_pos)]
-    rw [show (2 : ℝ)^(e + 1) = ((2 : ℕ) : ℝ)^(e + 1) by push_cast; rfl]
-    exact Int.log_zpow (R := ℝ) (by omega : 1 < 2) (e + 1)
   have h_nd_toNat : ((F₁t_g e).toFiniteFormat.numDigits
       ((y_lo_low_g e : Dyadic) : ℝ)).toNat = 2 := by
-    rw [(F₁t_g e).toFiniteFormat.numDigits_top_coe h_y_ne_real
-        (F₁t_g_exp e) (F₁t_g_p e), h_log]
-    omega
+    rw [F₁t_g_numDigits e h_y_eq_2e1]; omega
   right
   refine ⟨2, e, ⟨?_, ?_, ?_⟩, ?_⟩
   · rw [h_coe_rat]; push_cast; ring
@@ -2327,17 +2298,9 @@ private theorem isEven_F₁t_g_y_lo_low (e : ℤ) :
 /-- `y_hi = 4·2^e` is not odd in `F₁t_g`: its true precision is 1, below
 `numDigits = 3`. -/
 private theorem notIsOdd_F₁t_g_y_hi (e : ℤ) : ¬ (F₁t_g e).IsOdd (y_hi_g e) := by
-  have h_coe : ((y_hi_g e : Dyadic) : ℝ) = (2 : ℝ)^(e + 2) := coe_y_hi_g e
   have h_coe_rat : ((y_hi_g e : Dyadic) : ℚ) = (2 : ℚ)^(e + 2) := by
     change ((Dyadic.ofIntZpow 1 (e + 2) : Dyadic) : ℚ) = _
     rw [Dyadic.coe_rat_ofIntZpow]; push_cast; ring
-  have h_2_pos : (0 : ℝ) < (2 : ℝ)^(e + 2) := zpow_pos (by norm_num) _
-  have h_y_ne_real : ((y_hi_g e : Dyadic) : ℝ) ≠ 0 := by
-    rw [h_coe]; exact ne_of_gt h_2_pos
-  have h_log : Int.log 2 |((y_hi_g e : Dyadic) : ℝ)| = e + 2 := by
-    rw [h_coe, abs_of_pos h_2_pos]
-    rw [show (2 : ℝ)^(e + 2) = ((2 : ℕ) : ℝ)^(e + 2) by push_cast; rfl]
-    exact Int.log_zpow (R := ℝ) (by omega : 1 < 2) (e + 2)
   have h_prec : Dyadic.precisionAtMost ((1 : ℕ+) : WithTop ℕ+) (y_hi_g e) := by
     rw [Dyadic.precisionAtMost_coe]
     refine ⟨1, e + 2, ?_, ?_⟩
@@ -2345,8 +2308,7 @@ private theorem notIsOdd_F₁t_g_y_hi (e : ℤ) : ¬ (F₁t_g e).IsOdd (y_hi_g e
     · decide
   have h_gt : ((1 : ℕ+) : ℤ) < (F₁t_g e).toFiniteFormat.numDigits
       ((y_hi_g e : Dyadic) : ℝ) := by
-    rw [(F₁t_g e).toFiniteFormat.numDigits_top_coe h_y_ne_real
-        (F₁t_g_exp e) (F₁t_g_p e), h_log]
+    rw [F₁t_g_numDigits e (coe_y_hi_g e)]
     have h1 : ((1 : ℕ+) : ℤ) = 1 := by decide
     rw [h1]; omega
   exact (F₁t_g e).precisionAtMost_not_IsOdd h_gt h_prec
@@ -3202,10 +3164,6 @@ private theorem mem_F₁p_g (e : ℤ) {N : ℤ} (hN : e ≤ N) :
 
 private theorem two_e_mem_F₁p_g (e : ℤ) : two_e_g e ∈ (F₁p_g e).toFormat :=
   mem_F₁p_g e (le_refl e)
-
-private theorem two_zpow_log (j : ℤ) : Int.log 2 ((2 : ℝ)^j) = j := by
-  rw [show (2 : ℝ)^j = ((2 : ℕ) : ℝ)^j by push_cast; rfl]
-  exact Int.log_zpow (R := ℝ) (by norm_num : 1 < 2) j
 
 /-- Every positive `F₁p_g`-element is a power of two `2^k` with `k ≥ e`. -/
 private theorem F₁p_g_pow (e : ℤ) {v : Dyadic} (hv : v ∈ (F₁p_g e).toFormat)
