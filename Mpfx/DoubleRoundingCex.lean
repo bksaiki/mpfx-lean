@@ -603,6 +603,20 @@ private theorem gap_above_pow (F₂ : FiniteFormat) {E : ℤ}
     apply F₂_grid_ceil hexpc h_target z hz
     linarith
 
+/-- Rebase a two-sided gap of half-width `D` from anchor `A` to an equal
+anchor `B`. Used to turn the gap lemmas' anchor-in-`a·2^k` form into the
+neighborhood fields' anchor-in-grid-coordinates form once `h_A : A = B`. -/
+private theorem rebase_gap {F₂ : FiniteFormat} {A B D : ℝ} (h_A : A = B)
+    (h_below : ∀ z ∈ F₂.toFormat, ((z : Dyadic) : ℝ) < A →
+      ((z : Dyadic) : ℝ) ≤ A - D)
+    (h_above : ∀ z ∈ F₂.toFormat, A < ((z : Dyadic) : ℝ) →
+      A + D ≤ ((z : Dyadic) : ℝ)) :
+    (∀ z ∈ F₂.toFormat, ((z : Dyadic) : ℝ) < B →
+        ((z : Dyadic) : ℝ) ≤ B - D) ∧
+    (∀ z ∈ F₂.toFormat, B < ((z : Dyadic) : ℝ) →
+        B + D ≤ ((z : Dyadic) : ℝ)) := by
+  subst h_A; exact ⟨h_below, h_above⟩
+
 /-- **Shape dispatch: gaps around an off-grid midpoint** `A = a·2^(e−1)`,
 `5 ≤ a ≤ 7`. There is a local step `2^K` (`K ≤ e`) such that `F₂`-elements
 keep distance `2^(K−1)` from `A` on both sides. Needs `f₂ ≤ e` when
@@ -2107,15 +2121,7 @@ private noncomputable def integerGridNeighborhood (F₁ : ParityFormat) (e : ℤ
       rw [show e - 1 + 1 = e by ring] at h
       push_cast
       linarith
-    refine ⟨K, hK_le, ?_, ?_⟩
-    · intro z hz hz_lt
-      have h1 := h_below z hz (by rw [h_A]; exact hz_lt)
-      rw [h_A] at h1
-      exact h1
-    · intro z hz hz_gt
-      have h1 := h_above z hz (by rw [h_A]; exact hz_gt)
-      rw [h_A] at h1
-      exact h1
+    exact ⟨K, hK_le, rebase_gap h_A h_below h_above⟩
   f2_mid_hi := by
     intro F₂ hsub
     obtain ⟨K, hK_le, h_below, h_above⟩ :=
@@ -2129,29 +2135,13 @@ private noncomputable def integerGridNeighborhood (F₁ : ParityFormat) (e : ℤ
       rw [show e - 1 + 1 = e by ring] at h
       push_cast
       linarith
-    refine ⟨K, hK_le, ?_, ?_⟩
-    · intro z hz hz_lt
-      have h1 := h_below z hz (by rw [h_A]; exact hz_lt)
-      rw [h_A] at h1
-      exact h1
-    · intro z hz hz_gt
-      have h1 := h_above z hz (by rw [h_A]; exact hz_gt)
-      rw [h_A] at h1
-      exact h1
+    exact ⟨K, hK_le, rebase_gap h_A h_below h_above⟩
   f2_mem_mid := by
     intro F₂ hm
     obtain ⟨K, hK_le, h_below, h_above⟩ := gap_around_m_mem F₂ hm
     have h_A : (7 : ℝ) * (2 : ℝ) ^ (e - 1) = ((m_g e : Dyadic) : ℝ) :=
       (coe_m_g e).symm
-    refine ⟨K, hK_le, ?_, ?_⟩
-    · intro z hz hz_lt
-      have h1 := h_below z hz (by rw [h_A]; exact hz_lt)
-      rw [h_A] at h1
-      exact h1
-    · intro z hz hz_gt
-      have h1 := h_above z hz (by rw [h_A]; exact hz_gt)
-      rw [h_A] at h1
-      exact h1
+    exact ⟨K, hK_le, rebase_gap h_A h_below h_above⟩
 
 /-! ## The quantum-format neighborhood
 
@@ -3020,17 +3010,9 @@ private noncomputable def floatingNeighborhood (q : ℕ+) (hq : 2 ≤ (q : ℕ))
       rw [coe_flo2, h_step]
       push_cast
       ring
-    refine ⟨K + 1, by omega, ?_, ?_⟩
-    · intro z hz hz_lt
-      rw [← h_A] at hz_lt
-      have h := h_below z hz hz_lt
-      rw [show K + 1 - 1 = K by ring, ← h_A]
-      exact h
-    · intro z hz hz_gt
-      rw [← h_A] at hz_gt
-      have h := h_above z hz hz_gt
-      rw [show K + 1 - 1 = K by ring, ← h_A]
-      exact h
+    refine ⟨K + 1, by omega, ?_⟩
+    rw [show K + 1 - 1 = K by ring]
+    exact rebase_gap h_A h_below h_above
   f2_mid_hi := by
     intro F₂ hsub
     obtain ⟨q₂, hp, hq_le, _⟩ := float_sub_data q hq F₂ hsub
@@ -3049,17 +3031,9 @@ private noncomputable def floatingNeighborhood (q : ℕ+) (hq : 2 ≤ (q : ℕ))
       rw [coe_flo, h_step]
       push_cast
       ring
-    refine ⟨K + 1, by omega, ?_, ?_⟩
-    · intro z hz hz_lt
-      rw [← h_A] at hz_lt
-      have h := h_below z hz hz_lt
-      rw [show K + 1 - 1 = K by ring, ← h_A]
-      exact h
-    · intro z hz hz_gt
-      rw [← h_A] at hz_gt
-      have h := h_above z hz hz_gt
-      rw [show K + 1 - 1 = K by ring, ← h_A]
-      exact h
+    refine ⟨K + 1, by omega, ?_⟩
+    rw [show K + 1 - 1 = K by ring]
+    exact rebase_gap h_A h_below h_above
   f2_mem_mid := by
     intro F₂ hmem
     have h_even := fs_even q hq
@@ -3423,13 +3397,7 @@ private noncomputable def powerOfTwoNeighborhood (e : ℤ) :
       have h := two_zpow_succ e
       rw [show e + 1 = e + 1 by ring] at h
       linarith
-    refine ⟨K, hK_le, ?_, ?_⟩
-    · intro z hz hz_lt
-      have h1 := h_below z hz (by rw [h_A]; exact hz_lt)
-      rw [h_A] at h1; exact h1
-    · intro z hz hz_gt
-      have h1 := h_above z hz (by rw [h_A]; exact hz_gt)
-      rw [h_A] at h1; exact h1
+    exact ⟨K, hK_le, rebase_gap h_A h_below h_above⟩
   f2_mid_hi := by
     intro F₂ hsub
     obtain ⟨K, hK_le, h_below, h_above⟩ := gap_around_mid3 F₂ (E := e + 2)
@@ -3442,26 +3410,14 @@ private noncomputable def powerOfTwoNeighborhood (e : ℤ) :
       have h := two_zpow_succ (e + 1)
       rw [show e + 1 + 1 = e + 2 by ring] at h
       linarith
-    refine ⟨K, hK_le, ?_, ?_⟩
-    · intro z hz hz_lt
-      have h1 := h_below z hz (by rw [h_A]; exact hz_lt)
-      rw [h_A] at h1; exact h1
-    · intro z hz hz_gt
-      have h1 := h_above z hz (by rw [h_A]; exact hz_gt)
-      rw [h_A] at h1; exact h1
+    exact ⟨K, hK_le, rebase_gap h_A h_below h_above⟩
   f2_mem_mid := by
     intro F₂ hm
     obtain ⟨K, hK_le, h_below, h_above⟩ := gap_around_mid3_mem F₂ (E := e + 2)
       (by rw [show (e : ℤ) + 2 - 1 = e + 1 by ring]; exact hm)
     have h_A : (3 : ℝ) * (2 : ℝ)^((e + 2) - 1) = ((Dyadic.ofIntZpow 3 (e + 1) : Dyadic) : ℝ) := by
       rw [coe_p_mid, show (e : ℤ) + 2 - 1 = e + 1 by ring]
-    refine ⟨K, by omega, ?_, ?_⟩
-    · intro z hz hz_lt
-      have h1 := h_below z hz (by rw [h_A]; exact hz_lt)
-      rw [h_A] at h1; exact h1
-    · intro z hz hz_gt
-      have h1 := h_above z hz (by rw [h_A]; exact hz_gt)
-      rw [h_A] at h1; exact h1
+    exact ⟨K, by omega, rebase_gap h_A h_below h_above⟩
 
 /-! ## The unified counterexamples
 
