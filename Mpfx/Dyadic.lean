@@ -268,62 +268,6 @@ theorem precisionAtMost_two_three_zpow (k : ℤ) :
   · rw [coe_rat_ofIntZpow]
   · decide
 
-/-- The dyadic value `3 · 2^k` is *not* representable at precision 1. The
-significand `3` has two binary digits, and no rescaling reduces it to `±1` or
-`0`. Used as a precision-2 witness to force `2 ≤ F₂.p` from a containment
-hypothesis. -/
-theorem not_precisionAtMost_one_three_zpow (k : ℤ) :
-    ¬ precisionAtMost ((1 : ℕ+) : WithTop ℕ+) (Dyadic.ofIntZpow 3 k) := by
-  intro h
-  rw [precisionAtMost_coe_real] at h
-  obtain ⟨c, e, h_eq, hc⟩ := h
-  rw [coe_ofIntZpow] at h_eq
-  -- h_eq : ((3 : ℤ) : ℝ) * (2 : ℝ)^k = (c : ℝ) * (2 : ℝ)^e
-  -- hc : |c| < 2^1 = 2.
-  have hc2 : |c| < 2 := by simpa using hc
-  have hc_cases : c = -1 ∨ c = 0 ∨ c = 1 := by
-    have habs := abs_lt.mp hc2
-    omega
-  have h2k_pos : (0 : ℝ) < (2 : ℝ)^k := zpow_pos (by norm_num) _
-  have h2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
-  rcases hc_cases with hc_n1 | hc_0 | hc_1
-  · -- c = -1: -2^e = 3·2^k. LHS < 0, RHS > 0.
-    subst hc_n1
-    push_cast at h_eq
-    nlinarith
-  · -- c = 0: 0 = 3·2^k. RHS > 0.
-    subst hc_0
-    push_cast at h_eq
-    nlinarith
-  · -- c = 1: 2^e = 3·2^k. So 2^(e-k) = 3, but no integer power of 2 equals 3.
-    subst hc_1
-    push_cast at h_eq
-    rw [one_mul] at h_eq
-    have h_pow : (2 : ℝ) ^ (e - k) = 3 := by
-      have h2k_ne : (2 : ℝ)^k ≠ 0 := ne_of_gt h2k_pos
-      rw [zpow_sub₀ (by norm_num : (2 : ℝ) ≠ 0)]
-      field_simp
-      linarith
-    rcases lt_or_ge (e - k) 0 with h_neg | h_nn
-    · -- e - k < 0: 2^(e-k) ≤ 1/2 < 3.
-      have h_le_neg1 : e - k ≤ -1 := by omega
-      have h_lt : (2 : ℝ) ^ (e - k) ≤ (2 : ℝ) ^ (-1 : ℤ) :=
-        zpow_le_zpow_right₀ (by norm_num : (1 : ℝ) ≤ 2) h_le_neg1
-      rw [h_pow] at h_lt
-      norm_num at h_lt
-    · -- e - k ≥ 0: 2^(e-k) is a power of 2 in ℕ; never equals 3.
-      lift (e - k) to ℕ using h_nn with n hn
-      rw [zpow_natCast] at h_pow
-      have hn_int : (2 : ℕ)^n = 3 := by exact_mod_cast h_pow
-      rcases Nat.lt_or_ge n 2 with h_lt | h_ge
-      · interval_cases n
-        · simp at hn_int
-        · simp at hn_int
-      · have hge4 : (4 : ℕ) ≤ (2 : ℕ)^n := by
-          calc (4 : ℕ) = 2^2 := by norm_num
-            _ ≤ 2^n := Nat.pow_le_pow_right (by norm_num) h_ge
-        omega
-
 /-- A nonzero dyadic with `quantumAtLeast e` has absolute value at least `2^e`.
 The smallest nonzero significand `c` is `±1`, giving `|c·2^e| = 2^e`. -/
 theorem abs_ge_two_zpow_of_quantum {e : ℤ} {d : Dyadic}
@@ -716,6 +660,46 @@ theorem quantum_le_of_odd_rep {e : ℤ} {x : Dyadic}
   rcases hodd with ⟨t, ht⟩
   omega
 
+namespace Dyadic
+
+/-- Odd-significand representations are unique: `quantum_le_of_odd_rep` in both
+directions pins the exponent, and cancellation the significand. -/
+theorem odd_rep_unique {x : Dyadic} {c q c' q' : ℤ} (hc : Odd c) (hc' : Odd c')
+    (h : (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ q) (h' : (x : ℝ) = (c' : ℝ) * (2 : ℝ) ^ q') :
+    c = c' ∧ q = q' := by
+  have hq : quantumAtLeast ((q : ℤ) : WithBot ℤ) x := (quantumAtLeast_coe_real q x).mpr ⟨c, h⟩
+  have hq' : quantumAtLeast ((q' : ℤ) : WithBot ℤ) x := (quantumAtLeast_coe_real q' x).mpr ⟨c', h'⟩
+  obtain rfl : q = q' :=
+    le_antisymm (quantum_le_of_odd_rep hq hc' h') (quantum_le_of_odd_rep hq' hc h)
+  refine ⟨?_, rfl⟩
+  have h2q : (0 : ℝ) < (2 : ℝ) ^ q := zpow_pos (by norm_num) _
+  exact_mod_cast mul_right_cancel₀ (ne_of_gt h2q) (h.symm.trans h')
+
+/-- The odd canonical representation is the narrowest one: if `x = c · 2^q` with
+`c` odd and `|c| ≥ 2^p`, then `x` does not fit in `p` digits. -/
+theorem not_precisionAtMost_of_odd {p : ℕ+} {x : Dyadic} {c q : ℤ}
+    (hc : Odd c) (h : (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ q) (hge : (2 : ℤ) ^ (p : ℕ) ≤ |c|) :
+    ¬ precisionAtMost ((p : ℕ+) : WithTop ℕ+) x := by
+  intro hp
+  have hc_ne : c ≠ 0 := by
+    have : (0 : ℤ) < 2 ^ (p : ℕ) := by positivity
+    intro h0; rw [h0, abs_zero] at hge; omega
+  have hx_ne : (x : ℝ) ≠ 0 := by
+    rw [h]
+    exact mul_ne_zero (Int.cast_ne_zero.mpr hc_ne) (ne_of_gt (zpow_pos (by norm_num) _))
+  obtain ⟨c', q', h', hc'_odd, hc'_lt⟩ := exists_odd_canonical_of_precisionAtMost hp hx_ne
+  obtain ⟨rfl, -⟩ := odd_rep_unique hc hc'_odd h h'
+  omega
+
+/-- The dyadic value `3 · 2^k` is *not* representable at precision 1: `3` is odd
+and two digits wide. Used as a precision-2 witness to force `2 ≤ F₂.p` from a
+containment hypothesis. -/
+theorem not_precisionAtMost_one_three_zpow (k : ℤ) :
+    ¬ precisionAtMost ((1 : ℕ+) : WithTop ℕ+) (Dyadic.ofIntZpow 3 k) :=
+  not_precisionAtMost_of_odd (by norm_num : Odd (3 : ℤ)) (by rw [coe_ofIntZpow]) (by norm_num)
+
+end Dyadic
+
 /-- Odd canonical representation of a positive dyadic at precision `p`,
 packaged with positivity and binade bounds: `b = c·2^q` with `c` odd and
 positive, `2^q ≤ b`, and `q ≤ ⌊log₂ b⌋ < q + p`. -/
@@ -747,6 +731,12 @@ theorem exists_odd_canonical_pos {p : ℕ+} {b : Dyadic}
   exact ⟨c, q, hc_eq, hc_odd, hc_pos, h_lb,
     (Int.zpow_le_iff_le_log (by norm_num) hb_pos).mp h_lb,
     (Int.lt_zpow_iff_log_lt (by norm_num) hb_pos).mp h_ub⟩
+
+/-- The order on `NonNegDyadic`, in terms of the underlying reals. -/
+theorem NonNegDyadic.le_iff_coe_real {a b : NonNegDyadic} :
+    a ≤ b ↔ ((a.val : Dyadic) : ℝ) ≤ ((b.val : Dyadic) : ℝ) := by
+  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, Rat.cast_le]
+  exact ⟨fun h => by exact_mod_cast h, fun h => by exact_mod_cast h⟩
 
 /-- A `NonNegDyadic` is non-negative over `ℝ`. -/
 theorem nonneg_coe_real (b : NonNegDyadic) : 0 ≤ ((b.val : Dyadic) : ℝ) := by

@@ -82,9 +82,31 @@ theorem neg_mem {F : Format} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F := by
 theorem mem_neg_iff (F : Format) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
   ⟨fun h => by simpa using neg_mem h, neg_mem⟩
 
-/-- `F` contains at least one nonzero value. -/
+/-- `F` contains at least one nonzero value. §4.2's non-triviality restriction. -/
 def Nontrivial (F : Format) : Prop :=
   ∃ d : Dyadic, d ∈ F ∧ (d : ℝ) ≠ 0
+
+/-- §4.2's restriction on the magnitude bound: `b ∈ 𝒜(p, exp, ∞) ∪ {∞}`, i.e. a
+finite bound is itself representable. -/
+def BoundRep (F : Format) : Prop :=
+  ∀ bv : NonNegDyadic, F.b = ((bv : NonNegDyadic) : WithTop NonNegDyadic) →
+    bv.val ∈ F.unbounded
+
+/-- `c · 2^k` lies in `F` once the three constraints are checked. -/
+theorem ofIntZpow_mem {F : Format} {c k : ℤ}
+    (hp : Dyadic.precisionAtMost F.p (Dyadic.ofIntZpow c k))
+    (he : F.exp ≤ (k : WithBot ℤ)) (hb : boundOK F.b (Dyadic.ofIntZpow c k)) :
+    Dyadic.ofIntZpow c k ∈ F :=
+  ⟨hp, Dyadic.quantumAtLeast_anti he ⟨c, by rw [Dyadic.coe_rat_ofIntZpow]⟩, hb⟩
+
+/-- A `BoundRep` format's finite bound is one of its values. -/
+theorem bound_mem {F : Format} (hb : BoundRep F) {bv : NonNegDyadic}
+    (hF : F.b = ((bv : NonNegDyadic) : WithTop NonNegDyadic)) : bv.val ∈ F := by
+  obtain ⟨hp, hq, -⟩ := hb bv hF
+  refine ⟨hp, hq, ?_⟩
+  rw [hF]
+  change |((bv.val : Dyadic) : ℚ)| ≤ ((bv.val : Dyadic) : ℚ)
+  rw [abs_of_nonneg bv.property]
 
 /-- Zero is in every format. -/
 theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
@@ -1875,6 +1897,14 @@ theorem abs_coe_real_le_of_boundOK {b₁ : NonNegDyadic} {y : Dyadic}
   have h1 : |(y : ℚ)| ≤ ((b₁.val : Dyadic) : ℚ) := h
   rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
   exact_mod_cast h1
+
+/-- Converse of `abs_coe_real_le_of_boundOK`. -/
+theorem boundOK_coe_of_abs_le {b : NonNegDyadic} {y : Dyadic}
+    (h : |(y : ℝ)| ≤ ((b.val : Dyadic) : ℝ)) :
+    Format.boundOK ((b : WithTop NonNegDyadic)) y := by
+  change |(y : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
+  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs] at h
+  exact_mod_cast h
 
 /-- A failed bound check, transferred to a strict absolute-value bound
 over `ℝ`. -/
