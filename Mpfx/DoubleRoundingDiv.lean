@@ -75,8 +75,8 @@ If `0 < v` equals its `F₁`-midpoint and `F₂` is finer at `v`
 `e₁ = canonicalExp₁ v`) satisfies `(g:ℝ) = v` and `g ∈ F₂`. This is where the
 *even radix* enters: the trailing `½·ulp₁ = 2^(e₁−1)` is a whole `F₂`-quantum
 because `e₂ ≤ e₁−1`, so the exact midpoint is on the `F₂` grid. -/
-private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
-    (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+)) {v : ℝ} (hv : 0 < v)
+private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ}
+    (hp₂ : F₂.p = (p₂ : Prec)) {v : ℝ} (hv : 0 < v)
     (hcexp : F₂.canonicalExp v ≤ F₁.canonicalExp v - 1)
     (hmid : v = midp F₁ v) :
     ∃ g : Dyadic, (g : ℝ) = v ∧ g ∈ F₂.unbounded := by
@@ -90,18 +90,18 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
       unfold midp ulp; rw [rndDown_eq, ← he₁, ← hma, Dyadic.coe_ofIntZpow]
     rw [Dyadic.coe_ofIntZpow, hmid, hmidp, two_zpow_dbl e₁]; push_cast; ring
   -- `g` is a multiple of `2^(e₁−1)`, hence at any coarser quantum
-  have hq_e₁ : Dyadic.quantumAtLeast ((e₁ - 1 : ℤ) : WithBot ℤ)
+  have hq_e₁ : Dyadic.quantumAtLeast ((e₁ - 1 : ℤ) : QExp)
       (Dyadic.ofIntZpow (2 * ma + 1) (e₁ - 1)) :=
     (Dyadic.quantumAtLeast_coe_real (e₁ - 1) _).mpr ⟨2 * ma + 1, by rw [Dyadic.coe_ofIntZpow]⟩
-  have he₂le : ((e₂ : ℤ) : WithBot ℤ) ≤ ((e₁ - 1 : ℤ) : WithBot ℤ) := by
+  have he₂le : (e₂ : QExp) ≤ ((e₁ - 1 : ℤ) : QExp) := by
     exact_mod_cast (show e₂ ≤ e₁ - 1 from by omega)
   -- `g = 𝒜(p₂, e₁−1, ⊤)`-representable, and that format is contained in
   -- `F₂.unbounded` by `𝒜-Contains-Prec` (`mem_unbounded_of_le`).
-  have hF₂le : F₂.exp ≤ ((e₁ - 1 : ℤ) : WithBot ℤ) :=
+  have hF₂le : F₂.exp ≤ ((e₁ - 1 : ℤ) : QExp) :=
     le_trans (exp_le_canonicalExp_coe F₂ v) (by rw [← he₂]; exact he₂le)
   refine ⟨Dyadic.ofIntZpow (2 * ma + 1) (e₁ - 1), hg_real,
-    Format.mem_unbounded_of_le (p := ((p₂ : ℕ+) : WithTop ℕ+))
-      (e := ((e₁ - 1 : ℤ) : WithBot ℤ)) (le_of_eq hp₂.symm) hF₂le ?_ hq_e₁⟩
+    Format.mem_unbounded_of_le (p := (p₂ : Prec))
+      (e := ((e₁ - 1 : ℤ) : QExp)) (le_of_eq hp₂.symm) hF₂le ?_ hq_e₁⟩
   -- precisionAtMost p₂: mantissa at scale e₂ fits p₂ bits
   rw [Dyadic.precisionAtMost_coe_real]
   have hq_e₂ := Dyadic.quantumAtLeast_anti he₂le hq_e₁
@@ -117,21 +117,21 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
     rw [abs_of_pos hv]
     exact lt_of_lt_of_le (Int.lt_zpow_succ_log_self (b := 2) (by norm_num) v)
       (zpow_le_zpow_right₀ (by norm_num) hbound)
-  have h2p2 : ((2 : ℝ) ^ (p₂ : ℕ)) = (2 : ℝ) ^ (p₂ : ℤ) := by rw [← zpow_natCast]
+  have h2p2 : ((2 : ℝ) ^ p₂) = (2 : ℝ) ^ (p₂ : ℤ) := by rw [← zpow_natCast]
   have hsplit : (2 : ℝ) ^ (e₂ + (p₂ : ℤ)) = (2 : ℝ) ^ (p₂ : ℤ) * (2 : ℝ) ^ e₂ := by
     rw [show e₂ + (p₂ : ℤ) = (p₂ : ℤ) + e₂ from by ring, zpow_add₀ hne]
   have hCR : |(C : ℝ)| < (2 : ℝ) ^ (p₂ : ℤ) := by
     have hvC : |v| = |(C : ℝ)| * (2 : ℝ) ^ e₂ := by rw [hC, abs_mul, abs_of_pos h2e2]
     rw [hvC, hsplit] at hvlt
     exact lt_of_mul_lt_mul_right hvlt (le_of_lt h2e2)
-  have hcast : (|C| : ℝ) < ((2 : ℤ) ^ (p₂ : ℕ) : ℝ) := by push_cast; rw [h2p2]; exact hCR
+  have hcast : (|C| : ℝ) < ((2 : ℤ) ^ p₂ : ℝ) := by push_cast; rw [h2p2]; exact hCR
   exact_mod_cast hcast
 
 /-- **Small positive values round to zero** (FLT underflow). In an FLT format
 (`exp = emin`), any `0 ≤ x' < 2^(emin−1)` rounds to nearest to `0`: its scaled
 mantissa is `< ½`, and the grid point selected is `0`. -/
-private theorem nearest_zero_of_small {F₁ : FiniteFormat} {tb₁ : TieBreak} {p₁ : ℕ+} {emin₁ : ℤ}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ))
+private theorem nearest_zero_of_small {F₁ : FiniteFormat} {tb₁ : TieBreak} {p₁ : ℕ} {emin₁ : ℤ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hexp₁ : F₁.exp = (emin₁ : QExp))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {x' : ℝ} (hx'0 : 0 ≤ x') (hx'lt : x' < (2 : ℝ) ^ (emin₁ - 1)) :
     RoundsFinite F₁.unbounded (.nearest tb₁) x' 0 := by
@@ -164,8 +164,8 @@ innocuous. Covers Flocq's `round_round_really_zero` regime and the non-sliver
 part of `round_round_zero`; the excluded sliver `[2^(emin₁−1) − ½ulp₂,
 2^(emin₁−1))` is where `round_round_div_aux0` shows a quotient cannot land. -/
 private theorem round_round_div_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
-    {p₁ : ℕ+} {emin₁ : ℤ}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ))
+    {p₁ : ℕ} {emin₁ : ℤ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hexp₁ : F₁.exp = (emin₁ : QExp))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {v : ℝ} (hv : 0 < v)
     (hvlt : v < (2 : ℝ) ^ (emin₁ - 1) - ulp F₂ v / 2)
@@ -286,8 +286,8 @@ separation bounds of `round_round_div_aux`), `hle` (`v` inside its binade), and
 Roux's `hquant` (`cexp₂ v ≤ cexp₁ v − p₁`, i.e. `p₂ ≥ 2p₁`). `round_round_mid_cases`
 reduces to the near-midpoint case, which splits: `v = m` is handled exactly by
 `midp_mem_F₂` (even radix), and `v ≠ m` is impossible by `round_round_div_aux`. -/
-private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {a b v : ℝ} {p₁ p₂ : ℕ+}
-    (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {a b v : ℝ} {p₁ p₂ : ℕ}
+    (hp₁pos : 0 < p₁) (hp₂ : F₂.p = (p₂ : Prec))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     (ha : 0 < a) (hb : 0 < b) (hab : a = v * b)
     (hxrep : ∃ mx : ℤ, a = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp a))
@@ -304,7 +304,7 @@ private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} 
     rcases mul_pos_iff.mp (hab ▸ ha) with ⟨h, _⟩ | ⟨_, h⟩
     · exact h
     · linarith [hb]
-  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast hp₁pos
   have h21 : F₂.canonicalExp v < F₁.canonicalExp v := by omega
   refine round_round_mid_cases hundef₁ hv_pos h21 hle hz hw (fun hmid_le => ?_)
   by_cases heqmid : v = midp F₁ v
@@ -321,8 +321,8 @@ private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} 
 with `0 < a`, `0 < b` and `p₂ ≥ 2p₁`, double rounding of `a / b` is innocuous.
 The `rndDiv_core` hypotheses are discharged from the FLX closed form
 `canonicalExp = log₂|·| + 1 − p` and the quotient binade bounds `log_div_bounds`. -/
-private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁)
@@ -336,7 +336,7 @@ private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
   have hv_pos : 0 < v := div_pos hapos hbpos
   have hab : (a : ℝ) = v * (b : ℝ) := by rw [hv_def]; exact (div_mul_cancel₀ (a : ℝ) hbne).symm
   have hppZ : 2 * (p₁ : ℤ) ≤ (p₂ : ℤ) := by exact_mod_cast hpp
-  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   -- FLX closed forms
   have hcv : F₁.canonicalExp v = Int.log 2 v + 1 - (p₁ : ℤ) := by
     rw [canonicalExp_FLX hp₁ hexp₁ (ne_of_gt hv_pos), abs_of_pos hv_pos]
@@ -348,7 +348,7 @@ private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
     rw [canonicalExp_FLX hp₂ hexp₂ (ne_of_gt hv_pos), abs_of_pos hv_pos]
   have hlog := log_div_bounds hapos hbpos
   rw [← hv_def] at hlog
-  refine rndDiv_core (p₁ := p₁) hp₂ hundef₁ hapos hbpos hab ?_ ?_ ?_ ?_ ?_ ?_ hz hw
+  refine rndDiv_core (p₁ := p₁) (F₁.p_pos hp₁) hp₂ hundef₁ hapos hbpos hab ?_ ?_ ?_ ?_ ?_ ?_ hz hw
   · obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ ha hapos; exact ⟨c, hc⟩
   · obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ hb hbpos; exact ⟨c, hc⟩
   · rw [hcv2, hca]; omega
@@ -364,11 +364,11 @@ reworked `round_round_div_aux` uses a `min`-scale, so its bounds `hA`/`hB` are n
 `omega`-provable for FLT from `hquant`, `hle`, `log_div_bounds`, and the lower
 bounds `cexp₁ = max(…) ≥ mag − p₁` — dodging the subnormal-`cexp`-inflation that
 broke the FLX-style `hex_ge`. -/
-private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
-    (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
+    (hexp₁ : F₁.exp = (emin₁ : QExp)) (hexp₂ : F₂.exp = (emin₂ : QExp))
     (hemin : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁)
@@ -383,7 +383,7 @@ private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : 
   have hv_pos : 0 < v := div_pos hapos hbpos
   have hab : (a : ℝ) = v * (b : ℝ) := by rw [hv_def]; exact (div_mul_cancel₀ (a : ℝ) hbne).symm
   have hppZ : 2 * (p₁ : ℤ) ≤ (p₂ : ℤ) := by exact_mod_cast hpp
-  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   have hlogpair := log_div_bounds hapos hbpos
   rw [← hv_def] at hlogpair
   obtain ⟨hlog1, hlog2⟩ := hlogpair
@@ -401,7 +401,8 @@ private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : 
   have h2 : Int.log 2 v + 1 - (p₁ : ℤ) ≤ F₁.canonicalExp v := by rw [hcv]; exact le_max_left _ _
   have hquant : F₂.canonicalExp v ≤ F₁.canonicalExp v - (p₁ : ℤ) := by
     rw [hcv2]; exact max_le (by omega) (by omega)
-  refine rndDiv_core (p₁ := p₁) hp₂ hundef₁ hapos hbpos hab ?_ ?_ ?_ ?_ hle hquant hz hw
+  refine rndDiv_core (p₁ := p₁) (F₁.p_pos hp₁) hp₂ hundef₁ hapos hbpos hab
+    ?_ ?_ ?_ ?_ hle hquant hz hw
   · obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ ha hapos; exact ⟨c, hc⟩
   · obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ hb hbpos; exact ⟨c, hc⟩
   · omega
@@ -416,11 +417,11 @@ private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : 
   (`round_round_div_zero`); otherwise `v` is in the boundary sliver, which the
   reworked `round_round_div_aux` shows is impossible (`hA`/`hB` hold there too, so
   no separate `div_aux0` port is needed). -/
-private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
-    (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
+    (hexp₁ : F₁.exp = (emin₁ : QExp)) (hexp₂ : F₂.exp = (emin₂ : QExp))
     (hemin : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁)
@@ -433,7 +434,7 @@ private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBrea
   have hne : (2 : ℝ) ≠ 0 := by norm_num
   have hbne : (b : ℝ) ≠ 0 := ne_of_gt hbpos
   have hv_pos : 0 < v := div_pos hapos hbpos
-  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   have hppZ : 2 * (p₁ : ℤ) ≤ (p₂ : ℤ) := by exact_mod_cast hpp
   by_cases hle : F₁.canonicalExp v ≤ Int.log 2 v + 1
   · exact rndDiv_pos_normal_FLT hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ ha hb hapos hbpos hle hz hw
@@ -573,8 +574,8 @@ private theorem rndDiv_of_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak
 As with `√`, `a / b` is generally non-representable, so this is a precision
 *margin* (with `2p₁` bits a quotient never lands near an `F₁`-midpoint), not exact
 containment. Matches the generality of Flocq's `round_round_div_FLX`. -/
-theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁) (hbne : (b : ℝ) ≠ 0)
@@ -596,11 +597,11 @@ quotients — when
 
 A precision + underflow *margin* (not exact containment — `a / b` is generally
 non-representable). Matches Flocq's `round_round_div_FLT`. -/
-theorem rndDiv_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+theorem rndDiv_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
-    (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
+    (hexp₁ : F₁.exp = (emin₁ : QExp)) (hexp₂ : F₂.exp = (emin₂ : QExp))
     (hemin : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁) (hbne : (b : ℝ) ≠ 0)

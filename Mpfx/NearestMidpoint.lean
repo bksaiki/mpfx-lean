@@ -231,7 +231,7 @@ is the nearest rounding of `v`. The convenient interface for callers holding a
 representable candidate `g`. -/
 theorem nearest_eq_of_close' (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
     (hundef : ¬ F.IsUndefined (.nearest tb)) {g : Dyadic}
-    (hg : Dyadic.quantumAtLeast ((F.canonicalExp v : ℤ) : WithBot ℤ) g)
+    (hg : Dyadic.quantumAtLeast ((F.canonicalExp v : ℤ) : QExp) g)
     (hclose : |v - (g : ℝ)| < (2 : ℝ) ^ (F.canonicalExp v) / 2) :
     RoundsFinite F.unbounded (.nearest tb) v g := by
   obtain ⟨m, hm⟩ := (Dyadic.quantumAtLeast_coe_real (F.canonicalExp v) g).mp hg
@@ -658,7 +658,7 @@ theorem rnd_gt_mid_robust {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x
       have hu1 : ulp F₁ x = (2 : ℝ) ^ (F₁.canonicalExp x) := rfl
       rw [hz_eq, abs_of_nonpos (by linarith [hx_hi] : x - (2 : ℝ) ^ (k + 1) ≤ 0), ← hu1]
       linarith [h1, hu2_le, hu1pos]
-    have hquant_z : Dyadic.quantumAtLeast ((F₁.canonicalExp x : ℤ) : WithBot ℤ) z := by
+    have hquant_z : Dyadic.quantumAtLeast ((F₁.canonicalExp x : ℤ) : QExp) z := by
       refine (Dyadic.quantumAtLeast_coe_real (F₁.canonicalExp x) z).mpr
         ⟨2 ^ (k + 1 - F₁.canonicalExp x).toNat, ?_⟩
       rw [hz_eq]; push_cast

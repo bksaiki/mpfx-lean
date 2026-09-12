@@ -102,9 +102,8 @@ lemma Odd.abs {c : ℤ} (hodd : Odd c) : Odd |c| := by
 /-! ### Sign and power helpers (used by the double-rounding development) -/
 
 /-- `|1| < 2^p` for any positive precision. -/
-theorem abs_one_lt_two_pow (p : ℕ+) : |(1 : ℤ)| < 2 ^ (p : ℕ) := by
-  have hp1 : 1 ≤ (p : ℕ) := p.pos
-  have h2 : (2 : ℤ) ^ 1 ≤ (2 : ℤ) ^ (p : ℕ) := pow_le_pow_right₀ (by norm_num) hp1
+theorem abs_one_lt_two_pow {p : ℕ} (hp : 0 < p) : |(1 : ℤ)| < 2 ^ p := by
+  have h2 : (2 : ℤ) ^ 1 ≤ (2 : ℤ) ^ p := pow_le_pow_right₀ (by norm_num) hp
   simp only [abs_one]
   omega
 

@@ -86,7 +86,7 @@ no quantum has no anchor for parity, so the modes that consult
 The `(⊤, ⊥)` case (fully unconstrained) is structurally excluded by
 `FiniteFormat`'s `finite` invariant. -/
 def FiniteFormat.IsUndefined (F : FiniteFormat) (rm : RoundingMode) : Prop :=
-  F.p = (1 : ℕ+) ∧ F.exp = ⊥ ∧
+  F.p = (1 : ℕ) ∧ F.exp = ⊥ ∧
     (rm = .toOdd ∨ rm = .nearest .toEven)
 
 /-- `IsUndefined` depends only on `(F.p, F.exp)`, both preserved by
@@ -665,8 +665,7 @@ theorem RoundsFinite.toPositive_iff_toZero_of_nonpos
       rw [abs_of_nonpos hx] at hzabs
       rcases eq_or_lt_of_le hx with hx0 | hx_neg
       · subst hx0
-        have hxy' : (y : ℝ) ≥ 0 := hxy
-        have hy_eq : (y : ℝ) = 0 := le_antisymm hy_le_zero hxy'
+        have hy_eq : (y : ℝ) = 0 := le_antisymm hy_le_zero hxy
         rw [hy_eq, abs_zero]
         have h_z_zero : (z : ℝ) = 0 := by
           have : |(z : ℝ)| ≤ 0 := by linarith
@@ -818,12 +817,10 @@ theorem not_isUndefined_toPositive (F : FiniteFormat) :
 
 /-- `2 ≤ F.p` rules out `IsUndefined` (which requires `p = 1`). -/
 theorem not_isUndefined_of_two_le_p {F : FiniteFormat} {rm : RoundingMode}
-    (hp : ((2 : ℕ+) : WithTop ℕ+) ≤ F.p) : ¬ F.IsUndefined rm := by
+    (hp : ((2 : ℕ) : Prec) ≤ F.p) : ¬ F.IsUndefined rm := by
   rintro ⟨h1, -, -⟩
   rw [h1] at hp
-  have h2 : (2 : ℕ+) ≤ (1 : ℕ+) := by exact_mod_cast hp
-  have h3 : ((2 : ℕ+) : ℕ) ≤ ((1 : ℕ+) : ℕ) := h2
-  simp at h3
+  simp at hp
 
 /-- Package an out-of-bound unbounded rounding as an overflow `Rounds`
 result (with the sign bit computed from the witness). -/

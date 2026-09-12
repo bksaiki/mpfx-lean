@@ -51,33 +51,32 @@ theorem rndExact {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode}
 
 /-- A product of two `p₁`-bit dyadics fits in `p₂` bits when `2p₁ ≤ p₂`
 (mantissas multiply, `|cx·cy| < 2^(2p₁) ≤ 2^p₂`). -/
-private theorem mul_precisionAtMost {p₁ p₂ : ℕ+} (hpp : 2 * p₁ ≤ p₂)
-    {x y : Dyadic} (hx : Dyadic.precisionAtMost ((p₁ : ℕ+) : WithTop ℕ+) x)
-    (hy : Dyadic.precisionAtMost ((p₁ : ℕ+) : WithTop ℕ+) y) :
-    Dyadic.precisionAtMost ((p₂ : ℕ+) : WithTop ℕ+) (x * y) := by
+private theorem mul_precisionAtMost {p₁ p₂ : ℕ} (hpp : 2 * p₁ ≤ p₂)
+    {x y : Dyadic} (hx : Dyadic.precisionAtMost (p₁ : Prec) x)
+    (hy : Dyadic.precisionAtMost (p₁ : Prec) y) :
+    Dyadic.precisionAtMost (p₂ : Prec) (x * y) := by
   obtain ⟨cx, ex, hcx, hcxb⟩ := (Dyadic.precisionAtMost_coe_real p₁ x).mp hx
   obtain ⟨cy, ey, hcy, hcyb⟩ := (Dyadic.precisionAtMost_coe_real p₁ y).mp hy
   refine (Dyadic.precisionAtMost_coe_real p₂ (x * y)).mpr ⟨cx * cy, ex + ey, ?_, ?_⟩
   · rw [show ((x * y : Dyadic) : ℝ) = (x : ℝ) * (y : ℝ) from by push_cast; ring, hcx, hcy,
         zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; push_cast; ring
   · rw [abs_mul]
-    have hpn : 2 * (p₁ : ℕ) ≤ (p₂ : ℕ) := by exact_mod_cast hpp
-    calc |cx| * |cy| < (2 : ℤ) ^ (p₁ : ℕ) * (2 : ℤ) ^ (p₁ : ℕ) :=
+    calc |cx| * |cy| < (2 : ℤ) ^ p₁ * (2 : ℤ) ^ p₁ :=
           mul_lt_mul'' hcxb hcyb (abs_nonneg _) (abs_nonneg _)
-      _ = (2 : ℤ) ^ (2 * (p₁ : ℕ)) := by rw [← pow_add]; congr 1; ring
-      _ ≤ (2 : ℤ) ^ (p₂ : ℕ) := pow_le_pow_right₀ (by norm_num) hpn
+      _ = (2 : ℤ) ^ (2 * p₁) := by rw [← pow_add]; congr 1; ring
+      _ ≤ (2 : ℤ) ^ p₂ := pow_le_pow_right₀ (by norm_num) hpp
 
 /-- **Product exactly representable in the finer format.** For `x, y ∈ F₁` with
 `2p₁ ≤ p₂` and `F₂.exp ≤ F₁.exp + F₁.exp` (`exp₂ ≤ 2·exp₁`), the product `x · y`
 lies in `F₂.unbounded`. -/
-private theorem mul_mem_F₂_unbounded {F₁ F₂ : FiniteFormat} {p₁ p₂ : ℕ+}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+private theorem mul_mem_F₂_unbounded {F₁ F₂ : FiniteFormat} {p₁ p₂ : ℕ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂) (he : F₂.exp ≤ F₁.exp + F₁.exp)
     {x y : Dyadic} (hx : x ∈ F₁) (hy : y ∈ F₁) :
     (x * y : Dyadic) ∈ F₂.unbounded :=
   -- the product lives in the intermediate format `𝒜(2p₁, exp₁+exp₁, ⊤)`, which
   -- is contained in `F₂.unbounded` by `𝒜-Contains-Prec` (`mem_unbounded_of_le`).
-  Format.mem_unbounded_of_le (p := ((2 * p₁ : ℕ+) : WithTop ℕ+))
+  Format.mem_unbounded_of_le (p := ((2 * p₁ : ℕ) : Prec))
     (by rw [hp₂]; exact_mod_cast hpp) he
     (mul_precisionAtMost (p₂ := 2 * p₁) (le_refl _) (hp₁ ▸ hx.1) (hp₁ ▸ hy.1))
     (quantumAtLeast_mul hx.2.1 hy.2.1)
@@ -93,8 +92,8 @@ private theorem mul_mem_F₂_unbounded {F₁ F₂ : FiniteFormat} {p₁ p₂ : �
 *Containment view:* an exact product of two `p₁`-bit values needs `2p₁` bits, so
 `p₂ ≥ 2p₁` says the product format `𝒜(2p₁, ⊥, ⊤) ⊆ F₂`; hence `x · y` is exactly
 `F₂`-representable and the inner rounding is a no-op (`rndExact`). -/
-theorem rndMul_FLX {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁ p₂ : ℕ+}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+theorem rndMul_FLX {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁ p₂ : ℕ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
     {x y : Dyadic} (hx : x ∈ F₁) (hy : y ∈ F₁) {z w : Dyadic}
     (hz : RoundsFinite F₂.unbounded rm₂ ((x * y : Dyadic) : ℝ) z)
@@ -114,11 +113,11 @@ theorem rndMul_FLX {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁
 *Containment view:* the exact product lives in `𝒜(2p₁, 2·emin₁, ⊤)` (precisions
 double, minimum quanta add), and the two conditions say that product format
 `⊆ F₂` — so `x · y` is exactly `F₂`-representable (`rndExact`). -/
-theorem rndMul_FLT {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁ p₂ : ℕ+}
+theorem rndMul_FLT {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
-    (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
+    (hexp₁ : F₁.exp = (emin₁ : QExp)) (hexp₂ : F₂.exp = (emin₂ : QExp))
     (hemin : emin₂ ≤ 2 * emin₁)
     {x y : Dyadic} (hx : x ∈ F₁) (hy : y ∈ F₁) {z w : Dyadic}
     (hz : RoundsFinite F₂.unbounded rm₂ ((x * y : Dyadic) : ℝ) z)

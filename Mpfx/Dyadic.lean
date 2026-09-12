@@ -8,6 +8,28 @@ import Mpfx.Utils
 
 namespace Mpfx
 
+/-- A precision bound: a finite number of binary digits, or `⊤` for
+"no precision constraint". -/
+abbrev Prec := ℕ∞
+
+/-- `WithTop.some` and the `↑ : ℕ → Prec` coercion are definitionally but not
+syntactically equal. Mathlib's `ENat.some_eq_coe` states this between the
+functions, which `simp` will not use to rewrite an application; this is the
+pointwise form. -/
+@[simp] theorem Prec.some_eq_coe p : (WithTop.some p : Prec) = (p : Prec) := rfl
+
+/-- A minimum-quantum exponent: the format's values are multiples of `2^exp`,
+or `⊥` for "no quantum constraint". -/
+abbrev QExp := WithBot ℤ
+
+/-- Eliminator for `QExp` stating its `coe` case with the `↑ : ℤ → QExp`
+coercion. `QExp` is reducible, so a bare `cases` unfolds past `WithBot` to
+`Option`; split with this instead. -/
+@[elab_as_elim] def QExp.recBotCoe {C : QExp → Sort*} (bot : C ⊥)
+    (coe : ∀ e : ℤ, C (e : QExp)) : ∀ e : QExp, C e
+  | ⊥ => bot
+  | (e : ℤ) => coe e
+
 /-- A rational number is *dyadic* if it has the form `c · 2^e` for some integers `c, e`.
 The decomposition is not unique: `c · 2^e = (2c) · 2^(e − 1)`. -/
 def IsDyadic (x : ℚ) : Prop := ∃ c e : ℤ, x = (c : ℚ) * (2 : ℚ) ^ e
@@ -151,13 +173,13 @@ theorem midpoint_comm (y₁ y₂ : Dyadic) :
 
 /-- `x` has precision at most `p` (`⊤` = no constraint): there exist `c, e : ℤ`
 with `x = c · 2^e` and `|c| < 2^p`. -/
-def precisionAtMost : WithTop ℕ+ → Dyadic → Prop
+def precisionAtMost : Prec → Dyadic → Prop
   | ⊤, _ => True
-  | (p : ℕ+), x => ∃ c e : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ)
+  | (p : ℕ), x => ∃ c e : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e ∧ |c| < (2 : ℤ) ^ p
 
 /-- `x` has quantum at least `2^e` (`⊥` = no constraint): there exists `c : ℤ`
 with `x = c · 2^e`. -/
-def quantumAtLeast : WithBot ℤ → Dyadic → Prop
+def quantumAtLeast : QExp → Dyadic → Prop
   | ⊥, _ => True
   | (e : ℤ), x => ∃ c : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e
 
@@ -165,19 +187,19 @@ def quantumAtLeast : WithBot ℤ → Dyadic → Prop
 
 @[simp] theorem quantumAtLeast_bot (x : Dyadic) : quantumAtLeast ⊥ x := trivial
 
-theorem precisionAtMost_coe (p : ℕ+) (x : Dyadic) :
-    precisionAtMost (p : WithTop ℕ+) x ↔
-      ∃ c e : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ) := Iff.rfl
+theorem precisionAtMost_coe (p : ℕ) (x : Dyadic) :
+    precisionAtMost (p : Prec) x ↔
+      ∃ c e : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e ∧ |c| < (2 : ℤ) ^ p := Iff.rfl
 
 theorem quantumAtLeast_coe (e : ℤ) (x : Dyadic) :
-    quantumAtLeast (e : WithBot ℤ) x ↔
+    quantumAtLeast (e : QExp) x ↔
       ∃ c : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e := Iff.rfl
 
 /-- `ℝ`-stated companion to `precisionAtMost_coe`. The substrate predicate is
 `ℚ`-valued; this bridges to `ℝ` for the `Int.log`/`Int.floor` rounding proofs. -/
-theorem precisionAtMost_coe_real (p : ℕ+) (x : Dyadic) :
-    precisionAtMost (p : WithTop ℕ+) x ↔
-      ∃ c e : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ) := by
+theorem precisionAtMost_coe_real (p : ℕ) (x : Dyadic) :
+    precisionAtMost (p : Prec) x ↔
+      ∃ c e : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧ |c| < (2 : ℤ) ^ p := by
   rw [precisionAtMost_coe]
   refine ⟨fun ⟨c, e, hc, hb⟩ => ⟨c, e, ?_, hb⟩, fun ⟨c, e, hc, hb⟩ => ⟨c, e, ?_, hb⟩⟩
   · rw [coe_real_eq_ratCast, hc]; push_cast; ring
@@ -187,7 +209,7 @@ theorem precisionAtMost_coe_real (p : ℕ+) (x : Dyadic) :
 
 /-- `ℝ`-stated companion to `quantumAtLeast_coe`. -/
 theorem quantumAtLeast_coe_real (e : ℤ) (x : Dyadic) :
-    quantumAtLeast (e : WithBot ℤ) x ↔
+    quantumAtLeast (e : QExp) x ↔
       ∃ c : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := by
   rw [quantumAtLeast_coe]
   refine ⟨fun ⟨c, hc⟩ => ⟨c, ?_⟩, fun ⟨c, hc⟩ => ⟨c, ?_⟩⟩
@@ -196,29 +218,37 @@ theorem quantumAtLeast_coe_real (e : ℤ) (x : Dyadic) :
       rw [← coe_real_eq_ratCast, hc]; push_cast; ring
     exact_mod_cast h
 
+/-- Precision `0` is the trivial format: `|c| < 2^0 = 1` forces `c = 0`. -/
+theorem precisionAtMost_zero_iff_eq_zero {x : Dyadic} :
+    precisionAtMost (0 : Prec) x ↔ x = 0 := by
+  rw [show (0 : Prec) = ((0 : ℕ) : Prec) from rfl, precisionAtMost_coe]
+  refine ⟨fun ⟨c, e, hx, hc⟩ => ?_, fun hx => ⟨0, 0, by rw [hx]; simp, by norm_num⟩⟩
+  have : c = 0 := by simpa using hc
+  exact Subtype.ext (by rw [hx, this]; simp)
+
 /-- `precisionAtMost` is monotone in the precision bound: more precision
 allowed means the constraint is weaker. -/
-theorem precisionAtMost_mono {p₁ p₂ : WithTop ℕ+} (h : p₁ ≤ p₂) {x : Dyadic}
+theorem precisionAtMost_mono {p₁ p₂ : Prec} (h : p₁ ≤ p₂) {x : Dyadic}
     (hx : precisionAtMost p₁ x) : precisionAtMost p₂ x := by
-  cases p₂ with
+  cases p₂ using ENat.recTopCoe with
   | top => trivial
   | coe p₂ =>
-    cases p₁ with
+    cases p₁ using ENat.recTopCoe with
     | top => exact absurd (top_le_iff.mp h) (WithTop.coe_ne_top)
     | coe p₁ =>
       obtain ⟨c, e, hc, hb⟩ := hx
       refine ⟨c, e, hc, ?_⟩
-      have hp_le : (p₁ : ℕ) ≤ (p₂ : ℕ) := by exact_mod_cast WithTop.coe_le_coe.mp h
+      have hp_le : p₁ ≤ p₂ := by exact_mod_cast WithTop.coe_le_coe.mp h
       exact lt_of_lt_of_le hb (pow_le_pow_right₀ (by norm_num) hp_le)
 
 /-- `quantumAtLeast` is antitone in the exponent bound: a smaller minimum
 quantum (smaller `exp`) is a weaker constraint. -/
-theorem quantumAtLeast_anti {e₁ e₂ : WithBot ℤ} (h : e₂ ≤ e₁) {x : Dyadic}
+theorem quantumAtLeast_anti {e₁ e₂ : QExp} (h : e₂ ≤ e₁) {x : Dyadic}
     (hx : quantumAtLeast e₁ x) : quantumAtLeast e₂ x := by
-  cases e₂ with
+  cases e₂ using QExp.recBotCoe with
   | bot => trivial
   | coe e₂ =>
-    cases e₁ with
+    cases e₁ using QExp.recBotCoe with
     | bot => exact absurd (le_bot_iff.mp h) (WithBot.coe_ne_bot)
     | coe e₁ =>
       obtain ⟨c, hc⟩ := hx
@@ -232,9 +262,9 @@ theorem quantumAtLeast_anti {e₁ e₂ : WithBot ℤ} (h : e₂ ≤ e₁) {x : D
           Int.toNat_of_nonneg (by omega)]
       congr 2; omega
 
-theorem precisionAtMost_neg {p : WithTop ℕ+} {x : Dyadic} (h : precisionAtMost p x) :
+theorem precisionAtMost_neg {p : Prec} {x : Dyadic} (h : precisionAtMost p x) :
     precisionAtMost p (-x) := by
-  cases p with
+  cases p using ENat.recTopCoe with
   | top => trivial
   | coe p =>
     obtain ⟨c, e, hx, hc⟩ := h
@@ -242,27 +272,27 @@ theorem precisionAtMost_neg {p : WithTop ℕ+} {x : Dyadic} (h : precisionAtMost
     · push_cast [Subring.coe_neg, hx]; ring
     · simpa [abs_neg] using hc
 
-@[simp] theorem precisionAtMost_neg_iff (p : WithTop ℕ+) (x : Dyadic) :
+@[simp] theorem precisionAtMost_neg_iff (p : Prec) (x : Dyadic) :
     precisionAtMost p (-x) ↔ precisionAtMost p x :=
   ⟨fun h => by simpa using precisionAtMost_neg h, precisionAtMost_neg⟩
 
-theorem quantumAtLeast_neg {e : WithBot ℤ} {x : Dyadic} (h : quantumAtLeast e x) :
+theorem quantumAtLeast_neg {e : QExp} {x : Dyadic} (h : quantumAtLeast e x) :
     quantumAtLeast e (-x) := by
-  cases e with
+  cases e using QExp.recBotCoe with
   | bot => trivial
   | coe e =>
     obtain ⟨c, hx⟩ := h
     refine ⟨-c, ?_⟩
     push_cast [Subring.coe_neg, hx]; ring
 
-@[simp] theorem quantumAtLeast_neg_iff (e : WithBot ℤ) (x : Dyadic) :
+@[simp] theorem quantumAtLeast_neg_iff (e : QExp) (x : Dyadic) :
     quantumAtLeast e (-x) ↔ quantumAtLeast e x :=
   ⟨fun h => by simpa using quantumAtLeast_neg h, quantumAtLeast_neg⟩
 
 /-- The dyadic value `3 · 2^k` has precision at most 2 (significand `3` fits
 in `|c| < 2^2 = 4`). Used as a precision-2 witness in `hp_F₂`-derivation. -/
 theorem precisionAtMost_two_three_zpow (k : ℤ) :
-    precisionAtMost ((2 : ℕ+) : WithTop ℕ+) (Dyadic.ofIntZpow 3 k) := by
+    precisionAtMost ((2 : ℕ) : Prec) (Dyadic.ofIntZpow 3 k) := by
   rw [precisionAtMost_coe]
   refine ⟨3, k, ?_, ?_⟩
   · rw [coe_rat_ofIntZpow]
@@ -271,7 +301,7 @@ theorem precisionAtMost_two_three_zpow (k : ℤ) :
 /-- A nonzero dyadic with `quantumAtLeast e` has absolute value at least `2^e`.
 The smallest nonzero significand `c` is `±1`, giving `|c·2^e| = 2^e`. -/
 theorem abs_ge_two_zpow_of_quantum {e : ℤ} {d : Dyadic}
-    (hq : quantumAtLeast (e : WithBot ℤ) d) (hne : (d : ℝ) ≠ 0) :
+    (hq : quantumAtLeast (e : QExp) d) (hne : (d : ℝ) ≠ 0) :
     (2 : ℝ)^e ≤ |(d : ℝ)| := by
   rw [quantumAtLeast_coe_real] at hq
   obtain ⟨c, hc_eq⟩ := hq
@@ -303,31 +333,30 @@ def IsRepresentableAtP (p : ℕ) (c e : ℤ) (y : Dyadic) : Prop :=
 /-- If `y = c · 2^e` with `|c| ≤ 2^p`, then `precisionAtMost p y`. The
 boundary case `|c| = 2^p` forces `c = ±2^p`; renormalize to
 `y = ±1 · 2^(e+p)` to recover a strict-inequality witness. -/
-theorem precisionAtMost_of_abs_le {p : ℕ+} {x : Dyadic} (c e : ℤ)
-    (hx : (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e) (hc : |c| ≤ (2 : ℤ) ^ (p : ℕ)) :
-    precisionAtMost ((p : ℕ+) : WithTop ℕ+) x := by
+theorem precisionAtMost_of_abs_le {p : ℕ} (hp : 0 < p) {x : Dyadic} (c e : ℤ)
+    (hx : (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e) (hc : |c| ≤ (2 : ℤ) ^ p) :
+    precisionAtMost (p : Prec) x := by
   rw [precisionAtMost_coe]
   rcases lt_or_eq_of_le hc with hlt | heq
   · exact ⟨c, e, hx, hlt⟩
-  · have h2p_nonneg : (0 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by positivity
-    have hsign : c = (2 : ℤ) ^ (p : ℕ) ∨ c = -((2 : ℤ) ^ (p : ℕ)) :=
+  · have h2p_nonneg : (0 : ℤ) ≤ (2 : ℤ) ^ p := by positivity
+    have hsign : c = (2 : ℤ) ^ p ∨ c = -((2 : ℤ) ^ p) :=
       (abs_eq h2p_nonneg).mp heq
-    have hp_pos : 1 ≤ (p : ℕ) := p.pos
-    have hone_lt : (1 : ℤ) < (2 : ℤ) ^ (p : ℕ) := by
-      have : (2 : ℤ) ^ 0 < (2 : ℤ) ^ (p : ℕ) := pow_lt_pow_right₀ (by norm_num) hp_pos
+    have hone_lt : (1 : ℤ) < (2 : ℤ) ^ p := by
+      have : (2 : ℤ) ^ 0 < (2 : ℤ) ^ p := pow_lt_pow_right₀ (by norm_num) hp
       simpa using this
     have h2ne : (2 : ℚ) ≠ 0 := two_ne_zero
     rcases hsign with hpos | hneg
     · refine ⟨1, e + (p : ℤ), ?_, ?_⟩
       · rw [hx, hpos, zpow_add₀ h2ne]
         push_cast
-        simp only [← zpow_natCast (2 : ℚ) (p : ℕ)]
+        simp only [← zpow_natCast (2 : ℚ) p]
         ring
       · simpa using hone_lt
     · refine ⟨-1, e + (p : ℤ), ?_, ?_⟩
       · rw [hx, hneg, zpow_add₀ h2ne]
         push_cast
-        simp only [← zpow_natCast (2 : ℚ) (p : ℕ)]
+        simp only [← zpow_natCast (2 : ℚ) p]
         ring
       · have habs : |(-1 : ℤ)| = 1 := by decide
         rw [habs]; exact hone_lt
@@ -540,7 +569,7 @@ theorem IsRepresentableAtP.unique {p : ℕ} {y : Dyadic}
 
 /-- Auxiliary: any nonzero integer can be factored as `c' * 2^k` with `c'` odd
 and `|c'| ≤ |c|`. Strong induction on `c.natAbs`. -/
-private theorem Int.exists_odd_factor_aux : ∀ (n : ℕ) (c : ℤ),
+private theorem Int.exists_odd_factor_aux : ∀ n (c : ℤ),
     c.natAbs ≤ n → c ≠ 0 →
     ∃ k : ℕ, ∃ c' : ℤ, Odd c' ∧ c = c' * 2^k ∧ c'.natAbs ≤ c.natAbs := by
   intro n
@@ -579,9 +608,9 @@ private theorem Int.exists_odd_factor {c₀ : ℤ} (hc : c₀ ≠ 0) :
 
 /-- For any nonzero dyadic with precision at most `p`, there's a representation
 `y = c·2^e` with `c` odd and `|c| < 2^p`. -/
-theorem exists_odd_canonical_of_precisionAtMost {p : ℕ+} {y : Dyadic}
-    (hp : precisionAtMost (p : WithTop ℕ+) y) (hy : (y : ℝ) ≠ 0) :
-    ∃ c e : ℤ, ((y : ℝ) = c * (2 : ℝ)^e) ∧ Odd c ∧ |c| < (2 : ℤ)^(p : ℕ) := by
+theorem exists_odd_canonical_of_precisionAtMost {p : ℕ} {y : Dyadic}
+    (hp : precisionAtMost (p : Prec) y) (hy : (y : ℝ) ≠ 0) :
+    ∃ c e : ℤ, ((y : ℝ) = c * (2 : ℝ)^e) ∧ Odd c ∧ |c| < (2 : ℤ)^p := by
   rw [precisionAtMost_coe_real] at hp
   obtain ⟨c₀, e₀, hy_eq, hc₀_lt⟩ := hp
   have hc₀_ne : c₀ ≠ 0 := by
@@ -609,6 +638,16 @@ end Dyadic
 the carrier of magnitude bounds in `Format`. -/
 abbrev NonNegDyadic : Type := { d : Dyadic // 0 ≤ (d : ℚ) }
 
+/-- A magnitude bound on a format's values, or `⊤` for "unbounded". -/
+abbrev Bound := WithTop NonNegDyadic
+
+/-- Eliminator for `Bound` stating its `coe` case with the
+`↑ : NonNegDyadic → Bound` coercion; see `QExp.recBotCoe`. -/
+@[elab_as_elim] def Bound.recTopCoe {C : Bound → Sort*} (top : C ⊤)
+    (coe : ∀ b : NonNegDyadic, C (b : Bound)) : ∀ b : Bound, C b
+  | ⊤ => top
+  | (b : NonNegDyadic) => coe b
+
 
 /-! ### Canonical representations and casts (used by the grid lemmas) -/
 
@@ -622,22 +661,19 @@ theorem eq_zero_of_coe_real_zero {z : Dyadic} (h : (z : ℝ) = 0) : z = 0 :=
   (Dyadic.coe_real_inj z 0).mp (by rw [h, Dyadic.coe_real_zero])
 
 /-- `2^k` (any `k`) has precision 1, hence fits any precision bound. -/
-theorem precisionAtMost_one_zpow {p : WithTop ℕ+} (k : ℤ) :
+theorem precisionAtMost_one_zpow {p : Prec} (hp : p ≠ 0) (k : ℤ) :
     Dyadic.precisionAtMost p (Dyadic.ofIntZpow 1 k) := by
-  cases p with
+  cases p using ENat.recTopCoe with
   | top => trivial
   | coe p =>
     rw [Dyadic.precisionAtMost_coe]
     refine ⟨1, k, by rw [Dyadic.coe_rat_ofIntZpow], ?_⟩
-    have hp1 : 1 ≤ (p : ℕ) := p.pos
-    have h2 : (2 : ℤ) ^ 1 ≤ (2 : ℤ) ^ (p : ℕ) := pow_le_pow_right₀ (by norm_num) hp1
-    simp only [abs_one]
-    omega
+    exact abs_one_lt_two_pow (Nat.pos_of_ne_zero (by simpa using hp))
 
 /-- An odd-significand representation cannot sit below the quantum: if
 `x = c·2^q` with `c` odd and `x` has quantum at least `e`, then `e ≤ q`. -/
 theorem quantum_le_of_odd_rep {e : ℤ} {x : Dyadic}
-    (hq : Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) x) {c q : ℤ}
+    (hq : Dyadic.quantumAtLeast (e : QExp) x) {c q : ℤ}
     (hodd : Odd c) (heq : ((x : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ q) :
     e ≤ q := by
   obtain ⟨m, hm⟩ : ∃ m : ℤ, ((x : Dyadic) : ℝ) = (m : ℝ) * (2 : ℝ) ^ e := by
@@ -667,8 +703,8 @@ directions pins the exponent, and cancellation the significand. -/
 theorem odd_rep_unique {x : Dyadic} {c q c' q' : ℤ} (hc : Odd c) (hc' : Odd c')
     (h : (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ q) (h' : (x : ℝ) = (c' : ℝ) * (2 : ℝ) ^ q') :
     c = c' ∧ q = q' := by
-  have hq : quantumAtLeast ((q : ℤ) : WithBot ℤ) x := (quantumAtLeast_coe_real q x).mpr ⟨c, h⟩
-  have hq' : quantumAtLeast ((q' : ℤ) : WithBot ℤ) x := (quantumAtLeast_coe_real q' x).mpr ⟨c', h'⟩
+  have hq : quantumAtLeast (q : QExp) x := (quantumAtLeast_coe_real q x).mpr ⟨c, h⟩
+  have hq' : quantumAtLeast (q' : QExp) x := (quantumAtLeast_coe_real q' x).mpr ⟨c', h'⟩
   obtain rfl : q = q' :=
     le_antisymm (quantum_le_of_odd_rep hq hc' h') (quantum_le_of_odd_rep hq' hc h)
   refine ⟨?_, rfl⟩
@@ -677,12 +713,12 @@ theorem odd_rep_unique {x : Dyadic} {c q c' q' : ℤ} (hc : Odd c) (hc' : Odd c'
 
 /-- The odd canonical representation is the narrowest one: if `x = c · 2^q` with
 `c` odd and `|c| ≥ 2^p`, then `x` does not fit in `p` digits. -/
-theorem not_precisionAtMost_of_odd {p : ℕ+} {x : Dyadic} {c q : ℤ}
-    (hc : Odd c) (h : (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ q) (hge : (2 : ℤ) ^ (p : ℕ) ≤ |c|) :
-    ¬ precisionAtMost ((p : ℕ+) : WithTop ℕ+) x := by
+theorem not_precisionAtMost_of_odd {p : ℕ} {x : Dyadic} {c q : ℤ}
+    (hc : Odd c) (h : (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ q) (hge : (2 : ℤ) ^ p ≤ |c|) :
+    ¬ precisionAtMost (p : Prec) x := by
   intro hp
   have hc_ne : c ≠ 0 := by
-    have : (0 : ℤ) < 2 ^ (p : ℕ) := by positivity
+    have : (0 : ℤ) < 2 ^ p := by positivity
     intro h0; rw [h0, abs_zero] at hge; omega
   have hx_ne : (x : ℝ) ≠ 0 := by
     rw [h]
@@ -695,7 +731,7 @@ theorem not_precisionAtMost_of_odd {p : ℕ+} {x : Dyadic} {c q : ℤ}
 and two digits wide. Used as a precision-2 witness to force `2 ≤ F₂.p` from a
 containment hypothesis. -/
 theorem not_precisionAtMost_one_three_zpow (k : ℤ) :
-    ¬ precisionAtMost ((1 : ℕ+) : WithTop ℕ+) (Dyadic.ofIntZpow 3 k) :=
+    ¬ precisionAtMost ((1 : ℕ) : Prec) (Dyadic.ofIntZpow 3 k) :=
   not_precisionAtMost_of_odd (by norm_num : Odd (3 : ℤ)) (by rw [coe_ofIntZpow]) (by norm_num)
 
 end Dyadic
@@ -703,13 +739,13 @@ end Dyadic
 /-- Odd canonical representation of a positive dyadic at precision `p`,
 packaged with positivity and binade bounds: `b = c·2^q` with `c` odd and
 positive, `2^q ≤ b`, and `q ≤ ⌊log₂ b⌋ < q + p`. -/
-theorem exists_odd_canonical_pos {p : ℕ+} {b : Dyadic}
-    (hb_p : Dyadic.precisionAtMost ((p : ℕ+) : WithTop ℕ+) b)
+theorem exists_odd_canonical_pos {p : ℕ} {b : Dyadic}
+    (hb_p : Dyadic.precisionAtMost (p : Prec) b)
     (hb_pos : 0 < ((b : Dyadic) : ℝ)) :
     ∃ c q : ℤ, ((b : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ q ∧ Odd c ∧ 0 < c ∧
       (2 : ℝ) ^ q ≤ ((b : Dyadic) : ℝ) ∧
       q ≤ Int.log 2 ((b : Dyadic) : ℝ) ∧
-      Int.log 2 ((b : Dyadic) : ℝ) < q + ((p : ℕ) : ℤ) := by
+      Int.log 2 ((b : Dyadic) : ℝ) < q + (p : ℤ) := by
   obtain ⟨c, q, hc_eq, hc_odd, hc_lt⟩ :=
     Dyadic.exists_odd_canonical_of_precisionAtMost hb_p (ne_of_gt hb_pos)
   have h2q_pos : (0 : ℝ) < (2 : ℝ) ^ q := zpow_pos (by norm_num) _
@@ -719,15 +755,15 @@ theorem exists_odd_canonical_pos {p : ℕ+} {b : Dyadic}
     nlinarith
   have hc1 : (1 : ℝ) ≤ (c : ℝ) := by exact_mod_cast hc_pos
   have h_lb : (2 : ℝ) ^ q ≤ ((b : Dyadic) : ℝ) := by rw [hc_eq]; nlinarith
-  have hcp : (c : ℝ) < (2 : ℝ) ^ ((p : ℕ) : ℤ) := by
+  have hcp : (c : ℝ) < (2 : ℝ) ^ (p : ℤ) := by
     rw [zpow_natCast]
-    have h1 : (c : ℝ) < ((2 ^ (p : ℕ) : ℤ) : ℝ) := by
+    have h1 : (c : ℝ) < ((2 ^ p : ℤ) : ℝ) := by
       exact_mod_cast lt_of_abs_lt hc_lt
     push_cast at h1; exact h1
-  have h_ub : ((b : Dyadic) : ℝ) < (2 : ℝ) ^ (q + ((p : ℕ) : ℤ)) := by
+  have h_ub : ((b : Dyadic) : ℝ) < (2 : ℝ) ^ (q + (p : ℤ)) := by
     rw [hc_eq, zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-    calc (c : ℝ) * (2 : ℝ) ^ q < (2 : ℝ) ^ ((p : ℕ) : ℤ) * (2 : ℝ) ^ q := by nlinarith
-      _ = (2 : ℝ) ^ q * (2 : ℝ) ^ ((p : ℕ) : ℤ) := by ring
+    calc (c : ℝ) * (2 : ℝ) ^ q < (2 : ℝ) ^ (p : ℤ) * (2 : ℝ) ^ q := by nlinarith
+      _ = (2 : ℝ) ^ q * (2 : ℝ) ^ (p : ℤ) := by ring
   exact ⟨c, q, hc_eq, hc_odd, hc_pos, h_lb,
     (Int.zpow_le_iff_le_log (by norm_num) hb_pos).mp h_lb,
     (Int.lt_zpow_iff_log_lt (by norm_num) hb_pos).mp h_ub⟩
