@@ -277,19 +277,32 @@ Commit message: `Prove the grid bridges without reference to the construction`
 
 ## Phase 7 — move the parity theory out
 
-- [ ] New `Mpfx/Parity.lean` above `Grid.lean`, holding
+- [x] New `Mpfx/Parity.lean` above `Grid.lean`, holding
       `toOdd_neighbors_alternate` (446 lines) and
       `nearest_toEven_neighbors_alternate` (476 lines).
-- [ ] Move `toParityFormatOfToOdd` / `toParityFormatOfNearestEven` there too,
+- [x] Move `toParityFormatOfToOdd` / `toParityFormatOfNearestEven` there too,
       or to `Rounding.lean` beside `IsUndefined` — they are format promotions,
       not rounding constructions.
-- [ ] Drop `private` where the move requires it, but no wider.
+- [x] Drop `private` where the move requires it, but no wider.
 
 Extra acceptance: `Mpfx/Parity.lean` imports nothing from `Mpfx/RoundOp/`.
 
 With both alternation lemmas finally in one file, the duplication recorded
 under *Adjacent* below becomes a single-file change. Out of scope here; do it
 as a follow-up so this phase stays a pure move.
+
+**Done.** 969 insertions, 946 deletions; the unpaired-line audit shows the only
+non-move changes are the two `private` → public transitions and the new file's
+header/imports. `Parity.lean` is 950 lines importing `Mpfx.Rounding` +
+`Mpfx.CanonicalExp` and nothing from `RoundOp/`. The promotions went to
+`Rounding.lean` beside `IsUndefined`. `ToOdd.lean` 677 → 221,
+`Nearest.lean` 987 → 511.
+
+Two notes. `Parity.lean` needed no `Classical.propDecidable` — 950 lines that
+had the instance in scope and never used it; it is now confined to four
+`RoundOp/` files. And `RoundOp/Defs.lean` is down to **108 lines** from 632
+before Track B: exactly `rndInt`, `rndParity`, `rndUnbounded`, `rnd` and the
+soundness doc block.
 
 Commit message: `Move the parity-alternation theory out of the function layer`
 

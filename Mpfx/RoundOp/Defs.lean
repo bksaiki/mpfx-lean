@@ -67,22 +67,6 @@ noncomputable def rndParity (F : ParityFormat) (rm : RoundingMode)
       else if F.IsEven dlo then dlo else dhi    -- tie → even
   | _ => dlo   -- unreachable: `rndParity` only called for parity modes
 
-/-- Promote `F : FiniteFormat` to `ParityFormat` from a
-`¬ IsUndefined .toOdd` witness. -/
-def FiniteFormat.toParityFormatOfToOdd
-    (F : FiniteFormat) (h : ¬ F.IsUndefined .toOdd) : ParityFormat := by
-  refine ⟨F, ?_⟩
-  by_contra h_neg; push Not at h_neg
-  exact h ⟨h_neg.1, h_neg.2, Or.inl rfl⟩
-
-/-- Promote `F : FiniteFormat` to `ParityFormat` from a
-`¬ IsUndefined (.nearest .toEven)` witness. -/
-def FiniteFormat.toParityFormatOfNearestEven
-    (F : FiniteFormat) (h : ¬ F.IsUndefined (.nearest .toEven)) : ParityFormat := by
-  refine ⟨F, ?_⟩
-  by_contra h_neg; push Not at h_neg
-  exact h ⟨h_neg.1, h_neg.2, Or.inr rfl⟩
-
 /-- The unbounded rounding step: produce a `Dyadic` per `rm`, *without*
 checking `F.b`. Used by `rnd` as the candidate value that the bound check
 filters. -/

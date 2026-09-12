@@ -3,6 +3,7 @@ import Mpfx.Dyadic
 import Mpfx.Format
 import Mpfx.Rounding
 import Mpfx.RoundPred
+import Mpfx.Parity
 import Mpfx.RoundOp
 import Mpfx.Containment
 import Mpfx.Grid
