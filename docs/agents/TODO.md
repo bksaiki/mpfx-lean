@@ -111,6 +111,9 @@ Mpfx/
 
 ## Open: Rounding API extensions
 
+- [ ] Round-predicate layer (uniqueness + monotonicity, ported from Flocq):
+      see [`ROUND_PRED_TODO.md`](ROUND_PRED_TODO.md).
+
 - [ ] `IsFaithfulRound`-extraction lemmas (split RTN-witness vs
       RTP-witness disjunct accessors).
 
