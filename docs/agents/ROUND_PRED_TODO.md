@@ -351,9 +351,16 @@ before starting Phase 12.
 
 ## Phase 9 — directed monotonicity
 
-- [ ] `Monotone (RoundsFinite F .toNegative)` / `.toPositive`
+- [x] `Monotone (RoundsFinite F .toNegative)` / `.toPositive`
       (`Rnd_DN_pt_monotone`). A few lines each.
-- [ ] `toZero` / `awayZero` via the sign bridges (`Rnd_ZR_pt_monotone`).
+- [x] `toZero` / `awayZero` via the sign bridges (`Rnd_ZR_pt_monotone`).
+
+**Done.** +70 lines in `RoundPred.lean`, nothing else touched. Six lemmas:
+`monotone_{toNegative,toPositive,toZero,awayZero}` plus the two sign facts
+`toNegative_nonneg` / `toPositive_nonpos` (Flocq `round_pred_ge_0` /
+`round_pred_le_0`), which the `toZero` zero-crossing case needs and which
+roadmap §3 wants anyway. The directed proofs are three lines each. No `rnd`
+mentions; no `by_cases` — the sign splits go through `le_total`.
 
 Commit message: `Add monotonicity for the four directed rounding modes`
 

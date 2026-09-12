@@ -383,4 +383,74 @@ theorem RoundsFinite.unique {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
   | toOdd => exact RoundsFinite.unique_toOdd h h₁ h₂
   | nearest _ => exact RoundsFinite.unique_nearest h h₁ h₂
 
+/-! ### Sign preservation and monotonicity
+
+Flocq's `Rnd_DN_pt_monotone` / `Rnd_UP_pt_monotone` / `Rnd_ZR_pt_monotone`
+(`Round_pred.v:103`, `:134`, `:342`), plus the `round_pred_ge_0` /
+`round_pred_le_0` sign facts (`:1275`, `:1298`) that the mixed case of the
+zero-crossing modes needs.
+
+The directed proofs are one application of the other value's optimality. The
+sign-symmetric modes reduce to them on each side of zero, with the crossing
+case `x ≤ 0 ≤ y` handled separately. -/
+
+/-- Round-down of a non-negative value is non-negative: `0 ∈ F` is a candidate.
+Flocq's `round_pred_ge_0`. -/
+theorem RoundsFinite.toNegative_nonneg {F : FiniteFormat} {x : ℝ} (hx : 0 ≤ x)
+    {y : Dyadic} (h : RoundsFinite F .toNegative x y) : (0 : ℝ) ≤ (y : ℝ) := by
+  obtain ⟨-, -, hmax⟩ := h
+  simpa using hmax 0 F.zero_mem (by simpa using hx)
+
+/-- Round-up of a non-positive value is non-positive. Flocq's
+`round_pred_le_0`. -/
+theorem RoundsFinite.toPositive_nonpos {F : FiniteFormat} {x : ℝ} (hx : x ≤ 0)
+    {y : Dyadic} (h : RoundsFinite F .toPositive x y) : (y : ℝ) ≤ 0 := by
+  obtain ⟨-, -, hmin⟩ := h
+  simpa using hmin 0 F.zero_mem (by simpa using hx)
+
+/-- Round-down is monotone (Flocq's `Rnd_DN_pt_monotone`): `a ≤ x ≤ y`, so `a`
+is a candidate for `y`'s round-down and loses to its maximality. -/
+theorem RoundsFinite.monotone_toNegative {F : FiniteFormat} {x y : ℝ} {a b : Dyadic}
+    (ha : RoundsFinite F .toNegative x a) (hb : RoundsFinite F .toNegative y b)
+    (hxy : x ≤ y) : (a : ℝ) ≤ (b : ℝ) := by
+  obtain ⟨ha_mem, ha_le, -⟩ := ha
+  obtain ⟨-, -, hb_max⟩ := hb
+  exact hb_max a ha_mem (ha_le.trans hxy)
+
+/-- Round-up is monotone (Flocq's `Rnd_UP_pt_monotone`). -/
+theorem RoundsFinite.monotone_toPositive {F : FiniteFormat} {x y : ℝ} {a b : Dyadic}
+    (ha : RoundsFinite F .toPositive x a) (hb : RoundsFinite F .toPositive y b)
+    (hxy : x ≤ y) : (a : ℝ) ≤ (b : ℝ) := by
+  obtain ⟨-, -, ha_min⟩ := ha
+  obtain ⟨hb_mem, hb_ge, -⟩ := hb
+  exact ha_min b hb_mem (hxy.trans hb_ge)
+
+/-- Round-toward-zero is monotone (Flocq's `Rnd_ZR_pt_monotone`). On each side
+of zero it is a directed mode; across zero the two results straddle `0`. -/
+theorem RoundsFinite.monotone_toZero {F : FiniteFormat} {x y : ℝ} {a b : Dyadic}
+    (ha : RoundsFinite F .toZero x a) (hb : RoundsFinite F .toZero y b)
+    (hxy : x ≤ y) : (a : ℝ) ≤ (b : ℝ) := by
+  rcases le_total 0 x with hx | hx
+  · exact monotone_toNegative ((toNegative_iff_toZero_of_nonneg F hx a).mpr ha)
+      ((toNegative_iff_toZero_of_nonneg F (hx.trans hxy) b).mpr hb) hxy
+  rcases le_total y 0 with hy | hy
+  · exact monotone_toPositive ((toPositive_iff_toZero_of_nonpos F (hxy.trans hy) a).mpr ha)
+      ((toPositive_iff_toZero_of_nonpos F hy b).mpr hb) hxy
+  · exact (toPositive_nonpos hx ((toPositive_iff_toZero_of_nonpos F hx a).mpr ha)).trans
+      (toNegative_nonneg hy ((toNegative_iff_toZero_of_nonneg F hy b).mpr hb))
+
+/-- Round-away-from-zero is monotone. Across zero the results straddle it
+outward: `a ≤ x ≤ 0 ≤ y ≤ b`. -/
+theorem RoundsFinite.monotone_awayZero {F : FiniteFormat} {x y : ℝ} {a b : Dyadic}
+    (ha : RoundsFinite F .awayZero x a) (hb : RoundsFinite F .awayZero y b)
+    (hxy : x ≤ y) : (a : ℝ) ≤ (b : ℝ) := by
+  rcases le_total 0 x with hx | hx
+  · exact monotone_toPositive ((toPositive_iff_awayZero_of_nonneg F hx a).mpr ha)
+      ((toPositive_iff_awayZero_of_nonneg F (hx.trans hxy) b).mpr hb) hxy
+  rcases le_total y 0 with hy | hy
+  · exact monotone_toNegative ((toNegative_iff_awayZero_of_nonpos F (hxy.trans hy) a).mpr ha)
+      ((toNegative_iff_awayZero_of_nonpos F hy b).mpr hb) hxy
+  · exact (((toNegative_iff_awayZero_of_nonpos F hx a).mpr ha).2.1.trans hx).trans
+      (hy.trans ((toPositive_iff_awayZero_of_nonneg F hy b).mpr hb).2.1)
+
 end Mpfx
