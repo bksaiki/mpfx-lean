@@ -162,13 +162,152 @@ Commit message: `Collapse the six per-mode uniqueness wrappers into one dispatch
 
 ---
 
-# Track B — monotonicity
+# Track B — restore the layering
 
-None of Track B shortens existing proofs. It is what unlocks roadmap §3's sign
+`Rounding.lean` and `RoundPred.lean` are the relational layer; `RoundOp/` is
+meant to hold the rounding *function* and nothing else. Track A broke that:
+`RoundsFinite.unique_toOdd`, `unique_nearest` and `RoundsFinite.unique` are
+statements about `RoundsFinite` that ended up under `RoundOp/` purely because
+their proofs detoured through the construction.
+
+Investigation showed the detour is avoidable and `RoundOp/` was already
+over-stuffed before Track A:
+
+* `toOdd_neighbors_alternate` (`ToOdd.lean:26`, 446 lines) mentions
+  `rndUnbounded` / `rndInt` / `rndParity` **zero times**. It depends on
+  `RoundOp/Defs.lean` only for `toParityFormatOfToOdd` (a *format* promotion
+  built from `IsUndefined`) and seven arithmetic helpers about
+  `⌊x · 2^(-e)⌋`. Neither is a fact about the function.
+* The one real construction dependency is the Phase 2 grid bridges, and that
+  is an artifact of how they were written — `rndUnbounded_satisfies_toNegative`
+  (`Directed.lean:21`) already contains the whole argument, just stated about
+  `rndUnbounded F .toNegative x h` rather than about the grid point. Turning it
+  inside out removes the dependency; `Grid.lean` (which imports only
+  `Containment`) supplies `exists_grid_rep` and `no_F_element_in_step_interval`.
+
+Target layering:
+
+```
+Grid.lean       structural: grid reps, F-adjacency      (no rounding at all)
+Mantissa.lean   ⌊x · 2^(-e)⌋ arithmetic                 ← out of RoundOp/Defs
+Parity.lean     both alternation lemmas + promotions    ← out of ToOdd, Nearest
+Rounding.lean   relational spec
+RoundPred.lean  every relational consequence            ← unique_toOdd, …
+RoundOp/        the function, and nothing else
+```
+
+## Phase 5 — rehome the scaled-mantissa arithmetic
+
+Flocq splits this block by whether a lemma mentions format data: the pure
+real/integer facts live in `Core/Raux.v` (`Section Floor_Ceil`, `Section pow`,
+`mag`), a project-wide toolbox that does not know what a format is; the
+format-dependent ones live in `Core/Generic_fmt.v` beside `cexp` and
+`scaled_mantissa` (`scaled_mantissa_lt_bpow`, `mantissa_small_pos`,
+`mantissa_DN_small_pos`, …). There is no `Mantissa.v`. Our block splits on the
+same line, 12 pure to 4 format-dependent.
+
+- [x] Twelve pure lemmas → `Mpfx/Utils.lean` (our `Raux.v`):
+      `abs_floor_le_of_abs_lt`, `abs_ceil_le_of_abs_lt`,
+      `abs_floor_add_one_le_of_abs_lt`, `abs_floor_ge_two_pow_pred`,
+      `abs_lt_two_pow_log_of_precision`, `binade_le_floor`,
+      `mul_zpow_neg_self`, `log_lt_p_of_abs_lt_two_pow`, `log_two_pow_nat`,
+      `log_ge_p_pred_of_two_pow_pred_le`, `cast_two_pow_pred`,
+      `two_pow_pred_le_scaled`.
+- [x] Four format-dependent lemmas → `Mpfx/CanonicalExp.lean` (our
+      `Generic_fmt.v` for this purpose): `floor_minimality`, `ceil_minimality`,
+      `ofIntZpow_mem_unbounded`, `floor_mantissa_lt`. Adds the import edge
+      `RoundOp/Defs → CanonicalExp → Grid → Containment`; verified acyclic,
+      since nothing in that chain imports `Rounding` or `RoundOp`.
+- [x] Pure move — no proof should change.
+
+Alternative for the four: `Format.lean`, where `canonicalExp` is actually
+defined. No new import edges and closer to Flocq's literal placement, but adds
+~300 lines to a 2018-line file.
+
+Extra acceptance: `git diff -M` shows the blocks as renames, not rewrites;
+`Utils.lean` still mentions no format type.
+
+**Done.** 520 insertions, 509 deletions; the net-change audit shows every
+unpaired line is an import, one of the two new section headers, or the orphaned
+"Per-mode soundness obligations" comment that described the departed block — no
+proof text changed. `RoundOp/Defs.lean` 632 → 122 lines, now just the four
+definitions plus the two parity promotions Phase 7 takes. `Utils.lean` mentions
+a format type only in docstrings.
+
+`CanonicalExp.lean` needed **no** `Classical.propDecidable`: its four `by_cases`
+uses are all inside proofs, where Lean falls back to `Classical.byCases`. The
+instance now appears only in the five `RoundOp/` files, each branching on real
+comparisons inside a *definition* — the legitimate case. The move narrowed the
+taint, since those 257 lines previously sat in a file that had it in scope.
+
+Commit message: `Rehome the scaled-mantissa arithmetic out of the function layer`
+
+— **pause for review** —
+
+## Phase 6 — construction-free grid bridges
+
+The only phase in Track B with real proof work.
+
+- [ ] `RoundsFinite.toNegative_floor` / `toPositive_ceil`: the grid point at
+      the canonical exponent *satisfies* the directed spec, stated without
+      mentioning `rndUnbounded`. Invert the bodies of
+      `rndUnbounded_satisfies_toNegative` / `_toPositive`.
+- [ ] Rederive `rndUnbounded_satisfies_toNegative` / `_toPositive` from them
+      (one line each, after the `unfold rndUnbounded` rewrite).
+- [ ] Rederive the Phase 2 bridges `toNegative_eq_floor` / `toPositive_eq_ceil`
+      as `unique_toNegative hy (toNegative_floor F x)` — no construction.
+
+Extra acceptance: neither bridge mentions `rndUnbounded`.
+
+Commit message: `Prove the grid bridges without reference to the construction`
+
+— **pause for review** —
+
+## Phase 7 — move the parity theory out
+
+- [ ] New `Mpfx/Parity.lean` above `Grid.lean`, holding
+      `toOdd_neighbors_alternate` (446 lines) and
+      `nearest_toEven_neighbors_alternate` (476 lines).
+- [ ] Move `toParityFormatOfToOdd` / `toParityFormatOfNearestEven` there too,
+      or to `Rounding.lean` beside `IsUndefined` — they are format promotions,
+      not rounding constructions.
+- [ ] Drop `private` where the move requires it, but no wider.
+
+Extra acceptance: `Mpfx/Parity.lean` imports nothing from `Mpfx/RoundOp/`.
+
+With both alternation lemmas finally in one file, the duplication recorded
+under *Adjacent* below becomes a single-file change. Out of scope here; do it
+as a follow-up so this phase stays a pure move.
+
+Commit message: `Move the parity-alternation theory out of the function layer`
+
+— **pause for review** —
+
+## Phase 8 — relational consequences come home
+
+- [ ] Move `isOdd_alternate_of_bracketing`, `RoundsFinite.unique_toOdd`,
+      `RoundsFinite.unique_nearest` and `RoundsFinite.unique` into
+      `Mpfx/RoundPred.lean`.
+- [ ] `RoundOp.lean` keeps only `rndUnbounded_satisfies`,
+      `rndUnbounded_unique` and `rnd_iff_rounds`.
+
+Extra acceptance: every theorem left under `Mpfx/RoundOp/` mentions `rnd`,
+`rndUnbounded`, `rndInt` or `rndParity` in its statement. `RoundPred.lean`
+still imports nothing from `Mpfx/RoundOp/`.
+
+Commit message: `Move the relational uniqueness theorems into RoundPred`
+
+— **pause for review** —
+
+---
+
+# Track C — monotonicity
+
+None of Track C shortens existing proofs. It is what unlocks roadmap §3's sign
 lemmas and all of §4's error bounds. Settle the `round_le` open question below
-before starting Phase 8.
+before starting Phase 12.
 
-## Phase 5 — directed monotonicity
+## Phase 9 — directed monotonicity
 
 - [ ] `Monotone (RoundsFinite F .toNegative)` / `.toPositive`
       (`Rnd_DN_pt_monotone`). A few lines each.
@@ -178,7 +317,7 @@ Commit message: `Add monotonicity for the four directed rounding modes`
 
 — **pause for review** —
 
-## Phase 6 — RTO monotonicity
+## Phase 10 — RTO monotonicity
 
 - [ ] `toOdd`. Flocq gets this from `Valid_rnd Zrnd_odd` (`Round_odd.v:37`);
       we need a direct argument. Size unknown — spike first if it resists.
@@ -187,16 +326,16 @@ Commit message: `Add monotonicity for round-to-odd`
 
 — **pause for review** —
 
-## Phase 7 — nearest monotonicity
+## Phase 11 — nearest monotonicity
 
-- [ ] Strict version (`x < y`), then patch `x = y` using Phase 3, as
+- [ ] Strict version (`x < y`), then patch `x = y` using Phase 3's `unique_nearest`, as
       `Rnd_NG_pt_monotone` does.
 
 Commit message: `Add monotonicity for the nearest modes, via Phase 3 uniqueness`
 
 — **pause for review** —
 
-## Phase 8 — `round_le`
+## Phase 12 — `round_le`
 
 - [ ] `round_le` on `RoundsFinite`. See the open question below on whether to
       also state it at `RoundResult` level.
@@ -254,20 +393,19 @@ second, and in what the bridges unlock.
       `toOdd_neighbors_alternate`, and the `import Mpfx.RoundOp.ToOdd` added to
       `Nearest.lean` — all of those existed only to run the probes.
 
-### Caveat
+### Caveat (superseded by Track B)
 
-`isOdd_alternate_of_bracketing` is itself proved through
-`rndUnbounded_unique_toNegative`, so this gives a relational *statement* layer
-with construction-backed *proofs* — not a construction-free Track A. Still
-worth having, since statements are what downstream consumes and
-`rnd_iff_rounds` already isolates the construction, but it is why Phase 1 is
-the only phase that lands in a constructive `Mpfx/RoundPred.lean`.
+`isOdd_alternate_of_bracketing` was proved through
+`rndUnbounded_unique_toNegative`, so Track A gave a relational *statement*
+layer with construction-backed *proofs*. That was taken as unavoidable at the
+time; it is not. Track B removes the detour — see Phase 6.
 
 ## Adjacent: the alternation duplication
 
-Found while sizing, **not** part of this item, but it wants to be done
-*together* with Phases 2–3 since `isOdd_alternate_of_bracketing` is the natural
-shared statement.
+Found while sizing. After **Phase 7** puts both alternation lemmas in
+`Mpfx/Parity.lean` this becomes a single-file change; do it as a follow-up to
+that phase rather than inside it, so Phase 7 stays a pure move.
+`isOdd_alternate_of_bracketing` is the natural shared statement.
 
 `toOdd_neighbors_alternate` (`ToOdd.lean:26`, 446 lines) and
 `nearest_toEven_neighbors_alternate` (`Nearest.lean:21`, 476 lines) are
@@ -290,12 +428,11 @@ lines, against ~200 saved by the whole uniqueness collapse.
 
 ## Open questions
 
-- [ ] **File placement.** Phase 1 is constructive and belongs in
-      `Mpfx/RoundPred.lean` importing only `Mpfx.Rounding`, preserving the
-      constructive/classical split documented in `TODO.md`. Phases 2–3 depend
-      on the construction (see Caveat) and must stay in `RoundOp/`. Confirm
-      before creating the file.
-- [ ] **`round_le` at `RoundResult` level (Phase 8).** Flocq has no overflow,
+- [x] **File placement.** Resolved by Track B: the Phase 2–3 dependency on the
+      construction turned out to be avoidable, so the relational uniqueness
+      theorems do *not* have to stay in `RoundOp/`. Phase 8 moves them into
+      `RoundPred.lean`.
+- [ ] **`round_le` at `RoundResult` level (Phase 12).** Flocq has no overflow,
       so `round_le` transfers cleanly only to the unbounded layer. A
       `RoundResult`-level statement needs an order with
       `overflow false < finite y < overflow true`. Suggest stating it on
