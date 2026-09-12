@@ -71,13 +71,104 @@ private theorem grid_rep_reconstruct {p : ℕ} {y : Dyadic}
     rw [h_abs]; exact h_d_lt
   · rw [hy_eq]; exact two_zpow_shift_real c_can h_k_le_e_can
 
-/-- For a finite-precision finite-exp format `F` with `F.p = p`,
-`F.exp = (exp : ℤ)`, and a positive value `y ∈ F`, there exist `k : ℤ` with
-`k ≥ exp` and an integer `c` with `|c| < 2^p` such that `y = c·2^k`. The
-exponent `k` is the F-grid step exponent at `y`: `max(exp, ⌊log₂ y⌋ - p + 1)`.
+/-- From a canonical representation `y = c · 2^e` with `|c| < 2^p` and `y > 0`,
+the binade of `y` is bounded: `⌊log₂ y⌋ ≤ e + p − 1`. The arithmetic core shared
+by the grid-representation lemmas below. -/
+theorem log_le_of_canonical_rep {p : ℕ} {y : Dyadic} {c_can e_can : ℤ}
+    (hy_pos : 0 < ((y : Dyadic) : ℝ))
+    (hy_eq : ((y : Dyadic) : ℝ) = (c_can : ℝ) * (2 : ℝ) ^ e_can)
+    (hc_can_lt : |c_can| < (2 : ℤ) ^ p) :
+    Int.log 2 ((y : Dyadic) : ℝ) ≤ e_can + (p : ℤ) - 1 := by
+  have hy_ne : ((y : Dyadic) : ℝ) ≠ 0 := ne_of_gt hy_pos
+  have h_c_can_pos_int : 0 < c_can := by
+    rcases lt_trichotomy c_can 0 with hc | hc | hc
+    · exfalso
+      have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e_can := zpow_pos (by norm_num) _
+      have h_neg : ((c_can : ℝ)) < 0 := by exact_mod_cast hc
+      have : ((y : Dyadic) : ℝ) < 0 := by
+        rw [hy_eq]; exact mul_neg_of_neg_of_pos h_neg h_2e_pos
+      linarith
+    · exfalso
+      rw [hc] at hy_eq; push_cast at hy_eq
+      rw [zero_mul] at hy_eq; linarith
+    · exact hc
+  have h_y_lt : ((y : Dyadic) : ℝ) < (2 : ℝ) ^ (e_can + (p : ℤ)) := by
+    rw [hy_eq]
+    have h_c_abs : (c_can : ℝ) < (2 : ℝ) ^ (p : ℤ) := by
+      have h_c_abs_int : c_can < (2 : ℤ) ^ p := by
+        have habs : |c_can| = c_can := abs_of_pos h_c_can_pos_int
+        rw [← habs]; exact hc_can_lt
+      have : ((c_can : ℤ) : ℝ) < (((2 : ℤ) ^ p : ℤ) : ℝ) := by exact_mod_cast h_c_abs_int
+      rw [show (((2 : ℤ) ^ p : ℤ) : ℝ) = (2 : ℝ) ^ (p : ℤ) from by push_cast; rfl] at this
+      exact this
+    have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e_can := zpow_pos (by norm_num) _
+    calc (c_can : ℝ) * (2 : ℝ) ^ e_can
+        < (2 : ℝ) ^ (p : ℤ) * (2 : ℝ) ^ e_can :=
+            mul_lt_mul_of_pos_right h_c_abs h_2e_pos
+      _ = (2 : ℝ) ^ (e_can + (p : ℤ)) := by
+            rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; ring_nf
+  have h_y_lt_nat : ((y : Dyadic) : ℝ) < ((2 : ℕ) : ℝ) ^ (e_can + (p : ℤ)) := by
+    rw [show ((2 : ℕ) : ℝ) = (2 : ℝ) from by push_cast; rfl]
+    exact h_y_lt
+  have : Int.log 2 ((y : Dyadic) : ℝ) < e_can + (p : ℤ) :=
+    (Int.lt_zpow_iff_log_lt (by norm_num : 1 < (2 : ℕ)) hy_pos).mp h_y_lt_nat
+  omega
 
-This is the key structural lemma underlying the F-adjacent midpoint analysis:
-F-adjacent values at this `k` differ by exactly `2^k`. -/
+/-- **F-grid representation at the canonical exponent.** A positive `y` meeting
+`F`'s precision and quantum constraints is `c · 2^(canonicalExp y)` with
+`|c| < 2^p`.
+
+This is the single engine behind both shaped forms below: `canonicalExp` already
+absorbs the `max` with `F.exp`, so the `exp = ⊥` and finite-`exp` cases differ
+only in whether the quantum constraint has any content. Flocq states the
+corresponding fact as `canonical_generic_format` (`Generic_fmt.v:115`). -/
+theorem exists_grid_rep_canonical (F : FiniteFormat) {p : ℕ}
+    (hp : F.p = (p : Prec))
+    {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.p y)
+    (hq_y_full : Dyadic.quantumAtLeast F.exp y)
+    (hy_pos : 0 < ((y : Dyadic) : ℝ)) :
+    ∃ c : ℤ, |c| < (2 : ℤ) ^ p ∧
+      ((y : Dyadic) : ℝ) =
+        (c : ℝ) * (2 : ℝ) ^ (F.canonicalExp ((y : Dyadic) : ℝ)) := by
+  have hy_ne : ((y : Dyadic) : ℝ) ≠ 0 := ne_of_gt hy_pos
+  have hp_y : Dyadic.precisionAtMost (p : Prec) y := hp ▸ hp_y_full
+  obtain ⟨c_can, e_can, hy_eq, h_odd, hc_can_lt⟩ :=
+    Dyadic.exists_odd_canonical_of_precisionAtMost hp_y hy_ne
+  -- A finite quantum cannot undercut the canonical exponent: `c_can` is odd.
+  have h_e_can_ge_exp : ∀ e' : ℤ, F.exp = (e' : QExp) → e' ≤ e_can := by
+    intro e' he
+    rw [he, Dyadic.quantumAtLeast_coe_real] at hq_y_full
+    obtain ⟨c', hc'_eq⟩ := hq_y_full
+    by_contra h_lt
+    push Not at h_lt
+    have h_diff : c_can = c' * (2 : ℤ) ^ (e' - e_can).toNat :=
+      coeff_eq_of_shift_real (by omega) (hy_eq.symm.trans hc'_eq)
+    have h_2_dvd_c_can : (2 : ℤ) ∣ c_can := by
+      rw [h_diff]
+      have hd_pos_nat : 0 < (e' - e_can).toNat := by omega
+      exact dvd_mul_of_dvd_right (dvd_pow_self 2 (Nat.pos_iff_ne_zero.mp hd_pos_nat)) _
+    exact (Int.not_even_iff_odd.mpr h_odd) (even_iff_two_dvd.mpr h_2_dvd_c_can)
+  have h_log_y := log_le_of_canonical_rep hy_pos hy_eq hc_can_lt
+  -- Both sides of the `max` are below `e_can`, so the canonical exponent is.
+  have h_k_le_e_can : F.canonicalExp ((y : Dyadic) : ℝ) ≤ e_can := by
+    have habs : |((y : Dyadic) : ℝ)| = ((y : Dyadic) : ℝ) := abs_of_pos hy_pos
+    unfold FiniteFormat.canonicalExp
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot => simp only [hp, habs, if_neg hy_ne]; omega
+    | coe e' =>
+        simp only [hp, habs, if_neg hy_ne]
+        exact max_le (by omega) (h_e_can_ge_exp e' hexp)
+  have h_log_le_k :
+      Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1 ≤ F.canonicalExp ((y : Dyadic) : ℝ) := by
+    have h := F.log_sub_p_le_canonicalExp hy_ne hp
+    rw [abs_of_pos hy_pos] at h
+    omega
+  obtain ⟨hd_bound, hd_eq⟩ := grid_rep_reconstruct hy_pos hy_eq h_k_le_e_can h_log_le_k
+  exact ⟨c_can * (2 : ℤ) ^ (e_can - F.canonicalExp ((y : Dyadic) : ℝ)).toNat, hd_bound, hd_eq⟩
+
+/-- F-grid representation with the exponent written out as
+`max F.exp (⌊log₂ y⌋ − p + 1)`. A shaped form of
+`exists_grid_rep_canonical`. -/
 theorem exists_grid_rep (F : FiniteFormat) {p : ℕ} {exp : ℤ}
     (hp : F.p = (p : Prec)) (he : F.exp = (exp : QExp))
     {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.p y)
@@ -87,80 +178,36 @@ theorem exists_grid_rep (F : FiniteFormat) {p : ℕ} {exp : ℤ}
       k ≥ exp ∧ |c| < (2 : ℤ)^p ∧
       ((y : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ)^k ∧
       k = max exp (Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1) := by
-  let k : ℤ := max exp (Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1)
-  -- Get canonical (c_can, e_can) for y.
+  obtain ⟨c, hc, hy⟩ := exists_grid_rep_canonical F hp hp_y_full hq_y_full hy_pos
+  have hy_ne : ((y : Dyadic) : ℝ) ≠ 0 := ne_of_gt hy_pos
+  have hk : F.canonicalExp ((y : Dyadic) : ℝ)
+      = max exp (Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1) := by
+    unfold FiniteFormat.canonicalExp
+    simp only [hp, he, abs_of_pos hy_pos, if_neg hy_ne]
+    omega
+  exact ⟨_, c, hk ▸ F.exp_le_canonicalExp _ he, hc, hy, hk⟩
+
+/-- F-grid representation in the precision-only form: `k = ⌊log₂ y⌋ - p + 1`
+(no `max` with `F.exp`). A shaped form of `exists_grid_rep_canonical` for
+`F.exp = ⊥`, where the quantum constraint is vacuous. -/
+theorem exists_grid_rep_exp_bot (F : FiniteFormat) {p : ℕ}
+    (hp : F.p = (p : Prec))
+    {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.p y)
+    (hy_pos : 0 < ((y : Dyadic) : ℝ)) :
+    ∃ (k : ℤ) (c : ℤ),
+      |c| < (2 : ℤ) ^ p ∧
+      ((y : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ k ∧
+      k = Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1 := by
   have hy_ne : ((y : Dyadic) : ℝ) ≠ 0 := ne_of_gt hy_pos
   have hp_y : Dyadic.precisionAtMost (p : Prec) y := hp ▸ hp_y_full
   obtain ⟨c_can, e_can, hy_eq, h_odd, hc_can_lt⟩ :=
     Dyadic.exists_odd_canonical_of_precisionAtMost hp_y hy_ne
-  -- Need e_can ≥ k. From canonical form constraints.
-  have h_e_can_ge_exp : e_can ≥ exp := by
-    rw [he, Dyadic.quantumAtLeast_coe_real] at hq_y_full
-    obtain ⟨c', hc'_eq⟩ := hq_y_full
-    -- y = c'·2^exp. Compare with canonical (c_can, e_can): c_can·2^e_can = c'·2^exp.
-    -- If e_can < exp: by uniqueness, contradiction with c_can odd.
-    by_contra h_lt
-    push Not at h_lt
-    -- We have c_can·2^e_can = c'·2^exp with e_can < exp.
-    have h_diff : c_can = c' * (2 : ℤ)^(exp - e_can).toNat :=
-      coeff_eq_of_shift_real (by omega) (hy_eq.symm.trans hc'_eq)
-    have h_2_dvd_c_can : (2 : ℤ) ∣ c_can := by
-      rw [h_diff]
-      have hd_pos_nat : 0 < (exp - e_can).toNat := by
-        have : 0 < exp - e_can := by omega
-        omega
-      exact dvd_mul_of_dvd_right (dvd_pow_self 2 (Nat.pos_iff_ne_zero.mp hd_pos_nat)) _
-    exact (Int.not_even_iff_odd.mpr h_odd) (even_iff_two_dvd.mpr h_2_dvd_c_can)
-  -- Now derive: e_can ≥ k. Need ⌊log₂ y⌋ - p + 1 ≤ e_can.
-  have h_log_y : Int.log 2 ((y : Dyadic) : ℝ) ≤ e_can + (p : ℤ) - 1 := by
-    have h_c_can_ne : c_can ≠ 0 := by
-      intro h
-      rw [h] at hy_eq; push_cast at hy_eq
-      rw [zero_mul] at hy_eq
-      exact hy_ne hy_eq
-    have h_c_can_pos_int : 0 < c_can := by
-      rcases lt_trichotomy c_can 0 with hc | hc | hc
-      · exfalso
-        have h_2e_pos : (0 : ℝ) < (2 : ℝ)^e_can := zpow_pos (by norm_num) _
-        have h_neg : ((c_can : ℝ)) < 0 := by exact_mod_cast hc
-        have : ((y : Dyadic) : ℝ) < 0 := by
-          rw [hy_eq]; exact mul_neg_of_neg_of_pos h_neg h_2e_pos
-        linarith
-      · exfalso
-        rw [hc] at hy_eq; push_cast at hy_eq
-        rw [zero_mul] at hy_eq; linarith
-      · exact hc
-    have h_y_lt : ((y : Dyadic) : ℝ) < (2 : ℝ)^(e_can + (p : ℤ)) := by
-      rw [hy_eq]
-      have h_c_abs : (c_can : ℝ) < (2 : ℝ)^(p : ℤ) := by
-        have h_c_abs_int : c_can < (2 : ℤ)^p := by
-          have habs : |c_can| = c_can := abs_of_pos h_c_can_pos_int
-          rw [← habs]; exact hc_can_lt
-        have : ((c_can : ℤ) : ℝ) < (((2 : ℤ)^p : ℤ) : ℝ) := by exact_mod_cast h_c_abs_int
-        rw [show (((2 : ℤ)^p : ℤ) : ℝ) = (2 : ℝ)^(p : ℤ) from by push_cast; rfl] at this
-        exact this
-      have h_2e_pos : (0 : ℝ) < (2 : ℝ)^e_can := zpow_pos (by norm_num) _
-      calc (c_can : ℝ) * (2 : ℝ)^e_can
-          < (2 : ℝ)^(p : ℤ) * (2 : ℝ)^e_can :=
-              mul_lt_mul_of_pos_right h_c_abs h_2e_pos
-        _ = (2 : ℝ)^(e_can + (p : ℤ)) := by
-              rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; ring_nf
-    have h_y_lt' : ((y : Dyadic) : ℝ) < ((2 : ℕ) : ℝ)^(e_can + (p : ℤ)) := by
-      rw [show ((2 : ℕ) : ℝ) = (2 : ℝ) from by push_cast; rfl]
-      exact h_y_lt
-    have h_log_lt : Int.log 2 ((y : Dyadic) : ℝ) < e_can + (p : ℤ) :=
-      (Int.lt_zpow_iff_log_lt (by norm_num : 1 < (2 : ℕ)) hy_pos).mp h_y_lt'
-    omega
-  -- k = max(exp, log_y - p + 1) ≤ e_can.
-  have h_k_le_e_can : k ≤ e_can := by
-    change max exp (Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1) ≤ e_can
-    have h2 : Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1 ≤ e_can := by omega
-    exact max_le h_e_can_ge_exp h2
-  have h_k_ge_exp : k ≥ exp := le_max_left _ _
-  -- Now y at quantum k: y = c_can · 2^(e_can - k) · 2^k = (c_can · 2^(e_can - k)) · 2^k.
-  have h_log_le_k : Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1 ≤ k := le_max_right _ _
-  obtain ⟨hd_bound, hd_eq⟩ := grid_rep_reconstruct hy_pos hy_eq h_k_le_e_can h_log_le_k
-  exact ⟨k, c_can * (2 : ℤ) ^ (e_can - k).toNat, h_k_ge_exp, hd_bound, hd_eq, rfl⟩
+  have h_log_y := log_le_of_canonical_rep hy_pos hy_eq hc_can_lt
+  obtain ⟨hd_bound, hd_eq⟩ :=
+    grid_rep_reconstruct hy_pos hy_eq
+      (show Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1 ≤ e_can by omega) (le_refl _)
+  exact ⟨_, c_can * (2 : ℤ) ^ (e_can - (Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1)).toNat,
+    hd_bound, hd_eq, rfl⟩
 
 /-- For a representation `y = c·2^k` with `y > 0`, the integer `c > 0`. -/
 theorem grid_rep_c_pos {y : Dyadic} (hy_pos : 0 < ((y : Dyadic) : ℝ))
@@ -172,69 +219,6 @@ theorem grid_rep_c_pos {y : Dyadic} (hy_pos : 0 < ((y : Dyadic) : ℝ))
     have : (c : ℝ) * (2 : ℝ) ^ k > 0 := h ▸ hy_pos
     exact pos_of_mul_pos_left (by linarith) (le_of_lt h_2k_pos)
   exact_mod_cast h_c_real_pos
-
-/-- F-grid representation in the precision-only form: `k = ⌊log₂ y⌋ - p + 1`
-(no `max` with `F.exp`). Useful when `F.exp = ⊥` (since the `k ≥ exp` clause
-of `exists_grid_rep` is then vacuous). -/
-theorem exists_grid_rep_exp_bot (F : FiniteFormat) {p : ℕ}
-    (hp : F.p = (p : Prec))
-    {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.p y)
-    (hy_pos : 0 < ((y : Dyadic) : ℝ)) :
-    ∃ (k : ℤ) (c : ℤ),
-      |c| < (2 : ℤ) ^ p ∧
-      ((y : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ k ∧
-      k = Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1 := by
-  let k : ℤ := Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1
-  have hy_ne : ((y : Dyadic) : ℝ) ≠ 0 := ne_of_gt hy_pos
-  have hp_y : Dyadic.precisionAtMost (p : Prec) y := hp ▸ hp_y_full
-  obtain ⟨c_can, e_can, hy_eq, h_odd, hc_can_lt⟩ :=
-    Dyadic.exists_odd_canonical_of_precisionAtMost hp_y hy_ne
-  have h_c_can_ne : c_can ≠ 0 := by
-    intro h
-    rw [h] at hy_eq; push_cast at hy_eq
-    rw [zero_mul] at hy_eq
-    exact hy_ne hy_eq
-  have h_c_can_pos_int : 0 < c_can := by
-    rcases lt_trichotomy c_can 0 with hc | hc | hc
-    · exfalso
-      have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e_can := zpow_pos (by norm_num) _
-      have h_neg : ((c_can : ℝ)) < 0 := by exact_mod_cast hc
-      have : ((y : Dyadic) : ℝ) < 0 := by
-        rw [hy_eq]; exact mul_neg_of_neg_of_pos h_neg h_2e_pos
-      linarith
-    · exfalso; exact h_c_can_ne hc
-    · exact hc
-  have h_log_y : Int.log 2 ((y : Dyadic) : ℝ) ≤ e_can + (p : ℤ) - 1 := by
-    have h_y_lt : ((y : Dyadic) : ℝ) < (2 : ℝ) ^ (e_can + (p : ℤ)) := by
-      rw [hy_eq]
-      have h_c_abs : (c_can : ℝ) < (2 : ℝ) ^ (p : ℤ) := by
-        have h_c_abs_int : c_can < (2 : ℤ) ^ p := by
-          have habs : |c_can| = c_can := abs_of_pos h_c_can_pos_int
-          rw [← habs]; exact hc_can_lt
-        have : ((c_can : ℤ) : ℝ) < (((2 : ℤ) ^ p : ℤ) : ℝ) := by exact_mod_cast h_c_abs_int
-        rw [show (((2 : ℤ) ^ p : ℤ) : ℝ) = (2 : ℝ) ^ (p : ℤ) from by
-          push_cast; rfl] at this
-        exact this
-      have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e_can := zpow_pos (by norm_num) _
-      calc (c_can : ℝ) * (2 : ℝ) ^ e_can
-          < (2 : ℝ) ^ (p : ℤ) * (2 : ℝ) ^ e_can :=
-              mul_lt_mul_of_pos_right h_c_abs h_2e_pos
-        _ = (2 : ℝ) ^ (e_can + (p : ℤ)) := by
-              rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; ring_nf
-    have h_y_lt_nat : ((y : Dyadic) : ℝ) < ((2 : ℕ) : ℝ) ^ (e_can + (p : ℤ)) := by
-      rw [show ((2 : ℕ) : ℝ) = (2 : ℝ) from by push_cast; rfl]
-      exact h_y_lt
-    have : Int.log 2 ((y : Dyadic) : ℝ) < e_can + (p : ℤ) :=
-      (Int.lt_zpow_iff_log_lt (by norm_num : 1 < (2 : ℕ)) hy_pos).mp h_y_lt_nat
-    omega
-  have h_k_le_e_can : k ≤ e_can := by
-    change Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1 ≤ e_can
-    omega
-  have h_log_le_k : Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1 ≤ k := by
-    have hk_def : k = Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1 := rfl
-    omega
-  obtain ⟨hd_bound, hd_eq⟩ := grid_rep_reconstruct hy_pos hy_eq h_k_le_e_can h_log_le_k
-  exact ⟨k, c_can * (2 : ℤ) ^ (e_can - k).toNat, hd_bound, hd_eq, rfl⟩
 
 /-- Shared bounds for the `no_F_element_in_step_interval` pair. From `y` in the
 open interval `(c·2^k, (c+1)·2^k)` with `0 < c < 2^p`, derive `y > 0` together

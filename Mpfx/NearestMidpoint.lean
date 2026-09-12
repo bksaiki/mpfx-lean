@@ -43,11 +43,9 @@ noncomputable def rndDown (F : FiniteFormat) (x : ℝ) : Dyadic :=
 /-- Closed form of the round-down: `⌊x·2^(−e)⌋·2^e` at `e = canonicalExp x`. -/
 theorem rndDown_eq (F : FiniteFormat) (x : ℝ) :
     rndDown F x =
-      Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-(F.canonicalExp x))⌋ (F.canonicalExp x) := by
-  unfold rndDown rndUnbounded
-  rw [dif_neg (by decide : (RoundingMode.toNegative : RoundingMode) ≠ .toOdd)]
-  rw [dif_neg (by decide : (RoundingMode.toNegative : RoundingMode) ≠ .nearest .toEven)]
-  rfl
+      Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-(F.canonicalExp x))⌋ (F.canonicalExp x) :=
+  RoundsFinite.toNegative_eq_floor F x
+    (rndUnbounded_satisfies_toNegative F x (not_isUndefined_toNegative F))
 
 /-- The round-down satisfies the RTN spec in the unbounded format. -/
 theorem rndDown_spec (F : FiniteFormat) (x : ℝ) :
@@ -275,11 +273,9 @@ theorem nearest_eq_rndDown_of_lt_midp (F : FiniteFormat) (tb : TieBreak) (ξ : �
 /-- Closed form of the round-up: `⌈x·2^(−e)⌉·2^e`. -/
 theorem rndUp_eq (F : FiniteFormat) (x : ℝ) :
     rndUp F x =
-      Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x) := by
-  unfold rndUp rndUnbounded
-  rw [dif_neg (by decide : (RoundingMode.toPositive : RoundingMode) ≠ .toOdd)]
-  rw [dif_neg (by decide : (RoundingMode.toPositive : RoundingMode) ≠ .nearest .toEven)]
-  rfl
+      Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x) :=
+  RoundsFinite.toPositive_eq_ceil F x
+    (rndUnbounded_satisfies_toPositive F x (not_isUndefined_toPositive F))
 
 /-- **Above-midpoint ⟹ nearest rounds up** (mirror of
 `nearest_eq_rndDown_of_lt_midp`). If `midp F ξ < ξ`, its round-to-nearest value

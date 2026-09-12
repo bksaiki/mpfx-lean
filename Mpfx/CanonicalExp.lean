@@ -23,26 +23,9 @@ theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ}
     (hp : F.p = (p : Prec))
     {y : Dyadic} (hmem : y ∈ F) (hpos : 0 < (y : ℝ)) :
     ∃ c : ℤ, |c| < (2 : ℤ) ^ p ∧
-      (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ (F.canonicalExp (y : ℝ)) := by
-  have hy_ne : (y : ℝ) ≠ 0 := ne_of_gt hpos
-  obtain ⟨hprec, hquant, _⟩ := hmem
-  cases hexp : F.exp using QExp.recBotCoe with
-  | bot =>
-    obtain ⟨k, c, hc, hyeq, hk⟩ := exists_grid_rep_exp_bot F hp hprec hpos
-    have hcexp : F.canonicalExp (y : ℝ) = Int.log 2 (y : ℝ) + 1 - (p : ℤ) := by
-      unfold FiniteFormat.canonicalExp
-      simp only [hp, hexp, hy_ne, abs_of_pos hpos, if_false]
-    have hkexp : k = F.canonicalExp (y : ℝ) := by rw [hcexp, hk]; omega
-    exact ⟨c, hc, by rw [← hkexp]; exact hyeq⟩
-  | coe e =>
-    obtain ⟨k, c, _, hc, hyeq, hk⟩ :=
-      exists_grid_rep F hp hexp hprec (hexp ▸ hquant) hpos
-    have hcexp : F.canonicalExp (y : ℝ)
-        = max (Int.log 2 (y : ℝ) + 1 - (p : ℤ)) e := by
-      unfold FiniteFormat.canonicalExp
-      simp only [hp, hexp, hy_ne, abs_of_pos hpos, if_false]
-    have hkexp : k = F.canonicalExp (y : ℝ) := by rw [hcexp, hk]; omega
-    exact ⟨c, hc, by rw [← hkexp]; exact hyeq⟩
+      (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ (F.canonicalExp (y : ℝ)) :=
+  have ⟨hprec, hquant, _⟩ := hmem
+  exists_grid_rep_canonical F hp hprec hquant hpos
 
 /-- `canonicalExp` is monotone in magnitude. -/
 theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)

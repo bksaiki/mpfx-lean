@@ -489,31 +489,88 @@ second, and in what the bridges unlock.
 layer with construction-backed *proofs*. That was taken as unavoidable at the
 time; it is not. Track B removes the detour — see Phase 6.
 
-## Adjacent: the alternation duplication
+## Adjacent: the alternation duplication — **done**
 
-Found while sizing. After **Phase 7** puts both alternation lemmas in
-`Mpfx/Parity.lean` this becomes a single-file change; do it as a follow-up to
-that phase rather than inside it, so Phase 7 stays a pure move.
-`isOdd_alternate_of_bracketing` is the natural shared statement.
+`toOdd_neighbors_alternate` (452 lines) and `nearest_toEven_neighbors_alternate`
+(468) ran the *same* six-leaf dispatch. Normalising the `ParityFormat` name away
+they differed by 72 lines, only 4 of which mentioned `IsEven`: at each leaf the
+nearest copy returned a pair, pairing the `alternating_parity_*_iff` result with
+the `alternating_isEven_*` sibling that `Format.lean` already provided.
 
-`toOdd_neighbors_alternate` (`ToOdd.lean:26`, 446 lines) and
-`nearest_toEven_neighbors_alternate` (`Nearest.lean:21`, 476 lines) are
-near-duplicates. Two probes confirmed it:
+So the earlier note here — "share the iff, keep a smaller `IsEven` tail, not a
+clean delete" — was too pessimistic. One pair-valued `neighbors_alternate` now
+carries the whole dispatch and both old names are projections of it:
+`toOdd_…` is `.1`, and `nearest_…` bridges through proof irrelevance, the two
+promotions being the same term. Both signatures are unchanged, so the three
+consumers were untouched.
 
-- `F.toParityFormatOfToOdd h = F.toParityFormatOfNearestEven h'` is **`rfl`**
-  (`ParityFormat.parity` is a `Prop` field, so proof irrelevance applies).
-- Consequently **part 1 of the 476-line nearest proof is derivable in 3 lines**
-  from the toOdd one, modulo a one-line `IsUndefined` bridge
-  (`fun ⟨h1, h2, _⟩ => h ⟨h1, h2, Or.inr rfl⟩`). This compiled.
+**Result: `Parity.lean` 950 → 531 lines, −419.** This also revises the Phase 10
+comparison: against Flocq's ~190 lines of format-level parity work we are now at
+~500 rather than 922, the residual being the `p = 1, exp` finite case Flocq
+excludes with `prec_gt_1`.
 
-The `IsEven` half does *not* fall out for free:
-`alternating_isEven_of_alternating_iff` (`Format.lean:705`) needs canonical
-representations on both sides, and neither proof exports them
-(`IsRepresentableAtP` appears 0 times in both files — they route through the
-`ParityFormat.alternating_parity_*_iff` family, and the saturated branches build
-`IsEven` by hand). So this is "share the iff, keep a smaller `IsEven` tail,"
-not a clean delete — but the iff component is ~100% redundant across ~450
-lines, against ~200 saved by the whole uniqueness collapse.
+Commit message: `Unify the two parity-alternation dispatches into one`
+
+## Duplication scan (2026-09-12)
+
+A near-duplicate scan over all 218 proofs of >= 25 lines surfaced six candidate
+pairs. Three were investigated; the results are worth recording, because the
+similarity metric oversold two of them.
+
+**Done — `Parity.lean` alternation pair, −419 lines.** Genuine duplication; see
+above.
+
+**Partly done — `exists_grid_rep` / `_exp_bot` (roadmap item 6), −33 lines.**
+The premise was wrong: `exists_grid_rep_exp_bot` never mentions `F.exp`. It is a
+*precision-only* statement true of any format, and `_exp_bot` names its use site,
+not a hypothesis — so the two do not merge. What was recoverable: the ~35-line
+binade bound, now `log_le_of_canonical_rep`, and a `canonicalExp`-phrased engine
+`exists_grid_rep_canonical` with `exists_grid_rep` as a shaped wrapper.
+`exists_canonical_rep` (`CanonicalExp.lean`) dropped 24 lines → 6 and the
+dependency inverted the right way.
+
+*Re-scope item 6*: the `_exp_bot` twins are not systematic duplication. Some may
+be genuine `max`-vs-no-`max` splits that `canonicalExp` collapses, but at least
+one was a differently-quantified theorem wearing a misleading name. Three pairs
+remain unexamined (`F_adjacent_step_form`, two midpoint pairs).
+
+**Declined — the `rounds*` scaffold.** Four of the six `rounds*` theorems share a
+`suffices key : ∀ F, …` preamble that reduces to a grid-aligned bound, but only
+**8 of ~23** preamble lines are common to all four. The variation is structural
+— narrow mode, containment shape (`F.toFormat` vs `(F.extend 1).toFormat`),
+undefinedness hypothesised vs derived, and which zero-bound helper applies. A
+combinator would need five parameters to save ~40 of 92 lines and would read
+worse than the `suffices` statements it replaced. Not worth doing.
+
+**Lesson**: the similarity metric detects shared *narrative* (same steps,
+different lemmas) as readily as shared proof. Check what varies before
+committing.
+
+## Remaining follow-ups
+
+- [ ] **Delete three private helpers in `DoubleRounding.lean`** (~40 lines,
+      11 call sites). `faithful_below_unique` (:1874) *is*
+      `RoundsFinite.unique_toNegative` with the conjunction unpacked;
+      `faithful_above_unique` (:1882) is `unique_toPositive`; and
+      `faithful_eq_of_third` (:1891) now follows from
+      `IsFaithfulRound.opposite_sides_of_ne` plus the two uniqueness lemmas.
+- [ ] **Slim `nearest_neighbors_setup`** (`RoundOp/Nearest.lean`, size unmeasured).
+      Its rounding-direction conjuncts are `toNegative_floor` / `toPositive_ceil`
+      and its dichotomy is `isFaithfulRound_iff_directed` with the `_eq_floor` /
+      `_eq_ceil` bridges. Once slimmed, move what remains out of `RoundOp/`.
+- [ ] **`NearestMidpoint.rndDown_eq`** (~10 lines): re-does the
+      `unfold rndUnbounded` that `RoundsFinite.toNegative_eq_floor` now performs.
+
+- [ ] **`gap_around_m_mem` / `gap_around_mid3_mem`** (`DoubleRoundingCex.lean:734`,
+      `:942`; 223 lines, ~110 recoverable). The one scan candidate that looks
+      genuinely generalisable: the same "gap of width `2^K` around `c·2^(e-1)`"
+      theorem for `c = 7` and `c = 3`, differing only in the bracketing powers.
+      Needs a real generalisation over odd `c` with `2^k < c < 2^(k+1)`, not a
+      merge — medium risk.
+
+Surveyed and found clean: no hand-rolled monotonicity anywhere, so Track C is
+new capability rather than cleanup; and `DoubleRoundingCex.lean` (3623 lines) is
+concrete witness construction with no relational duplication to harvest.
 
 ## Open questions
 

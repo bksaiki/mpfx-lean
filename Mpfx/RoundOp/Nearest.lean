@@ -53,17 +53,15 @@ private theorem nearest_neighbors_setup (F : FiniteFormat) (x : ℝ)
   set dlo : Dyadic := Dyadic.ofIntZpow lo e
   set dhi : Dyadic := Dyadic.ofIntZpow (lo + 1) e
   have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-  have h_lo_bound : ∀ {p : ℕ}, F.p = (p : Prec) →
-      |lo| ≤ (2 : ℤ) ^ p := fun hp => by
-    apply abs_floor_le_of_abs_lt
-    push_cast; exact floor_mantissa_lt hp
   have h_lop1_bound : ∀ {p : ℕ}, F.p = (p : Prec) →
       |lo + 1| ≤ (2 : ℤ) ^ p := fun hp =>
     abs_floor_add_one_le_of_abs_lt (floor_mantissa_lt hp)
   have h_exp_le : ∀ {e' : ℤ}, F.exp = (e' : QExp) → e' ≤ e :=
     fun hexp => F.exp_le_canonicalExp x hexp
-  have h_dlo_mem : dlo ∈ F.unbounded :=
-    ofIntZpow_mem_unbounded F h_exp_le h_lo_bound
+  -- after the `set`s, `dlo` *is* the floor grid point at the canonical exponent
+  have h_dn : RoundsFinite F.unbounded .toNegative x dlo :=
+    RoundsFinite.toNegative_floor F x
+  have h_dlo_mem : dlo ∈ F.unbounded := h_dn.1
   have h_dhi_mem : dhi ∈ F.unbounded :=
     ofIntZpow_mem_unbounded F h_exp_le h_lop1_bound
   have h_dlo_real : (dlo : ℝ) = (lo : ℝ) * (2 : ℝ) ^ e :=
@@ -73,33 +71,21 @@ private theorem nearest_neighbors_setup (F : FiniteFormat) (x : ℝ)
   have h_floor_le_s : (lo : ℝ) ≤ s := Int.floor_le _
   have h_s_lt_succ : s < (lo : ℝ) + 1 := Int.lt_floor_add_one _
   have h_s_unscale : s * (2 : ℝ) ^ e = x := mul_zpow_neg_self x e
-  have h_dlo_le_x : (dlo : ℝ) ≤ x := by
-    rw [h_dlo_real, ← h_s_unscale]
-    exact mul_le_mul_of_nonneg_right h_floor_le_s h_2e_pos.le
+  have h_dlo_le_x : (dlo : ℝ) ≤ x := h_dn.2.1
   have h_x_le_dhi : x ≤ (dhi : ℝ) := by
     rw [h_dhi_real, ← h_s_unscale]
     apply mul_le_mul_of_nonneg_right _ h_2e_pos.le
     push_cast; linarith
   have h_dlo_round_down : ∀ z : Dyadic, z ∈ F.unbounded → (z : ℝ) ≤ x →
-      (z : ℝ) ≤ (dlo : ℝ) := by
-    intro z hz hz_le_x
-    obtain ⟨hz_prec, hz_quant, _⟩ := hz
-    rw [h_dlo_real]
-    exact floor_minimality F x hz_prec hz_quant hz_le_x
+      (z : ℝ) ≤ (dlo : ℝ) := h_dn.2.2
   have h_dhi_round_up : (lo : ℝ) ≠ s →
       ∀ z : Dyadic, z ∈ F.unbounded → x ≤ (z : ℝ) → (dhi : ℝ) ≤ (z : ℝ) := by
     intro hs_ne z hz hx_le_z
     obtain ⟨hz_prec, hz_quant, _⟩ := hz
     rw [h_dhi_real]
     have h_ceil_eq : (⌈s⌉ : ℤ) = lo + 1 := by
-      have h_lo_lt_s : (lo : ℝ) < s := lt_of_le_of_ne h_floor_le_s hs_ne
-      have h_ceil_le : ⌈s⌉ ≤ lo + 1 :=
-        Int.ceil_le.mpr (by push_cast; linarith)
-      have h_ceil_ge : lo + 1 ≤ ⌈s⌉ := by
-        have h_lt_ceil : (lo : ℝ) < (⌈s⌉ : ℝ) :=
-          lt_of_lt_of_le h_lo_lt_s (Int.le_ceil _)
-        have : lo < ⌈s⌉ := by exact_mod_cast h_lt_ceil
-        omega
+      have h1 : lo < ⌈s⌉ := Int.lt_ceil.mpr (lt_of_le_of_ne h_floor_le_s hs_ne)
+      have h2 : ⌈s⌉ ≤ lo + 1 := Int.ceil_le_floor_add_one s
       omega
     have hh := ceil_minimality F x hz_prec hz_quant hx_le_z
     have h_subst : ((lo + 1 : ℤ) : ℝ) = ((⌈s⌉ : ℤ) : ℝ) := by exact_mod_cast h_ceil_eq.symm
@@ -108,27 +94,15 @@ private theorem nearest_neighbors_setup (F : FiniteFormat) (x : ℝ)
   have h_faithful_eq : ∀ y : Dyadic, IsFaithfulRound F.unbounded x y →
       y = dlo ∨ y = dhi := by
     intro y hf
-    rcases hf with ⟨hy_mem, hy_le, hy_max⟩ | ⟨hy_mem, hy_ge, hy_min⟩
-    · left
-      apply Dyadic.ext_real
-      exact le_antisymm (h_dlo_round_down y hy_mem hy_le)
-        (hy_max dlo h_dlo_mem h_dlo_le_x)
+    rcases isFaithfulRound_iff_directed.mp hf with hdn | hup
+    · exact Or.inl (RoundsFinite.unique_toNegative hdn h_dn)
     · by_cases hs_eq : (lo : ℝ) = s
-      · left; apply Dyadic.ext_real
-        have hx_eq_dlo : x = (dlo : ℝ) := by
-          rw [h_dlo_real]
-          have h_x_eq : x = s * (2 : ℝ) ^ e := by
-            change x = x * (2 : ℝ) ^ (-e) * (2 : ℝ) ^ e
-            rw [mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0),
-                neg_add_cancel, zpow_zero, mul_one]
-          rw [h_x_eq, ← hs_eq]
-        have h_y_le_dlo : (y : ℝ) ≤ (dlo : ℝ) :=
-          hy_min dlo h_dlo_mem (le_of_eq hx_eq_dlo)
-        have h_y_ge_dlo : (dlo : ℝ) ≤ (y : ℝ) := hx_eq_dlo ▸ hy_ge
-        exact le_antisymm h_y_le_dlo h_y_ge_dlo
-      · right; apply Dyadic.ext_real
-        exact le_antisymm (hy_min dhi h_dhi_mem h_x_le_dhi)
-          (h_dhi_round_up hs_eq y hy_mem hy_ge)
+      · -- `x` sits on the grid at `dlo`, so its round-up is `dlo` too.
+        have hx_eq : x = (dlo : ℝ) := by rw [h_dlo_real, hs_eq, h_s_unscale]
+        exact Or.inl (RoundsFinite.unique_toPositive hup
+          ⟨h_dlo_mem, hx_eq.le, fun z _ hz => by rw [← hx_eq]; exact hz⟩)
+      · exact Or.inr (RoundsFinite.unique_toPositive hup
+          ⟨h_dhi_mem, h_x_le_dhi, h_dhi_round_up hs_eq⟩)
   exact ⟨h_2e_pos, h_dlo_mem, h_dhi_mem, h_dlo_real, h_dhi_real, h_floor_le_s,
          h_s_lt_succ, h_s_unscale, h_dlo_le_x, h_x_le_dhi, h_dlo_round_down,
          h_dhi_round_up, h_faithful_eq⟩
