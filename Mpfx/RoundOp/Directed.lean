@@ -33,7 +33,7 @@ theorem rndUnbounded_satisfies_toNegative (F : FiniteFormat) (x : ℝ)
   have h_y_real : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow c e
   have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
   -- Membership via `ofIntZpow_mem_unbounded`.
-  have h_c_bound : ∀ {p : ℕ+}, F.p = ((p : ℕ+) : WithTop ℕ+) →
+  have h_c_bound : ∀ {p : ℕ}, F.p = (p : Prec) →
       |c| ≤ (2 : ℤ) ^ (p : ℕ) := fun hp => by
     apply abs_floor_le_of_abs_lt
     push_cast; exact floor_mantissa_lt hp
@@ -66,7 +66,7 @@ theorem rndUnbounded_satisfies_toPositive (F : FiniteFormat) (x : ℝ)
   set y : Dyadic := Dyadic.ofIntZpow c e
   have h_y_real : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow c e
   have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-  have h_c_bound : ∀ {p : ℕ+}, F.p = ((p : ℕ+) : WithTop ℕ+) →
+  have h_c_bound : ∀ {p : ℕ}, F.p = (p : Prec) →
       |c| ≤ (2 : ℤ) ^ (p : ℕ) := fun hp => by
     apply abs_ceil_le_of_abs_lt
     push_cast; exact floor_mantissa_lt hp

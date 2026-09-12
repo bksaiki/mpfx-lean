@@ -19,8 +19,8 @@ namespace Mpfx
 /-- **Canonical grid representation.** A positive `y ∈ F` (precision `p`) is
 `c · 2^(canonicalExp y)` with `|c| < 2^p`. Unifies the `exp = ⊥` and finite-`exp`
 grid lemmas (both have grid step `= canonicalExp`). -/
-theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ+}
-    (hp : F.p = ((p : ℕ+) : WithTop ℕ+))
+theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ}
+    (hp : F.p = (p : Prec))
     {y : Dyadic} (hmem : y ∈ F) (hpos : 0 < (y : ℝ)) :
     ∃ c : ℤ, |c| < (2 : ℤ) ^ (p : ℕ) ∧
       (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ (F.canonicalExp (y : ℝ)) := by
@@ -52,7 +52,7 @@ theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)
     rintro rfl; rw [abs_zero] at hyz; exact absurd hyz (not_le.mpr hy_pos)
   have hlog : Int.log 2 |y| ≤ Int.log 2 |z| := Int.log_mono_right hy_pos hyz
   unfold FiniteFormat.canonicalExp
-  cases F.p with
+  cases F.p using Prec.recTopCoe with
   | top => cases F.exp <;> simp
   | coe p =>
     cases F.exp with
@@ -64,8 +64,8 @@ When `v` is nonzero and its FLX exponent `log₂|v| + 1 − p` is at least the
 format's minimum exponent `F.exp` (the *normal* regime — vacuous for `exp = ⊥`),
 `canonicalExp` takes the FLX form. This is the single lemma that lets the FLX
 proofs run unchanged for FLT: in the genuine-midpoint case all values are normal. -/
-theorem canonicalExp_closed {F : FiniteFormat} {p : ℕ+}
-    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) {v : ℝ} (hv : v ≠ 0)
+theorem canonicalExp_closed {F : FiniteFormat} {p : ℕ}
+    (hp : F.p = (p : Prec)) {v : ℝ} (hv : v ≠ 0)
     (hnorm : F.exp ≤ ((Int.log 2 |v| + 1 - (p : ℤ) : ℤ) : WithBot ℤ)) :
     F.canonicalExp v = Int.log 2 |v| + 1 - (p : ℤ) := by
   unfold FiniteFormat.canonicalExp
@@ -78,15 +78,15 @@ theorem canonicalExp_closed {F : FiniteFormat} {p : ℕ+}
 
 /-- Closed form of `canonicalExp` in an FLX format (`exp = ⊥`): `log₂|v| + 1 − p`
 (the vacuous-normality special case of `canonicalExp_closed`). -/
-theorem canonicalExp_FLX {F : FiniteFormat} {p : ℕ+}
-    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (hexp : F.exp = ⊥)
+theorem canonicalExp_FLX {F : FiniteFormat} {p : ℕ}
+    (hp : F.p = (p : Prec)) (hexp : F.exp = ⊥)
     {v : ℝ} (hv : v ≠ 0) : F.canonicalExp v = Int.log 2 |v| + 1 - (p : ℤ) :=
   canonicalExp_closed hp hv (by rw [hexp]; exact bot_le)
 
 /-- Closed form of `canonicalExp` in an FLT format (`exp = emin` finite):
 `max(log₂|v| + 1 − p, emin)`. -/
-theorem canonicalExp_FLT {F : FiniteFormat} {p : ℕ+} {emin : ℤ}
-    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) (hexp : F.exp = (emin : WithBot ℤ))
+theorem canonicalExp_FLT {F : FiniteFormat} {p : ℕ} {emin : ℤ}
+    (hp : F.p = (p : Prec)) (hexp : F.exp = (emin : WithBot ℤ))
     {v : ℝ} (hv : v ≠ 0) :
     F.canonicalExp v = max (Int.log 2 |v| + 1 - (p : ℤ)) emin := by
   unfold FiniteFormat.canonicalExp; simp only [hp, hexp, hv, if_false]
@@ -100,8 +100,8 @@ theorem exp_le_canonicalExp_coe (F : FiniteFormat) (x : ℝ) :
 
 /-- The FLX exponent lower-bounds `canonicalExp`: `log₂|v| + 1 − p ≤ canonicalExp v`
 (equality for `exp = ⊥`; `≤` via `le_max_left` for finite `exp`). -/
-theorem log_sub_prec_le_canonicalExp {F : FiniteFormat} {p : ℕ+}
-    (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) {v : ℝ} (hv : v ≠ 0) :
+theorem log_sub_prec_le_canonicalExp {F : FiniteFormat} {p : ℕ}
+    (hp : F.p = (p : Prec)) {v : ℝ} (hv : v ≠ 0) :
     Int.log 2 |v| + 1 - (p : ℤ) ≤ F.canonicalExp v := by
   cases hexp : F.exp with
   | bot => rw [canonicalExp_FLX hp hexp hv]

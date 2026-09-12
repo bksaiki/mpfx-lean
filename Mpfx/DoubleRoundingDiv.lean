@@ -75,8 +75,8 @@ If `0 < v` equals its `F₁`-midpoint and `F₂` is finer at `v`
 `e₁ = canonicalExp₁ v`) satisfies `(g:ℝ) = v` and `g ∈ F₂`. This is where the
 *even radix* enters: the trailing `½·ulp₁ = 2^(e₁−1)` is a whole `F₂`-quantum
 because `e₂ ≤ e₁−1`, so the exact midpoint is on the `F₂` grid. -/
-private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
-    (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+)) {v : ℝ} (hv : 0 < v)
+private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ}
+    (hp₂ : F₂.p = (p₂ : Prec)) {v : ℝ} (hv : 0 < v)
     (hcexp : F₂.canonicalExp v ≤ F₁.canonicalExp v - 1)
     (hmid : v = midp F₁ v) :
     ∃ g : Dyadic, (g : ℝ) = v ∧ g ∈ F₂.unbounded := by
@@ -100,7 +100,7 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
   have hF₂le : F₂.exp ≤ ((e₁ - 1 : ℤ) : WithBot ℤ) :=
     le_trans (exp_le_canonicalExp_coe F₂ v) (by rw [← he₂]; exact he₂le)
   refine ⟨Dyadic.ofIntZpow (2 * ma + 1) (e₁ - 1), hg_real,
-    Format.mem_unbounded_of_le (p := ((p₂ : ℕ+) : WithTop ℕ+))
+    Format.mem_unbounded_of_le (p := (p₂ : Prec))
       (e := ((e₁ - 1 : ℤ) : WithBot ℤ)) (le_of_eq hp₂.symm) hF₂le ?_ hq_e₁⟩
   -- precisionAtMost p₂: mantissa at scale e₂ fits p₂ bits
   rw [Dyadic.precisionAtMost_coe_real]
@@ -130,8 +130,8 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ+}
 /-- **Small positive values round to zero** (FLT underflow). In an FLT format
 (`exp = emin`), any `0 ≤ x' < 2^(emin−1)` rounds to nearest to `0`: its scaled
 mantissa is `< ½`, and the grid point selected is `0`. -/
-private theorem nearest_zero_of_small {F₁ : FiniteFormat} {tb₁ : TieBreak} {p₁ : ℕ+} {emin₁ : ℤ}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ))
+private theorem nearest_zero_of_small {F₁ : FiniteFormat} {tb₁ : TieBreak} {p₁ : ℕ} {emin₁ : ℤ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {x' : ℝ} (hx'0 : 0 ≤ x') (hx'lt : x' < (2 : ℝ) ^ (emin₁ - 1)) :
     RoundsFinite F₁.unbounded (.nearest tb₁) x' 0 := by
@@ -164,8 +164,8 @@ innocuous. Covers Flocq's `round_round_really_zero` regime and the non-sliver
 part of `round_round_zero`; the excluded sliver `[2^(emin₁−1) − ½ulp₂,
 2^(emin₁−1))` is where `round_round_div_aux0` shows a quotient cannot land. -/
 private theorem round_round_div_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
-    {p₁ : ℕ+} {emin₁ : ℤ}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ))
+    {p₁ : ℕ} {emin₁ : ℤ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {v : ℝ} (hv : 0 < v)
     (hvlt : v < (2 : ℝ) ^ (emin₁ - 1) - ulp F₂ v / 2)
@@ -286,8 +286,8 @@ separation bounds of `round_round_div_aux`), `hle` (`v` inside its binade), and
 Roux's `hquant` (`cexp₂ v ≤ cexp₁ v − p₁`, i.e. `p₂ ≥ 2p₁`). `round_round_mid_cases`
 reduces to the near-midpoint case, which splits: `v = m` is handled exactly by
 `midp_mem_F₂` (even radix), and `v ≠ m` is impossible by `round_round_div_aux`. -/
-private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {a b v : ℝ} {p₁ p₂ : ℕ+}
-    (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {a b v : ℝ} {p₁ p₂ : ℕ}
+    (hp₂ : F₂.p = (p₂ : Prec))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     (ha : 0 < a) (hb : 0 < b) (hab : a = v * b)
     (hxrep : ∃ mx : ℤ, a = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp a))
@@ -321,8 +321,8 @@ private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} 
 with `0 < a`, `0 < b` and `p₂ ≥ 2p₁`, double rounding of `a / b` is innocuous.
 The `rndDiv_core` hypotheses are discharged from the FLX closed form
 `canonicalExp = log₂|·| + 1 − p` and the quotient binade bounds `log_div_bounds`. -/
-private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁)
@@ -364,9 +364,9 @@ reworked `round_round_div_aux` uses a `min`-scale, so its bounds `hA`/`hB` are n
 `omega`-provable for FLT from `hquant`, `hle`, `log_div_bounds`, and the lower
 bounds `cexp₁ = max(…) ≥ mag − p₁` — dodging the subnormal-`cexp`-inflation that
 broke the FLX-style `hex_ge`. -/
-private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
     (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
     (hemin : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2)
@@ -416,9 +416,9 @@ private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : 
   (`round_round_div_zero`); otherwise `v` is in the boundary sliver, which the
   reworked `round_round_div_aux` shows is impossible (`hA`/`hB` hold there too, so
   no separate `div_aux0` port is needed). -/
-private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
     (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
     (hemin : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2)
@@ -573,8 +573,8 @@ private theorem rndDiv_of_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak
 As with `√`, `a / b` is generally non-representable, so this is a precision
 *margin* (with `2p₁` bits a quotient never lands near an `F₁`-midpoint), not exact
 containment. Matches the generality of Flocq's `round_round_div_FLX`. -/
-theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁) (hbne : (b : ℝ) ≠ 0)
@@ -596,9 +596,9 @@ quotients — when
 
 A precision + underflow *margin* (not exact containment — `a / b` is generally
 non-representable). Matches Flocq's `round_round_div_FLT`. -/
-theorem rndDiv_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+theorem rndDiv_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
     (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
     (hemin : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2)

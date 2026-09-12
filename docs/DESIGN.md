@@ -10,10 +10,14 @@ development is put together.
 
 ```lean
 structure Format where
-  p   : WithTop ℕ+          -- precision ≥ 1, ⊤ = no precision constraint
+  p   : Prec                -- precision ≥ 1, ⊤ = no precision constraint
   exp : WithBot ℤ           -- min-quantum exponent, ⊥ = no quantum constraint
   b   : WithTop NonNegDyadic -- magnitude bound ≥ 0, ⊤ = unbounded
 ```
+
+`Prec` abbreviates `WithTop ℕ+`. Case-split it with `Prec.recTopCoe`, not a bare
+`cases` — the eliminator states its `coe` branch with the `↑p` coercion, so
+`rw`/`simp` on `↑p`-shaped lemmas fire.
 
 `ℕ+` bakes in `p ≥ 1` and `NonNegDyadic` bakes in `b ≥ 0`, so those invariants
 never need to be threaded as hypotheses. Two subtypes refine it:

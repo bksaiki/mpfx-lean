@@ -102,13 +102,13 @@ def opMul (F₁ F₂ : Format) : Format where
 `p = ⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉` (with `max 1 …` to keep `p ≥ 1`),
 or `⊤` when either operand bound or exponent is infinite.  The floor ratio is
 computed over `ℝ`. -/
-noncomputable def opAddPrec (F₁ F₂ : Format) : WithTop ℕ+ :=
+noncomputable def opAddPrec (F₁ F₂ : Format) : Prec :=
   match (F₁.b : WithTop NonNegDyadic), (F₂.b : WithTop NonNegDyadic),
         (min F₁.exp F₂.exp : WithBot ℤ) with
   | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic), (m : ℤ) =>
       WithTop.some (⟨max 1 (Nat.clog 2
             (Int.toNat ⌊(((b₁.1 + b₂.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌋ + 1)),
-          Nat.lt_of_lt_of_le Nat.zero_lt_one (le_max_left 1 _)⟩ : ℕ+)
+          Nat.lt_of_lt_of_le Nat.zero_lt_one (le_max_left 1 _)⟩ : ℕ)
   | _, _, _ => ⊤
 
 /-- Paper's `⊕`: additive format inference.  Returns the inferred `Format`
@@ -138,10 +138,10 @@ private theorem mul_inferred_pq {F₁ F₂ : Format} {x y : Dyadic}
   refine ⟨?_, ?_⟩
   · -- precisionAtMost (p₁ + p₂) (x * y)
     by_cases hF1_p : F₁.p = ⊤
-    · have : F₁.p + F₂.p = (⊤ : WithTop ℕ+) := by rw [hF1_p]; rfl
+    · have : F₁.p + F₂.p = (⊤ : Prec) := by rw [hF1_p]; rfl
       rw [this]; trivial
     by_cases hF2_p : F₂.p = ⊤
-    · have : F₁.p + F₂.p = (⊤ : WithTop ℕ+) := by rw [hF2_p]; cases F₁.p <;> rfl
+    · have : F₁.p + F₂.p = (⊤ : Prec) := by rw [hF2_p]; cases F₁.p <;> rfl
       rw [this]; trivial
     obtain ⟨p1, hp1⟩ := WithTop.ne_top_iff_exists.mp hF1_p
     obtain ⟨p2, hp2⟩ := WithTop.ne_top_iff_exists.mp hF2_p
@@ -150,7 +150,7 @@ private theorem mul_inferred_pq {F₁ F₂ : Format} {x y : Dyadic}
     rw [Dyadic.precisionAtMost_coe] at hpx hpy
     obtain ⟨c1, e1, hxeq, hc1⟩ := hpx
     obtain ⟨c2, e2, hyeq, hc2⟩ := hpy
-    have h_p_eq : F₁.p + F₂.p = (((p1 + p2 : ℕ+) : ℕ+) : WithTop ℕ+) := by
+    have h_p_eq : F₁.p + F₂.p = (((p1 + p2 : ℕ) : ℕ) : Prec) := by
       rw [← hp1, ← hp2]; rfl
     rw [h_p_eq, Dyadic.precisionAtMost_coe]
     refine ⟨c1 * c2, e1 + e2, ?_, ?_⟩
@@ -270,7 +270,7 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
     Dyadic.precisionAtMost
       (WithTop.some (⟨max 1 (Nat.clog 2
             (Int.toNat ⌊(((b1.1 + b2.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ (min e1 e2)⌋ + 1)),
-          Nat.lt_of_lt_of_le Nat.zero_lt_one (le_max_left 1 _)⟩ : ℕ+))
+          Nat.lt_of_lt_of_le Nat.zero_lt_one (le_max_left 1 _)⟩ : ℕ))
       (x + y) := by
   obtain ⟨_, hqx, hbx⟩ := hx
   obtain ⟨_, hqy, hby⟩ := hy
@@ -345,7 +345,7 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
       calc c.natAbs + 1 ≤ N + 1 := Nat.add_le_add_right h_natAbs_le 1
         _ ≤ 2 ^ Nat.clog 2 (N + 1) := h_clog
         _ ≤ _ := h_pow_le
-    change |c| < (2 : ℤ) ^ (((⟨max 1 (Nat.clog 2 (N + 1)), _⟩ : ℕ+) : ℕ))
+    change |c| < (2 : ℤ) ^ (((⟨max 1 (Nat.clog 2 (N + 1)), _⟩ : ℕ) : ℕ))
     rw [Int.abs_eq_natAbs]
     have h_lt : c.natAbs < 2 ^ max 1 (Nat.clog 2 (N + 1)) := by omega
     change ((c.natAbs : ℤ)) < (2 : ℤ) ^ (max 1 (Nat.clog 2 (N + 1)))

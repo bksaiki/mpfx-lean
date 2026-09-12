@@ -250,9 +250,9 @@ private theorem rndSqrt_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
 Unlike `×`/`+`, `√x` is generally irrational, so this is a precision *margin*
 (with `2p₁+2` bits `√x` never lands near an `F₁`-midpoint), not exact containment
 of a result format. -/
-theorem rndSqrt_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
-    (hpp : (2 * p₁ + 2 : ℕ+) ≤ p₂)
+theorem rndSqrt_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
+    (hpp : (2 * p₁ + 2 : ℕ) ≤ p₂)
     (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {x : Dyadic} (hx : x ∈ F₁) (hxpos : 0 ≤ (x : ℝ))
@@ -266,7 +266,7 @@ theorem rndSqrt_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
   have habs : |Real.sqrt (x : ℝ)| = Real.sqrt (x : ℝ) := abs_of_pos hs_pos
   have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
   have hpp' : 2 * (p₁ : ℤ) + 2 ≤ (p₂ : ℤ) := by
-    have : ((2 * p₁ + 2 : ℕ+) : ℤ) ≤ ((p₂ : ℕ+) : ℤ) := by exact_mod_cast hpp
+    have : ((2 * p₁ + 2 : ℕ) : ℤ) ≤ ((p₂ : ℕ) : ℤ) := by exact_mod_cast hpp
     push_cast at this; omega
   obtain ⟨hloglo, hloghi⟩ := log_sqrt_bounds hxpos
   have hxrep : ∃ mx : ℤ, (x : ℝ) = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp (x : ℝ)) := by
@@ -295,10 +295,10 @@ theorem rndSqrt_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
 
 A precision + underflow *margin* (not exact containment — `√x` is generally
 irrational). -/
-theorem rndSqrt_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ+}
+theorem rndSqrt_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
-    (hp₁ : F₁.p = ((p₁ : ℕ+) : WithTop ℕ+)) (hp₂ : F₂.p = ((p₂ : ℕ+) : WithTop ℕ+))
-    (hpp : (2 * p₁ + 2 : ℕ+) ≤ p₂)
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
+    (hpp : (2 * p₁ + 2 : ℕ) ≤ p₂)
     (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
     (hemin1 : emin₁ ≤ 0)
     (hE : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2 ∨ 2 * emin₂ ≤ emin₁ - 4 * (p₁ : ℤ) - 2)
@@ -314,7 +314,7 @@ theorem rndSqrt_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
   have habs : |Real.sqrt (x : ℝ)| = Real.sqrt (x : ℝ) := abs_of_pos hs_pos
   have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
   have hpp' : 2 * (p₁ : ℤ) + 2 ≤ (p₂ : ℤ) := by
-    have : ((2 * p₁ + 2 : ℕ+) : ℤ) ≤ ((p₂ : ℕ+) : ℤ) := by exact_mod_cast hpp
+    have : ((2 * p₁ + 2 : ℕ) : ℤ) ≤ ((p₂ : ℕ) : ℤ) := by exact_mod_cast hpp
     push_cast at this; omega
   obtain ⟨hloglo, hloghi⟩ := log_sqrt_bounds hxpos
   have hxrep : ∃ mx : ℤ, (x : ℝ) = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp (x : ℝ)) := by

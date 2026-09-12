@@ -8,6 +8,18 @@ import Mpfx.Utils
 
 namespace Mpfx
 
+/-- A precision bound: a finite number of binary digits, or `⊤` for
+"no precision constraint". -/
+abbrev Prec := WithTop ℕ
+
+/-- Eliminator for `Prec` whose `coe` case is stated with the coercion
+`↑ : ℕ → Prec` rather than the raw `WithTop.some`, so that `rw`/`simp`
+with `↑p`-shaped lemmas fire on the resulting goal. -/
+@[elab_as_elim] def Prec.recTopCoe {C : Prec → Sort*} (top : C ⊤)
+    (coe : ∀ p : ℕ, C (p : Prec)) : ∀ p : Prec, C p
+  | ⊤ => top
+  | (p : ℕ) => coe p
+
 /-- A rational number is *dyadic* if it has the form `c · 2^e` for some integers `c, e`.
 The decomposition is not unique: `c · 2^e = (2c) · 2^(e − 1)`. -/
 def IsDyadic (x : ℚ) : Prop := ∃ c e : ℤ, x = (c : ℚ) * (2 : ℚ) ^ e
@@ -151,9 +163,9 @@ theorem midpoint_comm (y₁ y₂ : Dyadic) :
 
 /-- `x` has precision at most `p` (`⊤` = no constraint): there exist `c, e : ℤ`
 with `x = c · 2^e` and `|c| < 2^p`. -/
-def precisionAtMost : WithTop ℕ+ → Dyadic → Prop
+def precisionAtMost : Prec → Dyadic → Prop
   | ⊤, _ => True
-  | (p : ℕ+), x => ∃ c e : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ)
+  | (p : ℕ), x => ∃ c e : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ)
 
 /-- `x` has quantum at least `2^e` (`⊥` = no constraint): there exists `c : ℤ`
 with `x = c · 2^e`. -/
@@ -165,8 +177,8 @@ def quantumAtLeast : WithBot ℤ → Dyadic → Prop
 
 @[simp] theorem quantumAtLeast_bot (x : Dyadic) : quantumAtLeast ⊥ x := trivial
 
-theorem precisionAtMost_coe (p : ℕ+) (x : Dyadic) :
-    precisionAtMost (p : WithTop ℕ+) x ↔
+theorem precisionAtMost_coe (p : ℕ) (x : Dyadic) :
+    precisionAtMost (p : Prec) x ↔
       ∃ c e : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ) := Iff.rfl
 
 theorem quantumAtLeast_coe (e : ℤ) (x : Dyadic) :
@@ -175,8 +187,8 @@ theorem quantumAtLeast_coe (e : ℤ) (x : Dyadic) :
 
 /-- `ℝ`-stated companion to `precisionAtMost_coe`. The substrate predicate is
 `ℚ`-valued; this bridges to `ℝ` for the `Int.log`/`Int.floor` rounding proofs. -/
-theorem precisionAtMost_coe_real (p : ℕ+) (x : Dyadic) :
-    precisionAtMost (p : WithTop ℕ+) x ↔
+theorem precisionAtMost_coe_real (p : ℕ) (x : Dyadic) :
+    precisionAtMost (p : Prec) x ↔
       ∃ c e : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧ |c| < (2 : ℤ) ^ (p : ℕ) := by
   rw [precisionAtMost_coe]
   refine ⟨fun ⟨c, e, hc, hb⟩ => ⟨c, e, ?_, hb⟩, fun ⟨c, e, hc, hb⟩ => ⟨c, e, ?_, hb⟩⟩
@@ -198,12 +210,12 @@ theorem quantumAtLeast_coe_real (e : ℤ) (x : Dyadic) :
 
 /-- `precisionAtMost` is monotone in the precision bound: more precision
 allowed means the constraint is weaker. -/
-theorem precisionAtMost_mono {p₁ p₂ : WithTop ℕ+} (h : p₁ ≤ p₂) {x : Dyadic}
+theorem precisionAtMost_mono {p₁ p₂ : Prec} (h : p₁ ≤ p₂) {x : Dyadic}
     (hx : precisionAtMost p₁ x) : precisionAtMost p₂ x := by
-  cases p₂ with
+  cases p₂ using Prec.recTopCoe with
   | top => trivial
   | coe p₂ =>
-    cases p₁ with
+    cases p₁ using Prec.recTopCoe with
     | top => exact absurd (top_le_iff.mp h) (WithTop.coe_ne_top)
     | coe p₁ =>
       obtain ⟨c, e, hc, hb⟩ := hx
@@ -232,9 +244,9 @@ theorem quantumAtLeast_anti {e₁ e₂ : WithBot ℤ} (h : e₂ ≤ e₁) {x : D
           Int.toNat_of_nonneg (by omega)]
       congr 2; omega
 
-theorem precisionAtMost_neg {p : WithTop ℕ+} {x : Dyadic} (h : precisionAtMost p x) :
+theorem precisionAtMost_neg {p : Prec} {x : Dyadic} (h : precisionAtMost p x) :
     precisionAtMost p (-x) := by
-  cases p with
+  cases p using Prec.recTopCoe with
   | top => trivial
   | coe p =>
     obtain ⟨c, e, hx, hc⟩ := h
@@ -242,7 +254,7 @@ theorem precisionAtMost_neg {p : WithTop ℕ+} {x : Dyadic} (h : precisionAtMost
     · push_cast [Subring.coe_neg, hx]; ring
     · simpa [abs_neg] using hc
 
-@[simp] theorem precisionAtMost_neg_iff (p : WithTop ℕ+) (x : Dyadic) :
+@[simp] theorem precisionAtMost_neg_iff (p : Prec) (x : Dyadic) :
     precisionAtMost p (-x) ↔ precisionAtMost p x :=
   ⟨fun h => by simpa using precisionAtMost_neg h, precisionAtMost_neg⟩
 
@@ -262,7 +274,7 @@ theorem quantumAtLeast_neg {e : WithBot ℤ} {x : Dyadic} (h : quantumAtLeast e 
 /-- The dyadic value `3 · 2^k` has precision at most 2 (significand `3` fits
 in `|c| < 2^2 = 4`). Used as a precision-2 witness in `hp_F₂`-derivation. -/
 theorem precisionAtMost_two_three_zpow (k : ℤ) :
-    precisionAtMost ((2 : ℕ+) : WithTop ℕ+) (Dyadic.ofIntZpow 3 k) := by
+    precisionAtMost ((2 : ℕ) : Prec) (Dyadic.ofIntZpow 3 k) := by
   rw [precisionAtMost_coe]
   refine ⟨3, k, ?_, ?_⟩
   · rw [coe_rat_ofIntZpow]
@@ -303,9 +315,9 @@ def IsRepresentableAtP (p : ℕ) (c e : ℤ) (y : Dyadic) : Prop :=
 /-- If `y = c · 2^e` with `|c| ≤ 2^p`, then `precisionAtMost p y`. The
 boundary case `|c| = 2^p` forces `c = ±2^p`; renormalize to
 `y = ±1 · 2^(e+p)` to recover a strict-inequality witness. -/
-theorem precisionAtMost_of_abs_le {p : ℕ+} {x : Dyadic} (c e : ℤ)
+theorem precisionAtMost_of_abs_le {p : ℕ} {x : Dyadic} (c e : ℤ)
     (hx : (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e) (hc : |c| ≤ (2 : ℤ) ^ (p : ℕ)) :
-    precisionAtMost ((p : ℕ+) : WithTop ℕ+) x := by
+    precisionAtMost (p : Prec) x := by
   rw [precisionAtMost_coe]
   rcases lt_or_eq_of_le hc with hlt | heq
   · exact ⟨c, e, hx, hlt⟩
@@ -579,8 +591,8 @@ private theorem Int.exists_odd_factor {c₀ : ℤ} (hc : c₀ ≠ 0) :
 
 /-- For any nonzero dyadic with precision at most `p`, there's a representation
 `y = c·2^e` with `c` odd and `|c| < 2^p`. -/
-theorem exists_odd_canonical_of_precisionAtMost {p : ℕ+} {y : Dyadic}
-    (hp : precisionAtMost (p : WithTop ℕ+) y) (hy : (y : ℝ) ≠ 0) :
+theorem exists_odd_canonical_of_precisionAtMost {p : ℕ} {y : Dyadic}
+    (hp : precisionAtMost (p : Prec) y) (hy : (y : ℝ) ≠ 0) :
     ∃ c e : ℤ, ((y : ℝ) = c * (2 : ℝ)^e) ∧ Odd c ∧ |c| < (2 : ℤ)^(p : ℕ) := by
   rw [precisionAtMost_coe_real] at hp
   obtain ⟨c₀, e₀, hy_eq, hc₀_lt⟩ := hp
@@ -622,9 +634,9 @@ theorem eq_zero_of_coe_real_zero {z : Dyadic} (h : (z : ℝ) = 0) : z = 0 :=
   (Dyadic.coe_real_inj z 0).mp (by rw [h, Dyadic.coe_real_zero])
 
 /-- `2^k` (any `k`) has precision 1, hence fits any precision bound. -/
-theorem precisionAtMost_one_zpow {p : WithTop ℕ+} (k : ℤ) :
+theorem precisionAtMost_one_zpow {p : Prec} (k : ℤ) :
     Dyadic.precisionAtMost p (Dyadic.ofIntZpow 1 k) := by
-  cases p with
+  cases p using Prec.recTopCoe with
   | top => trivial
   | coe p =>
     rw [Dyadic.precisionAtMost_coe]
@@ -677,9 +689,9 @@ theorem odd_rep_unique {x : Dyadic} {c q c' q' : ℤ} (hc : Odd c) (hc' : Odd c'
 
 /-- The odd canonical representation is the narrowest one: if `x = c · 2^q` with
 `c` odd and `|c| ≥ 2^p`, then `x` does not fit in `p` digits. -/
-theorem not_precisionAtMost_of_odd {p : ℕ+} {x : Dyadic} {c q : ℤ}
+theorem not_precisionAtMost_of_odd {p : ℕ} {x : Dyadic} {c q : ℤ}
     (hc : Odd c) (h : (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ q) (hge : (2 : ℤ) ^ (p : ℕ) ≤ |c|) :
-    ¬ precisionAtMost ((p : ℕ+) : WithTop ℕ+) x := by
+    ¬ precisionAtMost (p : Prec) x := by
   intro hp
   have hc_ne : c ≠ 0 := by
     have : (0 : ℤ) < 2 ^ (p : ℕ) := by positivity
@@ -695,7 +707,7 @@ theorem not_precisionAtMost_of_odd {p : ℕ+} {x : Dyadic} {c q : ℤ}
 and two digits wide. Used as a precision-2 witness to force `2 ≤ F₂.p` from a
 containment hypothesis. -/
 theorem not_precisionAtMost_one_three_zpow (k : ℤ) :
-    ¬ precisionAtMost ((1 : ℕ+) : WithTop ℕ+) (Dyadic.ofIntZpow 3 k) :=
+    ¬ precisionAtMost ((1 : ℕ) : Prec) (Dyadic.ofIntZpow 3 k) :=
   not_precisionAtMost_of_odd (by norm_num : Odd (3 : ℤ)) (by rw [coe_ofIntZpow]) (by norm_num)
 
 end Dyadic
@@ -703,8 +715,8 @@ end Dyadic
 /-- Odd canonical representation of a positive dyadic at precision `p`,
 packaged with positivity and binade bounds: `b = c·2^q` with `c` odd and
 positive, `2^q ≤ b`, and `q ≤ ⌊log₂ b⌋ < q + p`. -/
-theorem exists_odd_canonical_pos {p : ℕ+} {b : Dyadic}
-    (hb_p : Dyadic.precisionAtMost ((p : ℕ+) : WithTop ℕ+) b)
+theorem exists_odd_canonical_pos {p : ℕ} {b : Dyadic}
+    (hb_p : Dyadic.precisionAtMost (p : Prec) b)
     (hb_pos : 0 < ((b : Dyadic) : ℝ)) :
     ∃ c q : ℤ, ((b : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ q ∧ Odd c ∧ 0 < c ∧
       (2 : ℝ) ^ q ≤ ((b : Dyadic) : ℝ) ∧

@@ -162,13 +162,13 @@ mode-specific arithmetic argument over `Int.log`, `Int.floor`,
 `|a| < 2^p`, `e_a < e`, and `e = log|x|+1-p` (so `e` came from the precision
 side of `canonicalExp`), then `|z| < 2^(log|x|)`. Combined with `|x| ≥
 2^(log|x|)` this strictly bounds `|z|` below `|x|`. -/
-theorem abs_lt_two_pow_log_of_precision {p : ℕ+} {x : ℝ}
+theorem abs_lt_two_pow_log_of_precision {p : ℕ} {x : ℝ}
     {a e e_a : ℤ} (ha_bound : |a| < (2 : ℤ) ^ (p : ℕ))
     (h_ea_lt : e_a < e) (h_e_eq_log : e = Int.log 2 |x| + 1 - (p : ℤ)) :
     |(a : ℝ) * (2 : ℝ) ^ e_a| < (2 : ℝ) ^ (Int.log 2 |x|) := by
   have h_2ea_pos : (0 : ℝ) < (2 : ℝ) ^ e_a := zpow_pos (by norm_num) _
   have h_abs_bound : (|a| : ℝ) < (2 : ℝ) ^ (p : ℕ) := by exact_mod_cast ha_bound
-  have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
+  have h_pcast : ((p : ℕ) : ℤ) = ((p : ℕ) : ℤ) := rfl
   rw [abs_mul, abs_of_pos h_2ea_pos]
   calc (|a| : ℝ) * (2 : ℝ) ^ e_a
       < (2 : ℝ) ^ (p : ℕ) * (2 : ℝ) ^ e_a :=
@@ -182,7 +182,7 @@ theorem abs_lt_two_pow_log_of_precision {p : ℕ+} {x : ℝ}
 
 /-- Apply the binade argument in `_toNegative`: if `z = a · 2^e_a ≤ x` is
 in the binade-clipped regime, then `z ≤ ⌊x · 2^(-e)⌋ · 2^e`. -/
-theorem binade_le_floor {p : ℕ+} {x : ℝ} (hx : x ≠ 0)
+theorem binade_le_floor {p : ℕ} {x : ℝ} (hx : x ≠ 0)
     {a e e_a : ℤ} (ha_bound : |a| < (2 : ℤ) ^ (p : ℕ))
     (h_ea_lt : e_a < e) (h_e_eq_log : e = Int.log 2 |x| + 1 - (p : ℤ))
     (hz_le_x : (a : ℝ) * (2 : ℝ) ^ e_a ≤ x) :
@@ -195,7 +195,7 @@ theorem binade_le_floor {p : ℕ+} {x : ℝ} (hx : x ≠ 0)
   by_cases hx_nn : 0 ≤ x
   · -- x ≥ 0: y ≥ 2^log|x| > |z| ≥ z.
     -- c = ⌊x · 2^(-e)⌋ ≥ 2^(p-1).
-    have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
+    have h_pcast : ((p : ℕ) : ℤ) = ((p : ℕ) : ℤ) := rfl
     have h_x_scaled_ge : (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) ≤ x * (2 : ℝ) ^ (-e) := by
       have h_2p_pos : (0 : ℝ) < (2 : ℝ) ^ (((p : ℕ) - 1 : ℤ)) := zpow_pos (by norm_num) _
       have h_2log_x : (2 : ℝ) ^ (Int.log 2 |x|) ≤ x := by
@@ -222,7 +222,7 @@ theorem binade_le_floor {p : ℕ+} {x : ℝ} (hx : x ≠ 0)
       exact h_x_scaled_ge
     have h_y_ge : (2 : ℝ) ^ (Int.log 2 |x|) ≤
         (⌊x * (2 : ℝ) ^ (-e)⌋ : ℝ) * (2 : ℝ) ^ e := by
-      have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
+      have h_pcast : ((p : ℕ) : ℤ) = ((p : ℕ) : ℤ) := rfl
       have h_exp_eq : (((p : ℕ) - 1 : ℤ)) + e = Int.log 2 |x| := by
         linarith [h_e_eq_log, h_pcast]
       calc (2 : ℝ) ^ (Int.log 2 |x|)
@@ -265,7 +265,7 @@ theorem floor_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
   set e := F.canonicalExp x
   set c := ⌊x * (2 : ℝ) ^ (-e)⌋
   have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-  cases hp : F.p with
+  cases hp : F.p using Prec.recTopCoe with
   | top =>
     cases hexp : F.exp with
     | bot =>
@@ -410,7 +410,7 @@ theorem ceil_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
   set e := F.canonicalExp x
   -- Build `(-z) ∈ F.unbounded`'s precision/quantum facts.
   have h_neg_z_prec : Dyadic.precisionAtMost F.p (-z) := by
-    cases hp : F.p with
+    cases hp : F.p using Prec.recTopCoe with
     | top => trivial
     | coe p =>
       rw [hp] at hz_prec
@@ -446,12 +446,12 @@ theorem ceil_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
 is handled by `precisionAtMost_of_abs_le`. -/
 theorem ofIntZpow_mem_unbounded (F : FiniteFormat) {k e : ℤ}
     (he_ge : ∀ {e' : ℤ}, F.exp = (e' : WithBot ℤ) → e' ≤ e)
-    (hk_bound : ∀ {p : ℕ+}, F.p = ((p : ℕ+) : WithTop ℕ+) →
+    (hk_bound : ∀ {p : ℕ}, F.p = (p : Prec) →
       |k| ≤ (2 : ℤ) ^ (p : ℕ)) :
     Dyadic.ofIntZpow k e ∈ F.unbounded := by
   refine ⟨?_, ?_, ?_⟩
   · change Dyadic.precisionAtMost F.p (Dyadic.ofIntZpow k e)
-    cases hp : F.p with
+    cases hp : F.p using Prec.recTopCoe with
     | top => trivial
     | coe p =>
       exact Dyadic.precisionAtMost_of_abs_le k e (Dyadic.coe_rat_ofIntZpow k e)
@@ -486,7 +486,7 @@ theorem mul_zpow_neg_self (x : ℝ) (e : ℤ) :
 /-- `|⌊x · 2^(-e)⌋ + 1| ≤ 2^p` when `|x · 2^(-e)| < 2^p` (the canonical bound
 applied to the upper-grid mantissa). Used in parity-mode proofs where `dhi`'s
 mantissa is `lo + 1`. -/
-theorem abs_floor_add_one_le_of_abs_lt {r : ℝ} {p : ℕ+}
+theorem abs_floor_add_one_le_of_abs_lt {r : ℝ} {p : ℕ}
     (h : |r| < (2 : ℝ) ^ (p : ℕ)) :
     |⌊r⌋ + 1| ≤ (2 : ℤ) ^ (p : ℕ) := by
   obtain ⟨h_neg_lt, h_lt⟩ := abs_lt.mp h
@@ -506,7 +506,7 @@ theorem abs_floor_add_one_le_of_abs_lt {r : ℝ} {p : ℕ+}
 is finite. Drives the membership proofs for `floor`/`ceil`/`toZero`/`awayZero`
 results across the satisfies theorems. -/
 theorem floor_mantissa_lt {F : FiniteFormat} {x : ℝ}
-    {p : ℕ+} (hp : F.p = ((p : ℕ+) : WithTop ℕ+)) :
+    {p : ℕ} (hp : F.p = (p : Prec)) :
     |x * (2 : ℝ) ^ (-(F.canonicalExp x))| < (2 : ℝ) ^ (p : ℕ) := by
   set e := F.canonicalExp x
   by_cases hx : x = 0
@@ -518,7 +518,7 @@ theorem floor_mantissa_lt {F : FiniteFormat} {x : ℝ}
         (by norm_num : (1 : ℕ) < 2) |x|
     have h_abs : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
       rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-    have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
+    have h_pcast : ((p : ℕ) : ℤ) = ((p : ℕ) : ℤ) := rfl
     have hle : Int.log 2 |x| + 1 + (-e) ≤ ((p : ℕ) : ℤ) := by
       linarith [h_e_ge, h_pcast]
     rw [h_abs]
@@ -531,25 +531,25 @@ theorem floor_mantissa_lt {F : FiniteFormat} {x : ℝ}
       _ = (2 : ℝ) ^ (p : ℕ) := by rw [zpow_natCast]
 
 /-- `|k| < 2^p` (integers) ⟹ `log₂|k| + 1 ≤ p`. -/
-theorem log_lt_p_of_abs_lt_two_pow {p : ℕ+} {k : ℤ}
-    (hk : |k| < (2 : ℤ) ^ ((p : ℕ+) : ℕ)) :
-    Int.log 2 (|k| : ℝ) + 1 ≤ (((p : ℕ+) : ℕ) : ℤ) := by
+theorem log_lt_p_of_abs_lt_two_pow {p : ℕ} {k : ℤ}
+    (hk : |k| < (2 : ℤ) ^ ((p : ℕ) : ℕ)) :
+    Int.log 2 (|k| : ℝ) + 1 ≤ (((p : ℕ) : ℕ) : ℤ) := by
   by_cases hk0 : k = 0
   · rw [hk0]
     simp only [Int.cast_zero, abs_zero, Int.log_zero_right, zero_add, Nat.one_le_cast]
-    exact_mod_cast (p : ℕ+).pos
+    exact_mod_cast (p : ℕ).pos
   · have h_abs_pos : (0 : ℝ) < (|k| : ℝ) := by
       have h1 : (1 : ℤ) ≤ |k| := Int.one_le_abs hk0
       have h2 : (1 : ℝ) ≤ (|k| : ℝ) := by exact_mod_cast h1
       linarith
-    have h_abs_lt_zpow : (|k| : ℝ) < (2 : ℝ) ^ (((p : ℕ+) : ℕ) : ℤ) := by
+    have h_abs_lt_zpow : (|k| : ℝ) < (2 : ℝ) ^ (((p : ℕ) : ℕ) : ℤ) := by
       rw [zpow_natCast]
-      have h1 : ((|k| : ℤ) : ℝ) < ((2 : ℤ) ^ ((p : ℕ+) : ℕ) : ℝ) := by
+      have h1 : ((|k| : ℤ) : ℝ) < ((2 : ℤ) ^ ((p : ℕ) : ℕ) : ℝ) := by
         exact_mod_cast hk
-      have h_cast : ((2 : ℤ) ^ ((p : ℕ+) : ℕ) : ℝ) =
-          (2 : ℝ) ^ ((p : ℕ+) : ℕ) := by push_cast; rfl
+      have h_cast : ((2 : ℤ) ^ ((p : ℕ) : ℕ) : ℝ) =
+          (2 : ℝ) ^ ((p : ℕ) : ℕ) := by push_cast; rfl
       rw [h_cast] at h1; push_cast at h1; exact h1
-    have h_log_lt : Int.log 2 (|k| : ℝ) < (((p : ℕ+) : ℕ) : ℤ) :=
+    have h_log_lt : Int.log 2 (|k| : ℝ) < (((p : ℕ) : ℕ) : ℤ) :=
       (Int.lt_zpow_iff_log_lt (by norm_num : 1 < 2) h_abs_pos).mp h_abs_lt_zpow
     linarith
 
@@ -559,14 +559,14 @@ theorem log_two_pow_nat (n : ℕ) : Int.log 2 ((2 : ℝ) ^ n) = (n : ℤ) := by
   exact Int.log_zpow (by norm_num : 1 < 2) (n : ℤ)
 
 /-- Cast `((2 : ℤ) ^ (p - 1) : ℝ) = (2 : ℝ) ^ (p - 1 : ℤ)`. -/
-theorem cast_two_pow_pred {p : ℕ+} :
+theorem cast_two_pow_pred {p : ℕ} :
     ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) = (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
   rw [show ((p : ℕ) - 1 : ℤ) = (((p : ℕ) - 1 : ℕ) : ℤ) by
         have : 1 ≤ (p : ℕ) := p.pos; omega, zpow_natCast]
   push_cast; rfl
 
 /-- `2^(p-1) ≤ |k|` (integers) ⟹ `p - 1 ≤ log₂|↑k|`. -/
-theorem log_ge_p_pred_of_two_pow_pred_le {p : ℕ+} {k : ℤ}
+theorem log_ge_p_pred_of_two_pow_pred_le {p : ℕ} {k : ℤ}
     (hk : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |k|) :
     ((p : ℕ) : ℤ) - 1 ≤ Int.log 2 |(k : ℝ)| := by
   have h_2pm1_pos : (0 : ℝ) < ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
@@ -589,7 +589,7 @@ theorem log_ge_p_pred_of_two_pow_pred_le {p : ℕ+} {k : ℤ}
   linarith
 
 /-- If `2^(p-1) ≤ |r|`, then `2^(p-1) ≤ |⌊r⌋|`. Sign-split argument. -/
-theorem abs_floor_ge_two_pow_pred {p : ℕ+} {r : ℝ}
+theorem abs_floor_ge_two_pow_pred {p : ℕ} {r : ℝ}
     (h_r : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |r|) :
     (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |⌊r⌋| := by
   by_cases hr_nn : 0 ≤ r
@@ -616,8 +616,8 @@ theorem abs_floor_ge_two_pow_pred {p : ℕ+} {r : ℝ}
     rw [abs_of_neg h_lo_neg]; linarith
 
 /-- For `x ≠ 0` and `e = log₂|x| + 1 - p`, we have `2^(p-1) ≤ |x · 2^(-e)|`. -/
-theorem two_pow_pred_le_scaled {p : ℕ+} {x : ℝ} (hx : x ≠ 0) {e : ℤ}
-    (h_e_eq_log : e = Int.log 2 |x| + 1 - ((p : ℕ+) : ℤ)) :
+theorem two_pow_pred_le_scaled {p : ℕ} {x : ℝ} (hx : x ≠ 0) {e : ℤ}
+    (h_e_eq_log : e = Int.log 2 |x| + 1 - ((p : ℕ) : ℤ)) :
     ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |x * (2 : ℝ) ^ (-e)| := by
   rw [cast_two_pow_pred (p := p)]
   have h_x_ge : (2 : ℝ) ^ (Int.log 2 |x|) ≤ |x| :=
@@ -626,7 +626,7 @@ theorem two_pow_pred_le_scaled {p : ℕ+} {x : ℝ} (hx : x ≠ 0) {e : ℤ}
   have h_abs_s : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
     rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
   rw [h_abs_s]
-  have h_pcast : ((p : ℕ+) : ℤ) = ((p : ℕ) : ℤ) := rfl
+  have h_pcast : ((p : ℕ) : ℤ) = ((p : ℕ) : ℤ) := rfl
   calc (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ)
       = (2 : ℝ) ^ (Int.log 2 |x| + (-e)) := by
         congr 1; linarith [h_e_eq_log, h_pcast]
