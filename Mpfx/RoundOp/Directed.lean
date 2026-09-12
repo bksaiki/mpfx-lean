@@ -1,4 +1,5 @@
 import Mpfx.RoundOp.Defs
+import Mpfx.RoundPred
 
 /-!
 # Constructive rounding: directed-mode obligations
@@ -195,58 +196,6 @@ theorem rndUnbounded_satisfies_awayZero (F : FiniteFormat) (x : ℝ)
     exact (RoundsFinite.toNegative_iff_awayZero_of_nonpos F.unbounded (not_le.mp hx).le _).mp
       (rndUnbounded_satisfies_toNegative F x (not_isUndefined_toNegative F))
 
-theorem rndUnbounded_unique_toNegative (F : FiniteFormat) (x : ℝ)
-    (h : ¬ F.IsUndefined .toNegative) {y : Dyadic}
-    (hy : RoundsFinite F.unbounded .toNegative x y) :
-    y = rndUnbounded F .toNegative x h := by
-  set y' := rndUnbounded F .toNegative x h
-  have hy' : RoundsFinite F.unbounded .toNegative x y' :=
-    rndUnbounded_satisfies_toNegative F x h
-  obtain ⟨hy_mem, hy_le, hy_max⟩ := hy
-  obtain ⟨hy'_mem, hy'_le, hy'_max⟩ := hy'
-  have h1 : (y' : ℝ) ≤ (y : ℝ) := hy_max y' hy'_mem hy'_le
-  have h2 : (y : ℝ) ≤ (y' : ℝ) := hy'_max y hy_mem hy_le
-  exact Dyadic.ext_real (le_antisymm h2 h1)
-
-theorem rndUnbounded_unique_toPositive (F : FiniteFormat) (x : ℝ)
-    (h : ¬ F.IsUndefined .toPositive) {y : Dyadic}
-    (hy : RoundsFinite F.unbounded .toPositive x y) :
-    y = rndUnbounded F .toPositive x h := by
-  set y' := rndUnbounded F .toPositive x h
-  have hy' : RoundsFinite F.unbounded .toPositive x y' :=
-    rndUnbounded_satisfies_toPositive F x h
-  obtain ⟨hy_mem, hy_ge, hy_min⟩ := hy
-  obtain ⟨hy'_mem, hy'_ge, hy'_min⟩ := hy'
-  have h1 : (y : ℝ) ≤ (y' : ℝ) := hy_min y' hy'_mem hy'_ge
-  have h2 : (y' : ℝ) ≤ (y : ℝ) := hy'_min y hy_mem hy_ge
-  exact Dyadic.ext_real (le_antisymm h1 h2)
-
-theorem rndUnbounded_unique_toZero (F : FiniteFormat) (x : ℝ)
-    (h : ¬ F.IsUndefined .toZero) {y : Dyadic}
-    (hy : RoundsFinite F.unbounded .toZero x y) :
-    y = rndUnbounded F .toZero x h := by
-  by_cases hx : 0 ≤ x
-  · rw [rndUnbounded_toZero_eq_toNegative_of_nonneg F x hx h (not_isUndefined_toNegative F)]
-    exact rndUnbounded_unique_toNegative F x (not_isUndefined_toNegative F)
-      ((RoundsFinite.toNegative_iff_toZero_of_nonneg F.unbounded hx y).mpr hy)
-  · rw [rndUnbounded_toZero_eq_toPositive_of_neg F x (not_le.mp hx) h
-        (not_isUndefined_toPositive F)]
-    exact rndUnbounded_unique_toPositive F x (not_isUndefined_toPositive F)
-      ((RoundsFinite.toPositive_iff_toZero_of_nonpos F.unbounded (not_le.mp hx).le y).mpr hy)
-
-theorem rndUnbounded_unique_awayZero (F : FiniteFormat) (x : ℝ)
-    (h : ¬ F.IsUndefined .awayZero) {y : Dyadic}
-    (hy : RoundsFinite F.unbounded .awayZero x y) :
-    y = rndUnbounded F .awayZero x h := by
-  by_cases hx : 0 ≤ x
-  · rw [rndUnbounded_awayZero_eq_toPositive_of_nonneg F x hx h (not_isUndefined_toPositive F)]
-    exact rndUnbounded_unique_toPositive F x (not_isUndefined_toPositive F)
-      ((RoundsFinite.toPositive_iff_awayZero_of_nonneg F.unbounded hx y).mpr hy)
-  · rw [rndUnbounded_awayZero_eq_toNegative_of_neg F x (not_le.mp hx) h
-        (not_isUndefined_toNegative F)]
-    exact rndUnbounded_unique_toNegative F x (not_isUndefined_toNegative F)
-      ((RoundsFinite.toNegative_iff_awayZero_of_nonpos F.unbounded (not_le.mp hx).le y).mpr hy)
-
 /-! ### Reading the directed roundings off the grid
 
 The relational spec pins the round-down/round-up to an explicit grid point.
@@ -259,7 +208,8 @@ canonical exponent. -/
 theorem RoundsFinite.toNegative_eq_floor (F : FiniteFormat) (x : ℝ) {y : Dyadic}
     (hy : RoundsFinite F.unbounded .toNegative x y) :
     y = Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-(F.canonicalExp x))⌋ (F.canonicalExp x) := by
-  rw [rndUnbounded_unique_toNegative F x (not_isUndefined_toNegative F) hy]
+  rw [RoundsFinite.unique_toNegative hy
+    (rndUnbounded_satisfies_toNegative F x (not_isUndefined_toNegative F))]
   unfold rndUnbounded
   rw [dif_neg (by decide : (RoundingMode.toNegative : RoundingMode) ≠ .toOdd),
       dif_neg (by decide : (RoundingMode.toNegative : RoundingMode) ≠ .nearest .toEven)]
@@ -270,7 +220,8 @@ canonical exponent. -/
 theorem RoundsFinite.toPositive_eq_ceil (F : FiniteFormat) (x : ℝ) {y : Dyadic}
     (hy : RoundsFinite F.unbounded .toPositive x y) :
     y = Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x) := by
-  rw [rndUnbounded_unique_toPositive F x (not_isUndefined_toPositive F) hy]
+  rw [RoundsFinite.unique_toPositive hy
+    (rndUnbounded_satisfies_toPositive F x (not_isUndefined_toPositive F))]
   unfold rndUnbounded
   rw [dif_neg (by decide : (RoundingMode.toPositive : RoundingMode) ≠ .toOdd),
       dif_neg (by decide : (RoundingMode.toPositive : RoundingMode) ≠ .nearest .toEven)]

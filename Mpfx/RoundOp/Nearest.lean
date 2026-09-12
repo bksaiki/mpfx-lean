@@ -981,11 +981,5 @@ theorem RoundsFinite.unique_nearest {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
     · exact key hd hu hne hdist even₁ even₂
     · exact key hd hu (Ne.symm hne) hdist.symm even₂ even₁
 
-theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
-    (h : ¬ F.IsUndefined (.nearest tb)) {y : Dyadic}
-    (hy : RoundsFinite F.unbounded (.nearest tb) x y) :
-    y = rndUnbounded F (.nearest tb) x h :=
-  RoundsFinite.unique_nearest h hy (rndUnbounded_satisfies_nearest F tb x h)
-
 
 end Mpfx

@@ -136,12 +136,25 @@ Commit message: `Prove nearest uniqueness relationally, dropping the squaring de
 
 Touches `Mpfx/RoundOp.lean` and the three `RoundOp/` files.
 
-- [ ] Replace `rndUnbounded_unique` (`RoundOp.lean:34`) with a single generic
+- [x] Replace `rndUnbounded_unique` (`RoundOp.lean:34`) with a single generic
       call: `RoundsFinite.unique` applied to the hypothesis and
       `rndUnbounded_satisfies`.
-- [ ] Delete all six now-trivial `rndUnbounded_unique_*` wrappers.
+- [x] Delete all six now-trivial `rndUnbounded_unique_*` wrappers.
 
 Extra acceptance: `grep -c rndUnbounded_unique_ Mpfx/` returns 0.
+
+**Done.** 25 insertions, 76 deletions. `RoundsFinite.unique` (the mode-generic
+uniqueness, Flocq's `round_unique`) lives in `RoundOp.lean` since it needs both
+`unique_toOdd` and `unique_nearest`; `rndUnbounded_unique` is now one line on
+top of it, signature unchanged, so its 16 downstream call sites were untouched.
+Unplanned: the Phase 2 grid bridges were themselves built on the deleted
+`rndUnbounded_unique_toNegative` / `_toPositive`, so they were rewired onto
+Phase 1's relational lemmas composed with `rndUnbounded_satisfies_*`.
+
+**Track A complete.** The four `rndUnbounded_unique_*` bodies totalling ~374
+lines are gone, replaced by ~145 lines of format-agnostic lemmas in
+`RoundPred.lean` plus the two grid bridges. `RoundsFinite.unique` now holds of
+anything satisfying the spec, which is what Phase 7 needs.
 
 Commit message: `Collapse the six per-mode uniqueness wrappers into one dispatcher`
 

@@ -671,11 +671,5 @@ theorem RoundsFinite.unique_toOdd {F : FiniteFormat} {x : ℝ}
   · exact (mixed hd₂ hu₁ hp₂ hp₁).symm
   · exact RoundsFinite.unique_toPositive hu₁ hu₂
 
-theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
-    (h : ¬ F.IsUndefined .toOdd) {y : Dyadic}
-    (hy : RoundsFinite F.unbounded .toOdd x y) :
-    y = rndUnbounded F .toOdd x h :=
-  RoundsFinite.unique_toOdd h hy (rndUnbounded_satisfies_toOdd F x h)
-
 
 end Mpfx
