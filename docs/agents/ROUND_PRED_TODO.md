@@ -368,8 +368,23 @@ Commit message: `Add monotonicity for the four directed rounding modes`
 
 ## Phase 10 — RTO monotonicity
 
-- [ ] `toOdd`. Flocq gets this from `Valid_rnd Zrnd_odd` (`Round_odd.v:37`);
+- [x] `toOdd`. Flocq gets this from `Valid_rnd Zrnd_odd` (`Round_odd.v:37`);
       we need a direct argument. Size unknown — spike first if it resists.
+
+**Done.** +47 lines, no spike needed. Phase 2 had already bought the expensive
+ingredient: `isOdd_alternate_of_bracketing` is exactly what Flocq gets free from
+consecutive integers. Four side-combinations; DN/DN and UP/UP are Phase 9,
+DN(x)/UP(y) is `a ≤ x ≤ y ≤ b`, and UP(x)/DN(y) splits twice before the parity
+contradiction. The step that makes it work: under `b < x ≤ y < a`, `b` is also
+the round-down of `x` (any `z ≤ x` has `z ≤ y`), so `a` and `b` bracket `x` and
+must alternate — while both RTO clauses fire and make them both odd.
+
+Note on the Flocq comparison: the 45-line `valid_rnd_odd` is the *mantissa*-level
+proof and carries `prec_gt_1` (`Round_odd.v:1064`). The relational counterpart is
+`DN_UP_parity_generic_pos` in `Round_NE.v`, 147 lines (plus 35 for
+`DN_UP_parity_aux`). Against our 922 that is ~5×, of which about half is our own
+duplication (see *Adjacent*) and the rest is the `p = 1, exp` finite case Flocq
+excludes by hypothesis.
 
 Commit message: `Add monotonicity for round-to-odd`
 

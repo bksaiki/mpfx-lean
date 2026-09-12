@@ -453,4 +453,51 @@ theorem RoundsFinite.monotone_awayZero {F : FiniteFormat} {x y : ℝ} {a b : Dya
   · exact (((toNegative_iff_awayZero_of_nonpos F hx a).mpr ha).2.1.trans hx).trans
       (hy.trans ((toPositive_iff_awayZero_of_nonneg F hy b).mpr hb).2.1)
 
+/-- **RTO is monotone.** Flocq gets this from `Valid_rnd Zrnd_odd`
+(`Round_odd.v:37`): there the rounding is an integer function, and consecutive
+mantissas alternate in parity for free. Relationally we argue directly. Both
+values are faithful, so there are four side-combinations; three are immediate
+and the fourth cannot occur.
+
+In that fourth case `a` rounds `x` up while `b` rounds `y` down. If `x ≤ b` or
+`a ≤ y` the optimality of `a` resp. `b` settles it. Otherwise `b < x ≤ y < a`,
+which makes `b` the round-down of `x` as well — so `b` and `a` bracket `x` and
+must alternate in parity, while the RTO clauses make both odd. -/
+theorem RoundsFinite.monotone_toOdd {F : FiniteFormat} (h : ¬ F.IsUndefined .toOdd)
+    {x y : ℝ} {a b : Dyadic}
+    (ha : RoundsFinite F.unbounded .toOdd x a)
+    (hb : RoundsFinite F.unbounded .toOdd y b)
+    (hxy : x ≤ y) : (a : ℝ) ≤ (b : ℝ) := by
+  obtain ⟨ha_mem, ha_faith, ha_par⟩ := ha
+  obtain ⟨hb_mem, hb_faith, hb_par⟩ := hb
+  rcases isFaithfulRound_iff_directed.mp ha_faith with hda | hua <;>
+    rcases isFaithfulRound_iff_directed.mp hb_faith with hdb | hub
+  · exact monotone_toNegative hda hdb hxy
+  · exact (hda.2.1.trans hxy).trans hub.2.1
+  · obtain ⟨-, -, ha_min⟩ := id hua
+    obtain ⟨-, -, hb_max⟩ := id hdb
+    by_cases hxb : x ≤ (b : ℝ)
+    · exact ha_min b hb_mem hxb
+    by_cases hay : (a : ℝ) ≤ y
+    · exact hb_max a ha_mem hay
+    exfalso
+    push Not at hxb hay
+    have hdn_x : RoundsFinite F.unbounded .toNegative x b :=
+      ⟨hb_mem, hxb.le, fun z hz hzx => hb_max z hz (hzx.trans hxy)⟩
+    have hx_ne : x ≠ 0 := by
+      intro hx0
+      have h0y : ((0 : Dyadic) : ℝ) ≤ y := by
+        rw [Dyadic.coe_real_zero, ← hx0]; exact hxy
+      have h0b := hb_max 0 (FiniteFormat.zero_mem F.unbounded) h0y
+      rw [Dyadic.coe_real_zero] at h0b
+      rw [hx0] at hxb
+      linarith
+    obtain ⟨Fa, hFa, hFa_odd⟩ := ha_par (ne_of_lt (hxy.trans_lt hay))
+    obtain ⟨Fb, hFb, hFb_odd⟩ := hb_par (ne_of_lt (hxb.trans_le hxy)).symm
+    exact (isOdd_alternate_of_bracketing (F := F.unbounded) h hx_ne hdn_x hua
+        (ne_of_lt hxb).symm).mp
+      ((ParityFormat.IsOdd_iff_of_toFormat_eq hFa a).mp hFa_odd)
+      ((ParityFormat.IsOdd_iff_of_toFormat_eq hFb b).mp hFb_odd)
+  · exact monotone_toPositive hua hub hxy
+
 end Mpfx
