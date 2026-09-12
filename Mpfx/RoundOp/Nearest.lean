@@ -1,4 +1,5 @@
 import Mpfx.RoundOp.Defs
+import Mpfx.RoundOp.ToOdd
 
 /-!
 # Constructive rounding: `nearest` obligations
@@ -883,183 +884,108 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
             exact (nearest_toEven_neighbors_alternate x h hx_ne h_lo_ne_s).2 h_even_dlo
 
 
+/-! ### Uniqueness for the nearest modes
+
+Two nearest roundings of `x` are equidistant from it, so if they differ they
+sit on opposite sides (`IsFaithfulRound.opposite_sides_of_ne`) and the
+tie-break clause has to separate them. For `.toEven` it cannot: adjacent grid
+points alternate in parity, so they are not both even. For `.awayZero` equal
+magnitudes on opposite sides force `x = 0`, where both roundings are `0`.
+
+This mirrors Flocq's `Rnd_NG_pt_unique` (`Round_pred.v:707`), whose
+`Rnd_NG_pt_unique_prop` obligation is exactly the mixed case handled here. -/
+
+/-- **Nearest rounding is unique**, for either tie-break. -/
+theorem RoundsFinite.unique_nearest {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
+    (h : ¬ F.IsUndefined (.nearest tb)) {y₁ y₂ : Dyadic}
+    (h₁ : RoundsFinite F.unbounded (.nearest tb) x y₁)
+    (h₂ : RoundsFinite F.unbounded (.nearest tb) x y₂) :
+    y₁ = y₂ := by
+  -- A round-down and a round-up that are equidistant from `x` and distinct
+  -- put `x` strictly between them; in particular `x` is neither of them, and
+  -- `x ≠ 0` (at `0` both roundings are `0`).
+  have offGrid : ∀ {a b : Dyadic}, RoundsFinite F.unbounded .toNegative x a →
+      RoundsFinite F.unbounded .toPositive x b → a ≠ b →
+      |x - (a : ℝ)| = |x - (b : ℝ)| → x ≠ (a : ℝ) ∧ x ≠ 0 := by
+    intro a b hda hub hab hdist
+    have hxa : x ≠ (a : ℝ) := by
+      intro hx
+      have hzero : |x - (b : ℝ)| = 0 := by rw [← hdist, hx, sub_self, abs_zero]
+      exact hab (Dyadic.ext_real (hx.symm.trans (by linarith [abs_eq_zero.mp hzero])))
+    refine ⟨hxa, fun hx0 => hxa ?_⟩
+    have hda0 : RoundsFinite F.unbounded .toNegative 0 a := by rw [← hx0]; exact hda
+    rw [hx0, RoundsFinite.eq_zero_of_zero hda0, Dyadic.coe_real_zero]
+  cases tb with
+  | awayZero =>
+    obtain ⟨hm₁, hf₁, hmin₁, htie₁⟩ := h₁
+    obtain ⟨hm₂, hf₂, hmin₂, htie₂⟩ := h₂
+    by_cases hne : y₁ = y₂
+    · exact hne
+    exfalso
+    have hdist : |x - (y₁ : ℝ)| = |x - (y₂ : ℝ)| :=
+      le_antisymm (hmin₁ y₂ hm₂ hf₂) (hmin₂ y₁ hm₁ hf₁)
+    -- Each tie-break clause bounds the other's magnitude, so they are equal.
+    have habs : |(y₁ : ℝ)| = |(y₂ : ℝ)| :=
+      le_antisymm (htie₂ y₁ hm₁ hf₁ hne hdist.symm)
+        (htie₁ y₂ hm₂ hf₂ (Ne.symm hne) hdist)
+    -- Opposite sides with equal magnitudes: `a = -b`, and equidistance pins
+    -- `x = 0`, where both are `0` — contradicting `y₁ ≠ y₂`.
+    have key : ∀ {a b : Dyadic}, RoundsFinite F.unbounded .toNegative x a →
+        RoundsFinite F.unbounded .toPositive x b → a ≠ b →
+        |x - (a : ℝ)| = |x - (b : ℝ)| → |(a : ℝ)| = |(b : ℝ)| → False := by
+      intro a b hda hub hab hdist habs'
+      obtain ⟨hxa, hx0⟩ := offGrid hda hub hab hdist
+      refine hx0 ?_
+      have hle : (a : ℝ) ≤ x := hda.2.1
+      have hge : x ≤ (b : ℝ) := hub.2.1
+      -- `|a| = |b|` with `a ≠ b` forces `a = -b`, hence `a ≤ 0 ≤ b`.
+      have hneg : (a : ℝ) = -(b : ℝ) := by
+        rcases abs_eq_abs.mp habs' with hEq | hEq
+        · exact absurd (Dyadic.ext_real hEq) hab
+        · exact hEq
+      rw [hneg] at hle
+      -- Equidistance between `-b` and `b` puts `x` at their midpoint, `0`.
+      rw [hneg, abs_of_nonneg (by linarith : (0:ℝ) ≤ x - -(b : ℝ)),
+          abs_of_nonpos (by linarith : x - (b : ℝ) ≤ 0)] at hdist
+      linarith
+    rcases hf₁.opposite_sides_of_ne hf₂ hne with ⟨hd, hu⟩ | ⟨hd, hu⟩
+    · exact key hd hu hne hdist habs
+    · exact key hd hu (Ne.symm hne) hdist.symm habs.symm
+  | toEven =>
+    obtain ⟨hm₁, hf₁, hmin₁, htie₁⟩ := h₁
+    obtain ⟨hm₂, hf₂, hmin₂, htie₂⟩ := h₂
+    by_cases hne : y₁ = y₂
+    · exact hne
+    exfalso
+    have hdist : |x - (y₁ : ℝ)| = |x - (y₂ : ℝ)| :=
+      le_antisymm (hmin₁ y₂ hm₂ hf₂) (hmin₂ y₁ hm₁ hf₁)
+    have hodd : ¬ F.IsUndefined .toOdd := fun ⟨h1, h2, _⟩ => h ⟨h1, h2, Or.inr rfl⟩
+    set F'' := F.unbounded.toParityFormatOfToOdd hodd with hF''
+    -- Each is a tie for the other, so the tie-break makes both even.
+    have even₁ : F''.IsEven y₁ := by
+      obtain ⟨F', hF', hev⟩ := htie₁ ⟨y₂, hm₂, hf₂, Ne.symm hne, hdist⟩
+      exact (ParityFormat.IsEven_iff_of_toFormat_eq hF' y₁).mp hev
+    have even₂ : F''.IsEven y₂ := by
+      obtain ⟨F', hF', hev⟩ := htie₂ ⟨y₁, hm₁, hf₁, hne, hdist.symm⟩
+      exact (ParityFormat.IsEven_iff_of_toFormat_eq hF' y₂).mp hev
+    -- But the two neighbours alternate in parity, so they are not both even.
+    have key : ∀ {a b : Dyadic}, RoundsFinite F.unbounded .toNegative x a →
+        RoundsFinite F.unbounded .toPositive x b → a ≠ b →
+        |x - (a : ℝ)| = |x - (b : ℝ)| → F''.IsEven a → F''.IsEven b → False := by
+      intro a b hda hub hab hdist' heva hevb
+      obtain ⟨hxa, hx0⟩ := offGrid hda hub hab hdist'
+      exact ParityFormat.not_isEven_and_isOdd hevb
+        ((isOdd_alternate_of_bracketing (F := F.unbounded) hodd hx0 hda hub hxa).mpr
+          (fun hoa => ParityFormat.not_isEven_and_isOdd heva hoa))
+    rcases hf₁.opposite_sides_of_ne hf₂ hne with ⟨hd, hu⟩ | ⟨hd, hu⟩
+    · exact key hd hu hne hdist even₁ even₂
+    · exact key hd hu (Ne.symm hne) hdist.symm even₂ even₁
+
 theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
     (h : ¬ F.IsUndefined (.nearest tb)) {y : Dyadic}
     (hy : RoundsFinite F.unbounded (.nearest tb) x y) :
-    y = rndUnbounded F (.nearest tb) x h := by
-  set y' := rndUnbounded F (.nearest tb) x h with hy'_def
-  have hy' : RoundsFinite F.unbounded (.nearest tb) x y' :=
-    rndUnbounded_satisfies_nearest F tb x h
-  -- Both y, y' satisfy the same spec. They're equidistant, and the tie-break
-  -- uniquely determines them.
-  cases tb with
-  | awayZero =>
-    obtain ⟨hy_mem, hy_faith, hy_min, hy_tie⟩ := hy
-    obtain ⟨hy'_mem, hy'_faith, hy'_min, hy'_tie⟩ := hy'
-    have h_dist_eq : |x - (y : ℝ)| = |x - (y' : ℝ)| :=
-      le_antisymm (hy_min y' hy'_mem hy'_faith) (hy'_min y hy_mem hy_faith)
-    by_cases h_yy : y = y'
-    · exact h_yy
-    · apply Dyadic.ext_real
-      have h_y_le_y' : |(y : ℝ)| ≤ |(y' : ℝ)| :=
-        hy'_tie y hy_mem hy_faith h_yy h_dist_eq.symm
-      have h_y'_le_y : |(y' : ℝ)| ≤ |(y : ℝ)| :=
-        hy_tie y' hy'_mem hy'_faith (Ne.symm h_yy) h_dist_eq
-      -- |y| = |y'| and dist eq give y² = y'² and 2x(y - y') = 0. y ≠ y' ⟹ x = 0.
-      have h_abs_eq : |(y : ℝ)| = |(y' : ℝ)| := le_antisymm h_y_le_y' h_y'_le_y
-      have h_sq : (y : ℝ) ^ 2 = (y' : ℝ) ^ 2 := by
-        have h1 : |(y : ℝ)| ^ 2 = |(y' : ℝ)| ^ 2 := by rw [h_abs_eq]
-        rw [sq_abs, sq_abs] at h1
-        exact h1
-      have h_x_zero : x = 0 := by
-        have h_dist_sq : (x - (y : ℝ)) ^ 2 = (x - (y' : ℝ)) ^ 2 := by
-          have h1 : |x - (y : ℝ)| ^ 2 = |x - (y' : ℝ)| ^ 2 := by rw [h_dist_eq]
-          rw [sq_abs, sq_abs] at h1
-          exact h1
-        have h_expand : 2 * x * ((y : ℝ) - (y' : ℝ)) = 0 := by
-          have : (x - (y : ℝ)) ^ 2 - (x - (y' : ℝ)) ^ 2 = 0 := by linarith
-          have : 2 * x * ((y' : ℝ) - (y : ℝ)) + ((y : ℝ)^2 - (y' : ℝ)^2) = 0 := by
-            ring_nf; ring_nf at this; linarith
-          linarith [h_sq]
-        have h_y_ne_y' : (y : ℝ) ≠ (y' : ℝ) := fun heq =>
-          h_yy (Dyadic.ext_real heq)
-        have h_diff_ne : (y : ℝ) - (y' : ℝ) ≠ 0 := sub_ne_zero.mpr h_y_ne_y'
-        have h_2x : 2 * x = 0 := by
-          by_contra h2x
-          have : 2 * x * ((y : ℝ) - (y' : ℝ)) ≠ 0 := mul_ne_zero h2x h_diff_ne
-          exact this h_expand
-        linarith
-      -- At x = 0, faithful round of 0 must be 0 (since 0 ∈ F). So y = y' = 0.
-      have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := FiniteFormat.zero_mem F.unbounded
-      have h_y_eq_zero : (y : ℝ) = 0 := by
-        rcases hy_faith with ⟨_, hy_le, hy_max⟩ | ⟨_, hy_ge, hy_min'⟩
-        · -- y ≤ x = 0 and 0 ∈ F means y is max F-elt ≤ 0, hence y = 0.
-          rw [h_x_zero] at hy_le
-          have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) := by
-            have := hy_max 0 h_zero_mem (by rw [h_x_zero]; simp)
-            simpa using this
-          rw [Dyadic.coe_real_zero] at h_zero_le_y
-          linarith
-        · rw [h_x_zero] at hy_ge
-          have h_y_le_zero : (y : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
-            have := hy_min' 0 h_zero_mem (by rw [h_x_zero]; simp)
-            simpa using this
-          rw [Dyadic.coe_real_zero] at h_y_le_zero
-          linarith
-      have h_y'_eq_zero : (y' : ℝ) = 0 := by
-        rcases hy'_faith with ⟨_, hy'_le, hy'_max⟩ | ⟨_, hy'_ge, hy'_min'⟩
-        · rw [h_x_zero] at hy'_le
-          have h_zero_le_y' : ((0 : Dyadic) : ℝ) ≤ (y' : ℝ) := by
-            have := hy'_max 0 h_zero_mem (by rw [h_x_zero]; simp)
-            simpa using this
-          rw [Dyadic.coe_real_zero] at h_zero_le_y'
-          linarith
-        · rw [h_x_zero] at hy'_ge
-          have h_y'_le_zero : (y' : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
-            have := hy'_min' 0 h_zero_mem (by rw [h_x_zero]; simp)
-            simpa using this
-          rw [Dyadic.coe_real_zero] at h_y'_le_zero
-          linarith
-      rw [h_y_eq_zero, h_y'_eq_zero]
-  | toEven =>
-    obtain ⟨hy_mem, hy_faith, hy_min, hy_tie⟩ := hy
-    obtain ⟨hy'_mem, hy'_faith, hy'_min, hy'_tie⟩ := hy'
-    have h_dist_eq : |x - (y : ℝ)| = |x - (y' : ℝ)| :=
-      le_antisymm (hy_min y' hy'_mem hy'_faith) (hy'_min y hy_mem hy_faith)
-    by_cases h_yy : y = y'
-    · exact h_yy
-    · -- Tie case: both y and y' must be IsEven (per tie-break). Among {dlo, dhi},
-      -- at most one is IsEven. So y = y' — contradiction with h_yy unless
-      -- y = y' = unique even.
-      -- But here we have y ≠ y'. Derive that both are IsEven and arrive at
-      -- contradiction via parity dichotomy + alternating.
-      exfalso
-      have h_F_y_even : ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsEven y :=
-        hy_tie ⟨y', hy'_mem, hy'_faith, fun heq => h_yy heq.symm, h_dist_eq⟩
-      have h_F_y'_even : ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsEven y' :=
-        hy'_tie ⟨y, hy_mem, hy_faith, h_yy, h_dist_eq.symm⟩
-      obtain ⟨F_y, hF_y_eq, hF_y_even⟩ := h_F_y_even
-      obtain ⟨F_y', hF_y'_eq, hF_y'_even⟩ := h_F_y'_even
-      -- Bridge via IsEven_iff_of_toFormat_eq to a common ParityFormat F''.
-      set F'' := F.unbounded.toParityFormatOfNearestEven h with hF''_def
-      have hF''_eq : F''.toFormat = F.unbounded.toFormat := rfl
-      have hF_y_eq_F'' : F_y.toFormat = F''.toFormat := by rw [hF_y_eq, hF''_eq]
-      have hF_y'_eq_F'' : F_y'.toFormat = F''.toFormat := by rw [hF_y'_eq, hF''_eq]
-      have hF''_even_y : F''.IsEven y :=
-        ((ParityFormat.IsEven_iff_of_toFormat_eq hF_y_eq_F'' y).mp hF_y_even)
-      have hF''_even_y' : F''.IsEven y' :=
-        ((ParityFormat.IsEven_iff_of_toFormat_eq hF_y'_eq_F'' y').mp hF_y'_even)
-      -- Neighbour setup shared with the soundness proof.
-      set e := F.canonicalExp x with h_e_def
-      set s := x * (2 : ℝ) ^ (-e) with h_s_def
-      set lo : ℤ := ⌊s⌋ with h_lo_def
-      set dlo : Dyadic := Dyadic.ofIntZpow lo e with h_dlo_def
-      set dhi : Dyadic := Dyadic.ofIntZpow (lo + 1) e with h_dhi_def
-      obtain ⟨-, h_dlo_mem, -, h_dlo_real, -, -, -, h_s_unscale, h_dlo_le_x, -,
-          h_dlo_round_down, -, h_faithful_eq⟩ :=
-        nearest_neighbors_setup F x h_e_def h_s_def h_lo_def h_dlo_def h_dhi_def
-      -- y, y' ∈ {dlo, dhi}.
-      have h_both_even : F''.IsEven dlo ∧ F''.IsEven dhi := by
-        rcases h_faithful_eq y hy_faith with h_y_dlo | h_y_dhi
-        · rcases h_faithful_eq y' hy'_faith with h_y'_dlo | h_y'_dhi
-          · exact absurd (h_y_dlo.trans h_y'_dlo.symm) h_yy
-          · refine ⟨?_, ?_⟩
-            · rw [h_y_dlo] at hF''_even_y; exact hF''_even_y
-            · rw [h_y'_dhi] at hF''_even_y'; exact hF''_even_y'
-        · rcases h_faithful_eq y' hy'_faith with h_y'_dlo | h_y'_dhi
-          · refine ⟨?_, ?_⟩
-            · rw [h_y'_dlo] at hF''_even_y'; exact hF''_even_y'
-            · rw [h_y_dhi] at hF''_even_y; exact hF''_even_y
-          · exact absurd (h_y_dhi.trans h_y'_dhi.symm) h_yy
-      obtain ⟨h_F''_even_dlo, h_F''_even_dhi⟩ := h_both_even
-      -- Both `dlo` and `dhi` are `IsEven`, but the shared dispatch lemma forces
-      -- the neighbours to alternate: `¬ IsOdd dlo → IsOdd dhi`, contradicting
-      -- `IsEven dhi`.
-      have hx_ne : x ≠ 0 := by
-        intro hx0
-        subst hx0
-        have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := FiniteFormat.zero_mem F.unbounded
-        have h_y_eq_z : (y : ℝ) = 0 := by
-          rcases hy_faith with ⟨_, hy_le, hy_max⟩ | ⟨_, hy_ge, hy_min'⟩
-          · have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) := by
-              have := hy_max 0 h_zero_mem (by simp); simpa using this
-            rw [Dyadic.coe_real_zero] at h_zero_le_y; linarith
-          · have h_y_le_z : (y : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
-              have := hy_min' 0 h_zero_mem (by simp); simpa using this
-            rw [Dyadic.coe_real_zero] at h_y_le_z; linarith
-        have h_y'_eq_z : (y' : ℝ) = 0 := by
-          rcases hy'_faith with ⟨_, hy'_le, hy'_max⟩ | ⟨_, hy'_ge, hy'_min'⟩
-          · have h_zero_le_y' : ((0 : Dyadic) : ℝ) ≤ (y' : ℝ) := by
-              have := hy'_max 0 h_zero_mem (by simp); simpa using this
-            rw [Dyadic.coe_real_zero] at h_zero_le_y'; linarith
-          · have h_y'_le_z : (y' : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
-              have := hy'_min' 0 h_zero_mem (by simp); simpa using this
-            rw [Dyadic.coe_real_zero] at h_y'_le_z; linarith
-        exact h_yy (Dyadic.ext_real (h_y_eq_z.trans h_y'_eq_z.symm))
-      have h_lo_ne_s : (lo : ℝ) ≠ s := by
-        intro h_eq
-        have h_x_eq_dlo : x = (dlo : ℝ) := by
-          rw [h_dlo_real]
-          have : x = s * (2 : ℝ) ^ e := h_s_unscale.symm
-          rw [this, ← h_eq]
-        have h_y_eq_dlo' : (y : ℝ) = (dlo : ℝ) := by
-          rcases hy_faith with ⟨_, hy_le, hy_max⟩ | ⟨_, hy_ge, hy_min'⟩
-          · exact le_antisymm (h_dlo_round_down y hy_mem hy_le)
-              (hy_max dlo h_dlo_mem h_dlo_le_x)
-          · exact le_antisymm (hy_min' dlo h_dlo_mem (le_of_eq h_x_eq_dlo))
-              (h_x_eq_dlo ▸ hy_ge)
-        have h_y'_eq_dlo' : (y' : ℝ) = (dlo : ℝ) := by
-          rcases hy'_faith with ⟨_, hy'_le, hy'_max⟩ | ⟨_, hy'_ge, hy'_min'⟩
-          · exact le_antisymm (h_dlo_round_down y' hy'_mem hy'_le)
-              (hy'_max dlo h_dlo_mem h_dlo_le_x)
-          · exact le_antisymm (hy'_min' dlo h_dlo_mem (le_of_eq h_x_eq_dlo))
-              (h_x_eq_dlo ▸ hy'_ge)
-        exact h_yy (Dyadic.ext_real (h_y_eq_dlo'.trans h_y'_eq_dlo'.symm))
-      have h_not_isOdd_dlo : ¬ F''.IsOdd dlo := fun h_odd =>
-        ParityFormat.not_isEven_and_isOdd h_F''_even_dlo h_odd
-      have h_isOdd_dhi : F''.IsOdd dhi :=
-        (nearest_toEven_neighbors_alternate x h hx_ne h_lo_ne_s).1.mpr h_not_isOdd_dlo
-      exact ParityFormat.not_isEven_and_isOdd h_F''_even_dhi h_isOdd_dhi
+    y = rndUnbounded F (.nearest tb) x h :=
+  RoundsFinite.unique_nearest h hy (rndUnbounded_satisfies_nearest F tb x h)
 
 
 end Mpfx

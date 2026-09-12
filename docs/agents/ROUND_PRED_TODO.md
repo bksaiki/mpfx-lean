@@ -51,11 +51,11 @@ squares both distances to derive `x = 0` (`Nearest.lean:912`).
 New file `Mpfx/RoundPred.lean`, importing only `Mpfx.Rounding` (constructive;
 no `Classical.propDecidable`, no `rndUnbounded`).
 
-- [ ] `RoundsFinite.unique_toNegative` / `_toPositive`:
+- [x] `RoundsFinite.unique_toNegative` / `_toPositive`:
       `RoundsFinite F rm x y₁ → RoundsFinite F rm x y₂ → y₁ = y₂`. Lift the
       bodies out of `Directed.lean:198-222`, dropping the `rndUnbounded`
       mention. ~6 lines each.
-- [ ] `RoundsFinite.isFaithfulRound` (roadmap §2), all seven modes:
+- [x] `RoundsFinite.isFaithfulRound` (roadmap §2), all seven modes:
       `toNegative`/`toPositive` trivial; `toZero`/`awayZero` via the existing
       `RoundsFinite.toNegative_iff_toZero_of_nonneg` bridges; `toOdd`/`nearest`
       read the conjunct off directly. Callers wanting the two-sided split go
@@ -63,6 +63,13 @@ no `Classical.propDecidable`, no `rndUnbounded`).
 
 No existing proof changes in this phase — it is purely additive, which makes it
 cheap to review.
+
+**Done.** `Mpfx/RoundPred.lean`, 98 lines, imports only `Mpfx.Rounding`. Also
+included `unique_toZero` / `_awayZero` (the sign-bridge plumbing was already
+needed for `isFaithfulRound`, so they cost ~8 lines each and Phases 3–4 would
+otherwise re-derive them). `isFaithfulRound` concludes `IsFaithfulRound F x y`
+rather than the `toNegative ∨ toPositive` disjunction; callers wanting the
+split compose with `isFaithfulRound_iff_directed`.
 
 Extra acceptance: `Mpfx/RoundPred.lean` imports nothing from `Mpfx/RoundOp/`.
 
@@ -74,16 +81,22 @@ Commit message: `Add directed-mode uniqueness and mode-generic faithfulness`
 
 Cleaned-up landing of the spike (see below). Touches `Mpfx/RoundOp/ToOdd.lean`.
 
-- [ ] `RoundsFinite.toNegative_eq_floor` / `toPositive_eq_ceil` — our
+- [x] `RoundsFinite.toNegative_eq_floor` / `toPositive_eq_ceil` — our
       `round_DN_eq` / `round_UP_eq`.
-- [ ] `isOdd_alternate_of_bracketing` — `toOdd_neighbors_alternate` restated
+- [x] `isOdd_alternate_of_bracketing` — `toOdd_neighbors_alternate` restated
       over the relational DN/UP specs.
-- [ ] `RoundsFinite.unique_toOdd`, with diagonal cases going through **Phase 1**
+- [x] `RoundsFinite.unique_toOdd`, with diagonal cases going through **Phase 1**
       rather than `rndUnbounded_unique_toNegative`.
-- [ ] Rewire `rndUnbounded_unique_toOdd` to the 5-line form.
+- [x] Rewire `rndUnbounded_unique_toOdd` to the 5-line form.
 
 Extra acceptance: `rndUnbounded` appears nowhere in `unique_toOdd`'s statement,
 and only via the two bridges in its proof. Net ≈ −26 lines.
+
+**Done.** `rndUnbounded_unique_toOdd` went 142 lines → 5; `ToOdd.lean`
+733 → 682. The two bridges landed in `Directed.lean` (+29) rather than
+`ToOdd.lean` — they are directed-mode facts and belong beside the uniqueness
+lemmas they use. All four spike cleanups applied. Net −23 lines overall,
+better than the spike's −26-on-one-file because the probes are gone.
 
 Commit message: `Prove RTO uniqueness relationally, collapsing its 142-line proof`
 
@@ -94,16 +107,26 @@ Commit message: `Prove RTO uniqueness relationally, collapsing its 142-line proo
 Touches `Mpfx/RoundOp/Nearest.lean`. Mirrors `Rnd_NG_pt_unique`
 (`Round_pred.v:707`).
 
-- [ ] `RoundsFinite.unique_nearest`. Four cases; diagonals by Phase 1;
+- [x] `RoundsFinite.unique_nearest`. Four cases; diagonals by Phase 1;
       off-diagonals by the tie-break clause. `.toEven` mixed case is the
       parity-alternation contradiction; `.awayZero` uses `DN ≤ x ≤ UP` with
       `|DN| = |UP|` ⟹ either `DN = UP` or `DN = -UP`, the latter forcing
       `x = 0` where Phase 1 closes it — same content as the current squaring
       argument, structured.
-- [ ] Rewire `rndUnbounded_unique_nearest` to the one-line form.
+- [x] Rewire `rndUnbounded_unique_nearest` to the one-line form.
 
 Extra acceptance: the squaring detour at `Nearest.lean:912` is gone.
 Expect ≈ −120 lines.
+
+**Done.** `rndUnbounded_unique_nearest` went 180 lines → 5; `Nearest.lean`
+1065 → 991. Net −152 lines across the two files. Two more relational helpers
+landed in `RoundPred.lean` (+22): `RoundsFinite.eq_zero_of_zero` (Flocq's
+`round_0`, also roadmap §3) and `IsFaithfulRound.opposite_sides_of_ne` (the
+case split behind `Rnd_NG_pt_unique`). The `.toEven` branch reuses Phase 2's
+`isOdd_alternate_of_bracketing`, so `Nearest.lean` now imports
+`Mpfx.RoundOp.ToOdd`; `nearest_toEven_neighbors_alternate` has exactly one
+consumer left, the soundness proof `rndUnbounded_satisfies_nearest` — see
+*Adjacent* below.
 
 Commit message: `Prove nearest uniqueness relationally, dropping the squaring detour`
 

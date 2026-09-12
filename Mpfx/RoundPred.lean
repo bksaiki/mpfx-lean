@@ -100,4 +100,26 @@ theorem RoundsFinite.isFaithfulRound {F : FiniteFormat} {rm : RoundingMode} {x :
   | toOdd => exact h.2.1
   | nearest tb => cases tb <;> exact h.2.1
 
+/-- **Rounding fixes zero** (Flocq's `round_0`). Every mode sends `0` to `0`,
+since `0` lies in every format. -/
+theorem RoundsFinite.eq_zero_of_zero {F : FiniteFormat} {rm : RoundingMode}
+    {y : Dyadic} (h : RoundsFinite F rm 0 y) : y = 0 :=
+  RoundsFinite.eq_of_mem (F.zero_mem) (by rwa [Dyadic.coe_real_zero])
+
+/-- Two *distinct* faithful roundings of `x` sit on opposite sides of it: one
+is the round-down, the other the round-up. Same-side pairs collapse by
+`unique_toNegative` / `unique_toPositive`. This is the case split behind
+Flocq's `Rnd_NG_pt_unique` (`Round_pred.v:707`). -/
+theorem IsFaithfulRound.opposite_sides_of_ne {F : FiniteFormat} {x : ℝ}
+    {a b : Dyadic} (ha : IsFaithfulRound F x a) (hb : IsFaithfulRound F x b)
+    (hab : a ≠ b) :
+    (RoundsFinite F .toNegative x a ∧ RoundsFinite F .toPositive x b) ∨
+    (RoundsFinite F .toNegative x b ∧ RoundsFinite F .toPositive x a) := by
+  rcases isFaithfulRound_iff_directed.mp ha with hda | hua <;>
+    rcases isFaithfulRound_iff_directed.mp hb with hdb | hub
+  · exact absurd (RoundsFinite.unique_toNegative hda hdb) hab
+  · exact Or.inl ⟨hda, hub⟩
+  · exact Or.inr ⟨hdb, hua⟩
+  · exact absurd (RoundsFinite.unique_toPositive hua hub) hab
+
 end Mpfx
