@@ -10,21 +10,25 @@ namespace Mpfx
 
 /-- A precision bound: a finite number of binary digits, or `⊤` for
 "no precision constraint". -/
-abbrev Prec := WithTop ℕ
+abbrev Prec := ℕ∞
 
 /-- `WithTop.some` and the `↑ : ℕ → Prec` coercion are definitionally but not
-syntactically equal. Normalize to the coercion, which is the form the `ℕ∞`
-and cast lemmas are stated in. -/
-@[simp] theorem Prec.some_eq_coe p :
-    (WithTop.some p : Prec) = (p : Prec) := rfl
+syntactically equal. Mathlib's `ENat.some_eq_coe` states this between the
+functions, which `simp` will not use to rewrite an application; this is the
+pointwise form. -/
+@[simp] theorem Prec.some_eq_coe p : (WithTop.some p : Prec) = (p : Prec) := rfl
 
-/-- Eliminator for `Prec` whose `coe` case is stated with the coercion
-`↑ : ℕ → Prec` rather than the raw `WithTop.some`, so that `rw`/`simp`
-with `↑p`-shaped lemmas fire on the resulting goal. -/
-@[elab_as_elim] def Prec.recTopCoe {C : Prec → Sort*} (top : C ⊤)
-    (coe : ∀ p : ℕ, C (p : Prec)) : ∀ p : Prec, C p
-  | ⊤ => top
-  | (p : ℕ) => coe p
+/-- A minimum-quantum exponent: the format's values are multiples of `2^exp`,
+or `⊥` for "no quantum constraint". -/
+abbrev QExp := WithBot ℤ
+
+/-- Eliminator for `QExp` stating its `coe` case with the `↑ : ℤ → QExp`
+coercion. `QExp` is reducible, so a bare `cases` unfolds past `WithBot` to
+`Option`; split with this instead. -/
+@[elab_as_elim] def QExp.recBotCoe {C : QExp → Sort*} (bot : C ⊥)
+    (coe : ∀ e : ℤ, C (e : QExp)) : ∀ e : QExp, C e
+  | ⊥ => bot
+  | (e : ℤ) => coe e
 
 /-- A rational number is *dyadic* if it has the form `c · 2^e` for some integers `c, e`.
 The decomposition is not unique: `c · 2^e = (2c) · 2^(e − 1)`. -/
@@ -175,7 +179,7 @@ def precisionAtMost : Prec → Dyadic → Prop
 
 /-- `x` has quantum at least `2^e` (`⊥` = no constraint): there exists `c : ℤ`
 with `x = c · 2^e`. -/
-def quantumAtLeast : WithBot ℤ → Dyadic → Prop
+def quantumAtLeast : QExp → Dyadic → Prop
   | ⊥, _ => True
   | (e : ℤ), x => ∃ c : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e
 
@@ -188,7 +192,7 @@ theorem precisionAtMost_coe (p : ℕ) (x : Dyadic) :
       ∃ c e : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e ∧ |c| < (2 : ℤ) ^ p := Iff.rfl
 
 theorem quantumAtLeast_coe (e : ℤ) (x : Dyadic) :
-    quantumAtLeast (e : WithBot ℤ) x ↔
+    quantumAtLeast (e : QExp) x ↔
       ∃ c : ℤ, (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e := Iff.rfl
 
 /-- `ℝ`-stated companion to `precisionAtMost_coe`. The substrate predicate is
@@ -205,7 +209,7 @@ theorem precisionAtMost_coe_real (p : ℕ) (x : Dyadic) :
 
 /-- `ℝ`-stated companion to `quantumAtLeast_coe`. -/
 theorem quantumAtLeast_coe_real (e : ℤ) (x : Dyadic) :
-    quantumAtLeast (e : WithBot ℤ) x ↔
+    quantumAtLeast (e : QExp) x ↔
       ∃ c : ℤ, (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := by
   rw [quantumAtLeast_coe]
   refine ⟨fun ⟨c, hc⟩ => ⟨c, ?_⟩, fun ⟨c, hc⟩ => ⟨c, ?_⟩⟩
@@ -226,10 +230,10 @@ theorem precisionAtMost_zero_iff_eq_zero {x : Dyadic} :
 allowed means the constraint is weaker. -/
 theorem precisionAtMost_mono {p₁ p₂ : Prec} (h : p₁ ≤ p₂) {x : Dyadic}
     (hx : precisionAtMost p₁ x) : precisionAtMost p₂ x := by
-  cases p₂ using Prec.recTopCoe with
+  cases p₂ using ENat.recTopCoe with
   | top => trivial
   | coe p₂ =>
-    cases p₁ using Prec.recTopCoe with
+    cases p₁ using ENat.recTopCoe with
     | top => exact absurd (top_le_iff.mp h) (WithTop.coe_ne_top)
     | coe p₁ =>
       obtain ⟨c, e, hc, hb⟩ := hx
@@ -239,12 +243,12 @@ theorem precisionAtMost_mono {p₁ p₂ : Prec} (h : p₁ ≤ p₂) {x : Dyadic}
 
 /-- `quantumAtLeast` is antitone in the exponent bound: a smaller minimum
 quantum (smaller `exp`) is a weaker constraint. -/
-theorem quantumAtLeast_anti {e₁ e₂ : WithBot ℤ} (h : e₂ ≤ e₁) {x : Dyadic}
+theorem quantumAtLeast_anti {e₁ e₂ : QExp} (h : e₂ ≤ e₁) {x : Dyadic}
     (hx : quantumAtLeast e₁ x) : quantumAtLeast e₂ x := by
-  cases e₂ with
+  cases e₂ using QExp.recBotCoe with
   | bot => trivial
   | coe e₂ =>
-    cases e₁ with
+    cases e₁ using QExp.recBotCoe with
     | bot => exact absurd (le_bot_iff.mp h) (WithBot.coe_ne_bot)
     | coe e₁ =>
       obtain ⟨c, hc⟩ := hx
@@ -260,7 +264,7 @@ theorem quantumAtLeast_anti {e₁ e₂ : WithBot ℤ} (h : e₂ ≤ e₁) {x : D
 
 theorem precisionAtMost_neg {p : Prec} {x : Dyadic} (h : precisionAtMost p x) :
     precisionAtMost p (-x) := by
-  cases p using Prec.recTopCoe with
+  cases p using ENat.recTopCoe with
   | top => trivial
   | coe p =>
     obtain ⟨c, e, hx, hc⟩ := h
@@ -272,16 +276,16 @@ theorem precisionAtMost_neg {p : Prec} {x : Dyadic} (h : precisionAtMost p x) :
     precisionAtMost p (-x) ↔ precisionAtMost p x :=
   ⟨fun h => by simpa using precisionAtMost_neg h, precisionAtMost_neg⟩
 
-theorem quantumAtLeast_neg {e : WithBot ℤ} {x : Dyadic} (h : quantumAtLeast e x) :
+theorem quantumAtLeast_neg {e : QExp} {x : Dyadic} (h : quantumAtLeast e x) :
     quantumAtLeast e (-x) := by
-  cases e with
+  cases e using QExp.recBotCoe with
   | bot => trivial
   | coe e =>
     obtain ⟨c, hx⟩ := h
     refine ⟨-c, ?_⟩
     push_cast [Subring.coe_neg, hx]; ring
 
-@[simp] theorem quantumAtLeast_neg_iff (e : WithBot ℤ) (x : Dyadic) :
+@[simp] theorem quantumAtLeast_neg_iff (e : QExp) (x : Dyadic) :
     quantumAtLeast e (-x) ↔ quantumAtLeast e x :=
   ⟨fun h => by simpa using quantumAtLeast_neg h, quantumAtLeast_neg⟩
 
@@ -297,7 +301,7 @@ theorem precisionAtMost_two_three_zpow (k : ℤ) :
 /-- A nonzero dyadic with `quantumAtLeast e` has absolute value at least `2^e`.
 The smallest nonzero significand `c` is `±1`, giving `|c·2^e| = 2^e`. -/
 theorem abs_ge_two_zpow_of_quantum {e : ℤ} {d : Dyadic}
-    (hq : quantumAtLeast (e : WithBot ℤ) d) (hne : (d : ℝ) ≠ 0) :
+    (hq : quantumAtLeast (e : QExp) d) (hne : (d : ℝ) ≠ 0) :
     (2 : ℝ)^e ≤ |(d : ℝ)| := by
   rw [quantumAtLeast_coe_real] at hq
   obtain ⟨c, hc_eq⟩ := hq
@@ -634,6 +638,16 @@ end Dyadic
 the carrier of magnitude bounds in `Format`. -/
 abbrev NonNegDyadic : Type := { d : Dyadic // 0 ≤ (d : ℚ) }
 
+/-- A magnitude bound on a format's values, or `⊤` for "unbounded". -/
+abbrev Bound := WithTop NonNegDyadic
+
+/-- Eliminator for `Bound` stating its `coe` case with the
+`↑ : NonNegDyadic → Bound` coercion; see `QExp.recBotCoe`. -/
+@[elab_as_elim] def Bound.recTopCoe {C : Bound → Sort*} (top : C ⊤)
+    (coe : ∀ b : NonNegDyadic, C (b : Bound)) : ∀ b : Bound, C b
+  | ⊤ => top
+  | (b : NonNegDyadic) => coe b
+
 
 /-! ### Canonical representations and casts (used by the grid lemmas) -/
 
@@ -649,7 +663,7 @@ theorem eq_zero_of_coe_real_zero {z : Dyadic} (h : (z : ℝ) = 0) : z = 0 :=
 /-- `2^k` (any `k`) has precision 1, hence fits any precision bound. -/
 theorem precisionAtMost_one_zpow {p : Prec} (hp : p ≠ 0) (k : ℤ) :
     Dyadic.precisionAtMost p (Dyadic.ofIntZpow 1 k) := by
-  cases p using Prec.recTopCoe with
+  cases p using ENat.recTopCoe with
   | top => trivial
   | coe p =>
     rw [Dyadic.precisionAtMost_coe]
@@ -659,7 +673,7 @@ theorem precisionAtMost_one_zpow {p : Prec} (hp : p ≠ 0) (k : ℤ) :
 /-- An odd-significand representation cannot sit below the quantum: if
 `x = c·2^q` with `c` odd and `x` has quantum at least `e`, then `e ≤ q`. -/
 theorem quantum_le_of_odd_rep {e : ℤ} {x : Dyadic}
-    (hq : Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) x) {c q : ℤ}
+    (hq : Dyadic.quantumAtLeast (e : QExp) x) {c q : ℤ}
     (hodd : Odd c) (heq : ((x : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ q) :
     e ≤ q := by
   obtain ⟨m, hm⟩ : ∃ m : ℤ, ((x : Dyadic) : ℝ) = (m : ℝ) * (2 : ℝ) ^ e := by
@@ -689,8 +703,8 @@ directions pins the exponent, and cancellation the significand. -/
 theorem odd_rep_unique {x : Dyadic} {c q c' q' : ℤ} (hc : Odd c) (hc' : Odd c')
     (h : (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ q) (h' : (x : ℝ) = (c' : ℝ) * (2 : ℝ) ^ q') :
     c = c' ∧ q = q' := by
-  have hq : quantumAtLeast ((q : ℤ) : WithBot ℤ) x := (quantumAtLeast_coe_real q x).mpr ⟨c, h⟩
-  have hq' : quantumAtLeast ((q' : ℤ) : WithBot ℤ) x := (quantumAtLeast_coe_real q' x).mpr ⟨c', h'⟩
+  have hq : quantumAtLeast (q : QExp) x := (quantumAtLeast_coe_real q x).mpr ⟨c, h⟩
+  have hq' : quantumAtLeast (q' : QExp) x := (quantumAtLeast_coe_real q' x).mpr ⟨c', h'⟩
   obtain rfl : q = q' :=
     le_antisymm (quantum_le_of_odd_rep hq hc' h') (quantum_le_of_odd_rep hq' hc h)
   refine ⟨?_, rfl⟩

@@ -35,7 +35,7 @@ theorem FiniteFormat.numDigits_le_one_of_p_one {F : FiniteFormat}
   · simp [hx]
   · simp only [hx, ↓reduceIte]
     -- `F.p = 1`, so only the `(p, ⊥)` and `(p, e')` branches apply.
-    cases hexp : F.exp with
+    cases hexp : F.exp using QExp.recBotCoe with
     | bot =>
       rw [hp1]
       change ((1 : ℕ) : ℤ) ≤ 1
@@ -240,13 +240,13 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
   -- Step 1: Show y'' ∈ F₁.
   have hy''_F₁ : y'' ∈ F₁ := by
     refine ⟨?_, ?_, ?_⟩
-    · cases hp1 : F₁.p using Prec.recTopCoe with
+    · cases hp1 : F₁.p using ENat.recTopCoe with
       | top => trivial
       | coe n =>
         rw [Dyadic.precisionAtMost_coe]
         refine ⟨c'', e - 1, rfl, ?_⟩
         have h_le_n : F₁.numDigits ((y : Dyadic) : ℝ) ≤ (n : ℤ) := by
-          cases hexp : F₁.exp with
+          cases hexp : F₁.exp using QExp.recBotCoe with
           | bot =>
             rw [F₁.numDigits_coe_bot hy_ne_zero hp1 hexp]
           | coe e' =>
@@ -260,7 +260,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
             < (2 : ℤ) ^ (p₂ + 1) := hc''_high
           _ ≤ (2 : ℤ) ^ n :=
               pow_le_pow_right₀ (by norm_num : (1 : ℤ) ≤ 2) hp₂_lt_n_nat
-    · cases hexp : F₁.exp with
+    · cases hexp : F₁.exp using QExp.recBotCoe with
       | bot => trivial
       | coe e₁ =>
         rw [Dyadic.quantumAtLeast_coe]
@@ -268,7 +268,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
           have h_inner_gt : Int.log 2 |((y : Dyadic) : ℝ)| - e₁ + 1 > (p₂ : ℤ) := by
             have h_F₁_lt : (p₂ : ℤ) < F₁.numDigits ((y : Dyadic) : ℝ) := by
               rw [hp₂_eq]; exact h_lt
-            cases hp1 : F₁.p using Prec.recTopCoe with
+            cases hp1 : F₁.p using ENat.recTopCoe with
             | top =>
               rw [F₁.numDigits_top_coe hy_ne_zero hexp hp1] at h_F₁_lt
               exact h_F₁_lt
@@ -281,7 +281,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
         rw [Dyadic.coe_rat_ofIntZpow]
         exact two_zpow_shift_rat c'' (by omega)
     · have hyF₁_bnd := hyF₁.2.2
-      cases hb : F₁.b with
+      cases hb : F₁.b using Bound.recTopCoe with
       | top => trivial
       | coe b =>
         rw [hb] at hyF₁_bnd
@@ -352,11 +352,11 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
     obtain ⟨h_pre, h_qua, _⟩ := hy''_F₂
     change Dyadic.precisionAtMost F₂.p y'' at h_pre
     change Dyadic.quantumAtLeast F₂.exp y'' at h_qua
-    cases hexp2 : F₂.exp with
+    cases hexp2 : F₂.exp using QExp.recBotCoe with
     | bot =>
       have h_F₂_nd := F₂.nondegenerate
       rcases h_F₂_nd with ⟨hp_top_neg, _⟩ | hexp_bot_neg
-      · cases hp2 : F₂.p using Prec.recTopCoe with
+      · cases hp2 : F₂.p using ENat.recTopCoe with
         | top => exact absurd hp2 hp_top_neg
         | coe n =>
           have h_numD_eq_n : (p₂ : ℤ) = (n : ℤ) := by
@@ -381,7 +381,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
           linarith
       · exact absurd hexp2 hexp_bot_neg
     | coe e₂ =>
-      cases hp2 : F₂.p using Prec.recTopCoe with
+      cases hp2 : F₂.p using ENat.recTopCoe with
       | top =>
         have h_numD : F₂.toFiniteFormat.numDigits ((y : Dyadic) : ℝ) =
             Int.log 2 |((y : Dyadic) : ℝ)| - e₂ + 1 := by
@@ -501,7 +501,7 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
     · exact absurd hF₁_p_1 hp1
     · exact hexp
   set e₁ : ℤ := F₁.exp.unbot hF₁_exp_ne with he₁_def
-  have hF₁_exp_eq : F₁.exp = (e₁ : WithBot ℤ) :=
+  have hF₁_exp_eq : F₁.exp = (e₁ : QExp) :=
     (WithBot.coe_unbot F₁.exp hF₁_exp_ne).symm
   have h_unbot : WithBot.unbotD 0 F₁.exp = e₁ := by rw [hF₁_exp_eq]; rfl
   rw [h_unbot]
@@ -570,11 +570,11 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
     nlinarith
   -- `F₂.exp` is finite (`= e₂`), with `e = e₂`.
   have h_e_eq_F₂_exp_or_p_eq_1 :
-      (∃ e₂ : ℤ, F₂.exp = (e₂ : WithBot ℤ) ∧ e = e₂) := by
-    cases hF₂_exp_cases : F₂.exp with
+      (∃ e₂ : ℤ, F₂.exp = (e₂ : QExp) ∧ e = e₂) := by
+    cases hF₂_exp_cases : F₂.exp using QExp.recBotCoe with
     | bot =>
       exfalso
-      cases hF₂_p_cases : F₂.p using Prec.recTopCoe with
+      cases hF₂_p_cases : F₂.p using ENat.recTopCoe with
       | top =>
         rcases F₂.nondegenerate with ⟨hp_top_neg, _⟩ | hexp_bot_neg
         · exact hp_top_neg hF₂_p_cases
@@ -594,7 +594,7 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
         simp at this
     | coe e₂ =>
       refine ⟨e₂, rfl, ?_⟩
-      cases hF₂_p_cases : F₂.p using Prec.recTopCoe with
+      cases hF₂_p_cases : F₂.p using ENat.recTopCoe with
       | top =>
         have h_n : F₂.toFiniteFormat.numDigits ((y : Dyadic) : ℝ) =
             Int.log 2 |((y : Dyadic) : ℝ)| - e₂ + 1 := by
@@ -627,7 +627,7 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
       rw [Dyadic.coe_rat_ofIntZpow]
     · change Mpfx.Format.boundOK F₁.b (Dyadic.ofIntZpow 1 e₁)
       have hyF₁_b := hyF₁.2.2
-      cases hb : F₁.b with
+      cases hb : F₁.b using Bound.recTopCoe with
       | top => trivial
       | coe b =>
         rw [hb] at hyF₁_b

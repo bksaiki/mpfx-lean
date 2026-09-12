@@ -95,15 +95,15 @@ def opMul (F₁ F₂ : Format) : Format where
         ((⟨b₁.1 * b₂.1, by
             have := mul_nonneg b₁.2 b₂.2
             push_cast at this ⊢
-            exact this⟩ : NonNegDyadic) : WithTop NonNegDyadic)
+            exact this⟩ : NonNegDyadic) : Bound)
     | _, _ => ⊤
 
 /-- Tight precision bound for `⊕`:
 `p = ⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉`, or `⊤` when either operand bound
 or exponent is infinite.  The floor ratio is computed over `ℝ`. -/
 noncomputable def opAddPrec (F₁ F₂ : Format) : Prec :=
-  match (F₁.b : WithTop NonNegDyadic), (F₂.b : WithTop NonNegDyadic),
-        (min F₁.exp F₂.exp : WithBot ℤ) with
+  match (F₁.b : Bound), (F₂.b : Bound),
+        (min F₁.exp F₂.exp : QExp) with
   | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic), (m : ℤ) =>
       (Nat.clog 2 (Int.toNat ⌊(((b₁.1 + b₂.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌋ + 1) : Prec)
   | _, _, _ => ⊤
@@ -119,7 +119,7 @@ noncomputable def opAdd (F₁ F₂ : Format) : Format where
         ((⟨b₁.1 + b₂.1, by
             have := add_nonneg b₁.2 b₂.2
             push_cast at this ⊢
-            exact this⟩ : NonNegDyadic) : WithTop NonNegDyadic)
+            exact this⟩ : NonNegDyadic) : Bound)
     | _, _ => ⊤
 
 /-! ## Predicate-level helpers (private) -/
@@ -160,19 +160,19 @@ private theorem mul_inferred_pq {F₁ F₂ : Format} {x y : Dyadic}
       exact mul_lt_mul'' hc1 hc2 (abs_nonneg _) (abs_nonneg _)
   · -- quantumAtLeast (exp₁ + exp₂) (x * y)
     by_cases hF1_exp : F₁.exp = ⊥
-    · have : F₁.exp + F₂.exp = (⊥ : WithBot ℤ) := by rw [hF1_exp]; rfl
+    · have : F₁.exp + F₂.exp = (⊥ : QExp) := by rw [hF1_exp]; rfl
       rw [this]; trivial
     by_cases hF2_exp : F₂.exp = ⊥
-    · have : F₁.exp + F₂.exp = (⊥ : WithBot ℤ) := by rw [hF2_exp]; cases F₁.exp <;> rfl
+    · have : F₁.exp + F₂.exp = (⊥ : QExp) := by rw [hF2_exp]; cases F₁.exp <;> rfl
       rw [this]; trivial
     obtain ⟨e1, he1⟩ := WithBot.ne_bot_iff_exists.mp hF1_exp
     obtain ⟨e2, he2⟩ := WithBot.ne_bot_iff_exists.mp hF2_exp
-    have hqx' : Dyadic.quantumAtLeast (e1 : WithBot ℤ) x := by rw [he1]; exact hqx
-    have hqy' : Dyadic.quantumAtLeast (e2 : WithBot ℤ) y := by rw [he2]; exact hqy
+    have hqx' : Dyadic.quantumAtLeast (e1 : QExp) x := by rw [he1]; exact hqx
+    have hqy' : Dyadic.quantumAtLeast (e2 : QExp) y := by rw [he2]; exact hqy
     rw [Dyadic.quantumAtLeast_coe] at hqx' hqy'
     obtain ⟨c1, hxeq⟩ := hqx'
     obtain ⟨c2, hyeq⟩ := hqy'
-    have h_exp_eq : F₁.exp + F₂.exp = ((e1 + e2 : ℤ) : WithBot ℤ) := by
+    have h_exp_eq : F₁.exp + F₂.exp = ((e1 + e2 : ℤ) : QExp) := by
       rw [← he1, ← he2]; push_cast; rfl
     rw [h_exp_eq, Dyadic.quantumAtLeast_coe]
     refine ⟨c1 * c2, ?_⟩
@@ -189,21 +189,21 @@ private theorem add_inferred_q {F₁ F₂ : Format} {x y : Dyadic}
   obtain ⟨_, hqx, _⟩ := hx
   obtain ⟨_, hqy, _⟩ := hy
   by_cases hF1_exp : F₁.exp = ⊥
-  · have : min F₁.exp F₂.exp = (⊥ : WithBot ℤ) := by
+  · have : min F₁.exp F₂.exp = (⊥ : QExp) := by
       rw [hF1_exp]; exact min_eq_left bot_le
     rw [this]; trivial
   by_cases hF2_exp : F₂.exp = ⊥
-  · have : min F₁.exp F₂.exp = (⊥ : WithBot ℤ) := by
+  · have : min F₁.exp F₂.exp = (⊥ : QExp) := by
       rw [hF2_exp]; exact min_eq_right bot_le
     rw [this]; trivial
   obtain ⟨e1, he1⟩ := WithBot.ne_bot_iff_exists.mp hF1_exp
   obtain ⟨e2, he2⟩ := WithBot.ne_bot_iff_exists.mp hF2_exp
-  have hqx' : Dyadic.quantumAtLeast (e1 : WithBot ℤ) x := by rw [he1]; exact hqx
-  have hqy' : Dyadic.quantumAtLeast (e2 : WithBot ℤ) y := by rw [he2]; exact hqy
+  have hqx' : Dyadic.quantumAtLeast (e1 : QExp) x := by rw [he1]; exact hqx
+  have hqy' : Dyadic.quantumAtLeast (e2 : QExp) y := by rw [he2]; exact hqy
   rw [Dyadic.quantumAtLeast_coe] at hqx' hqy'
   obtain ⟨c1, hxeq⟩ := hqx'
   obtain ⟨c2, hyeq⟩ := hqy'
-  have h_min_eq : min F₁.exp F₂.exp = ((min e1 e2 : ℤ) : WithBot ℤ) := by
+  have h_min_eq : min F₁.exp F₂.exp = ((min e1 e2 : ℤ) : QExp) := by
     rw [← he1, ← he2, ← WithBot.coe_min]
   rw [h_min_eq, Dyadic.quantumAtLeast_coe]
   set m := min e1 e2 with hm
@@ -240,10 +240,10 @@ theorem mul_subset (F₁ F₂ : Format) :
         | _, _ => ⊤) (x * y)
   obtain ⟨_, _, hbx⟩ := mem_toSet.mp hx
   obtain ⟨_, _, hby⟩ := mem_toSet.mp hy
-  cases hF1_b : F₁.b with
+  cases hF1_b : F₁.b using Bound.recTopCoe with
   | top => trivial
   | coe b₁ =>
-    cases hF2_b : F₂.b with
+    cases hF2_b : F₂.b using Bound.recTopCoe with
     | top => trivial
     | coe b₂ =>
       -- goal: |(x*y : ℚ)| ≤ ((b₁.1 * b₂.1 : Dyadic) : ℚ)
@@ -262,8 +262,8 @@ finite, the significand of `x + y` at the finer quantum is bounded by
 `⌊(b₁+b₂)/2^m⌋`, so its bit-length fits the floor-based precision formula. -/
 private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
     {b1 b2 : NonNegDyadic} {e1 e2 : ℤ}
-    (hF1_b : F₁.b = (b1 : WithTop NonNegDyadic)) (hF2_b : F₂.b = (b2 : WithTop NonNegDyadic))
-    (hF1_exp : F₁.exp = (e1 : WithBot ℤ)) (hF2_exp : F₂.exp = (e2 : WithBot ℤ))
+    (hF1_b : F₁.b = (b1 : Bound)) (hF2_b : F₂.b = (b2 : Bound))
+    (hF1_exp : F₁.exp = (e1 : QExp)) (hF2_exp : F₂.exp = (e2 : QExp))
     (hx : x ∈ F₁) (hy : y ∈ F₂) :
     Dyadic.precisionAtMost
       ((Nat.clog 2
@@ -350,23 +350,23 @@ theorem add_subset (F₁ F₂ : Format) :
   · -- precisionAtMost (opAddPrec F₁ F₂) (x + y)
     change Dyadic.precisionAtMost (opAddPrec F₁ F₂) (x + y)
     unfold opAddPrec
-    cases hF1_b : F₁.b with
+    cases hF1_b : F₁.b using Bound.recTopCoe with
     | top => trivial
     | coe b1 =>
-      cases hF2_b : F₂.b with
+      cases hF2_b : F₂.b using Bound.recTopCoe with
       | top => trivial
       | coe b2 =>
-        cases hF1_exp : F₁.exp with
+        cases hF1_exp : F₁.exp using QExp.recBotCoe with
         | bot =>
           -- min ≤ ⊥ ⇒ min = ⊥ ⇒ ⊤ branch
           simp only [bot_inf_eq]; trivial
         | coe e1 =>
-          cases hF2_exp : F₂.exp with
+          cases hF2_exp : F₂.exp using QExp.recBotCoe with
           | bot =>
             simp only [inf_bot_eq]; trivial
           | coe e2 =>
-            have h_min_eq : min (e1 : WithBot ℤ) (e2 : WithBot ℤ)
-                = ((min e1 e2 : ℤ) : WithBot ℤ) := (WithBot.coe_min e1 e2).symm
+            have h_min_eq : min (e1 : QExp) (e2 : QExp)
+                = ((min e1 e2 : ℤ) : QExp) := (WithBot.coe_min e1 e2).symm
             rw [h_min_eq]
             have := add_prec_finite hF1_b hF2_b hF1_exp hF2_exp
               (mem_toSet.mp hx) (mem_toSet.mp hy)
@@ -376,10 +376,10 @@ theorem add_subset (F₁ F₂ : Format) :
         (match F₁.b, F₂.b with
           | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic) => _
           | _, _ => ⊤) (x + y)
-    cases hF1_b : F₁.b with
+    cases hF1_b : F₁.b using Bound.recTopCoe with
     | top => trivial
     | coe b1 =>
-      cases hF2_b : F₂.b with
+      cases hF2_b : F₂.b using Bound.recTopCoe with
       | top => trivial
       | coe b2 =>
         rw [hF1_b] at hbx

@@ -15,10 +15,10 @@ namespace Mpfx
 
 /-- If `y₁` and `y₂` both satisfy the magnitude bound `B`, so does their
 midpoint (triangle inequality over `ℚ`). -/
-private theorem boundOK_midpoint {B : WithTop NonNegDyadic} {y₁ y₂ : Dyadic}
+private theorem boundOK_midpoint {B : Bound} {y₁ y₂ : Dyadic}
     (h₁ : Format.boundOK B y₁) (h₂ : Format.boundOK B y₂) :
     Format.boundOK B (Dyadic.midpoint y₁ y₂) := by
-  cases B with
+  cases B using Bound.recTopCoe with
   | top => trivial
   | coe B =>
     change |((Dyadic.midpoint y₁ y₂ : Dyadic) : ℚ)| ≤ ((B.val : Dyadic) : ℚ)
@@ -79,7 +79,7 @@ exponent `k` is the F-grid step exponent at `y`: `max(exp, ⌊log₂ y⌋ - p + 
 This is the key structural lemma underlying the F-adjacent midpoint analysis:
 F-adjacent values at this `k` differ by exactly `2^k`. -/
 theorem exists_grid_rep (F : FiniteFormat) {p : ℕ} {exp : ℤ}
-    (hp : F.p = (p : Prec)) (he : F.exp = (exp : WithBot ℤ))
+    (hp : F.p = (p : Prec)) (he : F.exp = (exp : QExp))
     {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.p y)
     (hq_y_full : Dyadic.quantumAtLeast F.exp y)
     (hy_pos : 0 < ((y : Dyadic) : ℝ)) :
@@ -309,7 +309,7 @@ This is the key F-adjacency lemma: applying `exists_grid_rep` to a putative
 `y ∈ F` strictly in the interval forces `y` to have grid-exp `k' = k`, making
 `y/2^k` an integer strictly between `c` and `c+1`, a contradiction. -/
 theorem no_F_element_in_step_interval (F : FiniteFormat) {p : ℕ} {exp : ℤ}
-    (hp : F.p = (p : Prec)) (he : F.exp = (exp : WithBot ℤ))
+    (hp : F.p = (p : Prec)) (he : F.exp = (exp : QExp))
     {c : ℤ} (hc_pos : 0 < c) (hc_lt : c < (2 : ℤ) ^ p)
     {k : ℤ} (hk : k ≥ exp)
     (hk_max : k = max exp (Int.log 2 ((c : ℝ) * (2 : ℝ) ^ k) - (p : ℤ) + 1))
@@ -432,7 +432,7 @@ private theorem F_adjacent_step_form_z_core (F : FiniteFormat) {p : ℕ}
 `y₁ = c·2^k`, `y₂ = (c+1)·2^k` where `(c, k)` is `y₁`'s grid rep. The exponent
 `k = max(exp, ⌊log₂ y₁⌋ - p + 1)` is the F-grid step exponent at `y₁`. -/
 theorem F_adjacent_step_form (F : FiniteFormat) {p : ℕ} {exp : ℤ}
-    (hp : F.p = (p : Prec)) (he : F.exp = (exp : WithBot ℤ))
+    (hp : F.p = (p : Prec)) (he : F.exp = (exp : QExp))
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F)
     (h_pos : 0 < ((y₁ : Dyadic) : ℝ))
     (h_lt : ((y₁ : Dyadic) : ℝ) < ((y₂ : Dyadic) : ℝ))
@@ -555,7 +555,7 @@ to `(2c+1)·2^(k-1)` where `(c, k)` is `y₁`'s grid rep and `y₂ = (c+1)·2^k`
 giving `|2c+1| < 2^(p+1)`, hence precision ≤ `p+1`. -/
 theorem midpoint_mem_extend_one_of_F_adjacent_pos (F : FiniteFormat)
     {p : ℕ} {exp : ℤ}
-    (hp : F.p = (p : Prec)) (he : F.exp = (exp : WithBot ℤ))
+    (hp : F.p = (p : Prec)) (he : F.exp = (exp : QExp))
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F)
     (h_pos : 0 < ((y₁ : Dyadic) : ℝ))
     (h_lt : ((y₁ : Dyadic) : ℝ) < ((y₂ : Dyadic) : ℝ))
@@ -573,7 +573,7 @@ theorem midpoint_mem_extend_one_of_F_adjacent_pos (F : FiniteFormat)
     rw [Dyadic.coe_midpoint, hy₁_eq, hy₂_eq, zpow_sub₀ (by norm_num : (2 : ℝ) ≠ 0)]
     push_cast; field_simp; ring
   change Dyadic.quantumAtLeast (F.extend 1).exp _
-  have h_exp_extend : (F.extend 1).exp = ((exp - 1 : ℤ) : WithBot ℤ) := by
+  have h_exp_extend : (F.extend 1).exp = ((exp - 1 : ℤ) : QExp) := by
     change F.exp.map (· - ((1 : ℕ) : ℤ)) = _
     rw [he, WithBot.map_coe]
     have : ((1 : ℕ) : ℤ) = 1 := rfl
@@ -633,11 +633,11 @@ theorem half_mem_extend_one (F : FiniteFormat) {p : ℕ}
     show Dyadic.quantumAtLeast (F.extend 1).exp _
     have h_exp_eq : (F.extend 1).exp = F.exp.map (· - ((1 : ℕ) : ℤ)) := rfl
     rw [h_exp_eq]
-    cases hF_exp : F.exp with
+    cases hF_exp : F.exp using QExp.recBotCoe with
     | bot => trivial
     | coe e =>
       rw [WithBot.map_coe]
-      change Dyadic.quantumAtLeast (((e - (1 : ℕ)) : ℤ) : WithBot ℤ) _
+      change Dyadic.quantumAtLeast (((e - (1 : ℕ)) : ℤ) : QExp) _
       rw [Dyadic.quantumAtLeast_coe]
       rw [hF_exp] at hq_y
       rw [Dyadic.quantumAtLeast_coe] at hq_y
@@ -732,7 +732,7 @@ case-splits on the sign of `y₁`:
 - `y₁ < 0` and `y₂ ≤ 0`: negate, apply positive case to `(-y₂, -y₁)`, then negate back.
 - `y₁ < 0 < y₂`: ruled out by F-adjacency since `0 ∈ F`. -/
 theorem midpoint_mem_extend_one_of_F_adjacent (F : FiniteFormat) {p : ℕ} {exp : ℤ}
-    (hp : F.p = (p : Prec)) (he : F.exp = (exp : WithBot ℤ))
+    (hp : F.p = (p : Prec)) (he : F.exp = (exp : QExp))
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F)
     (h_lt : ((y₁ : Dyadic) : ℝ) < ((y₂ : Dyadic) : ℝ))
     (h_adj : ∀ y : Dyadic, y ∈ F →
@@ -763,7 +763,7 @@ theorem midpoint_mem_extend_one_of_F_adjacent_exp_bot (F : FiniteFormat) {p : �
 /-- For `F.p = ⊤` and `F.exp` finite, midpoint of any two F-elements lies in
 `F.extend 1`. F-adjacency isn't required since precision is unrestricted. -/
 theorem midpoint_mem_extend_one_of_p_top (F : FiniteFormat) {exp : ℤ}
-    (hp : F.p = ⊤) (he : F.exp = (exp : WithBot ℤ))
+    (hp : F.p = ⊤) (he : F.exp = (exp : QExp))
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F) :
     Dyadic.midpoint y₁ y₂ ∈ F.extend 1 := by
   obtain ⟨_, hq_y₁, hb_y₁⟩ := hy₁F
@@ -777,7 +777,7 @@ theorem midpoint_mem_extend_one_of_p_top (F : FiniteFormat) {exp : ℤ}
     rw [h_p_top]; trivial
   · -- quantum: midpoint at quantum exp - 1.
     show Dyadic.quantumAtLeast (F.extend 1).exp _
-    have h_exp_map : (F.extend 1).exp = ((exp - 1 : ℤ) : WithBot ℤ) := by
+    have h_exp_map : (F.extend 1).exp = ((exp - 1 : ℤ) : QExp) := by
       change F.exp.map (· - ((1 : ℕ) : ℤ)) = _
       rw [he, WithBot.map_coe]
       have : ((1 : ℕ) : ℤ) = 1 := rfl

@@ -117,7 +117,7 @@ theorem rndMul_FLT {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
-    (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
+    (hexp₁ : F₁.exp = (emin₁ : QExp)) (hexp₂ : F₂.exp = (emin₂ : QExp))
     (hemin : emin₂ ≤ 2 * emin₁)
     {x y : Dyadic} (hx : x ∈ F₁) (hy : y ∈ F₁) {z w : Dyadic}
     (hz : RoundsFinite F₂.unbounded rm₂ ((x * y : Dyadic) : ℝ) z)

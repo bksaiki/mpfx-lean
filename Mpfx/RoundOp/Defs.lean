@@ -261,9 +261,9 @@ theorem floor_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
   set e := F.canonicalExp x
   set c := ⌊x * (2 : ℝ) ^ (-e)⌋
   have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-  cases hp : F.p using Prec.recTopCoe with
+  cases hp : F.p using ENat.recTopCoe with
   | top =>
-    cases hexp : F.exp with
+    cases hexp : F.exp using QExp.recBotCoe with
     | bot =>
       exfalso
       rcases F.finite with h | h
@@ -274,6 +274,7 @@ theorem floor_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
         change F.canonicalExp x = e'
         unfold FiniteFormat.canonicalExp
         simp [hp, hexp]
+        rfl
       rw [hexp, Dyadic.quantumAtLeast_coe_real] at hz_quant
       obtain ⟨k, hk⟩ := hz_quant
       have h_2e'_pos : (0 : ℝ) < (2 : ℝ) ^ e' := zpow_pos (by norm_num) _
@@ -338,7 +339,7 @@ theorem floor_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
           simp
         rw [hy0, hz_repr] at *
         exact hz_le_x
-      · cases hexp : F.exp with
+      · cases hexp : F.exp using QExp.recBotCoe with
         | coe e' =>
           by_cases h_e'_eq : e' = e
           · rw [hexp, Dyadic.quantumAtLeast_coe_real] at hz_quant
@@ -406,7 +407,7 @@ theorem ceil_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
   set e := F.canonicalExp x
   -- Build `(-z) ∈ F.unbounded`'s precision/quantum facts.
   have h_neg_z_prec : Dyadic.precisionAtMost F.p (-z) := by
-    cases hp : F.p using Prec.recTopCoe with
+    cases hp : F.p using ENat.recTopCoe with
     | top => trivial
     | coe p =>
       rw [hp] at hz_prec
@@ -417,7 +418,7 @@ theorem ceil_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
       · push_cast; rw [hz_repr]; ring
       · rwa [abs_neg]
   have h_neg_z_quant : Dyadic.quantumAtLeast F.exp (-z) := by
-    cases hexp : F.exp with
+    cases hexp : F.exp using QExp.recBotCoe with
     | bot => trivial
     | coe e' =>
       rw [hexp, Dyadic.quantumAtLeast_coe_real] at hz_quant
@@ -441,19 +442,19 @@ theorem ceil_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
 `F.p` is finite) `|k| ≤ 2^p`. The mantissa-bound boundary case `|k| = 2^p`
 is handled by `precisionAtMost_of_abs_le`. -/
 theorem ofIntZpow_mem_unbounded (F : FiniteFormat) {k e : ℤ}
-    (he_ge : ∀ {e' : ℤ}, F.exp = (e' : WithBot ℤ) → e' ≤ e)
+    (he_ge : ∀ {e' : ℤ}, F.exp = (e' : QExp) → e' ≤ e)
     (hk_bound : ∀ {p : ℕ}, F.p = (p : Prec) →
       |k| ≤ (2 : ℤ) ^ p) :
     Dyadic.ofIntZpow k e ∈ F.unbounded := by
   refine ⟨?_, ?_, ?_⟩
   · change Dyadic.precisionAtMost F.p (Dyadic.ofIntZpow k e)
-    cases hp : F.p using Prec.recTopCoe with
+    cases hp : F.p using ENat.recTopCoe with
     | top => trivial
     | coe p =>
       exact Dyadic.precisionAtMost_of_abs_le (F.p_pos hp) k e
         (Dyadic.coe_rat_ofIntZpow k e) (hk_bound hp)
   · change Dyadic.quantumAtLeast F.exp (Dyadic.ofIntZpow k e)
-    cases hexp : F.exp with
+    cases hexp : F.exp using QExp.recBotCoe with
     | bot => trivial
     | coe e' =>
       rw [Dyadic.quantumAtLeast_coe_real]

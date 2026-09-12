@@ -10,15 +10,36 @@ development is put together.
 
 ```lean
 structure Format where
-  p   : Prec                -- precision; 0 = trivial {0}, ⊤ = no constraint
-  exp : WithBot ℤ           -- min-quantum exponent, ⊥ = no quantum constraint
-  b   : WithTop NonNegDyadic -- magnitude bound ≥ 0, ⊤ = unbounded
+  p   : Prec   -- precision; 0 = trivial {0}, ⊤ = no constraint
+  exp : QExp   -- min-quantum exponent, ⊥ = no quantum constraint
+  b   : Bound  -- magnitude bound ≥ 0, ⊤ = unbounded
 ```
 
-`Prec` abbreviates `WithTop ℕ`. Case-split it with `Prec.recTopCoe`, not a bare
-`cases` — the eliminator states its `coe` branch with the `↑p` coercion, so
-`rw`/`simp` on `↑p`-shaped lemmas fire. (`Prec` is reducible, so a bare `cases`
-unfolds past `WithTop` to `Option` and asks for `none`/`some`.)
+The three field types are abbreviations, defined in `Dyadic.lean`:
+
+| abbrev  | unfolds to             | eliminator        |
+| ------- | ---------------------- | ----------------- |
+| `Prec`  | `ℕ∞`                   | `ENat.recTopCoe`  |
+| `QExp`  | `WithBot ℤ`            | `QExp.recBotCoe`  |
+| `Bound` | `WithTop NonNegDyadic` | `Bound.recTopCoe` |
+
+`Prec` is `ℕ∞` rather than `WithTop ℕ` so that the `ENat` lemma namespace
+applies and mathlib's own `ENat.recTopCoe` can be used. The price is that `ENat`
+is a `def`, not a reducible wrapper around `Option`: `⊤`, `1` and numerals at
+type `ℕ∞` do **not** reduce into the `Option` matcher, so the `match`-on-`F.p`
+definitions (`canonicalExp`, `numDigits`, `next`) need an explicit `rfl` after
+`rw`/`simp` has substituted `F.p`. Their evaluator lemmas
+(`numDigits_top_coe` and friends) exist so callers rarely meet this.
+
+**Always case-split these with their eliminator, never a bare `cases`.** They are
+reducible, so `cases` unfolds past `WithTop`/`WithBot` to `Option` and asks for
+`none`/`some`. The eliminators also state the `coe` branch with the `↑x`
+coercion, which matters for `Prec`: `WithTop ℕ` has a `NatCast` instance, so
+`(p : Prec)` is `WithTop.some (Nat.cast p)` while a raw `cases` yields
+`WithTop.some p` — defeq but not syntactically equal, so `rw`/`simp` with
+`↑p`-shaped lemmas stop firing. `QExp` and `Bound` have no such instance
+(`(e : QExp)` is `WithBot.some e` directly), so for them the eliminator is
+purely about getting the right alternative names.
 
 `p = 0` is the trivial format: `|c| < 2^0 = 1` forces `c = 0`
 (`Dyadic.precisionAtMost_zero_iff_eq_zero`). `NonNegDyadic` bakes in `b ≥ 0`, so

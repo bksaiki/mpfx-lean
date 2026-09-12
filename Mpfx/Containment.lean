@@ -23,7 +23,7 @@ def Subset (F₁ F₂ : Format) : Prop := ∀ x : Dyadic, x ∈ F₁ → x ∈ F
 instance : HasSubset Format := ⟨Subset⟩
 
 /-- The magnitude-bound check is monotone in the bound. -/
-theorem boundOK_mono {b₁ b₂ : WithTop NonNegDyadic} (h : b₁ ≤ b₂) {x : Dyadic} :
+theorem boundOK_mono {b₁ b₂ : Bound} (h : b₁ ≤ b₂) {x : Dyadic} :
     boundOK b₁ x → boundOK b₂ x := by
   match b₁, b₂ with
   | _, ⊤ => intro _; trivial
@@ -61,7 +61,7 @@ most `p ≤ F.p` and whose quantum is at least `e ≥ F.exp` lies in `F.unbounde
 The intermediate format `𝒜(p, e, ⊤)` witnesses the containment, so operations
 need only exhibit their result's precision/quantum and the format-widening
 inequalities. -/
-theorem mem_unbounded_of_le {F : Format} {p : Prec} {e : WithBot ℤ}
+theorem mem_unbounded_of_le {F : Format} {p : Prec} {e : QExp}
     {v : Dyadic} (hp : p ≤ F.p) (he : F.exp ≤ e)
     (hvp : Dyadic.precisionAtMost p v) (hvq : Dyadic.quantumAtLeast e v) :
     v ∈ F.unbounded :=
@@ -83,16 +83,16 @@ def nnPow (e : ℤ) : NonNegDyadic :=
 the standard quantum and bound orderings, then `F₁ ⊆ F₂` — even when
 `F₁.p > F₂.p`. -/
 theorem containsSub {F₁ F₂ : Format}
-    {exp₁ : ℤ} (he₁ : F₁.exp = (exp₁ : WithBot ℤ))
+    {exp₁ : ℤ} (he₁ : F₁.exp = (exp₁ : QExp))
     {p₂ : ℕ} (hp₂pos : 0 < p₂) (hp₂ : F₂.p = (p₂ : Prec))
-    (hbprec : F₁.b ≤ ((nnPow (exp₁ + (p₂ : ℤ)) : NonNegDyadic) : WithTop NonNegDyadic))
+    (hbprec : F₁.b ≤ ((nnPow (exp₁ + (p₂ : ℤ)) : NonNegDyadic) : Bound))
     (he : F₂.exp ≤ F₁.exp)
     (hb : F₁.b ≤ F₂.b) :
     F₁ ⊆ F₂ := by
   intro x hx
   obtain ⟨_, hex, hbx⟩ := hx
   -- x = c · 2^exp₁.
-  have hex_coe : Dyadic.quantumAtLeast (exp₁ : WithBot ℤ) x := by rw [← he₁]; exact hex
+  have hex_coe : Dyadic.quantumAtLeast (exp₁ : QExp) x := by rw [← he₁]; exact hex
   obtain ⟨c, hx_eq⟩ := (Dyadic.quantumAtLeast_coe exp₁ x).mp hex_coe
   -- |x| ≤ 2^(exp₁ + p₂), from the bound on F₁.b.
   have hbx' : |(x : ℚ)| ≤ (2 : ℚ) ^ (exp₁ + (p₂ : ℤ)) := by
@@ -135,12 +135,12 @@ on `exp₂ ≤ exp₁`.
 Each necessity proof exhibits one value of `F₁` that `F₂` cannot represent. -/
 
 /-- Above any real there is a power of two, at an exponent above `e`. -/
-theorem exists_zpow_gt (r : ℝ) (e : WithBot ℤ) :
-    ∃ k : ℤ, e ≤ (k : WithBot ℤ) ∧ r < (2 : ℝ) ^ k := by
+theorem exists_zpow_gt (r : ℝ) (e : QExp) :
+    ∃ k : ℤ, e ≤ (k : QExp) ∧ r < (2 : ℝ) ^ k := by
   refine ⟨max (e.unbotD 0) (Int.log 2 r + 1), ?_, lt_of_lt_of_le
     (Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) r)
     (zpow_le_zpow_right₀ (by norm_num) (le_max_right _ _))⟩
-  cases e with
+  cases e using QExp.recBotCoe with
   | bot => exact bot_le
   | coe e => simp
 
@@ -160,10 +160,10 @@ theorem exists_mul_zpow_le {C r : ℝ} (hC : 0 < C) (hr : 0 < r) (e : ℤ) :
 a value of `F₂`; an infinite `b₁` gives `F₁` arbitrarily large powers of two. -/
 theorem b_le_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial)
     (h : F₁ ⊆ F₂) : F₁.b ≤ F₂.b := by
-  cases hb2 : F₂.b with
+  cases hb2 : F₂.b using Bound.recTopCoe with
   | top => exact le_top
   | coe b₂ =>
-    cases hb1 : F₁.b with
+    cases hb1 : F₁.b using Bound.recTopCoe with
     | coe b₁ =>
       refine WithTop.coe_le_coe.mpr (NonNegDyadic.le_iff_coe_real.mpr ?_)
       have := (h _ (bound_mem hbr hb1)).2.2
@@ -187,7 +187,7 @@ theorem exp_le_of_subset {F₁ F₂ : Format} (hnt : F₁.Nontrivial) (h : F₁ 
     F₂.exp ≤ F₁.exp := by
   have hp0 := hnt.p_ne_zero
   obtain ⟨x₀, hx₀, hx₀ne⟩ := hnt
-  cases he2 : F₂.exp with
+  cases he2 : F₂.exp using QExp.recBotCoe with
   | bot => exact bot_le
   | coe e₂ =>
     -- `2^k ∈ F₁` forces `e₂ ≤ k`, since `F₂`'s values are multiples of `2^e₂`.
@@ -196,7 +196,7 @@ theorem exp_le_of_subset {F₁ F₂ : Format} (hnt : F₁.Nontrivial) (h : F₁ 
       have hq := (h _ hk).2.1
       rw [he2] at hq
       exact quantum_le_of_odd_rep hq odd_one (by rw [coe_real_ofIntZpow_one]; norm_num)
-    cases he1 : F₁.exp with
+    cases he1 : F₁.exp using QExp.recBotCoe with
     | coe e₁ =>
       -- `2^e₁ ≤ |x₀| ≤ b₁`, so `2^e₁` is in bound.
       refine WithBot.coe_le_coe.mpr (key e₁ (ofIntZpow_mem
@@ -209,7 +209,7 @@ theorem exp_le_of_subset {F₁ F₂ : Format} (hnt : F₁.Nontrivial) (h : F₁ 
       exfalso
       obtain ⟨k, hk_le, hk_bnd⟩ :
           ∃ k : ℤ, k ≤ e₂ - 1 ∧ boundOK F₁.b (Dyadic.ofIntZpow 1 k) := by
-        cases hb1 : F₁.b with
+        cases hb1 : F₁.b using Bound.recTopCoe with
         | top => exact ⟨e₂ - 1, le_refl _, trivial⟩
         | coe b₁ =>
           have hpos : 0 < ((b₁.val : Dyadic) : ℝ) :=
@@ -251,7 +251,7 @@ theorem not_precisionAtMost_wit {p₂ : ℕ} (hp : 0 < p₂) (k : ℤ) :
 theorem precisionAtMost_wit {p₁ : Prec} {p₂ : ℕ} (hp : 0 < p₂)
     (hlt : (p₂ : Prec) < p₁) (k : ℤ) :
     Dyadic.precisionAtMost p₁ (Dyadic.ofIntZpow (wit p₂) k) := by
-  cases hp' : p₁ using Prec.recTopCoe with
+  cases hp' : p₁ using ENat.recTopCoe with
   | top => trivial
   | coe q =>
     rw [Dyadic.precisionAtMost_coe]
@@ -275,11 +275,11 @@ then `exp₁` is finite and `b₁ ≤ 2^(exp₁ + p₂)`; otherwise `wit p₂ ·
 value of `F₁` that `F₂` cannot represent. -/
 theorem sub_test_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial)
     (h : F₁ ⊆ F₂) (hp : ¬ F₁.p ≤ F₂.p) :
-    ∃ (e₁ : ℤ) (p₂ : ℕ), F₁.exp = (e₁ : WithBot ℤ) ∧ 0 < p₂ ∧ F₂.p = (p₂ : Prec) ∧
-      F₁.b ≤ ((nnPow (e₁ + (p₂ : ℤ)) : NonNegDyadic) : WithTop NonNegDyadic) := by
+    ∃ (e₁ : ℤ) (p₂ : ℕ), F₁.exp = (e₁ : QExp) ∧ 0 < p₂ ∧ F₂.p = (p₂ : Prec) ∧
+      F₁.b ≤ ((nnPow (e₁ + (p₂ : ℤ)) : NonNegDyadic) : Bound) := by
   obtain ⟨x₀, hx₀, hx₀ne⟩ := hnt
   have hlt : F₂.p < F₁.p := lt_of_not_ge hp
-  cases hp2 : F₂.p using Prec.recTopCoe with
+  cases hp2 : F₂.p using ENat.recTopCoe with
   | top => exact absurd (hp2 ▸ hlt) (not_lt_of_ge le_top)
   | coe p₂ =>
   rcases Nat.eq_zero_or_pos p₂ with rfl | hp₂pos
@@ -291,18 +291,18 @@ theorem sub_test_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F�
     exact hx₀ne Dyadic.coe_real_zero
   have hwpos : (0 : ℝ) < ((wit p₂ : ℤ) : ℝ) := by exact_mod_cast wit_pos p₂
   -- The witness is never in `F₂`, so it must fail `F₁`'s quantum or bound check.
-  have key : ∀ k : ℤ, F₁.exp ≤ (k : WithBot ℤ) →
+  have key : ∀ k : ℤ, F₁.exp ≤ (k : QExp) →
       boundOK F₁.b (Dyadic.ofIntZpow (wit p₂) k) → False := by
     intro k hk hbk
     have hmem := (h _ (ofIntZpow_mem (precisionAtMost_wit hp₂pos (hp2 ▸ hlt) k) hk hbk)).1
     rw [hp2] at hmem
     exact not_precisionAtMost_wit hp₂pos k hmem
-  cases he1 : F₁.exp with
+  cases he1 : F₁.exp using QExp.recBotCoe with
   | bot =>
     -- `exp₁ = -∞`: the witness can be scaled below any positive bound.
     exfalso
     obtain ⟨k, hk⟩ : ∃ k : ℤ, boundOK F₁.b (Dyadic.ofIntZpow (wit p₂) k) := by
-      cases hb1 : F₁.b with
+      cases hb1 : F₁.b using Bound.recTopCoe with
       | top => exact ⟨0, trivial⟩
       | coe b₁ =>
         have hpos : 0 < ((b₁.val : Dyadic) : ℝ) :=
@@ -312,7 +312,7 @@ theorem sub_test_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F�
     exact key k (by rw [he1]; exact bot_le) hk
   | coe e₁ =>
     refine ⟨e₁, p₂, rfl, hp₂pos, rfl, ?_⟩
-    cases hb1 : F₁.b with
+    cases hb1 : F₁.b using Bound.recTopCoe with
     | top => exact absurd (key e₁ (by rw [he1]) (by rw [hb1]; trivial)) not_false
     | coe b₁ =>
       -- `b₁` is a grid point, `b₁ = m · 2^exp₁`; if `b₁ > 2^(exp₁+p₂)` then
@@ -350,8 +350,8 @@ def ContainsPrec (F₁ F₂ : Format) : Prop :=
 
 /-- Premises of `𝒜-Contains-Sub` (Fig. 7). -/
 def ContainsSub (F₁ F₂ : Format) : Prop :=
-  ∃ (e₁ : ℤ) (p₂ : ℕ), F₁.exp = (e₁ : WithBot ℤ) ∧ 0 < p₂ ∧ F₂.p = (p₂ : Prec) ∧
-    F₁.b ≤ ((nnPow (e₁ + (p₂ : ℤ)) : NonNegDyadic) : WithTop NonNegDyadic) ∧
+  ∃ (e₁ : ℤ) (p₂ : ℕ), F₁.exp = (e₁ : QExp) ∧ 0 < p₂ ∧ F₂.p = (p₂ : Prec) ∧
+    F₁.b ≤ ((nnPow (e₁ + (p₂ : ℤ)) : NonNegDyadic) : Bound) ∧
     F₂.exp ≤ F₁.exp ∧ F₁.b ≤ F₂.b
 
 /-- **Figure 7 decides containment.** For `F₁` with a representable bound that
@@ -391,7 +391,7 @@ theorem self_subset_extend (F : Format) (k : ℕ) : F ⊆ F.extend k := by
   apply containsPrec
   · exact le_self_add
   · change F.exp.map (· - (k : ℤ)) ≤ F.exp
-    cases F.exp with
+    cases F.exp using QExp.recBotCoe with
     | bot => simp
     | coe e =>
       rw [WithBot.map_coe]
@@ -404,7 +404,7 @@ theorem extend_mono (F : Format) {j k : ℕ} (h : j ≤ k) :
   apply containsPrec
   · exact add_le_add_right (Nat.cast_le.mpr h) F.p
   · change F.exp.map (· - (k : ℤ)) ≤ F.exp.map (· - (j : ℤ))
-    cases F.exp with
+    cases F.exp using QExp.recBotCoe with
     | bot => simp
     | coe e =>
       rw [WithBot.map_coe, WithBot.map_coe]
@@ -427,7 +427,7 @@ theorem extend_one_extend_one_subset_extend_two (F : Format) :
     change Dyadic.quantumAtLeast (F.exp.map (· - (2 : ℤ))) y
     change Dyadic.quantumAtLeast ((F.exp.map (· - (1 : ℤ))).map (· - (1 : ℤ))) y at hq
     have h_eq : (F.exp.map (· - (1 : ℤ))).map (· - (1 : ℤ)) = F.exp.map (· - (2 : ℤ)) := by
-      cases F.exp with
+      cases F.exp using QExp.recBotCoe with
       | bot => rfl
       | coe e =>
         rw [WithBot.map_coe, WithBot.map_coe, WithBot.map_coe]
@@ -443,7 +443,7 @@ theorem two_le_p_of_precision_two_witness {F : Format} {v : Dyadic}
   by_contra h_p_lt
   push Not at h_p_lt
   have hv_p_F : Dyadic.precisionAtMost F.p v := hvF.1
-  cases hpf : F.p using Prec.recTopCoe with
+  cases hpf : F.p using ENat.recTopCoe with
   | top => rw [hpf] at h_p_lt; exact not_top_lt h_p_lt
   | coe n =>
     rw [hpf] at h_p_lt hv_p_F
@@ -460,15 +460,15 @@ grid `A(F.p, F.exp, ∞)` strictly above `b`. -/
 
 /-- Replace `F`'s bound with `b'`, keeping precision and quantum. No
 non-negativity witness is needed: `NonNegDyadic` already carries `0 ≤ d`. -/
-def withBound (F : Format) (b' : WithTop NonNegDyadic) : Format := { F with b := b' }
+def withBound (F : Format) (b' : Bound) : Format := { F with b := b' }
 
-@[simp] theorem withBound_p (F : Format) (b' : WithTop NonNegDyadic) :
+@[simp] theorem withBound_p (F : Format) (b' : Bound) :
     (F.withBound b').p = F.p := rfl
 
-@[simp] theorem withBound_exp (F : Format) (b' : WithTop NonNegDyadic) :
+@[simp] theorem withBound_exp (F : Format) (b' : Bound) :
     (F.withBound b').exp = F.exp := rfl
 
-@[simp] theorem withBound_b (F : Format) (b' : WithTop NonNegDyadic) :
+@[simp] theorem withBound_b (F : Format) (b' : Bound) :
     (F.withBound b').b = b' := rfl
 
 /-- The paper's `next_{F.p, F.exp}(b)` from §5.2 / Fig. 9: the smallest Dyadic
@@ -510,7 +510,7 @@ noncomputable def next (F : Format) (b : Dyadic) : Dyadic :=
 
 /-- `F.next b > b` for finite `(F.p, F.exp)` and `b ≥ 0`. -/
 theorem lt_next_of_finite (F : Format) {e : ℤ} {p : ℕ}
-    (he : F.exp = (e : WithBot ℤ)) (hp : F.p = (p : Prec)) (b : Dyadic)
+    (he : F.exp = (e : QExp)) (hp : F.p = (p : Prec)) (b : Dyadic)
     (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
     (b : ℝ) < (F.next b : ℝ) := by
   have h_step_pos : ∀ k : ℤ, (0 : ℝ) < ((Dyadic.ofIntZpow 1 k : Dyadic) : ℝ) := by
@@ -522,7 +522,7 @@ theorem lt_next_of_finite (F : Format) {e : ℤ} {p : ℕ}
   have h_next_eq : F.next b =
       if ((b : Dyadic) : ℝ) ≤ 0 then Dyadic.ofIntZpow 1 e
       else b + Dyadic.ofIntZpow 1 (max e (Int.log 2 ((b : Dyadic) : ℝ) - (p : ℤ) + 1)) := by
-    unfold next; rw [he, hp]; rfl
+    unfold next; rw [he, hp]
   rw [h_next_eq]
   by_cases h : ((b : Dyadic) : ℝ) ≤ 0
   · rw [if_pos h]
@@ -536,19 +536,17 @@ theorem lt_next_of_finite (F : Format) {e : ℤ} {p : ℕ}
 
 /-- `F.next b > b` for `F.p = ⊤` and `F.exp = (e : ℤ)`. -/
 theorem lt_next_of_p_top (F : Format) {e : ℤ}
-    (he : F.exp = (e : WithBot ℤ)) (hp : F.p = ⊤) (b : Dyadic) :
+    (he : F.exp = (e : QExp)) (hp : F.p = ⊤) (b : Dyadic) :
     (b : ℝ) < (F.next b : ℝ) := by
   have h_step_pos : (0 : ℝ) < ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) := by
     rw [Dyadic.coe_ofIntZpow]
     have h2 : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
     push_cast; linarith
   have h_next_eq : F.next b = b + Dyadic.ofIntZpow 1 e := by
-    -- After unfolding `next` and rewriting via `he, hp`, the goal contains
-    -- `match (some e), ⊤ with ...`. The match doesn't auto-reduce because
-    -- `⊤ : Prec` doesn't syntactically match the `none` constructor. We
-    -- rewrite `⊤` to `none` explicitly via the `Top` instance.
+    -- `⊤ : Prec` is not syntactically `Option.none`, so the `match` on
+    -- `(F.exp, F.p)` needs an explicit `rfl` to reduce.
     unfold next
-    rw [he, hp]
+    rw [he, hp]; rfl
   rw [h_next_eq]; push_cast; linarith
 
 /-- Computed form of `next` for `F.exp = ⊥, F.p = ⊤` (junk arm: excluded by
@@ -556,20 +554,20 @@ theorem lt_next_of_p_top (F : Format) {e : ℤ}
 theorem next_eq_bot_p_top' (F : Format) (he : F.exp = ⊥) (hp : F.p = ⊤)
     (b : Dyadic) : F.next b = b + 1 := by
   unfold next
-  rw [he, hp]
+  rw [he, hp]; rfl
 
 /-- Computed form of `next` for `F.exp = ⊥, b ≤ 0` (junk arm: no grid
 successor exists). -/
 theorem next_eq_bot_nonpos (F : Format) (he : F.exp = ⊥) {b : Dyadic}
     (hb : ((b : Dyadic) : ℝ) ≤ 0) : F.next b = b + 1 := by
-  cases hp : F.p using Prec.recTopCoe with
+  cases hp : F.p using ENat.recTopCoe with
   | top => exact next_eq_bot_p_top' F he hp b
   | coe p =>
     have h_eq : F.next b =
         if ((b : Dyadic) : ℝ) ≤ 0 then b + 1
         else b + Dyadic.ofIntZpow 1
           (Int.log 2 ((b : Dyadic) : ℝ) - (p : ℤ) + 1) := by
-      unfold next; rw [he, hp]; rfl
+      unfold next; rw [he, hp]
     rw [h_eq, if_pos hb]
 
 /-- Computed form of `next` for `F.exp = ⊥, F.p = p, b > 0`: the
@@ -583,13 +581,13 @@ theorem next_eq_bot_pos (F : Format) {p : ℕ} (he : F.exp = ⊥)
       if ((b : Dyadic) : ℝ) ≤ 0 then b + 1
       else b + Dyadic.ofIntZpow 1
         (Int.log 2 ((b : Dyadic) : ℝ) - (p : ℤ) + 1) := by
-    unfold next; rw [he, hp]; rfl
+    unfold next; rw [he, hp]
   rw [h_eq, if_neg (not_le.mpr hb_pos)]
 
 /-- `F.next b > b` for `F.exp = ⊥` (all `F.p` shapes, any `b`). -/
 theorem lt_next_of_bot (F : Format) (he : F.exp = ⊥) (b : Dyadic) :
     ((b : Dyadic) : ℝ) < ((F.next b : Dyadic) : ℝ) := by
-  cases hp : F.p using Prec.recTopCoe with
+  cases hp : F.p using ENat.recTopCoe with
   | top =>
     rw [next_eq_bot_p_top' F he hp b]
     push_cast
@@ -625,7 +623,7 @@ theorem next_nonneg (F : Format) (b : Dyadic) (hb : 0 ≤ ((b : Dyadic) : ℝ)) 
 
 /-- Computed form of `next` for `F.exp = (e : ℤ), F.p = p, b > 0`. -/
 theorem next_eq_finite_pos (F : Format) {e : ℤ} {p : ℕ}
-    (he : F.exp = (e : WithBot ℤ)) (hp : F.p = (p : Prec))
+    (he : F.exp = (e : QExp)) (hp : F.p = (p : Prec))
     {b : Dyadic} (hb_pos : 0 < ((b : Dyadic) : ℝ)) :
     F.next b =
       b + Dyadic.ofIntZpow 1
@@ -634,15 +632,15 @@ theorem next_eq_finite_pos (F : Format) {e : ℤ} {p : ℕ}
       if ((b : Dyadic) : ℝ) ≤ 0 then Dyadic.ofIntZpow 1 e
       else b + Dyadic.ofIntZpow 1
         (max e (Int.log 2 ((b : Dyadic) : ℝ) - (p : ℤ) + 1)) := by
-    unfold next; rw [he, hp]; rfl
+    unfold next; rw [he, hp]
   rw [h_eq, if_neg (not_le.mpr hb_pos)]
 
 /-- Computed form of `next` for `F.exp = (e : ℤ), F.p = ⊤`. -/
 theorem next_eq_p_top (F : Format) {e : ℤ}
-    (he : F.exp = (e : WithBot ℤ)) (hp : F.p = ⊤) (b : Dyadic) :
+    (he : F.exp = (e : QExp)) (hp : F.p = ⊤) (b : Dyadic) :
     F.next b = b + Dyadic.ofIntZpow 1 e := by
   unfold next
-  rw [he, hp]
+  rw [he, hp]; rfl
 
 /-- `b ≤ F.next b` for `b ≥ 0`. Combines all four `(F.p, F.exp)` shapes via
 case-split: finite-finite via `lt_next_of_finite`; `F.p = ⊤` finite-exp via
@@ -661,14 +659,14 @@ theorem self_le_next (F : Format) (b : Dyadic)
 
 /-! ### `boundAfterNext`: the bound for the paper's `F⁺` containment
 
-`next(F.b)` lifted to `WithTop NonNegDyadic`. Returns `⊤` when `F.b = ⊤`,
+`next(F.b)` lifted to `Bound`. Returns `⊤` when `F.b = ⊤`,
 otherwise `(F.next b : NonNegDyadic)`. The non-negativity witness is carried by
 `NonNegDyadic` itself (no separate obligation), and `withBound` takes only the
 bound. -/
 
 /-- The bound for the paper's `F⁺` containment: `next(F.b)` lifted to
-`WithTop NonNegDyadic`. -/
-noncomputable def boundAfterNext (F : Format) : WithTop NonNegDyadic :=
+`Bound`. -/
+noncomputable def boundAfterNext (F : Format) : Bound :=
   match F.b with
   | ⊤ => ⊤
   | (b : NonNegDyadic) =>
@@ -684,8 +682,8 @@ noncomputable def boundAfterNext (F : Format) : WithTop NonNegDyadic :=
     F.boundAfterNext = ⊤ := by unfold boundAfterNext; rw [hF]
 
 /-- `boundAfterNext` evaluator: coe case. The underlying dyadic is `F.next b`. -/
-theorem boundAfterNext_coe {F : Format} {b : NonNegDyadic} (hF : F.b = (b : WithTop NonNegDyadic)) :
-    ∃ h, F.boundAfterNext = ((⟨F.next b.val, h⟩ : NonNegDyadic) : WithTop NonNegDyadic) := by
+theorem boundAfterNext_coe {F : Format} {b : NonNegDyadic} (hF : F.b = (b : Bound)) :
+    ∃ h, F.boundAfterNext = ((⟨F.next b.val, h⟩ : NonNegDyadic) : Bound) := by
   unfold boundAfterNext; rw [hF]; exact ⟨_, rfl⟩
 
 end Format
@@ -701,10 +699,10 @@ def extend (F : FiniteFormat) (k : ℕ) : FiniteFormat where
     rcases F.finite with hp | he
     · left
       change F.p + (k : Prec) ≠ ⊤
-      exact fun h => hp (WithTop.add_eq_top.mp h |>.resolve_right (by simp))
+      exact fun h => hp (WithTop.add_eq_top.mp h |>.resolve_right (ENat.coe_ne_top k))
     · right
       change F.exp.map (· - (k : ℤ)) ≠ ⊥
-      cases hF : F.exp with
+      cases hF : F.exp using QExp.recBotCoe with
       | bot => exact absurd hF he
       | coe e => rw [WithBot.map_coe]; exact WithBot.coe_ne_bot
   pos := by
@@ -720,22 +718,22 @@ theorem numDigits_extend (F : FiniteFormat) (k : ℕ) {x : ℝ} (hx : x ≠ 0) :
     (F.extend k).numDigits x = F.numDigits x + k := by
   have hp_ext : (F.extend k).p = F.p + (k : Prec) := rfl
   have he_ext : (F.extend k).exp = F.exp.map (· - (k : ℤ)) := rfl
-  cases hp : F.p using Prec.recTopCoe with
+  cases hp : F.p using ENat.recTopCoe with
   | top =>
-    cases hexp : F.exp with
+    cases hexp : F.exp using QExp.recBotCoe with
     | bot =>
       exfalso; rcases F.finite with h | h
       · exact h hp
       · exact h hexp
     | coe e' =>
       have hpe : (F.extend k).p = ⊤ := by rw [hp_ext, hp]; rfl
-      have hee : (F.extend k).exp = ((e' - (k : ℤ) : ℤ) : WithBot ℤ) := by
+      have hee : (F.extend k).exp = ((e' - (k : ℤ) : ℤ) : QExp) := by
         rw [he_ext, hexp, WithBot.map_coe]
       rw [F.numDigits_top_coe hx hexp hp,
           (F.extend k).numDigits_top_coe hx hee hpe]
       ring
   | coe n =>
-    cases hexp : F.exp with
+    cases hexp : F.exp using QExp.recBotCoe with
     | bot =>
       have hpe : (F.extend k).p = ((n + k : ℕ) : Prec) := by
         rw [hp_ext, hp, ← Nat.cast_add]
@@ -746,7 +744,7 @@ theorem numDigits_extend (F : FiniteFormat) (k : ℕ) {x : ℝ} (hx : x ≠ 0) :
     | coe e' =>
       have hpe : (F.extend k).p = ((n + k : ℕ) : Prec) := by
         rw [hp_ext, hp, ← Nat.cast_add]
-      have hee : (F.extend k).exp = ((e' - (k : ℤ) : ℤ) : WithBot ℤ) := by
+      have hee : (F.extend k).exp = ((e' - (k : ℤ) : ℤ) : QExp) := by
         rw [he_ext, hexp, WithBot.map_coe]
       rw [F.numDigits_coe_coe hx hp hexp,
           (F.extend k).numDigits_coe_coe hx hpe hee]
@@ -763,7 +761,7 @@ end FiniteFormat
 midpoints, and the paper containment formats -/
 
 /-- `b < F.next b` for finite `exp` (any `p`), `b ≥ 0`. -/
-private theorem lt_next' {F : Format} {e : ℤ} (he : F.exp = (e : WithBot ℤ))
+private theorem lt_next' {F : Format} {e : ℤ} (he : F.exp = (e : QExp))
     (b : Dyadic) (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
     ((b : Dyadic) : ℝ) < ((F.next b : Dyadic) : ℝ) := by
   rcases hp : F.p with _ | p
@@ -774,7 +772,7 @@ private theorem lt_next' {F : Format} {e : ℤ} (he : F.exp = (e : WithBot ℤ))
 theorem lt_next'' {F : Format} (b : Dyadic)
     (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
     ((b : Dyadic) : ℝ) < ((F.next b : Dyadic) : ℝ) := by
-  cases he : F.exp with
+  cases he : F.exp using QExp.recBotCoe with
   | bot => exact Format.lt_next_of_bot F he b
   | coe e => exact lt_next' he b hb
 
@@ -863,14 +861,14 @@ private theorem coe_add_step_halves {b : Dyadic} (t : ℤ) :
 /-- **Grid closure of `next`**, finite-`exp` case: if `b` lies on the
 `(p, exp)` grid, then `F.next b` does as well. -/
 private theorem next_mem_unbounded {F : FiniteFormat} {e : ℤ}
-    (he : F.exp = (e : WithBot ℤ)) {b : Dyadic}
+    (he : F.exp = (e : QExp)) {b : Dyadic}
     (hb_mem : b ∈ F.unbounded) :
     F.toFormat.next b ∈ F.unbounded := by
   obtain ⟨hb_p, hb_q, -⟩ := hb_mem
   have hb_q' : ∃ m : ℤ, ((b : Dyadic) : ℝ) = (m : ℝ) * (2 : ℝ) ^ e := by
     rw [← Dyadic.quantumAtLeast_coe_real, ← he]; exact hb_q
   obtain ⟨m, hm⟩ := hb_q'
-  cases hF_p : F.p using Prec.recTopCoe with
+  cases hF_p : F.p using ENat.recTopCoe with
   | top =>
     -- `F.p = ⊤`: `next b = b + 2^e`, quantum is preserved by adding one step.
     have h_next : F.toFormat.next b = b + Dyadic.ofIntZpow 1 e :=
@@ -891,7 +889,7 @@ private theorem next_mem_unbounded {F : FiniteFormat} {e : ℤ}
             if ((b : Dyadic) : ℝ) ≤ 0 then Dyadic.ofIntZpow 1 e
             else b + Dyadic.ofIntZpow 1
               (max e (Int.log 2 ((b : Dyadic) : ℝ) - (p : ℤ) + 1)) := by
-          unfold Format.next; rw [he, hF_p]; rfl
+          unfold Format.next; rw [he, hF_p]
         rw [h_eq, if_pos hb0]
       refine ⟨?_, ?_, trivial⟩
       · change Dyadic.precisionAtMost F.p _
@@ -978,7 +976,7 @@ private theorem next_mem_unbounded_bot {F : FiniteFormat} (he : F.exp = ⊥)
 theorem next_mem_unbounded' {F : FiniteFormat} {b : Dyadic}
     (hb_mem : b ∈ F.unbounded) (hb_nn : 0 ≤ ((b : Dyadic) : ℝ)) :
     F.toFormat.next b ∈ F.unbounded := by
-  cases he : F.exp with
+  cases he : F.exp using QExp.recBotCoe with
   | bot => exact next_mem_unbounded_bot he hb_mem hb_nn
   | coe e => exact next_mem_unbounded he hb_mem
 
@@ -986,14 +984,14 @@ theorem next_mem_unbounded' {F : FiniteFormat} {b : Dyadic}
 any grid point strictly above `b` is at least `F.next b` — i.e. the grid has
 no point in `(b, next b)`. -/
 private theorem next_min {F : FiniteFormat} {e : ℤ}
-    (he : F.exp = (e : WithBot ℤ)) {b g : Dyadic}
+    (he : F.exp = (e : QExp)) {b g : Dyadic}
     (hb_mem : b ∈ F.unbounded) (hg_mem : g ∈ F.unbounded)
     (hb_nn : 0 ≤ ((b : Dyadic) : ℝ))
     (hbg : ((b : Dyadic) : ℝ) < ((g : Dyadic) : ℝ)) :
     ((F.toFormat.next b : Dyadic) : ℝ) ≤ ((g : Dyadic) : ℝ) := by
   obtain ⟨hb_p, hb_q, -⟩ := hb_mem
   obtain ⟨hg_p, hg_q, -⟩ := hg_mem
-  cases hF_p : F.p using Prec.recTopCoe with
+  cases hF_p : F.p using ENat.recTopCoe with
   | top =>
     -- Both are multiples of `2^e`; a strict increase is at least one step.
     have h_next : F.toFormat.next b = b + Dyadic.ofIntZpow 1 e :=
@@ -1017,7 +1015,7 @@ private theorem next_min {F : FiniteFormat} {e : ℤ}
             if ((b : Dyadic) : ℝ) ≤ 0 then Dyadic.ofIntZpow 1 e
             else b + Dyadic.ofIntZpow 1
               (max e (Int.log 2 ((b : Dyadic) : ℝ) - (p : ℤ) + 1)) := by
-          unfold Format.next; rw [he, hF_p]; rfl
+          unfold Format.next; rw [he, hF_p]
         rw [h_eq, if_pos hb0]
       rw [h_next, coe_real_ofIntZpow_one e]
       have h1 : (2 : ℝ) ^ e ≤ (2 : ℝ) ^ qg :=
@@ -1088,7 +1086,7 @@ theorem next_min' {F : FiniteFormat} {b g : Dyadic}
     (hguard : F.exp = ⊥ → 0 < ((b : Dyadic) : ℝ))
     (hbg : ((b : Dyadic) : ℝ) < ((g : Dyadic) : ℝ)) :
     ((F.toFormat.next b : Dyadic) : ℝ) ≤ ((g : Dyadic) : ℝ) := by
-  cases he : F.exp with
+  cases he : F.exp using QExp.recBotCoe with
   | bot => exact next_min_bot he hb_mem hg_mem (hguard he) hbg
   | coe e => exact next_min he hb_mem hg_mem hb_nn hbg
 
@@ -1113,11 +1111,11 @@ theorem next_mono {F : Format} {d b : Dyadic}
     (hdb : ((d : Dyadic) : ℝ) ≤ ((b : Dyadic) : ℝ))
     (hguard : F.exp = ⊥ → 0 < ((d : Dyadic) : ℝ)) :
     ((F.next d : Dyadic) : ℝ) ≤ ((F.next b : Dyadic) : ℝ) := by
-  cases he : F.exp with
+  cases he : F.exp using QExp.recBotCoe with
   | bot =>
     have hd_pos := hguard he
     have hb_pos : 0 < ((b : Dyadic) : ℝ) := lt_of_lt_of_le hd_pos hdb
-    cases hp : F.p using Prec.recTopCoe with
+    cases hp : F.p using ENat.recTopCoe with
     | top =>
       rw [Format.next_eq_bot_p_top' F he hp d, Format.next_eq_bot_p_top' F he hp b]
       push_cast
@@ -1134,7 +1132,7 @@ theorem next_mono {F : Format} {d b : Dyadic}
       push_cast
       linarith
   | coe e =>
-    cases hp : F.p using Prec.recTopCoe with
+    cases hp : F.p using ENat.recTopCoe with
     | top =>
       rw [Format.next_eq_p_top F he hp d, Format.next_eq_p_top F he hp b,
         Dyadic.coe_real_add, Dyadic.coe_real_add]
@@ -1146,7 +1144,7 @@ theorem next_mono {F : Format} {d b : Dyadic}
               if ((d : Dyadic) : ℝ) ≤ 0 then Dyadic.ofIntZpow 1 e
               else d + Dyadic.ofIntZpow 1
                 (max e (Int.log 2 ((d : Dyadic) : ℝ) - (p : ℤ) + 1)) := by
-            unfold Format.next; rw [he, hp]; rfl
+            unfold Format.next; rw [he, hp]
           rw [h_eq, if_pos hd0]
         by_cases hb0 : ((b : Dyadic) : ℝ) ≤ 0
         · have h_eqb : F.next b = Dyadic.ofIntZpow 1 e := by
@@ -1154,7 +1152,7 @@ theorem next_mono {F : Format} {d b : Dyadic}
                 if ((b : Dyadic) : ℝ) ≤ 0 then Dyadic.ofIntZpow 1 e
                 else b + Dyadic.ofIntZpow 1
                   (max e (Int.log 2 ((b : Dyadic) : ℝ) - (p : ℤ) + 1)) := by
-              unfold Format.next; rw [he, hp]; rfl
+              unfold Format.next; rw [he, hp]
             rw [h_eq, if_pos hb0]
           rw [h_eqd, h_eqb]
         · push Not at hb0
@@ -1181,7 +1179,7 @@ theorem next_mono {F : Format} {d b : Dyadic}
 /-- An extension with `exp = ⊥` comes from a base with `exp = ⊥`. -/
 theorem exp_bot_of_extend_bot {F₁ : FiniteFormat} {k : ℕ}
     (h : (F₁.extend k).toFormat.exp = ⊥) : F₁.exp = ⊥ := by
-  cases hc : F₁.exp with
+  cases hc : F₁.exp using QExp.recBotCoe with
   | bot => rfl
   | coe e =>
     exfalso
@@ -1192,16 +1190,16 @@ theorem exp_bot_of_extend_bot {F₁ : FiniteFormat} {k : ℕ}
 /-- `next` on `F₁.extend 1` lands exactly on the midpoint of `b` and
 `F₁.next b`: extending by one bit halves the grid step. -/
 private theorem next_extend_midpoint {F₁ : FiniteFormat} {e₁ : ℤ}
-    (he₁ : F₁.exp = (e₁ : WithBot ℤ)) {b : Dyadic}
+    (he₁ : F₁.exp = (e₁ : QExp)) {b : Dyadic}
     (hb_nn : 0 ≤ ((b : Dyadic) : ℝ)) :
     (((F₁.extend 1).toFormat.next b : Dyadic) : ℝ)
       = (((b : Dyadic) : ℝ) + ((F₁.toFormat.next b : Dyadic) : ℝ)) / 2 := by
-  have he₁x : (F₁.extend 1).toFormat.exp = ((e₁ - 1 : ℤ) : WithBot ℤ) := by
+  have he₁x : (F₁.extend 1).toFormat.exp = ((e₁ - 1 : ℤ) : QExp) := by
     change F₁.exp.map (· - ((1 : ℕ) : ℤ)) = _
     rw [he₁]
     rfl
   have h2 : (2 : ℝ) ≠ 0 := by norm_num
-  cases hp : F₁.p using Prec.recTopCoe with
+  cases hp : F₁.p using ENat.recTopCoe with
   | top =>
     have hpx : (F₁.extend 1).toFormat.p = ⊤ := by
       change F₁.p + ((1 : ℕ) : Prec) = ⊤
@@ -1220,7 +1218,7 @@ private theorem next_extend_midpoint {F₁ : FiniteFormat} {e₁ : ℤ}
             if ((b : Dyadic) : ℝ) ≤ 0 then Dyadic.ofIntZpow 1 e₁
             else b + Dyadic.ofIntZpow 1
               (max e₁ (Int.log 2 ((b : Dyadic) : ℝ) - (p : ℤ) + 1)) := by
-          unfold Format.next; rw [he₁, hp]; rfl
+          unfold Format.next; rw [he₁, hp]
         rw [h_eq, if_pos hb0]
       have h_nextx : (F₁.extend 1).toFormat.next b = Dyadic.ofIntZpow 1 (e₁ - 1) := by
         have h_eq : (F₁.extend 1).toFormat.next b =
@@ -1228,7 +1226,7 @@ private theorem next_extend_midpoint {F₁ : FiniteFormat} {e₁ : ℤ}
             else b + Dyadic.ofIntZpow 1
               (max (e₁ - 1)
                 (Int.log 2 ((b : Dyadic) : ℝ) - (((p + 1 : ℕ) : ℕ) : ℤ) + 1)) := by
-          unfold Format.next; rw [he₁x, hpx]; rfl
+          unfold Format.next; rw [he₁x, hpx]
         rw [h_eq, if_pos hb0]
       have hb_eq : ((b : Dyadic) : ℝ) = 0 := le_antisymm hb0 hb_nn
       rw [h_next, h_nextx, coe_real_ofIntZpow_one, coe_real_ofIntZpow_one, hb_eq, zpow_sub_one₀ h2]
@@ -1278,18 +1276,18 @@ theorem next_extend_midpoint' {F₁ : FiniteFormat} {b : Dyadic}
     (hguard : F₁.exp = ⊥ → 0 < ((b : Dyadic) : ℝ)) :
     (((F₁.extend 1).toFormat.next b : Dyadic) : ℝ)
       = (((b : Dyadic) : ℝ) + ((F₁.toFormat.next b : Dyadic) : ℝ)) / 2 := by
-  cases he : F₁.exp with
+  cases he : F₁.exp using QExp.recBotCoe with
   | bot => exact next_extend_midpoint_bot he (hguard he)
   | coe e => exact next_extend_midpoint he hb_nn
 
 /-- `F.withBound B`, packaged as a `FiniteFormat` (`p`/`exp` unchanged). -/
-def FiniteFormat.withBoundFF (F : FiniteFormat) (B : WithTop NonNegDyadic) :
+def FiniteFormat.withBoundFF (F : FiniteFormat) (B : Bound) :
     FiniteFormat :=
   ⟨F.toFormat.withBound B, F.finite, F.pos⟩
 
 /-- `next(b₁)` satisfies the relaxed bound `boundAfterNext`. -/
 theorem boundOK_boundAfterNext_next {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
-    (hF₁b : F₁.b = (b₁ : WithTop NonNegDyadic))
+    (hF₁b : F₁.b = (b₁ : Bound))
     (hN_nn : 0 ≤ ((F₁.toFormat.next b₁.val : Dyadic) : ℝ)) :
     Format.boundOK F₁.toFormat.boundAfterNext (F₁.toFormat.next b₁.val) := by
   obtain ⟨hnn, h_eq⟩ := Format.boundAfterNext_coe hF₁b
@@ -1306,7 +1304,7 @@ accepts (`b₁ ≤ next(b₁)`). -/
 theorem boundOK_boundAfterNext_of_boundOK {F₁ : FiniteFormat} {d : Dyadic}
     (hd_b : Format.boundOK F₁.b d) :
     Format.boundOK F₁.toFormat.boundAfterNext d := by
-  cases hF_b : F₁.b with
+  cases hF_b : F₁.b using Bound.recTopCoe with
   | top => rw [Format.boundAfterNext_top hF_b]; trivial
   | coe b =>
     obtain ⟨hnn, h_after⟩ := Format.boundAfterNext_coe hF_b
@@ -1325,8 +1323,8 @@ theorem boundOK_boundAfterNext_of_boundOK {F₁ : FiniteFormat} {d : Dyadic}
 `next` agree definitionally) but carries a bound `D` with
 `next(D) ≤ next(b₁)`, then `G`'s relaxed bound implies `F`'s. -/
 theorem boundOK_boundAfterNext_mono {F G : FiniteFormat} {b₁ D : NonNegDyadic}
-    {v : Dyadic} (hFb : F.b = (b₁ : WithTop NonNegDyadic))
-    (hGb : G.b = (D : WithTop NonNegDyadic))
+    {v : Dyadic} (hFb : F.b = (b₁ : Bound))
+    (hGb : G.b = (D : Bound))
     (hnext : G.toFormat.next D.val = F.toFormat.next D.val)
     (hmono : ((F.toFormat.next D.val : Dyadic) : ℝ)
       ≤ ((F.toFormat.next b₁.val : Dyadic) : ℝ))
@@ -1369,8 +1367,8 @@ two. -/
 theorem bound_top_of_withBound_top_subset {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.toFormat.withBound ⊤) ⊆ F₂.toFormat) : F₂.b = ⊤ := by
   by_contra h
-  obtain ⟨b₂, hb₂⟩ : ∃ b₂ : NonNegDyadic, F₂.b = (b₂ : WithTop NonNegDyadic) := by
-    cases hc : F₂.b with
+  obtain ⟨b₂, hb₂⟩ : ∃ b₂ : NonNegDyadic, F₂.b = (b₂ : Bound) := by
+    cases hc : F₂.b using Bound.recTopCoe with
     | top => exact absurd hc h
     | coe b₂ => exact ⟨b₂, rfl⟩
   set E := WithBot.unbotD 0 F₁.exp with hE_def
@@ -1381,7 +1379,7 @@ theorem bound_top_of_withBound_top_subset {F₁ F₂ : FiniteFormat}
     · change Dyadic.precisionAtMost F₁.p w
       exact precisionAtMost_one_zpow F₁.pos K
     · change Dyadic.quantumAtLeast F₁.exp w
-      cases hexp : F₁.exp with
+      cases hexp : F₁.exp using QExp.recBotCoe with
       | bot => trivial
       | coe e =>
         rw [Dyadic.quantumAtLeast_coe]
@@ -1394,7 +1392,7 @@ theorem bound_top_of_withBound_top_subset {F₁ F₂ : FiniteFormat}
         rw [← zpow_natCast (2 : ℚ) ((K - e).toNat), hk,
           ← zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), sub_add_cancel]
         ring
-    · change Format.boundOK (⊤ : WithTop NonNegDyadic) w
+    · change Format.boundOK (⊤ : Bound) w
       trivial
   have hb_w : Format.boundOK F₂.b w := (hsub w hw_mem).2.2
   rw [hb₂] at hb_w

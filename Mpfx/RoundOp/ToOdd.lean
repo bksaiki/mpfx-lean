@@ -52,21 +52,22 @@ private theorem toOdd_neighbors_alternate {F : FiniteFormat} (x : ℝ)
     Dyadic.coe_ofIntZpow _ _
   have h_dhi_real : (dhi : ℝ) = ((lo + 1 : ℤ) : ℝ) * (2 : ℝ) ^ e :=
     Dyadic.coe_ofIntZpow _ _
-  cases hp_F : F.p using Prec.recTopCoe with
+  cases hp_F : F.p using ENat.recTopCoe with
   | top =>
-    cases hexp_F : F.exp with
+    cases hexp_F : F.exp using QExp.recBotCoe with
     | bot => exact absurd ⟨hp_F, hexp_F⟩ h_not_undef
     | coe e'' =>
       have h_e_eq : e = e'' := by
         change F.canonicalExp x = _
         unfold FiniteFormat.canonicalExp
         simp [hp_F, hexp_F]
+        rfl
       have h_dlo_at_e'' : dlo = Dyadic.ofIntZpow lo e'' := by rw [h_dlo_def, h_e_eq]
       have h_dhi_at_e'' : dhi = Dyadic.ofIntZpow (lo + 1) e'' := by rw [h_dhi_def, h_e_eq]
       rw [h_dhi_at_e'', h_dlo_at_e'']
       exact ParityFormat.alternating_parity_fixedpoint_iff hp_F hexp_F
   | coe p =>
-    cases hexp_F : F.exp with
+    cases hexp_F : F.exp using QExp.recBotCoe with
     | bot =>
       have hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec) := fun h_eq =>
         h ⟨h_eq, hexp_F, Or.inl rfl⟩
@@ -137,8 +138,8 @@ private theorem toOdd_neighbors_alternate {F : FiniteFormat} (x : ℝ)
           have h_e_eq_log : e = Int.log 2 |x| := by
             change F.canonicalExp x = _
             unfold FiniteFormat.canonicalExp
-            simp only [hp_F, hexp_F, Nat.cast_one]
-            rw [if_neg hx_ne]
+            simp only [hp_F, hexp_F]
+            rw [if_neg hx_ne, Nat.cast_one]
             have h_max_eq : max (Int.log 2 |x| + 1 - 1) e'' =
                 Int.log 2 |x| + 1 - 1 := by
               apply max_eq_left
@@ -496,7 +497,7 @@ theorem rndUnbounded_satisfies_toOdd (F : FiniteFormat) (x : ℝ)
   have h_lop1_bound : ∀ {p : ℕ}, F.p = (p : Prec) →
       |lo + 1| ≤ (2 : ℤ) ^ p := fun hp =>
     abs_floor_add_one_le_of_abs_lt (floor_mantissa_lt hp)
-  have h_exp_le : ∀ {e' : ℤ}, F.exp = (e' : WithBot ℤ) → e' ≤ e :=
+  have h_exp_le : ∀ {e' : ℤ}, F.exp = (e' : QExp) → e' ≤ e :=
     fun hexp => F.exp_le_canonicalExp x hexp
   have h_dlo_mem : dlo ∈ F.unbounded :=
     ofIntZpow_mem_unbounded F h_exp_le h_lo_bound

@@ -26,12 +26,12 @@ theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ}
       (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ (F.canonicalExp (y : ℝ)) := by
   have hy_ne : (y : ℝ) ≠ 0 := ne_of_gt hpos
   obtain ⟨hprec, hquant, _⟩ := hmem
-  cases hexp : F.exp with
+  cases hexp : F.exp using QExp.recBotCoe with
   | bot =>
     obtain ⟨k, c, hc, hyeq, hk⟩ := exists_grid_rep_exp_bot F hp hprec hpos
     have hcexp : F.canonicalExp (y : ℝ) = Int.log 2 (y : ℝ) + 1 - (p : ℤ) := by
       unfold FiniteFormat.canonicalExp
-      simp only [hp, hexp, hy_ne, abs_of_pos hpos, if_false, Nat.cast_id]
+      simp only [hp, hexp, hy_ne, abs_of_pos hpos, if_false]
     have hkexp : k = F.canonicalExp (y : ℝ) := by rw [hcexp, hk]; omega
     exact ⟨c, hc, by rw [← hkexp]; exact hyeq⟩
   | coe e =>
@@ -40,7 +40,7 @@ theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ}
     have hcexp : F.canonicalExp (y : ℝ)
         = max (Int.log 2 (y : ℝ) + 1 - (p : ℤ)) e := by
       unfold FiniteFormat.canonicalExp
-      simp only [hp, hexp, hy_ne, abs_of_pos hpos, if_false, Nat.cast_id]
+      simp only [hp, hexp, hy_ne, abs_of_pos hpos, if_false]
     have hkexp : k = F.canonicalExp (y : ℝ) := by rw [hcexp, hk]; omega
     exact ⟨c, hc, by rw [← hkexp]; exact hyeq⟩
 
@@ -52,10 +52,10 @@ theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)
     rintro rfl; rw [abs_zero] at hyz; exact absurd hyz (not_le.mpr hy_pos)
   have hlog : Int.log 2 |y| ≤ Int.log 2 |z| := Int.log_mono_right hy_pos hyz
   unfold FiniteFormat.canonicalExp
-  cases F.p using Prec.recTopCoe with
-  | top => cases F.exp <;> simp
+  cases F.p using ENat.recTopCoe with
+  | top => cases F.exp using QExp.recBotCoe <;> simp <;> rfl
   | coe p =>
-    cases F.exp with
+    cases F.exp using QExp.recBotCoe with
     | bot => simp only [hy, hz, if_false]; omega
     | coe e => simp only [hy, hz, if_false]; omega
 
@@ -66,13 +66,13 @@ format's minimum exponent `F.exp` (the *normal* regime — vacuous for `exp = �
 proofs run unchanged for FLT: in the genuine-midpoint case all values are normal. -/
 theorem canonicalExp_closed {F : FiniteFormat} {p : ℕ}
     (hp : F.p = (p : Prec)) {v : ℝ} (hv : v ≠ 0)
-    (hnorm : F.exp ≤ ((Int.log 2 |v| + 1 - (p : ℤ) : ℤ) : WithBot ℤ)) :
+    (hnorm : F.exp ≤ ((Int.log 2 |v| + 1 - (p : ℤ) : ℤ) : QExp)) :
     F.canonicalExp v = Int.log 2 |v| + 1 - (p : ℤ) := by
   unfold FiniteFormat.canonicalExp
-  cases hexp : F.exp with
-  | bot => simp only [hp, hv, if_false, Nat.cast_id]
+  cases hexp : F.exp using QExp.recBotCoe with
+  | bot => simp only [hp, hv, if_false]
   | coe e =>
-    simp only [hp, hv, if_false, Nat.cast_id]
+    simp only [hp, hv, if_false]
     rw [hexp] at hnorm
     exact max_eq_left (by exact_mod_cast hnorm)
 
@@ -86,15 +86,15 @@ theorem canonicalExp_FLX {F : FiniteFormat} {p : ℕ}
 /-- Closed form of `canonicalExp` in an FLT format (`exp = emin` finite):
 `max(log₂|v| + 1 − p, emin)`. -/
 theorem canonicalExp_FLT {F : FiniteFormat} {p : ℕ} {emin : ℤ}
-    (hp : F.p = (p : Prec)) (hexp : F.exp = (emin : WithBot ℤ))
+    (hp : F.p = (p : Prec)) (hexp : F.exp = (emin : QExp))
     {v : ℝ} (hv : v ≠ 0) :
     F.canonicalExp v = max (Int.log 2 |v| + 1 - (p : ℤ)) emin := by
-  unfold FiniteFormat.canonicalExp; simp only [hp, hexp, hv, if_false, Nat.cast_id]
+  unfold FiniteFormat.canonicalExp; simp only [hp, hexp, hv, if_false]
 
-/-- `F.exp ≤ (F.canonicalExp x : WithBot ℤ)`, uniformly over `exp = ⊥`/finite. -/
+/-- `F.exp ≤ (F.canonicalExp x : QExp)`, uniformly over `exp = ⊥`/finite. -/
 theorem exp_le_canonicalExp_coe (F : FiniteFormat) (x : ℝ) :
-    F.exp ≤ ((F.canonicalExp x : ℤ) : WithBot ℤ) := by
-  cases hexp : F.exp with
+    F.exp ≤ ((F.canonicalExp x : ℤ) : QExp) := by
+  cases hexp : F.exp using QExp.recBotCoe with
   | bot => exact bot_le
   | coe e => exact_mod_cast F.exp_le_canonicalExp x hexp
 
@@ -103,7 +103,7 @@ theorem exp_le_canonicalExp_coe (F : FiniteFormat) (x : ℝ) :
 theorem log_sub_prec_le_canonicalExp {F : FiniteFormat} {p : ℕ}
     (hp : F.p = (p : Prec)) {v : ℝ} (hv : v ≠ 0) :
     Int.log 2 |v| + 1 - (p : ℤ) ≤ F.canonicalExp v := by
-  cases hexp : F.exp with
+  cases hexp : F.exp using QExp.recBotCoe with
   | bot => rw [canonicalExp_FLX hp hexp hv]
   | coe e => rw [canonicalExp_FLT hp hexp hv]; exact le_max_left _ _
 
@@ -134,9 +134,9 @@ A value's *quantum* (`Dyadic.quantumAtLeast e`) is preserved/combined under
 negation, `±`, and `×`. Shared by the addition and multiplication proofs. -/
 
 /-- Negation preserves quantum alignment. -/
-theorem quantumAtLeast_neg {e : WithBot ℤ} {a : Dyadic}
+theorem quantumAtLeast_neg {e : QExp} {a : Dyadic}
     (ha : Dyadic.quantumAtLeast e a) : Dyadic.quantumAtLeast e (-a) := by
-  cases e with
+  cases e using QExp.recBotCoe with
   | bot => trivial
   | coe e =>
     obtain ⟨ca, hca⟩ := (Dyadic.quantumAtLeast_coe_real e a).mp ha
@@ -144,10 +144,10 @@ theorem quantumAtLeast_neg {e : WithBot ℤ} {a : Dyadic}
     rw [show ((-a : Dyadic) : ℝ) = -(a : ℝ) from by push_cast; ring, hca]; push_cast; ring
 
 /-- A sum of two quantum-aligned dyadics stays quantum-aligned. -/
-theorem quantumAtLeast_add {e : WithBot ℤ} {a b : Dyadic}
+theorem quantumAtLeast_add {e : QExp} {a b : Dyadic}
     (ha : Dyadic.quantumAtLeast e a) (hb : Dyadic.quantumAtLeast e b) :
     Dyadic.quantumAtLeast e (a + b) := by
-  cases e with
+  cases e using QExp.recBotCoe with
   | bot => trivial
   | coe e =>
     obtain ⟨ca, hca⟩ := (Dyadic.quantumAtLeast_coe_real e a).mp ha
@@ -157,20 +157,20 @@ theorem quantumAtLeast_add {e : WithBot ℤ} {a b : Dyadic}
     push_cast; ring
 
 /-- A difference of two quantum-aligned dyadics stays quantum-aligned. -/
-theorem quantumAtLeast_sub {e : WithBot ℤ} {a b : Dyadic}
+theorem quantumAtLeast_sub {e : QExp} {a b : Dyadic}
     (ha : Dyadic.quantumAtLeast e a) (hb : Dyadic.quantumAtLeast e b) :
     Dyadic.quantumAtLeast e (a - b) := by
   rw [sub_eq_add_neg]; exact quantumAtLeast_add ha (quantumAtLeast_neg hb)
 
 /-- A product is quantum-aligned at the *sum* of the operands' quanta. -/
-theorem quantumAtLeast_mul {e₁ e₂ : WithBot ℤ} {x y : Dyadic}
+theorem quantumAtLeast_mul {e₁ e₂ : QExp} {x y : Dyadic}
     (hx : Dyadic.quantumAtLeast e₁ x) (hy : Dyadic.quantumAtLeast e₂ y) :
     Dyadic.quantumAtLeast (e₁ + e₂) (x * y) := by
-  cases e₁ with
-  | bot => rw [show (⊥ + e₂ : WithBot ℤ) = ⊥ from by simp]; trivial
+  cases e₁ using QExp.recBotCoe with
+  | bot => rw [show (⊥ + e₂ : QExp) = ⊥ from by simp]; trivial
   | coe a =>
-    cases e₂ with
-    | bot => rw [show ((a : WithBot ℤ) + ⊥) = ⊥ from by simp]; trivial
+    cases e₂ using QExp.recBotCoe with
+    | bot => rw [show ((a : QExp) + ⊥) = ⊥ from by simp]; trivial
     | coe b =>
       obtain ⟨cx, hcx⟩ := (Dyadic.quantumAtLeast_coe_real a x).mp hx
       obtain ⟨cy, hcy⟩ := (Dyadic.quantumAtLeast_coe_real b y).mp hy

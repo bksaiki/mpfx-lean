@@ -53,7 +53,7 @@ unbounded magnitude. Built as a `ParityFormat`: both the `finite` and
 `parity` invariants hold because `exp = (e : ℤ) ≠ ⊥`. -/
 private def F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) : ParityFormat where
   toFiniteFormat :=
-    { toFormat := { p := (p : Prec), exp := (e : WithBot ℤ), b := ⊤ }
+    { toFormat := { p := (p : Prec), exp := (e : QExp), b := ⊤ }
       finite := Or.inr WithBot.coe_ne_bot
       pos := by simp; omega }
   parity := Or.inr WithBot.coe_ne_bot
@@ -62,7 +62,7 @@ private def F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) : ParityFormat where
     (F₁_g p hp e).p = (p : Prec) := rfl
 
 @[simp] private theorem F₁_g_exp p (hp : 2 ≤ p) (e : ℤ) :
-    (F₁_g p hp e).exp = (e : WithBot ℤ) := rfl
+    (F₁_g p hp e).exp = (e : QExp) := rfl
 
 @[simp] private theorem F₁_g_b p (hp : 2 ≤ p) (e : ℤ) :
     (F₁_g p hp e).b = ⊤ := rfl
@@ -116,7 +116,7 @@ private theorem y_lo_mem_F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
           _ ≤ (2 : ℤ)^p := pow_le_pow_right₀ (by norm_num) hp_ge_2
       have h_abs : |(3 : ℤ)| = 3 := by decide
       omega
-  · change Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) (y_lo_g e)
+  · change Dyadic.quantumAtLeast (e : QExp) (y_lo_g e)
     rw [Dyadic.quantumAtLeast_coe_real]
     refine ⟨3, ?_⟩
     rw [coe_y_lo_g]; push_cast; ring
@@ -133,7 +133,7 @@ private theorem two_e_mem_F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
           _ ≤ (2 : ℤ)^p := pow_le_pow_right₀ (by norm_num) (by omega)
       have : |(1 : ℤ)| = 1 := by decide
       omega
-  · change Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) (two_e_g e)
+  · change Dyadic.quantumAtLeast (e : QExp) (two_e_g e)
     rw [Dyadic.quantumAtLeast_coe_real]
     exact ⟨1, by rw [coe_two_e_g]; push_cast; ring⟩
 
@@ -149,7 +149,7 @@ private theorem y_hi_mem_F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
           _ ≤ (2 : ℤ)^p := pow_le_pow_right₀ (by norm_num) (by omega : 1 ≤ p)
       have h_abs : |(1 : ℤ)| = 1 := by decide
       omega
-  · change Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) (y_hi_g e)
+  · change Dyadic.quantumAtLeast (e : QExp) (y_hi_g e)
     rw [Dyadic.quantumAtLeast_coe_real]
     refine ⟨4, ?_⟩
     rw [coe_y_hi_g, zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
@@ -168,7 +168,7 @@ private theorem y_lo_low_mem_F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
           _ ≤ (2 : ℤ)^p := pow_le_pow_right₀ (by norm_num) hp_ge_2
       have h_abs : |(2 : ℤ)| = 2 := by decide
       omega
-  · change Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) (y_lo_low_g e)
+  · change Dyadic.quantumAtLeast (e : QExp) (y_lo_low_g e)
     rw [Dyadic.quantumAtLeast_coe_real]
     refine ⟨2, ?_⟩
     rw [coe_y_lo_low_g]; push_cast; ring
@@ -177,16 +177,16 @@ private theorem y_lo_low_mem_F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
 private theorem F₁_g_quantum (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ)
     {z : Dyadic} (hz : z ∈ (F₁_g p hp_ge_2 e).toFormat) :
     ∃ c : ℤ, (z : ℝ) = (c : ℝ) * (2 : ℝ)^e := by
-  have hq : Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) z := hz.2.1
+  have hq : Dyadic.quantumAtLeast (e : QExp) z := hz.2.1
   rw [Dyadic.quantumAtLeast_coe_real] at hq
   exact hq
 
 /-! ## Containment → exponent helpers -/
 
-/-- If `2^e ∈ F₂` and `F₂.exp = (f₂ : WithBot ℤ)`, then `f₂ ≤ e`. -/
+/-- If `2^e ∈ F₂` and `F₂.exp = (f₂ : QExp)`, then `f₂ ≤ e`. -/
 private theorem f₂_le_e_of_two_e_mem {e : ℤ} {F₂ : Format}
     (h_two_e_in_F₂ : two_e_g e ∈ F₂)
-    {f₂ : ℤ} (hF₂_exp : F₂.exp = (f₂ : WithBot ℤ)) :
+    {f₂ : ℤ} (hF₂_exp : F₂.exp = (f₂ : QExp)) :
     f₂ ≤ e := by
   have hq : Dyadic.quantumAtLeast F₂.exp (two_e_g e) := h_two_e_in_F₂.2.1
   rw [hF₂_exp, Dyadic.quantumAtLeast_coe_real] at hq
@@ -232,7 +232,7 @@ private theorem roundsFinite_awayZero_of_unbounded {F : FiniteFormat} {x : ℝ}
 `F₂`'s quantum exponent `f₂` satisfies `f₂ ≤ e − 1`. -/
 private theorem f₂_le_e_sub_one_of_odd_in_F₂
     {F₂ : Format} {f₂ e : ℤ}
-    (hF₂_exp : F₂.exp = (f₂ : WithBot ℤ))
+    (hF₂_exp : F₂.exp = (f₂ : QExp))
     {y : Dyadic} (hy_in_F₂ : y ∈ F₂)
     {odd_c : ℤ} (h_odd : Odd odd_c)
     (h_y_eq : ((y : Dyadic) : ℝ) = (odd_c : ℝ) * (2 : ℝ) ^ (e - 1)) :
@@ -267,7 +267,7 @@ private theorem f₂_le_e_sub_one_of_odd_in_F₂
 /-- **F₂-grid floor.** Given `target = c_target · 2^f₂` on F₂'s grid, any
 `z ∈ F₂` strictly below `target + 2^f₂` is at most `target`. -/
 private theorem F₂_grid_floor
-    {F₂ : Format} {f₂ : ℤ} (hF₂_exp : F₂.exp = (f₂ : WithBot ℤ))
+    {F₂ : Format} {f₂ : ℤ} (hF₂_exp : F₂.exp = (f₂ : QExp))
     {target : ℝ} {c_target : ℤ}
     (h_target_eq : target = (c_target : ℝ) * (2 : ℝ) ^ f₂) :
     ∀ z ∈ F₂, ((z : Dyadic) : ℝ) < target + (2 : ℝ)^f₂ →
@@ -293,7 +293,7 @@ private theorem F₂_grid_floor
 `target = c_target · 2^f₂` on F₂'s grid, any `z ∈ F₂` strictly above
 `target − 2^f₂` is at least `target`. -/
 private theorem F₂_grid_ceil
-    {F₂ : Format} {f₂ : ℤ} (hF₂_exp : F₂.exp = (f₂ : WithBot ℤ))
+    {F₂ : Format} {f₂ : ℤ} (hF₂_exp : F₂.exp = (f₂ : QExp))
     {target : ℝ} {c_target : ℤ}
     (h_target_eq : target = (c_target : ℝ) * (2 : ℝ) ^ f₂) :
     ∀ z ∈ F₂, target - (2 : ℝ)^f₂ < ((z : Dyadic) : ℝ) →
@@ -499,7 +499,7 @@ private theorem p_ge2_of_y_lo_mem {F₂ : FiniteFormat} {e : ℤ}
 (`K ≤ E`) such that every nonnegative `F₂`-element strictly below `2^E` is
 at most `2^E − 2^K`. Needs `f₂ ≤ E` only when `F₂.exp = f₂` is finite. -/
 private theorem gap_below_pow (F₂ : FiniteFormat) {E : ℤ}
-    (h_exp_le : ∀ f₂ : ℤ, F₂.exp = (f₂ : WithBot ℤ) → f₂ ≤ E) :
+    (h_exp_le : ∀ f₂ : ℤ, F₂.exp = (f₂ : QExp) → f₂ ≤ E) :
     ∃ K : ℤ, K ≤ E ∧
       ∀ z ∈ F₂.toFormat, ((z : Dyadic) : ℝ) < (2 : ℝ)^E →
         ((z : Dyadic) : ℝ) ≤ (2 : ℝ)^E - (2 : ℝ)^K := by
@@ -553,7 +553,7 @@ private theorem gap_below_pow (F₂ : FiniteFormat) {E : ℤ}
 (`K ≤ E`) such that every `F₂`-element strictly above `2^E` is at least
 `2^E + 2^K`. Needs `f₂ ≤ E` only when `F₂.exp = f₂` is finite. -/
 private theorem gap_above_pow (F₂ : FiniteFormat) {E : ℤ}
-    (h_exp_le : ∀ f₂ : ℤ, F₂.exp = (f₂ : WithBot ℤ) → f₂ ≤ E) :
+    (h_exp_le : ∀ f₂ : ℤ, F₂.exp = (f₂ : QExp) → f₂ ≤ E) :
     ∃ K : ℤ, K ≤ E ∧
       ∀ z ∈ F₂.toFormat, (2 : ℝ)^E < ((z : Dyadic) : ℝ) →
         (2 : ℝ)^E + (2 : ℝ)^K ≤ ((z : Dyadic) : ℝ) := by
@@ -623,7 +623,7 @@ keep distance `2^(K−1)` from `A` on both sides. Needs `f₂ ≤ e` when
 precision, provided by `h_p_ge2`. -/
 private theorem gap_around_mid (F₂ : FiniteFormat) {e a : ℤ}
     (ha_lo : 5 ≤ a) (ha_hi : a ≤ 7)
-    (h_exp_le : ∀ f₂ : ℤ, F₂.exp = (f₂ : WithBot ℤ) → f₂ ≤ e)
+    (h_exp_le : ∀ f₂ : ℤ, F₂.exp = (f₂ : QExp) → f₂ ≤ e)
     (h_p_ge2 : ∀ q₂ : ℕ, F₂.p = (q₂ : Prec) → 2 ≤ q₂) :
     ∃ K : ℤ, K ≤ e ∧
       (∀ z ∈ F₂.toFormat, ((z : Dyadic) : ℝ) < (a : ℝ) * (2 : ℝ)^(e - 1) →
@@ -698,7 +698,7 @@ private theorem gap_around_mid (F₂ : FiniteFormat) {e a : ℤ}
         rw [h_e2_split] at h_above
         linarith
   · -- `exp = f₂` finite: the global quantum grid; `K = f₂ ≤ e`.
-    have hexpc : F₂.exp = (f₂ : WithBot ℤ) := hexp
+    have hexpc : F₂.exp = (f₂ : QExp) := hexp
     have hf₂e : f₂ ≤ e := h_exp_le f₂ hexpc
     refine ⟨f₂, hf₂e, ?_, ?_⟩
     all_goals
@@ -812,7 +812,7 @@ private theorem gap_around_m_mem (F₂ : FiniteFormat) {e : ℤ}
         linarith
   · -- `exp = f₂` finite: `m ∈ F₂` forces `f₂ ≤ e − 1`; the quantum grid,
     -- on which `m` lies.
-    have hexpc : F₂.exp = (f₂ : WithBot ℤ) := hexp
+    have hexpc : F₂.exp = (f₂ : QExp) := hexp
     have hf₂_le : f₂ ≤ e - 1 :=
       f₂_le_e_sub_one_of_odd_in_F₂ hexpc hm (by decide : Odd (7 : ℤ))
         (by rw [coe_m_g]; push_cast; ring)
@@ -852,7 +852,7 @@ The midpoints of the power-of-two neighborhood are odd multiples `3·2^k`,
 which sit in the binade `[2^E, 2^(E+1))` (`E = k + 1`) rather than the
 `a ∈ [5,7]` binade. Here `q₂ ≥ 1` suffices (no two-bit hypothesis). -/
 private theorem gap_around_mid3 (F₂ : FiniteFormat) {E : ℤ}
-    (h_exp_le : ∀ f₂ : ℤ, F₂.exp = (f₂ : WithBot ℤ) → f₂ ≤ E) :
+    (h_exp_le : ∀ f₂ : ℤ, F₂.exp = (f₂ : QExp) → f₂ ≤ E) :
     ∃ K : ℤ, K ≤ E ∧
       (∀ z ∈ F₂.toFormat, ((z : Dyadic) : ℝ) < (3 : ℝ) * (2 : ℝ)^(E - 1) →
         ((z : Dyadic) : ℝ) ≤ (3 : ℝ) * (2 : ℝ)^(E - 1) - (2 : ℝ)^(K - 1)) ∧
@@ -911,7 +911,7 @@ private theorem gap_around_mid3 (F₂ : FiniteFormat) {E : ℤ}
       · rw [h_hi_split] at h_above
         linarith
   · -- `exp = f₂` finite: the global quantum grid; `K = f₂ ≤ E`.
-    have hexpc : F₂.exp = (f₂ : WithBot ℤ) := hexp
+    have hexpc : F₂.exp = (f₂ : QExp) := hexp
     have hf₂e : f₂ ≤ E := h_exp_le f₂ hexpc
     refine ⟨f₂, hf₂e, ?_, ?_⟩
     · intro z hz hz_lt
@@ -1012,7 +1012,7 @@ private theorem gap_around_mid3_mem (F₂ : FiniteFormat) {E : ℤ}
       · rw [h_hi_split] at h_above
         linarith
   · -- `exp = f₂` finite: `A ∈ F₂` forces `f₂ ≤ E − 1`; the quantum grid.
-    have hexpc : F₂.exp = (f₂ : WithBot ℤ) := hexp
+    have hexpc : F₂.exp = (f₂ : QExp) := hexp
     have hf₂_le : f₂ ≤ E - 1 :=
       f₂_le_e_sub_one_of_odd_in_F₂ hexpc hm (by decide : Odd (3 : ℤ)) hm_eq
     have h_m_grid : (3 : ℝ) * (2 : ℝ)^(E - 1)
@@ -2185,7 +2185,7 @@ trivial, and parity reads the full integer coefficient
 
 private def F₁t_g (e : ℤ) : ParityFormat where
   toFiniteFormat :=
-    { toFormat := { p := ⊤, exp := ((e : ℤ) : WithBot ℤ), b := ⊤ }
+    { toFormat := { p := ⊤, exp := (e : QExp), b := ⊤ }
       finite := Or.inr WithBot.coe_ne_bot
       pos := by simp }
   parity := Or.inr WithBot.coe_ne_bot
@@ -2193,7 +2193,7 @@ private def F₁t_g (e : ℤ) : ParityFormat where
 @[simp] private theorem F₁t_g_p (e : ℤ) : (F₁t_g e).p = ⊤ := rfl
 
 @[simp] private theorem F₁t_g_exp (e : ℤ) :
-    (F₁t_g e).exp = (e : WithBot ℤ) := rfl
+    (F₁t_g e).exp = (e : QExp) := rfl
 
 @[simp] private theorem F₁t_g_b (e : ℤ) : (F₁t_g e).b = ⊤ := rfl
 
@@ -2202,7 +2202,7 @@ private theorem mem_F₁t_g (e : ℤ) {v : Dyadic} (c : ℤ)
     (hv : ((v : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ e) :
     v ∈ (F₁t_g e).toFormat := by
   refine ⟨trivial, ?_, trivial⟩
-  change Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) v
+  change Dyadic.quantumAtLeast (e : QExp) v
   rw [Dyadic.quantumAtLeast_coe_real]
   exact ⟨c, hv⟩
 
@@ -2226,7 +2226,7 @@ private theorem two_e_mem_F₁t_g (e : ℤ) : two_e_g e ∈ (F₁t_g e).toFormat
 private theorem F₁t_g_quantum (e : ℤ) {z : Dyadic}
     (hz : z ∈ (F₁t_g e).toFormat) :
     ∃ c : ℤ, (z : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := by
-  have hq : Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) z := hz.2.1
+  have hq : Dyadic.quantumAtLeast (e : QExp) z := hz.2.1
   rw [Dyadic.quantumAtLeast_coe_real] at hq
   exact hq
 
@@ -3066,7 +3066,7 @@ private noncomputable def floatingNeighborhood (q : ℕ) (hq : 2 ≤ q) (t : ℤ
         rw [h_mid_real] at hz_gt ⊢
         exact h_above z hz hz_gt
     · -- `F₂.exp = f₂` finite: the mid is on the global grid, `f₂ ≤ t − 1`.
-      have hexpc : F₂.exp = (f₂ : WithBot ℤ) := hexp_eq
+      have hexpc : F₂.exp = (f₂ : QExp) := hexp_eq
       have h_f₂_le : f₂ ≤ t - 1 :=
         f₂_le_e_sub_one_of_odd_in_F₂ (e := t) hexpc hmem h_odd h_mid_real
       have hquant : Dyadic.quantumAtLeast F₂.exp (fmid q t) := hmem.2.1
@@ -3103,14 +3103,14 @@ dispatch. -/
 
 private def F₁p_g (e : ℤ) : ParityFormat where
   toFiniteFormat :=
-    { toFormat := { p := ((1 : ℕ) : Prec), exp := ((e : ℤ) : WithBot ℤ), b := ⊤ }
+    { toFormat := { p := ((1 : ℕ) : Prec), exp := (e : QExp), b := ⊤ }
       finite := Or.inr WithBot.coe_ne_bot
       pos := by simp }
   parity := Or.inr WithBot.coe_ne_bot
 
 @[simp] private theorem F₁p_g_p (e : ℤ) : (F₁p_g e).p = ((1 : ℕ) : Prec) := rfl
 
-@[simp] private theorem F₁p_g_exp (e : ℤ) : (F₁p_g e).exp = (e : WithBot ℤ) := rfl
+@[simp] private theorem F₁p_g_exp (e : ℤ) : (F₁p_g e).exp = (e : QExp) := rfl
 
 @[simp] private theorem F₁p_g_b (e : ℤ) : (F₁p_g e).b = ⊤ := rfl
 
@@ -3123,7 +3123,7 @@ private theorem mem_F₁p_g (e : ℤ) {N : ℤ} (hN : e ≤ N) :
   · change Dyadic.precisionAtMost ((1 : ℕ) : Prec) _
     rw [Dyadic.precisionAtMost_coe_real]
     exact ⟨1, N, by rw [h_real]; push_cast; ring, by decide⟩
-  · change Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) _
+  · change Dyadic.quantumAtLeast (e : QExp) _
     rw [Dyadic.quantumAtLeast_coe_real]
     refine ⟨(2 : ℤ)^(N - e).toNat, ?_⟩
     rw [h_real, two_zpow_split N e hN]; push_cast; ring
@@ -3152,7 +3152,7 @@ private theorem F₁p_g_pow (e : ℤ) {v : Dyadic} (hv : v ∈ (F₁p_g e).toFor
   have hc1 : c = 1 := by omega
   have h_v_eq : ((v : Dyadic) : ℝ) = (2 : ℝ)^k := by rw [hck, hc1]; push_cast; ring
   refine ⟨k, h_v_eq, ?_⟩
-  have hq : Dyadic.quantumAtLeast ((e : ℤ) : WithBot ℤ) v := hv.2.1
+  have hq : Dyadic.quantumAtLeast (e : QExp) v := hv.2.1
   rw [Dyadic.quantumAtLeast_coe_real] at hq
   obtain ⟨d, hd⟩ := hq
   rw [h_v_eq] at hd
@@ -3425,7 +3425,7 @@ and `δ` is a quarter of `F₂`'s local step at the anchor. -/
 private theorem eq_F₁_g {F₁ : ParityFormat} {p₁ : ℕ} {e : ℤ}
     (hp_ge_2 : 2 ≤ p₁)
     (hp : F₁.p = (p₁ : Prec))
-    (hexp : F₁.exp = ((e : ℤ) : WithBot ℤ))
+    (hexp : F₁.exp = (e : QExp))
     (hb : F₁.b = ⊤) :
     F₁ = F₁_g p₁ hp_ge_2 e := by
   obtain ⟨⟨⟨pp, ee, bb⟩, fin⟩, par⟩ := F₁
@@ -3446,7 +3446,7 @@ private theorem eq_F₁f_g {F₁ : ParityFormat} {p₁ : ℕ}
 /-- With `p = ⊤`, `exp = e`, `b = ⊤` it *is* the full-precision target
 format. -/
 private theorem eq_F₁t_g {F₁ : ParityFormat} {e : ℤ}
-    (hp : F₁.p = ⊤) (hexp : F₁.exp = ((e : ℤ) : WithBot ℤ))
+    (hp : F₁.p = ⊤) (hexp : F₁.exp = (e : QExp))
     (hb : F₁.b = ⊤) :
     F₁ = F₁t_g e := by
   obtain ⟨⟨⟨pp, ee, bb⟩, fin⟩, par⟩ := F₁
@@ -3457,7 +3457,7 @@ private theorem eq_F₁t_g {F₁ : ParityFormat} {e : ℤ}
 format. -/
 private theorem eq_F₁p_g {F₁ : ParityFormat} {e : ℤ}
     (hp : F₁.p = ((1 : ℕ) : Prec))
-    (hexp : F₁.exp = ((e : ℤ) : WithBot ℤ)) (hb : F₁.b = ⊤) :
+    (hexp : F₁.exp = (e : QExp)) (hb : F₁.b = ⊤) :
     F₁ = F₁p_g e := by
   obtain ⟨⟨⟨pp, ee, bb⟩, fin⟩, par⟩ := F₁
   subst hp hexp hb

@@ -90,18 +90,18 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ}
       unfold midp ulp; rw [rndDown_eq, ← he₁, ← hma, Dyadic.coe_ofIntZpow]
     rw [Dyadic.coe_ofIntZpow, hmid, hmidp, two_zpow_dbl e₁]; push_cast; ring
   -- `g` is a multiple of `2^(e₁−1)`, hence at any coarser quantum
-  have hq_e₁ : Dyadic.quantumAtLeast ((e₁ - 1 : ℤ) : WithBot ℤ)
+  have hq_e₁ : Dyadic.quantumAtLeast ((e₁ - 1 : ℤ) : QExp)
       (Dyadic.ofIntZpow (2 * ma + 1) (e₁ - 1)) :=
     (Dyadic.quantumAtLeast_coe_real (e₁ - 1) _).mpr ⟨2 * ma + 1, by rw [Dyadic.coe_ofIntZpow]⟩
-  have he₂le : ((e₂ : ℤ) : WithBot ℤ) ≤ ((e₁ - 1 : ℤ) : WithBot ℤ) := by
+  have he₂le : (e₂ : QExp) ≤ ((e₁ - 1 : ℤ) : QExp) := by
     exact_mod_cast (show e₂ ≤ e₁ - 1 from by omega)
   -- `g = 𝒜(p₂, e₁−1, ⊤)`-representable, and that format is contained in
   -- `F₂.unbounded` by `𝒜-Contains-Prec` (`mem_unbounded_of_le`).
-  have hF₂le : F₂.exp ≤ ((e₁ - 1 : ℤ) : WithBot ℤ) :=
+  have hF₂le : F₂.exp ≤ ((e₁ - 1 : ℤ) : QExp) :=
     le_trans (exp_le_canonicalExp_coe F₂ v) (by rw [← he₂]; exact he₂le)
   refine ⟨Dyadic.ofIntZpow (2 * ma + 1) (e₁ - 1), hg_real,
     Format.mem_unbounded_of_le (p := (p₂ : Prec))
-      (e := ((e₁ - 1 : ℤ) : WithBot ℤ)) (le_of_eq hp₂.symm) hF₂le ?_ hq_e₁⟩
+      (e := ((e₁ - 1 : ℤ) : QExp)) (le_of_eq hp₂.symm) hF₂le ?_ hq_e₁⟩
   -- precisionAtMost p₂: mantissa at scale e₂ fits p₂ bits
   rw [Dyadic.precisionAtMost_coe_real]
   have hq_e₂ := Dyadic.quantumAtLeast_anti he₂le hq_e₁
@@ -131,7 +131,7 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ}
 (`exp = emin`), any `0 ≤ x' < 2^(emin−1)` rounds to nearest to `0`: its scaled
 mantissa is `< ½`, and the grid point selected is `0`. -/
 private theorem nearest_zero_of_small {F₁ : FiniteFormat} {tb₁ : TieBreak} {p₁ : ℕ} {emin₁ : ℤ}
-    (hp₁ : F₁.p = (p₁ : Prec)) (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ))
+    (hp₁ : F₁.p = (p₁ : Prec)) (hexp₁ : F₁.exp = (emin₁ : QExp))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {x' : ℝ} (hx'0 : 0 ≤ x') (hx'lt : x' < (2 : ℝ) ^ (emin₁ - 1)) :
     RoundsFinite F₁.unbounded (.nearest tb₁) x' 0 := by
@@ -165,7 +165,7 @@ part of `round_round_zero`; the excluded sliver `[2^(emin₁−1) − ½ulp₂,
 2^(emin₁−1))` is where `round_round_div_aux0` shows a quotient cannot land. -/
 private theorem round_round_div_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
     {p₁ : ℕ} {emin₁ : ℤ}
-    (hp₁ : F₁.p = (p₁ : Prec)) (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ))
+    (hp₁ : F₁.p = (p₁ : Prec)) (hexp₁ : F₁.exp = (emin₁ : QExp))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {v : ℝ} (hv : 0 < v)
     (hvlt : v < (2 : ℝ) ^ (emin₁ - 1) - ulp F₂ v / 2)
@@ -368,7 +368,7 @@ private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : 
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
-    (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
+    (hexp₁ : F₁.exp = (emin₁ : QExp)) (hexp₂ : F₂.exp = (emin₂ : QExp))
     (hemin : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁)
@@ -421,7 +421,7 @@ private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBrea
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
-    (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
+    (hexp₁ : F₁.exp = (emin₁ : QExp)) (hexp₂ : F₂.exp = (emin₂ : QExp))
     (hemin : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁)
@@ -601,7 +601,7 @@ theorem rndDiv_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
-    (hexp₁ : F₁.exp = (emin₁ : WithBot ℤ)) (hexp₂ : F₂.exp = (emin₂ : WithBot ℤ))
+    (hexp₁ : F₁.exp = (emin₁ : QExp)) (hexp₂ : F₂.exp = (emin₂ : QExp))
     (hemin : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁) (hbne : (b : ℝ) ≠ 0)
