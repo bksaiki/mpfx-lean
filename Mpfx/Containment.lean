@@ -203,7 +203,7 @@ theorem exp_le_of_subset {F₁ F₂ : Format} (hnt : F₁.Nontrivial) (h : F₁ 
         (precisionAtMost_one_zpow hp0 e₁)
         (by rw [he1]) (boundOK_of_abs_le ?_ hx₀.2.2)))
       rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) e₁)]
-      exact Dyadic.abs_ge_two_zpow_of_quantum (he1 ▸ hx₀.2.1) hx₀ne
+      exact Dyadic.abs_ge_two_zpow_of_quantum (he1 ▸ hx₀.2.1) (by exact_mod_cast hx₀ne)
     | bot =>
       -- `F₁` has values `2^k` with `k` arbitrarily small, contradicting `e₂ ≤ k`.
       exfalso
@@ -213,7 +213,8 @@ theorem exp_le_of_subset {F₁ F₂ : Format} (hnt : F₁.Nontrivial) (h : F₁ 
         | top => exact ⟨e₂ - 1, le_refl _, trivial⟩
         | coe b₁ =>
           have hpos : 0 < ((b₁.val : Dyadic) : ℝ) :=
-            lt_of_lt_of_le (abs_pos.mpr hx₀ne) (abs_coe_real_le_of_boundOK (hb1 ▸ hx₀.2.2))
+            lt_of_lt_of_le (abs_pos.mpr (by exact_mod_cast hx₀ne))
+              (abs_coe_real_le_of_boundOK (hb1 ▸ hx₀.2.2))
           obtain ⟨k, hk_le, hk⟩ := exists_mul_zpow_le one_pos hpos (e₂ - 1)
           refine ⟨k, hk_le, boundOK_coe_of_abs_le ?_⟩
           rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) k)]
@@ -287,8 +288,7 @@ theorem sub_test_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F�
     exfalso
     have hx₀p := (h _ hx₀).1
     rw [hp2] at hx₀p
-    rw [Dyadic.precisionAtMost_zero_iff_eq_zero.mp hx₀p] at hx₀ne
-    exact hx₀ne Dyadic.coe_real_zero
+    exact hx₀ne (Dyadic.precisionAtMost_zero_iff_eq_zero.mp hx₀p)
   have hwpos : (0 : ℝ) < ((wit p₂ : ℤ) : ℝ) := by exact_mod_cast wit_pos p₂
   -- The witness is never in `F₂`, so it must fail `F₁`'s quantum or bound check.
   have key : ∀ k : ℤ, F₁.exp ≤ (k : QExp) →
@@ -306,7 +306,8 @@ theorem sub_test_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F�
       | top => exact ⟨0, trivial⟩
       | coe b₁ =>
         have hpos : 0 < ((b₁.val : Dyadic) : ℝ) :=
-          lt_of_lt_of_le (abs_pos.mpr hx₀ne) (abs_coe_real_le_of_boundOK (hb1 ▸ hx₀.2.2))
+          lt_of_lt_of_le (abs_pos.mpr (by exact_mod_cast hx₀ne))
+              (abs_coe_real_le_of_boundOK (hb1 ▸ hx₀.2.2))
         obtain ⟨k, -, hk⟩ := exists_mul_zpow_le hwpos hpos 0
         exact ⟨k, boundOK_coe_of_abs_le (by rw [abs_coe_wit]; exact hk)⟩
     exact key k (by rw [he1]; exact bot_le) hk

@@ -86,7 +86,7 @@ theorem mem_neg_iff (F : Format) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
 
 /-- `F` contains at least one nonzero value. §4.2's non-triviality restriction. -/
 def Nontrivial (F : Format) : Prop :=
-  ∃ d : Dyadic, d ∈ F ∧ (d : ℝ) ≠ 0
+  ∃ d : Dyadic, d ∈ F ∧ d ≠ 0
 
 /-- A nonzero value needs at least one digit, so a nontrivial format has
 positive precision. This is what `ℕ+` used to enforce at the type level. -/
@@ -95,8 +95,7 @@ theorem Nontrivial.p_ne_zero {F : Format} (h : F.Nontrivial) : F.p ≠ 0 := by
   intro h0
   have hp := hd.1
   rw [h0] at hp
-  rw [Dyadic.precisionAtMost_zero_iff_eq_zero.mp hp] at hd_ne
-  exact hd_ne Dyadic.coe_real_zero
+  exact hd_ne (Dyadic.precisionAtMost_zero_iff_eq_zero.mp hp)
 
 /-- §4.2's restriction on the magnitude bound: `b ∈ 𝒜(p, exp, ∞) ∪ {∞}`, i.e. a
 finite bound is itself representable. -/

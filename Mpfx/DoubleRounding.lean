@@ -1013,7 +1013,7 @@ private theorem two_le_p_of_nontrivial {F₁ F₂ : FiniteFormat}
   rcases hp_F₂_or_F₁_trivial hsub with h | htriv
   · exact h
   · obtain ⟨d, hd, hne⟩ := hnt
-    exact absurd (htriv d hd) hne
+    exact absurd (eq_zero_of_coe_real_zero (htriv d hd)) hne
 
 /-! ## Round-to-nearest helpers for `rndRTO_RN` (Stage A) -/
 
@@ -1147,7 +1147,7 @@ private theorem two_le_p_of_nontrivial_RN {F₁ F₂ : FiniteFormat}
   rcases hp_F₂_or_F₁_trivial_RN hsub with h | htriv
   · exact h
   · obtain ⟨d, hd, hne⟩ := hnt
-    exact absurd (htriv d hd) hne
+    exact absurd (eq_zero_of_coe_real_zero (htriv d hd)) hne
 
 /-- If `F₁` is trivial (contains only `0`) then `RoundsFinite F₁ (.nearest tb) x w'`
 holds for any real `x` and tie-break `tb`, whenever `w' ∈ F₁` (so `w' = 0`).
