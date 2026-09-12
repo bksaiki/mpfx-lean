@@ -99,16 +99,13 @@ def opMul (F₁ F₂ : Format) : Format where
     | _, _ => ⊤
 
 /-- Tight precision bound for `⊕`:
-`p = ⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉` (with `max 1 …` to keep `p ≥ 1`),
-or `⊤` when either operand bound or exponent is infinite.  The floor ratio is
-computed over `ℝ`. -/
+`p = ⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉`, or `⊤` when either operand bound
+or exponent is infinite.  The floor ratio is computed over `ℝ`. -/
 noncomputable def opAddPrec (F₁ F₂ : Format) : Prec :=
   match (F₁.b : WithTop NonNegDyadic), (F₂.b : WithTop NonNegDyadic),
         (min F₁.exp F₂.exp : WithBot ℤ) with
   | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic), (m : ℤ) =>
-      WithTop.some (⟨max 1 (Nat.clog 2
-            (Int.toNat ⌊(((b₁.1 + b₂.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌋ + 1)),
-          Nat.lt_of_lt_of_le Nat.zero_lt_one (le_max_left 1 _)⟩ : ℕ)
+      (Nat.clog 2 (Int.toNat ⌊(((b₁.1 + b₂.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌋ + 1) : Prec)
   | _, _, _ => ⊤
 
 /-- Paper's `⊕`: additive format inference.  Returns the inferred `Format`
@@ -145,12 +142,13 @@ private theorem mul_inferred_pq {F₁ F₂ : Format} {x y : Dyadic}
       rw [this]; trivial
     obtain ⟨p1, hp1⟩ := WithTop.ne_top_iff_exists.mp hF1_p
     obtain ⟨p2, hp2⟩ := WithTop.ne_top_iff_exists.mp hF2_p
+    simp only [Prec.some_eq_coe] at hp1 hp2
     rw [← hp1] at hpx
     rw [← hp2] at hpy
     rw [Dyadic.precisionAtMost_coe] at hpx hpy
     obtain ⟨c1, e1, hxeq, hc1⟩ := hpx
     obtain ⟨c2, e2, hyeq, hc2⟩ := hpy
-    have h_p_eq : F₁.p + F₂.p = (((p1 + p2 : ℕ) : ℕ) : Prec) := by
+    have h_p_eq : F₁.p + F₂.p = ((p1 + p2 : ℕ) : Prec) := by
       rw [← hp1, ← hp2]; rfl
     rw [h_p_eq, Dyadic.precisionAtMost_coe]
     refine ⟨c1 * c2, e1 + e2, ?_, ?_⟩
@@ -158,7 +156,7 @@ private theorem mul_inferred_pq {F₁ F₂ : Format} {x y : Dyadic}
       push_cast
       rw [hxeq, hyeq, zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0)]
       ring
-    · rw [PNat.add_coe, pow_add, abs_mul]
+    · rw [pow_add, abs_mul]
       exact mul_lt_mul'' hc1 hc2 (abs_nonneg _) (abs_nonneg _)
   · -- quantumAtLeast (exp₁ + exp₂) (x * y)
     by_cases hF1_exp : F₁.exp = ⊥
@@ -268,9 +266,8 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
     (hF1_exp : F₁.exp = (e1 : WithBot ℤ)) (hF2_exp : F₂.exp = (e2 : WithBot ℤ))
     (hx : x ∈ F₁) (hy : y ∈ F₂) :
     Dyadic.precisionAtMost
-      (WithTop.some (⟨max 1 (Nat.clog 2
-            (Int.toNat ⌊(((b1.1 + b2.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ (min e1 e2)⌋ + 1)),
-          Nat.lt_of_lt_of_le Nat.zero_lt_one (le_max_left 1 _)⟩ : ℕ))
+      ((Nat.clog 2
+          (Int.toNat ⌊(((b1.1 + b2.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ (min e1 e2)⌋ + 1) : Prec))
       (x + y) := by
   obtain ⟨_, hqx, hbx⟩ := hx
   obtain ⟨_, hqy, hby⟩ := hy
@@ -332,24 +329,14 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
     have hq : (((x + y : Dyadic) : ℚ) : ℝ) = (((c : ℚ) * (2 : ℚ) ^ m : ℚ) : ℝ) := by
       rw [← Dyadic.coe_real_eq_ratCast, h_xy_eqR]; push_cast; ring
     exact_mod_cast hq
-  · -- |c| < 2 ^ (max 1 (clog 2 (N+1)))
+  · -- |c| < 2 ^ clog 2 (N+1)
     have h_natAbs_le : c.natAbs ≤ N := by
       have : (c.natAbs : ℤ) ≤ (N : ℤ) := by rw [Int.natCast_natAbs]; exact h_abs_c_le
       exact_mod_cast this
     have h_clog : N + 1 ≤ 2 ^ Nat.clog 2 (N + 1) :=
       Nat.le_pow_clog (by norm_num : 1 < 2) _
-    have h_pow_mono : Nat.clog 2 (N + 1) ≤ max 1 (Nat.clog 2 (N + 1)) := le_max_right _ _
-    have h_pow_le : 2 ^ Nat.clog 2 (N + 1) ≤ 2 ^ max 1 (Nat.clog 2 (N + 1)) :=
-      Nat.pow_le_pow_right (by norm_num) h_pow_mono
-    have h_final : c.natAbs + 1 ≤ 2 ^ max 1 (Nat.clog 2 (N + 1)) := by
-      calc c.natAbs + 1 ≤ N + 1 := Nat.add_le_add_right h_natAbs_le 1
-        _ ≤ 2 ^ Nat.clog 2 (N + 1) := h_clog
-        _ ≤ _ := h_pow_le
-    change |c| < (2 : ℤ) ^ (((⟨max 1 (Nat.clog 2 (N + 1)), _⟩ : ℕ) : ℕ))
     rw [Int.abs_eq_natAbs]
-    have h_lt : c.natAbs < 2 ^ max 1 (Nat.clog 2 (N + 1)) := by omega
-    change ((c.natAbs : ℤ)) < (2 : ℤ) ^ (max 1 (Nat.clog 2 (N + 1)))
-    exact_mod_cast h_lt
+    exact_mod_cast Nat.lt_of_lt_of_le (by omega : c.natAbs < N + 1) h_clog
 
 /-- **Add ⊆ inferred** — paper's `⊕`-containment:
 `{x + y | x ∈ F₁, y ∈ F₂} ⊆ opAdd F₁ F₂`. -/

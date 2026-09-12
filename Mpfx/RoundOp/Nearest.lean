@@ -82,7 +82,7 @@ private theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
         simp [hp_F, hexp_F, hx_ne]
       have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
           |x * (2 : ℝ) ^ (-e)| :=
-        two_pow_pred_le_scaled (p := p) hx_ne h_e_eq_log
+        two_pow_pred_le_scaled (p := p) (F.p_pos hp_F) hx_ne h_e_eq_log
       have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| :=
         abs_floor_ge_two_pow_pred (p := p) h_s_lo_real
       have h_lop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1| := by
@@ -142,9 +142,8 @@ private theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
           have h_e_eq_log : e = Int.log 2 |x| := by
             change F.canonicalExp x = _
             unfold FiniteFormat.canonicalExp
-            simp only [hp_F, hexp_F]
+            simp only [hp_F, hexp_F, Nat.cast_id, Nat.cast_one]
             rw [if_neg hx_ne]
-            rw [show (((1 : ℕ) : ℕ) : ℤ) = 1 from rfl]
             have h_max_eq : max (Int.log 2 |x| + 1 - 1) e'' =
                 Int.log 2 |x| + 1 - 1 := by
               apply max_eq_left
@@ -257,9 +256,9 @@ private theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
             rw [h_dhi_def, h_e_eq]
           have h2p_nn : (0 : ℤ) ≤ (2 : ℤ) ^ ((p : ℕ) : ℕ) := by positivity
           rcases lt_or_eq_of_le h_lo_le with h_lo_lt | h_lo_sat
-          · have h_log_lo' := log_lt_p_of_abs_lt_two_pow h_lo_lt
+          · have h_log_lo' := log_lt_p_of_abs_lt_two_pow (F.p_pos hp_F) h_lo_lt
             rcases lt_or_eq_of_le h_lop1_le with h_lop1_lt | h_lop1_sat
-            · have h_log_lop1_raw := log_lt_p_of_abs_lt_two_pow h_lop1_lt
+            · have h_log_lop1_raw := log_lt_p_of_abs_lt_two_pow (F.p_pos hp_F) h_lop1_lt
               have h_log_lop1' : Int.log 2 |((lo : ℝ) + 1)| + 1 ≤
                   (((p : ℕ) : ℕ) : ℤ) := by
                 have h_eq : |((lo : ℝ) + 1)| = |((lo + 1 : ℤ) : ℝ)| := by
@@ -273,7 +272,7 @@ private theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
             · -- `|lo+1| = 2^p` saturated (dhi even/¬odd), `lo` odd (dlo odd).
               have h_even2p : Even ((2 : ℤ) ^ ((p : ℕ) : ℕ)) := by
                 refine ⟨(2 : ℤ) ^ (((p : ℕ) : ℕ) - 1), ?_⟩
-                have := Dyadic.two_pow_succ_pred (p : ℕ).pos
+                have := Dyadic.two_pow_succ_pred (F.p_pos hp_F)
                 linarith
               have h_lo_ne : lo ≠ 0 := by
                 intro h_zero
@@ -282,7 +281,7 @@ private theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
                 have h2p_ge : (2 : ℤ) ≤ (2 : ℤ) ^ ((p : ℕ) : ℕ) := by
                   calc (2 : ℤ) = (2 : ℤ) ^ 1 := by ring
                     _ ≤ (2 : ℤ) ^ ((p : ℕ) : ℕ) :=
-                        pow_le_pow_right₀ (by norm_num) (p : ℕ).pos
+                        pow_le_pow_right₀ (by norm_num) (F.p_pos hp_F)
                 linarith
               have h_odd_dlo : F''.IsOdd (Dyadic.ofIntZpow lo e'') := by
                 rw [ParityFormat.isOdd_iff_odd_at_canonical_mixed_subnormal
@@ -334,7 +333,7 @@ private theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
           · -- `|lo| = 2^p` saturated (dlo even/¬odd), `lo+1` odd (dhi odd).
             have h_even2p : Even ((2 : ℤ) ^ ((p : ℕ) : ℕ)) := by
               refine ⟨(2 : ℤ) ^ (((p : ℕ) : ℕ) - 1), ?_⟩
-              have := Dyadic.two_pow_succ_pred (p : ℕ).pos
+              have := Dyadic.two_pow_succ_pred (F.p_pos hp_F)
               linarith
             have h_lo_neg : lo = -((2 : ℤ) ^ ((p : ℕ) : ℕ)) := by
               rcases (abs_eq h2p_nn).mp h_lo_sat with hpos | hneg
@@ -351,17 +350,17 @@ private theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
                 have h2le : (2 : ℤ) ≤ (2 : ℤ) ^ ((p : ℕ) : ℕ) := by
                   calc (2 : ℤ) = (2 : ℤ) ^ 1 := by ring
                     _ ≤ (2 : ℤ) ^ ((p : ℕ) : ℕ) :=
-                        pow_le_pow_right₀ (by norm_num) (p : ℕ).pos
+                        pow_le_pow_right₀ (by norm_num) (F.p_pos hp_F)
                 linarith
               have h_rw : -((2 : ℤ) ^ ((p : ℕ) : ℕ)) + 1 =
                   -((2 : ℤ) ^ ((p : ℕ) : ℕ) - 1) := by ring
               rw [h_rw, abs_neg, abs_of_pos h_pos_inner]; linarith
-            have h_log_lop1' := log_lt_p_of_abs_lt_two_pow h_lop1_lt
+            have h_log_lop1' := log_lt_p_of_abs_lt_two_pow (F.p_pos hp_F) h_lop1_lt
             have h_lop1_ne : lo + 1 ≠ 0 := by
               rw [h_lo_neg]
               have : (2 : ℤ) ^ ((p : ℕ) : ℕ) ≥ 2 := by
                 calc (2 : ℤ) ^ ((p : ℕ) : ℕ) ≥ (2 : ℤ) ^ 1 :=
-                    pow_le_pow_right₀ (by norm_num) (p : ℕ).pos
+                    pow_le_pow_right₀ (by norm_num) (F.p_pos hp_F)
                   _ = 2 := by ring
               omega
             have h_odd_dhi : F''.IsOdd (Dyadic.ofIntZpow (lo + 1) e'') := by
@@ -374,7 +373,7 @@ private theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
               rw [h_lo_neg]
               have : (2 : ℤ) ^ ((p : ℕ) : ℕ) ≥ 2 := by
                 calc (2 : ℤ) ^ ((p : ℕ) : ℕ) ≥ (2 : ℤ) ^ 1 :=
-                    pow_le_pow_right₀ (by norm_num) (p : ℕ).pos
+                    pow_le_pow_right₀ (by norm_num) (F.p_pos hp_F)
                   _ = 2 := by ring
               omega
             have h_dlo_ne : (Dyadic.ofIntZpow lo e'' : ℝ) ≠ 0 := by
@@ -415,7 +414,7 @@ private theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
             exact max_eq_left (le_of_lt h_regime)
           have h_s_lo_real : ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤
               |x * (2 : ℝ) ^ (-e)| :=
-            two_pow_pred_le_scaled (p := p) hx_ne h_e_eq_log
+            two_pow_pred_le_scaled (p := p) (F.p_pos hp_F) hx_ne h_e_eq_log
           have h_lo_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo| :=
             abs_floor_ge_two_pow_pred (p := p) h_s_lo_real
           have h_lop1_lo : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |lo + 1| := by
@@ -470,9 +469,9 @@ private theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
               Int.log 2 |((lo + 1 : ℤ) : ℝ)| + e := by
             rw [h_dhi_real]
             exact ParityFormat.log_abs_mul_zpow h_lop1_ne e
-          have h_log_lo_lb := log_ge_p_pred_of_two_pow_pred_le
+          have h_log_lo_lb := log_ge_p_pred_of_two_pow_pred_le (F.p_pos hp_F)
             (k := lo) h_lo_lo
-          have h_log_lop1_lb := log_ge_p_pred_of_two_pow_pred_le
+          have h_log_lop1_lb := log_ge_p_pred_of_two_pow_pred_le (F.p_pos hp_F)
             (k := lo + 1) h_lop1_lo
           have h_log_lo : ((p : ℕ) : ℤ) ≤ Int.log 2 |(dlo : ℝ)| - e'' + 1 := by
             rw [h_log_dlo, h_e_eq_log]

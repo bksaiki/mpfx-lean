@@ -12,6 +12,12 @@ namespace Mpfx
 "no precision constraint". -/
 abbrev Prec := WithTop ℕ
 
+/-- `WithTop.some` and the `↑ : ℕ → Prec` coercion are definitionally but not
+syntactically equal. Normalize to the coercion, which is the form the `ℕ∞`
+and cast lemmas are stated in. -/
+@[simp] theorem Prec.some_eq_coe (p : ℕ) :
+    (WithTop.some p : Prec) = (p : Prec) := rfl
+
 /-- Eliminator for `Prec` whose `coe` case is stated with the coercion
 `↑ : ℕ → Prec` rather than the raw `WithTop.some`, so that `rw`/`simp`
 with `↑p`-shaped lemmas fire on the resulting goal. -/
@@ -208,6 +214,14 @@ theorem quantumAtLeast_coe_real (e : ℤ) (x : Dyadic) :
       rw [← coe_real_eq_ratCast, hc]; push_cast; ring
     exact_mod_cast h
 
+/-- Precision `0` is the trivial format: `|c| < 2^0 = 1` forces `c = 0`. -/
+theorem precisionAtMost_zero_iff_eq_zero {x : Dyadic} :
+    precisionAtMost (0 : Prec) x ↔ x = 0 := by
+  rw [show (0 : Prec) = ((0 : ℕ) : Prec) from rfl, precisionAtMost_coe]
+  refine ⟨fun ⟨c, e, hx, hc⟩ => ?_, fun hx => ⟨0, 0, by rw [hx]; simp, by norm_num⟩⟩
+  have : c = 0 := by simpa using hc
+  exact Subtype.ext (by rw [hx, this]; simp)
+
 /-- `precisionAtMost` is monotone in the precision bound: more precision
 allowed means the constraint is weaker. -/
 theorem precisionAtMost_mono {p₁ p₂ : Prec} (h : p₁ ≤ p₂) {x : Dyadic}
@@ -315,18 +329,17 @@ def IsRepresentableAtP (p : ℕ) (c e : ℤ) (y : Dyadic) : Prop :=
 /-- If `y = c · 2^e` with `|c| ≤ 2^p`, then `precisionAtMost p y`. The
 boundary case `|c| = 2^p` forces `c = ±2^p`; renormalize to
 `y = ±1 · 2^(e+p)` to recover a strict-inequality witness. -/
-theorem precisionAtMost_of_abs_le {p : ℕ} {x : Dyadic} (c e : ℤ)
-    (hx : (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e) (hc : |c| ≤ (2 : ℤ) ^ (p : ℕ)) :
+theorem precisionAtMost_of_abs_le {p : ℕ} (hp : 0 < p) {x : Dyadic} (c e : ℤ)
+    (hx : (x : ℚ) = (c : ℚ) * (2 : ℚ) ^ e) (hc : |c| ≤ (2 : ℤ) ^ p) :
     precisionAtMost (p : Prec) x := by
   rw [precisionAtMost_coe]
   rcases lt_or_eq_of_le hc with hlt | heq
   · exact ⟨c, e, hx, hlt⟩
-  · have h2p_nonneg : (0 : ℤ) ≤ (2 : ℤ) ^ (p : ℕ) := by positivity
-    have hsign : c = (2 : ℤ) ^ (p : ℕ) ∨ c = -((2 : ℤ) ^ (p : ℕ)) :=
+  · have h2p_nonneg : (0 : ℤ) ≤ (2 : ℤ) ^ p := by positivity
+    have hsign : c = (2 : ℤ) ^ p ∨ c = -((2 : ℤ) ^ p) :=
       (abs_eq h2p_nonneg).mp heq
-    have hp_pos : 1 ≤ (p : ℕ) := p.pos
-    have hone_lt : (1 : ℤ) < (2 : ℤ) ^ (p : ℕ) := by
-      have : (2 : ℤ) ^ 0 < (2 : ℤ) ^ (p : ℕ) := pow_lt_pow_right₀ (by norm_num) hp_pos
+    have hone_lt : (1 : ℤ) < (2 : ℤ) ^ p := by
+      have : (2 : ℤ) ^ 0 < (2 : ℤ) ^ p := pow_lt_pow_right₀ (by norm_num) hp
       simpa using this
     have h2ne : (2 : ℚ) ≠ 0 := two_ne_zero
     rcases hsign with hpos | hneg
@@ -634,17 +647,14 @@ theorem eq_zero_of_coe_real_zero {z : Dyadic} (h : (z : ℝ) = 0) : z = 0 :=
   (Dyadic.coe_real_inj z 0).mp (by rw [h, Dyadic.coe_real_zero])
 
 /-- `2^k` (any `k`) has precision 1, hence fits any precision bound. -/
-theorem precisionAtMost_one_zpow {p : Prec} (k : ℤ) :
+theorem precisionAtMost_one_zpow {p : Prec} (hp : p ≠ 0) (k : ℤ) :
     Dyadic.precisionAtMost p (Dyadic.ofIntZpow 1 k) := by
   cases p using Prec.recTopCoe with
   | top => trivial
   | coe p =>
     rw [Dyadic.precisionAtMost_coe]
     refine ⟨1, k, by rw [Dyadic.coe_rat_ofIntZpow], ?_⟩
-    have hp1 : 1 ≤ (p : ℕ) := p.pos
-    have h2 : (2 : ℤ) ^ 1 ≤ (2 : ℤ) ^ (p : ℕ) := pow_le_pow_right₀ (by norm_num) hp1
-    simp only [abs_one]
-    omega
+    exact abs_one_lt_two_pow (Nat.pos_of_ne_zero (by simpa using hp))
 
 /-- An odd-significand representation cannot sit below the quantum: if
 `x = c·2^q` with `c` odd and `x` has quantum at least `e`, then `e ≤ q`. -/

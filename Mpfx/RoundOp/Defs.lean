@@ -182,7 +182,7 @@ theorem abs_lt_two_pow_log_of_precision {p : ℕ} {x : ℝ}
 
 /-- Apply the binade argument in `_toNegative`: if `z = a · 2^e_a ≤ x` is
 in the binade-clipped regime, then `z ≤ ⌊x · 2^(-e)⌋ · 2^e`. -/
-theorem binade_le_floor {p : ℕ} {x : ℝ} (hx : x ≠ 0)
+theorem binade_le_floor {p : ℕ} (hp : 0 < p) {x : ℝ} (hx : x ≠ 0)
     {a e e_a : ℤ} (ha_bound : |a| < (2 : ℤ) ^ (p : ℕ))
     (h_ea_lt : e_a < e) (h_e_eq_log : e = Int.log 2 |x| + 1 - (p : ℤ))
     (hz_le_x : (a : ℝ) * (2 : ℝ) ^ e_a ≤ x) :
@@ -211,7 +211,6 @@ theorem binade_le_floor {p : ℕ} {x : ℝ} (hx : x ≠ 0)
         _ ≤ x * (2 : ℝ) ^ (-e) :=
             mul_le_mul_of_nonneg_right h_2log_x h_2neg_pos.le
     have h_c_ge : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ ⌊x * (2 : ℝ) ^ (-e)⌋ := by
-      have hp_pos : 1 ≤ (p : ℕ) := p.pos
       apply Int.le_floor.mpr
       have h_cast : (((2 : ℤ) ^ ((p : ℕ) - 1) : ℤ) : ℝ) =
           (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
@@ -237,7 +236,7 @@ theorem binade_le_floor {p : ℕ} {x : ℝ} (hx : x ≠ 0)
                 (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
               push_cast
               rw [show ((p : ℕ) - 1 : ℤ) = (((p : ℕ) - 1 : ℕ) : ℤ) by
-                    have : 1 ≤ (p : ℕ) := p.pos; omega,
+                    omega,
                   zpow_natCast]
             rw [← h_cast_eq]; exact this
     have h_z_lt : (a : ℝ) * (2 : ℝ) ^ e_a ≤ |(a : ℝ) * (2 : ℝ) ^ e_a| :=
@@ -384,14 +383,14 @@ theorem floor_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
               rw [h_canon_eq]
               exact max_eq_left h_log_gt_e'.le
             rw [hz_repr] at hz_le_x ⊢
-            exact binade_le_floor hx ha_bound h_ea_ge h_e_eq_log hz_le_x
+            exact binade_le_floor (F.p_pos hp) hx ha_bound h_ea_ge h_e_eq_log hz_le_x
         | bot =>
           have h_e_eq_log : e = Int.log 2 |x| + 1 - (p : ℤ) := by
             change F.canonicalExp x = _
             unfold FiniteFormat.canonicalExp
             simp [hp, hexp, hx]
           rw [hz_repr] at hz_le_x ⊢
-          exact binade_le_floor hx ha_bound h_ea_ge h_e_eq_log hz_le_x
+          exact binade_le_floor (F.p_pos hp) hx ha_bound h_ea_ge h_e_eq_log hz_le_x
 
 /-- Mirror of `floor_minimality`: ceil-projection is the smallest F-element
 ≥ x. Used by `_toPositive` (directly) and by `_toZero` (`x ≤ 0` branch). -/
@@ -454,8 +453,8 @@ theorem ofIntZpow_mem_unbounded (F : FiniteFormat) {k e : ℤ}
     cases hp : F.p using Prec.recTopCoe with
     | top => trivial
     | coe p =>
-      exact Dyadic.precisionAtMost_of_abs_le k e (Dyadic.coe_rat_ofIntZpow k e)
-        (hk_bound hp)
+      exact Dyadic.precisionAtMost_of_abs_le (F.p_pos hp) k e
+        (Dyadic.coe_rat_ofIntZpow k e) (hk_bound hp)
   · change Dyadic.quantumAtLeast F.exp (Dyadic.ofIntZpow k e)
     cases hexp : F.exp with
     | bot => trivial
@@ -531,13 +530,13 @@ theorem floor_mantissa_lt {F : FiniteFormat} {x : ℝ}
       _ = (2 : ℝ) ^ (p : ℕ) := by rw [zpow_natCast]
 
 /-- `|k| < 2^p` (integers) ⟹ `log₂|k| + 1 ≤ p`. -/
-theorem log_lt_p_of_abs_lt_two_pow {p : ℕ} {k : ℤ}
+theorem log_lt_p_of_abs_lt_two_pow {p : ℕ} (hp : 0 < p) {k : ℤ}
     (hk : |k| < (2 : ℤ) ^ ((p : ℕ) : ℕ)) :
     Int.log 2 (|k| : ℝ) + 1 ≤ (((p : ℕ) : ℕ) : ℤ) := by
   by_cases hk0 : k = 0
   · rw [hk0]
     simp only [Int.cast_zero, abs_zero, Int.log_zero_right, zero_add, Nat.one_le_cast]
-    exact_mod_cast (p : ℕ).pos
+    exact_mod_cast hp
   · have h_abs_pos : (0 : ℝ) < (|k| : ℝ) := by
       have h1 : (1 : ℤ) ≤ |k| := Int.one_le_abs hk0
       have h2 : (1 : ℝ) ≤ (|k| : ℝ) := by exact_mod_cast h1
@@ -559,14 +558,13 @@ theorem log_two_pow_nat (n : ℕ) : Int.log 2 ((2 : ℝ) ^ n) = (n : ℤ) := by
   exact Int.log_zpow (by norm_num : 1 < 2) (n : ℤ)
 
 /-- Cast `((2 : ℤ) ^ (p - 1) : ℝ) = (2 : ℝ) ^ (p - 1 : ℤ)`. -/
-theorem cast_two_pow_pred {p : ℕ} :
-    ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) = (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ) := by
-  rw [show ((p : ℕ) - 1 : ℤ) = (((p : ℕ) - 1 : ℕ) : ℤ) by
-        have : 1 ≤ (p : ℕ) := p.pos; omega, zpow_natCast]
+theorem cast_two_pow_pred {p : ℕ} (hp : 0 < p) :
+    ((2 : ℤ) ^ (p - 1) : ℝ) = (2 : ℝ) ^ ((p : ℤ) - 1) := by
+  rw [show ((p : ℤ) - 1 : ℤ) = ((p - 1 : ℕ) : ℤ) by omega, zpow_natCast]
   push_cast; rfl
 
 /-- `2^(p-1) ≤ |k|` (integers) ⟹ `p - 1 ≤ log₂|↑k|`. -/
-theorem log_ge_p_pred_of_two_pow_pred_le {p : ℕ} {k : ℤ}
+theorem log_ge_p_pred_of_two_pow_pred_le {p : ℕ} (hp : 0 < p) {k : ℤ}
     (hk : (2 : ℤ) ^ ((p : ℕ) - 1) ≤ |k|) :
     ((p : ℕ) : ℤ) - 1 ≤ Int.log 2 |(k : ℝ)| := by
   have h_2pm1_pos : (0 : ℝ) < ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) := by
@@ -584,7 +582,6 @@ theorem log_ge_p_pred_of_two_pow_pred_le {p : ℕ} {k : ℤ}
         (2 : ℝ) ^ ((p : ℕ) - 1 : ℕ) := by push_cast; rfl
     rw [h_cast, log_two_pow_nat]
   rw [h_log_2pm1] at h_log_mono
-  have hp_pos : 1 ≤ (p : ℕ) := p.pos
   have h_cast_eq : (((p : ℕ) - 1 : ℕ) : ℤ) = ((p : ℕ) : ℤ) - 1 := by omega
   linarith
 
@@ -616,20 +613,19 @@ theorem abs_floor_ge_two_pow_pred {p : ℕ} {r : ℝ}
     rw [abs_of_neg h_lo_neg]; linarith
 
 /-- For `x ≠ 0` and `e = log₂|x| + 1 - p`, we have `2^(p-1) ≤ |x · 2^(-e)|`. -/
-theorem two_pow_pred_le_scaled {p : ℕ} {x : ℝ} (hx : x ≠ 0) {e : ℤ}
+theorem two_pow_pred_le_scaled {p : ℕ} (hp : 0 < p) {x : ℝ} (hx : x ≠ 0) {e : ℤ}
     (h_e_eq_log : e = Int.log 2 |x| + 1 - ((p : ℕ) : ℤ)) :
     ((2 : ℤ) ^ ((p : ℕ) - 1) : ℝ) ≤ |x * (2 : ℝ) ^ (-e)| := by
-  rw [cast_two_pow_pred (p := p)]
+  rw [cast_two_pow_pred (p := p) hp]
   have h_x_ge : (2 : ℝ) ^ (Int.log 2 |x|) ≤ |x| :=
     Int.zpow_log_le_self (b := 2) (by norm_num : (1 : ℕ) < 2) (abs_pos.mpr hx)
   have h_2neg_pos : (0 : ℝ) < (2 : ℝ) ^ (-e) := zpow_pos (by norm_num) _
   have h_abs_s : |x * (2 : ℝ) ^ (-e)| = |x| * (2 : ℝ) ^ (-e) := by
     rw [abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
   rw [h_abs_s]
-  have h_pcast : ((p : ℕ) : ℤ) = ((p : ℕ) : ℤ) := rfl
-  calc (2 : ℝ) ^ ((p : ℕ) - 1 : ℤ)
+  calc (2 : ℝ) ^ ((p : ℤ) - 1)
       = (2 : ℝ) ^ (Int.log 2 |x| + (-e)) := by
-        congr 1; linarith [h_e_eq_log, h_pcast]
+        congr 1; linarith [h_e_eq_log]
     _ = (2 : ℝ) ^ (Int.log 2 |x|) * (2 : ℝ) ^ (-e) := by
         rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
     _ ≤ |x| * (2 : ℝ) ^ (-e) :=

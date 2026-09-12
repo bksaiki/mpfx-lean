@@ -84,7 +84,7 @@ the standard quantum and bound orderings, then `F₁ ⊆ F₂` — even when
 `F₁.p > F₂.p`. -/
 theorem containsSub {F₁ F₂ : Format}
     {exp₁ : ℤ} (he₁ : F₁.exp = (exp₁ : WithBot ℤ))
-    {p₂ : ℕ} (hp₂ : F₂.p = (p₂ : Prec))
+    {p₂ : ℕ} (hp₂pos : 0 < p₂) (hp₂ : F₂.p = (p₂ : Prec))
     (hbprec : F₁.b ≤ ((nnPow (exp₁ + (p₂ : ℤ)) : NonNegDyadic) : WithTop NonNegDyadic))
     (he : F₂.exp ≤ F₁.exp)
     (hb : F₁.b ≤ F₂.b) :
@@ -119,7 +119,7 @@ theorem containsSub {F₁ F₂ : Format}
       exact hc_le_rat
     exact_mod_cast this
   refine ⟨?_, ?_, ?_⟩
-  · rw [hp₂]; exact Dyadic.precisionAtMost_of_abs_le c exp₁ hx_eq hc_le
+  · rw [hp₂]; exact Dyadic.precisionAtMost_of_abs_le hp₂pos c exp₁ hx_eq hc_le
   · exact Dyadic.quantumAtLeast_anti he hex
   · exact boundOK_mono hb hbx
 
@@ -158,8 +158,8 @@ theorem exists_mul_zpow_le {C r : ℝ} (hC : 0 < C) (hr : 0 < r) (e : ℤ) :
 
 /-- **Necessity of `b₁ ≤ b₂`.** A finite `b₁` is a value of `F₁`, so it must be
 a value of `F₂`; an infinite `b₁` gives `F₁` arbitrarily large powers of two. -/
-theorem b_le_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (h : F₁ ⊆ F₂) :
-    F₁.b ≤ F₂.b := by
+theorem b_le_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial)
+    (h : F₁ ⊆ F₂) : F₁.b ≤ F₂.b := by
   cases hb2 : F₂.b with
   | top => exact le_top
   | coe b₂ =>
@@ -173,7 +173,8 @@ theorem b_le_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (h : F₁ ⊆ 
     | top =>
       -- `F₁` is unbounded, so it contains a power of two exceeding `b₂`.
       obtain ⟨k, hk, hgt⟩ := exists_zpow_gt ((b₂.val : Dyadic) : ℝ) F₁.exp
-      have hv := (h _ (ofIntZpow_mem (precisionAtMost_one_zpow k) hk (by rw [hb1]; trivial))).2.2
+      have hv := (h _ (ofIntZpow_mem (precisionAtMost_one_zpow hnt.p_ne_zero k) hk
+        (by rw [hb1]; trivial))).2.2
       rw [hb2] at hv
       have := abs_coe_real_le_of_boundOK hv
       rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) k)] at this
@@ -184,6 +185,7 @@ its values (or, when `exp₁ = -∞`, so is `2^k` for arbitrarily small `k`), wh
 every value of `F₂` is a multiple of `2^exp₂`. -/
 theorem exp_le_of_subset {F₁ F₂ : Format} (hnt : F₁.Nontrivial) (h : F₁ ⊆ F₂) :
     F₂.exp ≤ F₁.exp := by
+  have hp0 := hnt.p_ne_zero
   obtain ⟨x₀, hx₀, hx₀ne⟩ := hnt
   cases he2 : F₂.exp with
   | bot => exact bot_le
@@ -197,7 +199,8 @@ theorem exp_le_of_subset {F₁ F₂ : Format} (hnt : F₁.Nontrivial) (h : F₁ 
     cases he1 : F₁.exp with
     | coe e₁ =>
       -- `2^e₁ ≤ |x₀| ≤ b₁`, so `2^e₁` is in bound.
-      refine WithBot.coe_le_coe.mpr (key e₁ (ofIntZpow_mem (precisionAtMost_one_zpow e₁)
+      refine WithBot.coe_le_coe.mpr (key e₁ (ofIntZpow_mem
+        (precisionAtMost_one_zpow hp0 e₁)
         (by rw [he1]) (boundOK_of_abs_le ?_ hx₀.2.2)))
       rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) e₁)]
       exact Dyadic.abs_ge_two_zpow_of_quantum (he1 ▸ hx₀.2.1) hx₀ne
@@ -215,7 +218,8 @@ theorem exp_le_of_subset {F₁ F₂ : Format} (hnt : F₁.Nontrivial) (h : F₁ 
           refine ⟨k, hk_le, boundOK_coe_of_abs_le ?_⟩
           rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) k)]
           linarith
-      have := key k (ofIntZpow_mem (precisionAtMost_one_zpow k) (by rw [he1]; exact bot_le) hk_bnd)
+      have := key k (ofIntZpow_mem (precisionAtMost_one_zpow hp0 k)
+        (by rw [he1]; exact bot_le) hk_bnd)
       omega
 
 /-! ### The precision test
@@ -228,34 +232,34 @@ wider than `p₂` digits. -/
 /-- `2^p + 1`: odd, exactly `p+1` digits wide. -/
 def wit (p : ℕ) : ℤ := 2 ^ (p : ℕ) + 1
 
-theorem one_lt_two_pow (p : ℕ) : (1 : ℤ) < 2 ^ (p : ℕ) := by
+theorem one_lt_two_pow {p : ℕ} (hp : 0 < p) : (1 : ℤ) < 2 ^ p := by
   calc (1 : ℤ) = 2 ^ 0 := by norm_num
-    _ < 2 ^ (p : ℕ) := pow_lt_pow_right₀ (by norm_num) p.pos
+    _ < 2 ^ p := pow_lt_pow_right₀ (by norm_num) hp
 
-theorem wit_pos (p : ℕ) : 0 < wit p := by have := one_lt_two_pow p; unfold wit; omega
+theorem wit_pos (p : ℕ) : 0 < wit p := by unfold wit; positivity
 
-theorem odd_wit (p : ℕ) : Odd (wit p) :=
-  (by rw [Int.even_pow]; exact ⟨even_two, p.pos.ne'⟩ : Even ((2 : ℤ) ^ (p : ℕ))).add_one
+theorem odd_wit {p : ℕ} (hp : 0 < p) : Odd (wit p) :=
+  (by rw [Int.even_pow]; exact ⟨even_two, hp.ne'⟩ : Even ((2 : ℤ) ^ p)).add_one
 
 /-- `wit p₂` is too wide for `p₂` digits ... -/
-theorem not_precisionAtMost_wit (p₂ : ℕ) (k : ℤ) :
+theorem not_precisionAtMost_wit {p₂ : ℕ} (hp : 0 < p₂) (k : ℤ) :
     ¬ Dyadic.precisionAtMost (p₂ : Prec) (Dyadic.ofIntZpow (wit p₂) k) :=
-  Dyadic.not_precisionAtMost_of_odd (odd_wit p₂) (by rw [Dyadic.coe_ofIntZpow])
+  Dyadic.not_precisionAtMost_of_odd (odd_wit hp) (by rw [Dyadic.coe_ofIntZpow])
     (by rw [abs_of_pos (wit_pos p₂)]; unfold wit; omega)
 
 /-- ... but fits in any strictly larger precision bound. -/
-theorem precisionAtMost_wit {p₁ : Prec} {p₂ : ℕ}
+theorem precisionAtMost_wit {p₁ : Prec} {p₂ : ℕ} (hp : 0 < p₂)
     (hlt : (p₂ : Prec) < p₁) (k : ℤ) :
     Dyadic.precisionAtMost p₁ (Dyadic.ofIntZpow (wit p₂) k) := by
-  cases hp : p₁ using Prec.recTopCoe with
+  cases hp' : p₁ using Prec.recTopCoe with
   | top => trivial
   | coe q =>
     rw [Dyadic.precisionAtMost_coe]
     refine ⟨wit p₂, k, by rw [Dyadic.coe_rat_ofIntZpow], ?_⟩
-    have hq : (p₂ : ℕ) + 1 ≤ (q : ℕ) := by
-      have : (p₂ : ℕ) < q := WithTop.coe_lt_coe.mp (hp ▸ hlt)
+    have hq : p₂ + 1 ≤ q := by
+      have : (p₂ : Prec) < (q : Prec) := hp' ▸ hlt
       exact_mod_cast this
-    have h1 := one_lt_two_pow p₂
+    have h1 := one_lt_two_pow hp
     calc |wit p₂| = 2 ^ (p₂ : ℕ) + 1 := by rw [abs_of_pos (wit_pos p₂)]; rfl
       _ < 2 ^ ((p₂ : ℕ) + 1) := by rw [pow_succ]; omega
       _ ≤ 2 ^ (q : ℕ) := pow_le_pow_right₀ (by norm_num) hq
@@ -271,21 +275,28 @@ then `exp₁` is finite and `b₁ ≤ 2^(exp₁ + p₂)`; otherwise `wit p₂ ·
 value of `F₁` that `F₂` cannot represent. -/
 theorem sub_test_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial)
     (h : F₁ ⊆ F₂) (hp : ¬ F₁.p ≤ F₂.p) :
-    ∃ (e₁ : ℤ) (p₂ : ℕ), F₁.exp = (e₁ : WithBot ℤ) ∧ F₂.p = (p₂ : Prec) ∧
+    ∃ (e₁ : ℤ) (p₂ : ℕ), F₁.exp = (e₁ : WithBot ℤ) ∧ 0 < p₂ ∧ F₂.p = (p₂ : Prec) ∧
       F₁.b ≤ ((nnPow (e₁ + (p₂ : ℤ)) : NonNegDyadic) : WithTop NonNegDyadic) := by
   obtain ⟨x₀, hx₀, hx₀ne⟩ := hnt
   have hlt : F₂.p < F₁.p := lt_of_not_ge hp
   cases hp2 : F₂.p using Prec.recTopCoe with
   | top => exact absurd (hp2 ▸ hlt) (not_lt_of_ge le_top)
   | coe p₂ =>
+  rcases Nat.eq_zero_or_pos p₂ with rfl | hp₂pos
+  · -- `p₂ = 0`: `F₂` holds only `0`, contradicting `F₁`'s nonzero member.
+    exfalso
+    have hx₀p := (h _ hx₀).1
+    rw [hp2] at hx₀p
+    rw [Dyadic.precisionAtMost_zero_iff_eq_zero.mp hx₀p] at hx₀ne
+    exact hx₀ne Dyadic.coe_real_zero
   have hwpos : (0 : ℝ) < ((wit p₂ : ℤ) : ℝ) := by exact_mod_cast wit_pos p₂
   -- The witness is never in `F₂`, so it must fail `F₁`'s quantum or bound check.
   have key : ∀ k : ℤ, F₁.exp ≤ (k : WithBot ℤ) →
       boundOK F₁.b (Dyadic.ofIntZpow (wit p₂) k) → False := by
     intro k hk hbk
-    have hmem := (h _ (ofIntZpow_mem (precisionAtMost_wit (hp2 ▸ hlt) k) hk hbk)).1
+    have hmem := (h _ (ofIntZpow_mem (precisionAtMost_wit hp₂pos (hp2 ▸ hlt) k) hk hbk)).1
     rw [hp2] at hmem
-    exact not_precisionAtMost_wit p₂ k hmem
+    exact not_precisionAtMost_wit hp₂pos k hmem
   cases he1 : F₁.exp with
   | bot =>
     -- `exp₁ = -∞`: the witness can be scaled below any positive bound.
@@ -300,7 +311,7 @@ theorem sub_test_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F�
         exact ⟨k, boundOK_coe_of_abs_le (by rw [abs_coe_wit]; exact hk)⟩
     exact key k (by rw [he1]; exact bot_le) hk
   | coe e₁ =>
-    refine ⟨e₁, p₂, rfl, rfl, ?_⟩
+    refine ⟨e₁, p₂, rfl, hp₂pos, rfl, ?_⟩
     cases hb1 : F₁.b with
     | top => exact absurd (key e₁ (by rw [he1]) (by rw [hb1]; trivial)) not_false
     | coe b₁ =>
@@ -339,7 +350,7 @@ def ContainsPrec (F₁ F₂ : Format) : Prop :=
 
 /-- Premises of `𝒜-Contains-Sub` (Fig. 7). -/
 def ContainsSub (F₁ F₂ : Format) : Prop :=
-  ∃ (e₁ : ℤ) (p₂ : ℕ), F₁.exp = (e₁ : WithBot ℤ) ∧ F₂.p = (p₂ : Prec) ∧
+  ∃ (e₁ : ℤ) (p₂ : ℕ), F₁.exp = (e₁ : WithBot ℤ) ∧ 0 < p₂ ∧ F₂.p = (p₂ : Prec) ∧
     F₁.b ≤ ((nnPow (e₁ + (p₂ : ℤ)) : NonNegDyadic) : WithTop NonNegDyadic) ∧
     F₂.exp ≤ F₁.exp ∧ F₁.b ≤ F₂.b
 
@@ -350,15 +361,15 @@ theorem subset_iff_contains {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F�
     F₁ ⊆ F₂ ↔ ContainsPrec F₁ F₂ ∨ ContainsSub F₁ F₂ := by
   constructor
   · intro h
-    have hb := b_le_of_subset hbr h
+    have hb := b_le_of_subset hbr hnt h
     have he := exp_le_of_subset hnt h
     by_cases hp : F₁.p ≤ F₂.p
     · exact Or.inl ⟨hp, he, hb⟩
-    · obtain ⟨e₁, p₂, he₁, hp₂, hbb⟩ := sub_test_of_subset hbr hnt h hp
-      exact Or.inr ⟨e₁, p₂, he₁, hp₂, hbb, he, hb⟩
-  · rintro (⟨hp, he, hb⟩ | ⟨e₁, p₂, he₁, hp₂, hbb, he, hb⟩)
+    · obtain ⟨e₁, p₂, he₁, hp₂pos, hp₂, hbb⟩ := sub_test_of_subset hbr hnt h hp
+      exact Or.inr ⟨e₁, p₂, he₁, hp₂pos, hp₂, hbb, he, hb⟩
+  · rintro (⟨hp, he, hb⟩ | ⟨e₁, p₂, he₁, hp₂pos, hp₂, hbb, he, hb⟩)
     · exact containsPrec hp he hb
-    · exact containsSub he₁ hp₂ hbb he hb
+    · exact containsSub he₁ hp₂pos hp₂ hbb he hb
 
 /-! ### Format extension
 
@@ -368,7 +379,7 @@ intermediate formats `A(p₁ + k, exp₁ − k, b₁)`. -/
 
 /-- Extend `F` by `k` bits: `p ↦ p + k`, `exp ↦ exp − k`, `b` unchanged. -/
 def extend (F : Format) (k : ℕ) : Format where
-  p := F.p.map (· + k)
+  p := F.p + k
   exp := F.exp.map (· - (k : ℤ))
   b := F.b
 
@@ -378,12 +389,7 @@ def extend (F : Format) (k : ℕ) : Format where
 constraints. -/
 theorem self_subset_extend (F : Format) (k : ℕ) : F ⊆ F.extend k := by
   apply containsPrec
-  · change F.p ≤ F.p.map (· + k)
-    cases F.p using Prec.recTopCoe with
-    | top => simp
-    | coe n =>
-      rw [WithTop.map_coe]
-      exact WithTop.coe_le_coe.mpr (by exact_mod_cast Nat.le_add_right (n : ℕ) (k : ℕ))
+  · exact le_self_add
   · change F.exp.map (· - (k : ℤ)) ≤ F.exp
     cases F.exp with
     | bot => simp
@@ -396,14 +402,7 @@ theorem self_subset_extend (F : Format) (k : ℕ) : F ⊆ F.extend k := by
 theorem extend_mono (F : Format) {j k : ℕ} (h : j ≤ k) :
     F.extend j ⊆ F.extend k := by
   apply containsPrec
-  · change F.p.map (· + j) ≤ F.p.map (· + k)
-    cases F.p using Prec.recTopCoe with
-    | top => simp
-    | coe n =>
-      rw [WithTop.map_coe, WithTop.map_coe]
-      refine WithTop.coe_le_coe.mpr ?_
-      have hjk : (j : ℕ) ≤ (k : ℕ) := by exact_mod_cast h
-      exact_mod_cast Nat.add_le_add_left hjk (n : ℕ)
+  · exact add_le_add_right (Nat.cast_le.mpr h) F.p
   · change F.exp.map (· - (k : ℤ)) ≤ F.exp.map (· - (j : ℤ))
     cases F.exp with
     | bot => simp
@@ -420,16 +419,10 @@ theorem extend_one_extend_one_subset_extend_two (F : Format) :
   intro y hy
   obtain ⟨hp, hq, hb⟩ := hy
   refine ⟨?_, ?_, hb⟩
-  · -- precisionAtMost ((F.p.map (·+1)).map (·+1)) y → precisionAtMost (F.p.map (·+2)) y.
-    change Dyadic.precisionAtMost (F.p.map (· + (2 : ℕ))) y
-    change Dyadic.precisionAtMost ((F.p.map (· + (1 : ℕ))).map (· + (1 : ℕ))) y at hp
-    have h_eq : (F.p.map (· + (1 : ℕ))).map (· + (1 : ℕ)) = F.p.map (· + (2 : ℕ)) := by
-      cases F.p using Prec.recTopCoe with
-      | top => rfl
-      | coe n =>
-        rw [WithTop.map_coe, WithTop.map_coe, WithTop.map_coe]
-        rw [show n + 1 + 1 = n + 2 from PNat.coe_injective (by push_cast; ring)]
-    rw [h_eq] at hp; exact hp
+  · change Dyadic.precisionAtMost (F.p + ((2 : ℕ) : Prec)) y
+    change Dyadic.precisionAtMost (F.p + ((1 : ℕ) : Prec) + ((1 : ℕ) : Prec)) y at hp
+    rwa [add_assoc, show ((1 : ℕ) : Prec) + ((1 : ℕ) : Prec) = ((2 : ℕ) : Prec) by
+      push_cast; ring] at hp
   · -- quantumAtLeast ((F.exp.map (·-1)).map (·-1)) y → quantumAtLeast (F.exp.map (·-2)) y.
     change Dyadic.quantumAtLeast (F.exp.map (· - (2 : ℤ))) y
     change Dyadic.quantumAtLeast ((F.exp.map (· - (1 : ℤ))).map (· - (1 : ℤ))) y at hq
@@ -443,27 +436,21 @@ theorem extend_one_extend_one_subset_extend_two (F : Format) :
     rw [h_eq] at hq; exact hq
 
 /-- A `Dyadic` not representable in 1 bit cannot live in a format with
-`F.p = 1`. Combined with `ℕ`'s positivity, having a precision-2 witness in
-`F` forces `F.p ≥ 2`. -/
+`F.p ≤ 1`, so a precision-2 witness in `F` forces `F.p ≥ 2`. -/
 theorem two_le_p_of_precision_two_witness {F : Format} {v : Dyadic}
     (hvF : v ∈ F) (hv_not_p1 : ¬ Dyadic.precisionAtMost ((1 : ℕ) : Prec) v) :
     ((2 : ℕ) : Prec) ≤ F.p := by
   by_contra h_p_lt
   push Not at h_p_lt
-  have h_F_p_eq_1 : F.p = ((1 : ℕ) : Prec) := by
-    rcases hpf : F.p with _ | n
-    · exfalso; rw [hpf] at h_p_lt; exact not_top_lt h_p_lt
-    · rw [hpf] at h_p_lt
-      have hn_lt : n < (2 : ℕ) := WithTop.coe_lt_coe.mp h_p_lt
-      have hn_eq : n = (1 : ℕ) := by
-        have h2 : (n : ℕ) < 2 := by exact_mod_cast hn_lt
-        have h3 : (1 : ℕ) ≤ (n : ℕ) := n.one_le
-        apply PNat.coe_injective
-        rw [PNat.one_coe]; omega
-      rw [hn_eq]; rfl
   have hv_p_F : Dyadic.precisionAtMost F.p v := hvF.1
-  rw [h_F_p_eq_1] at hv_p_F
-  exact hv_not_p1 hv_p_F
+  cases hpf : F.p using Prec.recTopCoe with
+  | top => rw [hpf] at h_p_lt; exact not_top_lt h_p_lt
+  | coe n =>
+    rw [hpf] at h_p_lt hv_p_F
+    have hn : n ≤ 1 := by
+      have h2 : n < 2 := by exact_mod_cast h_p_lt
+      omega
+    exact hv_not_p1 (Dyadic.precisionAtMost_mono (by exact_mod_cast hn) hv_p_F)
 
 /-! ### Bound replacement and the `next` operator
 
