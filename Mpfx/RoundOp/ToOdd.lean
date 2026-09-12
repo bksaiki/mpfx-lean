@@ -1,5 +1,6 @@
 import Mpfx.RoundOp.Defs
 import Mpfx.RoundOp.Directed
+import Mpfx.RoundPred
 
 /-!
 # Constructive rounding: `toOdd` obligations
@@ -589,145 +590,92 @@ theorem rndUnbounded_satisfies_toOdd (F : FiniteFormat) (x : ℝ)
         exact (toOdd_neighbors_alternate x h hx hs).mpr hodd
 
 
+/-! ### Uniqueness for RTO
+
+The spec's `IsFaithfulRound` conjunct says the result is the round-down or
+the round-up (`RoundsFinite.isFaithfulRound`, `Mpfx/RoundPred.lean`); the
+parity conjunct then rules out the mixed case, because adjacent grid points
+alternate in parity. Flocq argues the same way in `Round_odd.v`. -/
+
+/-- Parity alternation between the two grid neighbours of `x`, stated over
+the relational round-down/round-up specs rather than the `rndUnbounded`
+construction. -/
+theorem isOdd_alternate_of_bracketing {F : FiniteFormat} {x : ℝ}
+    (h : ¬ F.IsUndefined .toOdd) (hx_ne : x ≠ 0) {y y' : Dyadic}
+    (hy : RoundsFinite F.unbounded .toNegative x y)
+    (hy' : RoundsFinite F.unbounded .toPositive x y')
+    (hne : x ≠ (y : ℝ)) :
+    ((F.toParityFormatOfToOdd h).IsOdd y' ↔
+      ¬ (F.toParityFormatOfToOdd h).IsOdd y) := by
+  set e := F.canonicalExp x with he
+  set s := x * (2 : ℝ) ^ (-e) with hs
+  have hy_eq : y = Dyadic.ofIntZpow ⌊s⌋ e := RoundsFinite.toNegative_eq_floor F x hy
+  -- `x ≠ y` says exactly that `x` is off the grid, i.e. `⌊s⌋ ≠ s`.
+  have h_lo_ne_s : (⌊s⌋ : ℝ) ≠ s := by
+    intro hcon
+    exact hne (by rw [hy_eq, Dyadic.coe_ofIntZpow, hcon, hs, mul_zpow_neg_self])
+  -- Off the grid, the ceiling is the floor's successor.
+  have h_ceil : ⌈s⌉ = ⌊s⌋ + 1 :=
+    le_antisymm (Int.ceil_le_floor_add_one s)
+      (Int.lt_ceil.mpr (lt_of_le_of_ne (Int.floor_le s) h_lo_ne_s))
+  have hy'_eq : y' = Dyadic.ofIntZpow (⌊s⌋ + 1) e := by
+    rw [RoundsFinite.toPositive_eq_ceil F x hy', h_ceil]
+  rw [hy_eq, hy'_eq]
+  exact toOdd_neighbors_alternate x h hx_ne h_lo_ne_s
+
+/-- **RTO is unique.** Both witnesses are faithful, so each is the round-down
+or the round-up. Matching sides collapse by directed uniqueness; the mixed
+case needs both neighbours odd, which `isOdd_alternate_of_bracketing`
+forbids. -/
+theorem RoundsFinite.unique_toOdd {F : FiniteFormat} {x : ℝ}
+    (h : ¬ F.IsUndefined .toOdd) {y₁ y₂ : Dyadic}
+    (h₁ : RoundsFinite F.unbounded .toOdd x y₁)
+    (h₂ : RoundsFinite F.unbounded .toOdd x y₂) :
+    y₁ = y₂ := by
+  obtain ⟨-, hf₁, hp₁⟩ := h₁
+  obtain ⟨-, hf₂, hp₂⟩ := h₂
+  -- `a` rounds down, `b` rounds up. Symmetric, so proved once.
+  have mixed : ∀ {a b : Dyadic},
+      RoundsFinite F.unbounded .toNegative x a →
+      RoundsFinite F.unbounded .toPositive x b →
+      (x ≠ (a : ℝ) → ∃ F' : ParityFormat,
+        F'.toFormat = F.unbounded.toFormat ∧ F'.IsOdd a) →
+      (x ≠ (b : ℝ) → ∃ F' : ParityFormat,
+        F'.toFormat = F.unbounded.toFormat ∧ F'.IsOdd b) →
+      a = b := by
+    intro a b hda hub hpa hpb
+    obtain ⟨ha_mem, ha_le, ha_max⟩ := id hda
+    obtain ⟨hb_mem, hb_ge, hb_min⟩ := id hub
+    by_cases hxa : x = (a : ℝ)
+    · exact Dyadic.ext_real (le_antisymm (hxa ▸ hb_ge) (hb_min a ha_mem hxa.le))
+    by_cases hxb : x = (b : ℝ)
+    · exact Dyadic.ext_real (le_antisymm (hxb ▸ ha_le) (ha_max b hb_mem hxb.ge))
+    exfalso
+    -- `x = 0` would put `x` on the grid at `a`, already excluded.
+    have hx_ne : x ≠ 0 := by
+      intro hx0
+      refine hxa ?_
+      have h0a : (0 : ℝ) ≤ (a : ℝ) := by
+        simpa [hx0] using ha_max 0 (FiniteFormat.zero_mem F.unbounded) (by simp [hx0])
+      have ha0 : (a : ℝ) ≤ 0 := by rw [← hx0]; exact ha_le
+      rw [hx0]; linarith
+    obtain ⟨Fa, hFa, hFa_odd⟩ := hpa hxa
+    obtain ⟨Fb, hFb, hFb_odd⟩ := hpb hxb
+    exact (isOdd_alternate_of_bracketing (F := F.unbounded) h hx_ne hda hub hxa).mp
+      ((ParityFormat.IsOdd_iff_of_toFormat_eq hFb b).mp hFb_odd)
+      ((ParityFormat.IsOdd_iff_of_toFormat_eq hFa a).mp hFa_odd)
+  rcases isFaithfulRound_iff_directed.mp hf₁ with hd₁ | hu₁ <;>
+    rcases isFaithfulRound_iff_directed.mp hf₂ with hd₂ | hu₂
+  · exact RoundsFinite.unique_toNegative hd₁ hd₂
+  · exact mixed hd₁ hu₂ hp₁ hp₂
+  · exact (mixed hd₂ hu₁ hp₂ hp₁).symm
+  · exact RoundsFinite.unique_toPositive hu₁ hu₂
+
 theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toOdd) {y : Dyadic}
     (hy : RoundsFinite F.unbounded .toOdd x y) :
-    y = rndUnbounded F .toOdd x h := by
-  set y' := rndUnbounded F .toOdd x h
-  have hy' : RoundsFinite F.unbounded .toOdd x y' :=
-    rndUnbounded_satisfies_toOdd F x h
-  obtain ⟨hy_mem, hy_faith, hy_par⟩ := hy
-  obtain ⟨hy'_mem, hy'_faith, hy'_par⟩ := hy'
-  apply Dyadic.ext_real
-  -- Mixed-case helper: given `y` is RoundDown, `y'` is RoundUp, show `y = y'`.
-  -- This is the asymmetric case; the symmetric one is identical with `y` and
-  -- `y'` swapped.
-  have h_mixed_eq : ∀ {y y' : Dyadic},
-      y ∈ F.unbounded → y' ∈ F.unbounded →
-      (y : ℝ) ≤ x → (∀ z : Dyadic, z ∈ F.unbounded → (z : ℝ) ≤ x →
-        (z : ℝ) ≤ (y : ℝ)) →
-      x ≤ (y' : ℝ) → (∀ z : Dyadic, z ∈ F.unbounded → x ≤ (z : ℝ) →
-        (y' : ℝ) ≤ (z : ℝ)) →
-      (x ≠ (y : ℝ) → ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsOdd y) →
-      (x ≠ (y' : ℝ) → ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsOdd y') →
-      (y : ℝ) = (y' : ℝ) := by
-    intro y y' hy_mem hy'_mem hy_le hy_max hy'_ge hy'_min hy_par hy'_par
-    by_cases h_yx : (y : ℝ) = x
-    · -- y = x: y' ≤ y by min property applied to y.
-      have : (y' : ℝ) ≤ (y : ℝ) := hy'_min y hy_mem (by linarith [h_yx])
-      linarith
-    by_cases h_y'x : (y' : ℝ) = x
-    · -- y' = x: y ≥ y' by max property applied to y'.
-      have : (y' : ℝ) ≤ (y : ℝ) := hy_max y' hy'_mem (by linarith [h_y'x])
-      linarith
-    exfalso
-    have hy_lt : (y : ℝ) < x := lt_of_le_of_ne hy_le h_yx
-    have hx_lt : x < (y' : ℝ) := lt_of_le_of_ne hy'_ge (Ne.symm h_y'x)
-    have h_xne_y : x ≠ (y : ℝ) := fun h_eq => h_yx h_eq.symm
-    have h_xne_y' : x ≠ (y' : ℝ) := fun h_eq => h_y'x h_eq.symm
-    obtain ⟨F_y, hF_y_eq, hF_y_odd⟩ := hy_par h_xne_y
-    obtain ⟨F_y', hF_y'_eq, hF_y'_odd⟩ := hy'_par h_xne_y'
-    set e := F.canonicalExp x with h_e_def
-    set lo := ⌊x * (2 : ℝ) ^ (-e)⌋ with h_lo_def
-    set dlo : Dyadic := Dyadic.ofIntZpow lo e with h_dlo_def
-    set dhi : Dyadic := Dyadic.ofIntZpow (lo + 1) e with h_dhi_def
-    have h_not_neg : ¬ F.IsUndefined .toNegative := fun ⟨_, _, hrm⟩ => by simp at hrm
-    have h_not_pos : ¬ F.IsUndefined .toPositive := fun ⟨_, _, hrm⟩ => by simp at hrm
-    -- y = dlo via uniqueness of RoundDown.
-    have h_dlo_RD : RoundsFinite F.unbounded .toNegative x dlo := by
-      have h_eq : rndUnbounded F .toNegative x h_not_neg = dlo := by
-        unfold rndUnbounded
-        rw [dif_neg (by decide : (RoundingMode.toNegative : RoundingMode) ≠ .toOdd)]
-        rw [dif_neg (by decide :
-          (RoundingMode.toNegative : RoundingMode) ≠ .nearest .toEven)]
-        rfl
-      rw [← h_eq]
-      exact rndUnbounded_satisfies_toNegative F x h_not_neg
-    obtain ⟨h_dlo_mem, h_dlo_le_x, h_dlo_max⟩ := h_dlo_RD
-    have h_y_eq_dlo_r : (y : ℝ) = (dlo : ℝ) :=
-      le_antisymm (h_dlo_max y hy_mem hy_le) (hy_max dlo h_dlo_mem h_dlo_le_x)
-    -- x is strictly between dlo and dhi (not at lo · 2^e).
-    have h_x_not_at_lo : x ≠ ((lo : ℝ) * (2 : ℝ) ^ e) := by
-      intro hx_eq
-      have h_y_eq_x : (y : ℝ) = x := by
-        rw [h_y_eq_dlo_r, h_dlo_def, Dyadic.coe_ofIntZpow]
-        exact hx_eq.symm
-      exact h_yx h_y_eq_x
-    have h_ceil_eq : ⌈x * (2 : ℝ) ^ (-e)⌉ = lo + 1 := by
-      have h_floor_le : (lo : ℝ) ≤ x * (2 : ℝ) ^ (-e) := Int.floor_le _
-      have h_floor_lt : (lo : ℝ) < x * (2 : ℝ) ^ (-e) := by
-        rcases lt_or_eq_of_le h_floor_le with h_lt | h_eq
-        · exact h_lt
-        · exfalso
-          apply h_x_not_at_lo
-          have := mul_zpow_neg_self x e
-          have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-          have hh : (lo : ℝ) * (2 : ℝ) ^ e = x := by
-            calc (lo : ℝ) * (2 : ℝ) ^ e = (x * (2 : ℝ) ^ (-e)) * (2 : ℝ) ^ e := by
-                  rw [← h_eq]
-              _ = x := mul_zpow_neg_self x e
-          linarith
-      have h_lt_succ : x * (2 : ℝ) ^ (-e) < (lo : ℝ) + 1 :=
-        Int.lt_floor_add_one _
-      apply le_antisymm
-      · exact Int.ceil_le.mpr (by push_cast; linarith)
-      · have : lo < ⌈x * (2 : ℝ) ^ (-e)⌉ := by
-          have h_lt_ceil := lt_of_lt_of_le h_floor_lt (Int.le_ceil _)
-          exact_mod_cast h_lt_ceil
-        omega
-    have h_dhi_RU : RoundsFinite F.unbounded .toPositive x dhi := by
-      have h_eq : rndUnbounded F .toPositive x h_not_pos = dhi := by
-        unfold rndUnbounded
-        rw [dif_neg (by decide : (RoundingMode.toPositive : RoundingMode) ≠ .toOdd)]
-        rw [dif_neg (by decide :
-          (RoundingMode.toPositive : RoundingMode) ≠ .nearest .toEven)]
-        change Dyadic.ofIntZpow (rndInt .toPositive x e) e = dhi
-        rw [show rndInt .toPositive x e = lo + 1 from h_ceil_eq]
-      rw [← h_eq]
-      exact rndUnbounded_satisfies_toPositive F x h_not_pos
-    obtain ⟨h_dhi_mem, h_x_le_dhi, h_dhi_min⟩ := h_dhi_RU
-    have h_y'_eq_dhi_r : (y' : ℝ) = (dhi : ℝ) :=
-      le_antisymm (hy'_min dhi h_dhi_mem h_x_le_dhi)
-        (h_dhi_min y' hy'_mem hy'_ge)
-    have h_y_eq_dlo : y = dlo := Dyadic.ext_real h_y_eq_dlo_r
-    have h_y'_eq_dhi : y' = dhi := Dyadic.ext_real h_y'_eq_dhi_r
-    -- Transfer IsOdd of both neighbours into the shared ParityFormat, then
-    -- consume the single parity-alternation dispatch.
-    set F'' := F.unbounded.toParityFormatOfToOdd h with hF''_def
-    have hF''_eq : F''.toFormat = F.unbounded.toFormat := rfl
-    have hF_y_eq_F'' : F_y.toFormat = F''.toFormat := by rw [hF_y_eq, hF''_eq]
-    have hF_y'_eq_F'' : F_y'.toFormat = F''.toFormat := by rw [hF_y'_eq, hF''_eq]
-    have h_F''_isOdd_dlo : F''.IsOdd dlo :=
-      (ParityFormat.IsOdd_iff_of_toFormat_eq hF_y_eq_F'' dlo).mp
-        (h_y_eq_dlo ▸ hF_y_odd)
-    have h_F''_isOdd_dhi : F''.IsOdd dhi :=
-      (ParityFormat.IsOdd_iff_of_toFormat_eq hF_y'_eq_F'' dhi).mp
-        (h_y'_eq_dhi ▸ hF_y'_odd)
-    have hx_ne : x ≠ 0 := by
-      intro hx0
-      subst hx0
-      have h_zero_mem : (0 : Dyadic) ∈ F.unbounded := FiniteFormat.zero_mem F.unbounded
-      have h_zero_le_y : ((0 : Dyadic) : ℝ) ≤ (y : ℝ) :=
-        hy_max 0 h_zero_mem (by rw [Dyadic.coe_real_zero])
-      rw [Dyadic.coe_real_zero] at h_zero_le_y
-      linarith
-    have h_lo_ne_s : (lo : ℝ) ≠ x * (2 : ℝ) ^ (-e) := by
-      intro h_eq
-      apply h_x_not_at_lo
-      rw [← mul_zpow_neg_self x e, ← h_eq]
-    exact ParityFormat.not_both_isOdd_of_alternating_iff
-      (toOdd_neighbors_alternate x h hx_ne h_lo_ne_s)
-      ⟨h_F''_isOdd_dlo, h_F''_isOdd_dhi⟩
-  rcases hy_faith with ⟨_, hy_le, hy_max⟩ | ⟨_, hy_ge, hy_min⟩
-  · rcases hy'_faith with ⟨_, hy'_le, hy'_max⟩ | ⟨_, hy'_ge, hy'_min⟩
-    · -- Both RoundDown.
-      exact le_antisymm (hy'_max y hy_mem hy_le) (hy_max y' hy'_mem hy'_le)
-    · exact h_mixed_eq hy_mem hy'_mem hy_le hy_max hy'_ge hy'_min hy_par hy'_par
-  · rcases hy'_faith with ⟨_, hy'_le, hy'_max⟩ | ⟨_, hy'_ge, hy'_min⟩
-    · -- Mixed (y RoundUp, y' RoundDown): apply helper with swap.
-      exact (h_mixed_eq hy'_mem hy_mem hy'_le hy'_max hy_ge hy_min hy'_par hy_par).symm
-    · -- Both RoundUp.
-      exact le_antisymm (hy_min y' hy'_mem hy'_ge) (hy'_min y hy_mem hy_ge)
+    y = rndUnbounded F .toOdd x h :=
+  RoundsFinite.unique_toOdd h hy (rndUnbounded_satisfies_toOdd F x h)
 
 
 end Mpfx

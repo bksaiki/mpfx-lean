@@ -247,4 +247,33 @@ theorem rndUnbounded_unique_awayZero (F : FiniteFormat) (x : ℝ)
     exact rndUnbounded_unique_toNegative F x (not_isUndefined_toNegative F)
       ((RoundsFinite.toNegative_iff_awayZero_of_nonpos F.unbounded (not_le.mp hx).le y).mpr hy)
 
+/-! ### Reading the directed roundings off the grid
+
+The relational spec pins the round-down/round-up to an explicit grid point.
+These are the mpfx analogues of Flocq's `round_DN_eq` / `round_UP_eq`
+(`Ulp.v:2217`), and they are what lets grid-level facts (parity, adjacency)
+be restated over the spec rather than over `rndUnbounded`. -/
+
+/-- The round-down of `x` is the floor of the scaled mantissa at the
+canonical exponent. -/
+theorem RoundsFinite.toNegative_eq_floor (F : FiniteFormat) (x : ℝ) {y : Dyadic}
+    (hy : RoundsFinite F.unbounded .toNegative x y) :
+    y = Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-(F.canonicalExp x))⌋ (F.canonicalExp x) := by
+  rw [rndUnbounded_unique_toNegative F x (not_isUndefined_toNegative F) hy]
+  unfold rndUnbounded
+  rw [dif_neg (by decide : (RoundingMode.toNegative : RoundingMode) ≠ .toOdd),
+      dif_neg (by decide : (RoundingMode.toNegative : RoundingMode) ≠ .nearest .toEven)]
+  rfl
+
+/-- The round-up of `x` is the ceiling of the scaled mantissa at the
+canonical exponent. -/
+theorem RoundsFinite.toPositive_eq_ceil (F : FiniteFormat) (x : ℝ) {y : Dyadic}
+    (hy : RoundsFinite F.unbounded .toPositive x y) :
+    y = Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x) := by
+  rw [rndUnbounded_unique_toPositive F x (not_isUndefined_toPositive F) hy]
+  unfold rndUnbounded
+  rw [dif_neg (by decide : (RoundingMode.toPositive : RoundingMode) ≠ .toOdd),
+      dif_neg (by decide : (RoundingMode.toPositive : RoundingMode) ≠ .nearest .toEven)]
+  rfl
+
 end Mpfx
