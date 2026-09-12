@@ -189,7 +189,6 @@ private theorem toOdd_neighbors_alternate {F : FiniteFormat} (x : ℝ)
               rw [h_lo_int] at h_lt; push_cast at h_lt; linarith
             have h_s_le_neg1 : s ≤ -1 := by
               have h_abs_eq : |s| = -s := abs_of_neg (by linarith : s < 0)
-              have h_abs_ge : 1 ≤ |s| := h_abs_s
               linarith
             have h_s_eq : s = -1 := le_antisymm h_s_le_neg1 h_floor_le_neg1
             apply h_lo_ne_s
@@ -472,9 +471,8 @@ is handled by `precisionAtMost_of_abs_le`. -/
 theorem rndUnbounded_satisfies_toOdd (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toOdd) :
     RoundsFinite F.unbounded .toOdd x (rndUnbounded F .toOdd x h) := by
-  have h_unb : ¬ F.unbounded.IsUndefined .toOdd := h
   set F'' := F.toParityFormatOfToOdd h with hF''_def
-  set F' := F.unbounded.toParityFormatOfToOdd h_unb with hF'_def
+  set F' := F.unbounded.toParityFormatOfToOdd h with hF'_def
   have h_F'_eq : F'.toFormat = F.unbounded.toFormat := rfl
   -- IsOdd-bridge: same predicate value for F and F.unbounded
   -- since both ParityFormats share `p` and `exp` definitionally.
@@ -694,8 +692,7 @@ theorem rndUnbounded_unique_toOdd (F : FiniteFormat) (x : ℝ)
     have h_y'_eq_dhi : y' = dhi := Dyadic.ext_real h_y'_eq_dhi_r
     -- Transfer IsOdd of both neighbours into the shared ParityFormat, then
     -- consume the single parity-alternation dispatch.
-    have h_unb : ¬ F.unbounded.IsUndefined .toOdd := h
-    set F'' := F.unbounded.toParityFormatOfToOdd h_unb with hF''_def
+    set F'' := F.unbounded.toParityFormatOfToOdd h with hF''_def
     have hF''_eq : F''.toFormat = F.unbounded.toFormat := rfl
     have hF_y_eq_F'' : F_y.toFormat = F''.toFormat := by rw [hF_y_eq, hF''_eq]
     have hF_y'_eq_F'' : F_y'.toFormat = F''.toFormat := by rw [hF_y'_eq, hF''_eq]

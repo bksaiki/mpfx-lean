@@ -71,7 +71,6 @@ theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ}
     have h2 : p_y ≤ 1 := by exact_mod_cast h1
     omega
   rw [if_neg hFp_ne_1] at hp_check
-  have hc₁_odd : Odd c₁ := hp_check
   set k : ℕ := p_y - w with hk_def
   have hpyw : p_y = w + k := by omega
   -- Unpack the precision witness for `y` (over ℚ).
@@ -87,26 +86,24 @@ theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ}
       rw [heq_int,
           show (e₂ - e₁).toNat = ((e₂ - e₁).toNat - 1) + 1 from by omega, pow_succ]
       exact ⟨c₂ * 2 ^ ((e₂ - e₁).toNat - 1), by ring⟩
-    exact (Int.not_even_iff_odd.mpr hc₁_odd) h_even
+    exact (Int.not_even_iff_odd.mpr hp_check) h_even
   · -- `e₁ ≥ e₂`: `|c₂| = |c₁| · 2^(e₁-e₂) ≥ 2^(p_y-1) ≥ 2^w`, contradicting `|c₂| < 2^w`.
     have heq_int : c₂ = c₁ * 2 ^ (e₁ - e₂).toNat :=
       coeff_eq_of_shift_rat he heq_rat.symm
     have h_abs : |c₂| = |c₁| * 2 ^ (e₁ - e₂).toNat := by
       rw [heq_int, abs_mul, abs_pow]; congr 1
     -- `2^(p_y - 1) ≤ |c₁|` (the low bound of `IsRepresentableAtP`).
-    have hlow' : (2 : ℤ) ^ (p_y - 1) ≤ |c₁| := hlow
     have hpow_le : (2 : ℤ) ^ w ≤ (2 : ℤ) ^ (p_y - 1) := by
       apply pow_le_pow_right₀ (by norm_num : (1 : ℤ) ≤ 2)
       omega
     have h2pow_pos : (0 : ℤ) < 2 ^ (e₁ - e₂).toNat := by positivity
-    have h_one_le : (1 : ℤ) ≤ 2 ^ (e₁ - e₂).toNat := h2pow_pos
     have h_chain : (2 : ℤ) ^ w ≤ |c₂| := by
       calc (2 : ℤ) ^ w
           ≤ (2 : ℤ) ^ (p_y - 1) := hpow_le
-        _ ≤ |c₁| := hlow'
+        _ ≤ |c₁| := hlow
         _ = |c₁| * 1 := (mul_one _).symm
         _ ≤ |c₁| * 2 ^ (e₁ - e₂).toNat :=
-            mul_le_mul_of_nonneg_left h_one_le (abs_nonneg _)
+            mul_le_mul_of_nonneg_left h2pow_pos (abs_nonneg _)
         _ = |c₂| := h_abs.symm
     exact absurd (lt_of_le_of_lt h_chain hc₂_low) (lt_irrefl _)
 
@@ -131,7 +128,6 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
     simp at this
   obtain ⟨c, e, ⟨hy_eq, hc_low, hc_high⟩, hp_check⟩ := hodd
   rw [if_neg hF₂_ne_1] at hp_check
-  have hc_odd : Odd c := hp_check
   -- `p₂ := (numDigits F₂ y).toNat` is the precision used in `IsRepresentableAtP`.
   set p₂ : ℕ := (F₂.toFiniteFormat.numDigits (y : ℝ)).toNat with hp₂_def
   have hp₂_eq : (p₂ : ℤ) = F₂.toFiniteFormat.numDigits (y : ℝ) :=
@@ -157,15 +153,13 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
   have hc''_abs : |c''| = 2 * |c| - 1 := by
     rcases lt_or_gt_of_ne hc_ne with h | h
     · simp only [hc''_def, if_neg (not_lt.mpr h.le)]
-      have hc_neg : c < 0 := h
       have h1 : 2 * c + 1 < 0 := by linarith
       rw [show (2 * c - -1 : ℤ) = 2 * c + 1 from by ring,
-          abs_of_neg h1, abs_of_neg hc_neg]
+          abs_of_neg h1, abs_of_neg h]
       linarith
     · simp only [hc''_def, if_pos h]
-      have hc_pos : c > 0 := h
       have h1 : 2 * c - 1 > 0 := by linarith
-      rw [abs_of_pos h1, abs_of_pos hc_pos]
+      rw [abs_of_pos h1, abs_of_pos h]
   have hc''_low : (2 : ℤ) ^ p₂ - 1 ≤ |c''| := by
     rw [hc''_abs, Int.two_pow_succ_pred hp₂_pos]
     linarith
@@ -306,7 +300,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
     have h_even : Even ((2 : ℤ) ^ (p₂ - 1)) := by
       refine ⟨(2 : ℤ) ^ (p₂ - 2), ?_⟩
       rw [show (p₂ - 1 : ℕ) = (p₂ - 2) + 1 from by omega, pow_succ]; ring
-    have h_abs_odd : Odd |c| := Odd.abs hc_odd
+    have h_abs_odd : Odd |c| := Odd.abs hp_check
     by_contra h_le
     push Not at h_le
     have h_eq : |c| = (2 : ℤ) ^ (p₂ - 1) := by linarith
@@ -697,13 +691,12 @@ theorem IsOdd.transfer_of_numDigits_eq {F₁ F₂ : ParityFormat}
     have : (2 : ℕ) ≤ (1 : ℕ) := by exact_mod_cast hp_F₂
     simp at this
   rw [if_neg hF₂_ne_1] at h_par_F₂
-  have h_par_c : Odd c := h_par_F₂
   refine ⟨c, e, ?_, ?_⟩
   · rw [h_eq]; exact h_rep_F₂
   · by_cases hF₁_p_1 : F₁.p = ((1 : ℕ) : Prec)
     · rw [if_pos hF₁_p_1]
       exact odd_index_of_p_one_corner hsub hp_F₂ hF₁_p_1 hyF₁ h_iod_F₂' h_eq h_rep_F₂
-    · rw [if_neg hF₁_p_1]; exact h_par_c
+    · rw [if_neg hF₁_p_1]; exact h_par_F₂
 
 /-- **Lemma 5.3** (RTO digit-padding preserves oddness across a subformat).
 If `F₁ ⊆ F₂`, `F₂` has at least 2 bits, and `y ∈ F₁` is `IsOdd` in `F₂`, then

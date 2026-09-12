@@ -95,14 +95,12 @@ theorem exists_grid_rep (F : FiniteFormat) {p : ℕ} {exp : ℤ}
     Dyadic.exists_odd_canonical_of_precisionAtMost hp_y hy_ne
   -- Need e_can ≥ k. From canonical form constraints.
   have h_e_can_ge_exp : e_can ≥ exp := by
-    have hq : Dyadic.quantumAtLeast F.exp y := hq_y_full
-    rw [he, Dyadic.quantumAtLeast_coe_real] at hq
-    obtain ⟨c', hc'_eq⟩ := hq
+    rw [he, Dyadic.quantumAtLeast_coe_real] at hq_y_full
+    obtain ⟨c', hc'_eq⟩ := hq_y_full
     -- y = c'·2^exp. Compare with canonical (c_can, e_can): c_can·2^e_can = c'·2^exp.
     -- If e_can < exp: by uniqueness, contradiction with c_can odd.
     by_contra h_lt
     push Not at h_lt
-    have h_e_can_lt : e_can < exp := h_lt
     -- We have c_can·2^e_can = c'·2^exp with e_can < exp.
     have h_diff : c_can = c' * (2 : ℤ)^(exp - e_can).toNat :=
       coeff_eq_of_shift_real (by omega) (hy_eq.symm.trans hc'_eq)
@@ -133,8 +131,7 @@ theorem exists_grid_rep (F : FiniteFormat) {p : ℕ} {exp : ℤ}
         rw [zero_mul] at hy_eq; linarith
       · exact hc
     have h_y_lt : ((y : Dyadic) : ℝ) < (2 : ℝ)^(e_can + (p : ℤ)) := by
-      have h_y_eq' : ((y : Dyadic) : ℝ) = (c_can : ℝ) * (2 : ℝ)^e_can := hy_eq
-      rw [h_y_eq']
+      rw [hy_eq]
       have h_c_abs : (c_can : ℝ) < (2 : ℝ)^(p : ℤ) := by
         have h_c_abs_int : c_can < (2 : ℤ)^p := by
           have habs : |c_can| = c_can := abs_of_pos h_c_can_pos_int
@@ -157,9 +154,8 @@ theorem exists_grid_rep (F : FiniteFormat) {p : ℕ} {exp : ℤ}
   -- k = max(exp, log_y - p + 1) ≤ e_can.
   have h_k_le_e_can : k ≤ e_can := by
     change max exp (Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1) ≤ e_can
-    have h1 : exp ≤ e_can := h_e_can_ge_exp
     have h2 : Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1 ≤ e_can := by omega
-    exact max_le h1 h2
+    exact max_le h_e_can_ge_exp h2
   have h_k_ge_exp : k ≥ exp := le_max_left _ _
   -- Now y at quantum k: y = c_can · 2^(e_can - k) · 2^k = (c_can · 2^(e_can - k)) · 2^k.
   have h_log_le_k : Int.log 2 ((y : Dyadic) : ℝ) - (p : ℤ) + 1 ≤ k := le_max_right _ _

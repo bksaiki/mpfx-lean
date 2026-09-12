@@ -644,8 +644,7 @@ private theorem rndAdd_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
     have hx_hi : (x : ℝ) < (2 : ℝ) ^ (ex + (p₁ : ℤ)) := by
       have := Int.lt_zpow_succ_log_self (b := 2) (by norm_num) (x : ℝ)
       rw [hlogx] at this
-      have h : (x : ℝ) < (2 : ℝ) ^ (ex + (p₁ : ℤ) - 1 + 1) := by exact_mod_cast this
-      rwa [show ex + (p₁ : ℤ) - 1 + 1 = ex + (p₁ : ℤ) from by ring] at h
+      rwa [show ex + (p₁ : ℤ) - 1 + 1 = ex + (p₁ : ℤ) from by ring] at this
     -- `cx ≤ 2^p₁ - 1`, so `x ≤ 2^(ex+p₁) - 2^ex`
     have hcx_le : (cx : ℝ) ≤ (2 : ℝ) ^ p₁ - 1 := by
       rw [abs_of_pos hcx_pos] at hcx_lt

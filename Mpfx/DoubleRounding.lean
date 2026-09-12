@@ -221,12 +221,11 @@ private theorem exp_bot_of_subset {F₁ F₂ : FiniteFormat}
         calc (2 : ℚ) ^ k ≤ (2 : ℚ) ^ (Int.log 2 |(z : ℚ)|) :=
               zpow_le_zpow_right₀ (by norm_num) hk_le_log
           _ ≤ |(z : ℚ)| := hlog_le
-      have hzbnd' : Format.boundOK F₁.b z := hzbnd
       rcases hb : F₁.b with _ | b
       · trivial
-      · rw [hb] at hzbnd'
+      · rw [hb] at hzbnd
         change |(w : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-        simp only [Format.boundOK] at hzbnd'
+        simp only [Format.boundOK] at hzbnd
         rw [hw_q, abs_of_pos h2k_pos]
         linarith
   -- But `w ∉ F₂`: quantum constraint fails since `k < e'`.
@@ -320,13 +319,11 @@ theorem rndRTO_RTO {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
         set F₁' := F₁.toParityFormatOfToOdd h_not_undef with hF₁'_def
         have hF₁'eq : F₁'.toFormat = F₁.toFormat := rfl
         have hF₁'odd : F₁'.IsOdd z := by
-          have h_iod_F₂' : F₂'.IsOdd z := hF₂'odd
           have h_F₁'F₂' : F₁'.toFormat ⊆ F₂'.toFormat := by
             rw [hF₁'eq, hF₂'eq]; exact hsub
           have h_p_F₂' : ((2 : ℕ) : Prec) ≤ F₂'.p := by
             rw [hF₂'eq]; exact hp_F₂
-          have hz_mem : z ∈ F₁'.toFiniteFormat := hw'F₁
-          exact IsOdd.transfer_of_subset h_F₁'F₂' h_p_F₂' hz_mem h_iod_F₂'
+          exact IsOdd.transfer_of_subset h_F₁'F₂' h_p_F₂' hw'F₁ hF₂'odd
         exact ⟨F₁', hF₁'eq, hF₁'odd⟩
     · -- z ≠ w': standard 4-way faithfulness case split.
       have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := fun h_eq => hzw (Dyadic.coe_real_inj z w' |>.mp h_eq)
@@ -541,7 +538,6 @@ private theorem extend_subset_of_paper_subset {F₁ F₂ : FiniteFormat}
     -- y's own bound: |y| ≤ b.val (over ℚ), since (extend 1).b = F₁.b.
     change Format.boundOK (F₁.extend 1).b y at hb_y
     rw [show (F₁.extend 1).b = F₁.b from rfl, hF_b] at hb_y
-    have h_y_le_b : |((y : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb_y
     -- b ≤ next(b) over ℝ; bridge to ℚ.
     have hb_nn : 0 ≤ ((b.val : Dyadic) : ℝ) := nonneg_coe_real b
     have h_le_next : ((b.val : Dyadic) : ℝ) ≤ ((F₁.toFormat.next b.val : Dyadic) : ℝ) :=
@@ -549,7 +545,7 @@ private theorem extend_subset_of_paper_subset {F₁ F₂ : FiniteFormat}
     have h_le_next_q : ((b.val : Dyadic) : ℚ) ≤ ((F₁.toFormat.next b.val : Dyadic) : ℚ) := by
       rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h_le_next
       exact_mod_cast h_le_next
-    exact le_trans h_y_le_b h_le_next_q
+    exact le_trans hb_y h_le_next_q
 
 /-- `k = 1` specialization of `extend_subset_of_paper_subset`. -/
 private theorem extend_one_subset_of_paper_subset {F₁ F₂ : FiniteFormat}
@@ -2764,12 +2760,10 @@ private theorem rounds_withBoundFF_floor_iff {F₁ : FiniteFormat} {D : NonNegDy
   have h_to : ∀ v : Dyadic, Format.boundOK ((D : WithTop NonNegDyadic)) v →
       Format.boundOK F₁.b v := by
     intro v hv
-    have h1 : |(v : ℚ)| ≤ ((D.val : Dyadic) : ℚ) := hv
-    have hD_nn : (0 : ℚ) ≤ ((D.val : Dyadic) : ℚ) := by exact_mod_cast D.2
     have hD_abs : |(v : ℝ)| ≤ |((D.val : Dyadic) : ℝ)| := by
       rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs,
         ← Rat.cast_abs]
-      exact_mod_cast (by rwa [abs_of_nonneg hD_nn] :
+      exact_mod_cast (by rwa [abs_of_nonneg D.2] :
         |(v : ℚ)| ≤ |((D.val : Dyadic) : ℚ)|)
     exact boundOK_of_abs_le hD_abs hD_le
   cases r with
@@ -2997,10 +2991,9 @@ private theorem grid_floor_setup {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
     · -- Grid values within `b₁` are within `D`.
       intro v hv hbv
       rw [hF₁b] at hbv
-      have h1 : |(v : ℚ)| ≤ ((b₁.val : Dyadic) : ℚ) := hbv
       have h1r : |(v : ℝ)| ≤ ((b₁.val : Dyadic) : ℝ) := by
         rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
-        exact_mod_cast h1
+        exact_mod_cast hbv
       have h2r : |(v : ℝ)| ≤ ((d : Dyadic) : ℝ) := by
         rcases le_or_gt 0 ((v : Dyadic) : ℝ) with hv0 | hv0
         · have h := hd_max v hv (by rwa [abs_of_nonneg hv0] at h1r)

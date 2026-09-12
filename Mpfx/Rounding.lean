@@ -665,8 +665,7 @@ theorem RoundsFinite.toPositive_iff_toZero_of_nonpos
       rw [abs_of_nonpos hx] at hzabs
       rcases eq_or_lt_of_le hx with hx0 | hx_neg
       · subst hx0
-        have hxy' : (y : ℝ) ≥ 0 := hxy
-        have hy_eq : (y : ℝ) = 0 := le_antisymm hy_le_zero hxy'
+        have hy_eq : (y : ℝ) = 0 := le_antisymm hy_le_zero hxy
         rw [hy_eq, abs_zero]
         have h_z_zero : (z : ℝ) = 0 := by
           have : |(z : ℝ)| ≤ 0 := by linarith

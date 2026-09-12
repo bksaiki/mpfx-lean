@@ -536,8 +536,7 @@ private theorem gap_below_pow (F₂ : FiniteFormat) {E : ℤ}
       rw [h_one, ← hc] at h_gap
       exact gap_bound_below hz_lt h_gap
   · -- `exp = f₂` finite: the global quantum grid.
-    have hexpc : F₂.exp = (f₂ : WithBot ℤ) := hexp
-    have hf₂E : f₂ ≤ E := h_exp_le f₂ hexpc
+    have hf₂E : f₂ ≤ E := h_exp_le f₂ hexp
     refine ⟨f₂, hf₂E, ?_⟩
     intro z hz hz_lt
     set n : ℕ := (E - f₂).toNat with hn
@@ -547,7 +546,7 @@ private theorem gap_below_pow (F₂ : FiniteFormat) {E : ℤ}
       have h_split : (2 : ℝ)^E = ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ :=
         two_zpow_split E f₂ hf₂E
       rw [h_split]; push_cast; ring
-    apply F₂_grid_floor hexpc h_target z hz
+    apply F₂_grid_floor hexp h_target z hz
     linarith
 
 /-- **Shape dispatch: gap above `2^E`.** There is a local step `2^K`
@@ -590,8 +589,7 @@ private theorem gap_above_pow (F₂ : FiniteFormat) {E : ℤ}
     · -- At or above the binade top: `z ≥ 2^(E+1) = 2^E + 2^E ≥ 2^E + 2^K`.
       linarith
   · -- `exp = f₂` finite: the global quantum grid.
-    have hexpc : F₂.exp = (f₂ : WithBot ℤ) := hexp
-    have hf₂E : f₂ ≤ E := h_exp_le f₂ hexpc
+    have hf₂E : f₂ ≤ E := h_exp_le f₂ hexp
     refine ⟨f₂, hf₂E, ?_⟩
     intro z hz hz_gt
     set n : ℕ := (E - f₂).toNat with hn
@@ -601,7 +599,7 @@ private theorem gap_above_pow (F₂ : FiniteFormat) {E : ℤ}
       have h_split : (2 : ℝ)^E = ((2 : ℤ)^n : ℝ) * (2 : ℝ)^f₂ :=
         two_zpow_split E f₂ hf₂E
       rw [h_split]; push_cast; ring
-    apply F₂_grid_ceil hexpc h_target z hz
+    apply F₂_grid_ceil hexp h_target z hz
     linarith
 
 /-- Rebase a two-sided gap of half-width `D` from anchor `A` to an equal
@@ -1165,7 +1163,6 @@ private theorem isEven_F₁_g_y_lo_low (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
     rw [F₁_g_p]
     intro h
     have h1 : (p) = (1 : ℕ) := by exact_mod_cast h
-    have h2 : p = 1 := by exact_mod_cast h1
     omega
   right
   refine ⟨2, e, ⟨?_, ?_, ?_⟩, ?_⟩
@@ -2342,7 +2339,6 @@ private def F₁f_g (q : ℕ) (hq_ge_2 : 2 ≤ q) : ParityFormat where
     intro h
     have h' : (q : Prec) = ((1 : ℕ) : Prec) := h
     have h1 : q = (1 : ℕ) := by exact_mod_cast h'
-    have h2 : q = 1 := by exact_mod_cast h1
     omega)
 
 @[simp] private theorem F₁f_g_p q (hq : 2 ≤ q) :
@@ -2374,7 +2370,6 @@ private theorem F₁f_g_p_ne_1 (q : ℕ) (hq : 2 ≤ q) :
   rw [F₁f_g_p]
   intro h
   have h1 : q = (1 : ℕ) := by exact_mod_cast h
-  have h2 : q = 1 := by exact_mod_cast h1
   omega
 
 /-- `2^N ∈ F₁f_g` for **any** `N`: the format has no minimum quantum, so it
@@ -3043,11 +3038,10 @@ private noncomputable def floatingNeighborhood (q : ℕ) (hq : 2 ≤ q) (t : ℤ
     rcases hexp_eq : F₂.exp with _ | f₂
     · -- `F₂.exp = ⊥`: finite precision `q₂ > q` is forced, and the mid sits
       -- on the binade grid of step `2^(t−1+q−q₂)`.
-      have hexp_bot : F₂.exp = ⊥ := hexp_eq
       have hp_ne : F₂.p ≠ ⊤ := by
         rcases F₂.finite with h | h
         · exact h
-        · exact absurd hexp_bot h
+        · exact absurd hexp_eq h
       obtain ⟨q₂, hq₂⟩ := WithTop.ne_top_iff_exists.mp hp_ne
       have hp : F₂.p = (q₂ : Prec) := hq₂.symm
       have h2fs := two_fs q (by omega)
@@ -3435,10 +3429,7 @@ private theorem eq_F₁_g {F₁ : ParityFormat} {p₁ : ℕ} {e : ℤ}
     (hb : F₁.b = ⊤) :
     F₁ = F₁_g p₁ hp_ge_2 e := by
   obtain ⟨⟨⟨pp, ee, bb⟩, fin⟩, par⟩ := F₁
-  have hp' : pp = (p₁ : Prec) := hp
-  have hexp' : ee = ((e : ℤ) : WithBot ℤ) := hexp
-  have hb' : bb = ⊤ := hb
-  subst hp' hexp' hb'
+  subst hp hexp hb
   rfl
 
 /-- With `p = p₁`, `exp = ⊥`, `b = ⊤` it *is* the floating target format. -/
@@ -3449,10 +3440,7 @@ private theorem eq_F₁f_g {F₁ : ParityFormat} {p₁ : ℕ}
     (hb : F₁.b = ⊤) :
     F₁ = F₁f_g p₁ hp_ge_2 := by
   obtain ⟨⟨⟨pp, ee, bb⟩, fin⟩, par⟩ := F₁
-  have hp' : pp = (p₁ : Prec) := hp
-  have hexp' : ee = ⊥ := hexp
-  have hb' : bb = ⊤ := hb
-  subst hp' hexp' hb'
+  subst hp hexp hb
   rfl
 
 /-- With `p = ⊤`, `exp = e`, `b = ⊤` it *is* the full-precision target
@@ -3462,10 +3450,7 @@ private theorem eq_F₁t_g {F₁ : ParityFormat} {e : ℤ}
     (hb : F₁.b = ⊤) :
     F₁ = F₁t_g e := by
   obtain ⟨⟨⟨pp, ee, bb⟩, fin⟩, par⟩ := F₁
-  have hp' : pp = ⊤ := hp
-  have hexp' : ee = ((e : ℤ) : WithBot ℤ) := hexp
-  have hb' : bb = ⊤ := hb
-  subst hp' hexp' hb'
+  subst hp hexp hb
   rfl
 
 /-- With `p = 1`, `exp = e`, `b = ⊤` it *is* the single-precision target
@@ -3475,10 +3460,7 @@ private theorem eq_F₁p_g {F₁ : ParityFormat} {e : ℤ}
     (hexp : F₁.exp = ((e : ℤ) : WithBot ℤ)) (hb : F₁.b = ⊤) :
     F₁ = F₁p_g e := by
   obtain ⟨⟨⟨pp, ee, bb⟩, fin⟩, par⟩ := F₁
-  have hp' : pp = ((1 : ℕ) : Prec) := hp
-  have hexp' : ee = ((e : ℤ) : WithBot ℤ) := hexp
-  have hb' : bb = ⊤ := hb
-  subst hp' hexp' hb'
+  subst hp hexp hb
   rfl
 
 /-- Every unbounded `ParityFormat` carries an anchor neighborhood,

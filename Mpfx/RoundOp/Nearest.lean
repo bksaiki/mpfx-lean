@@ -193,7 +193,6 @@ private theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
               rw [h_lo_int] at h_lt; push_cast at h_lt; linarith
             have h_s_le_neg1 : s ≤ -1 := by
               have h_abs_eq : |s| = -s := abs_of_neg (by linarith : s < 0)
-              have h_abs_ge : 1 ≤ |s| := h_abs_s
               linarith
             have h_s_eq : s = -1 := le_antisymm h_s_le_neg1 h_floor_le_neg1
             apply h_lo_ne_s
@@ -778,9 +777,8 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
                 rw [abs_of_neg hdhi_nn]
                 linarith
   | toEven =>
-    have h_unb : ¬ F.unbounded.IsUndefined (.nearest .toEven) := h
     set F'' := F.toParityFormatOfNearestEven h with hF''_def
-    set F' := F.unbounded.toParityFormatOfNearestEven h_unb with hF'_def
+    set F' := F.unbounded.toParityFormatOfNearestEven h with hF'_def
     have h_F'_eq : F'.toFormat = F.unbounded.toFormat := rfl
     -- Bridge: F'' and F' agree on IsEven (same p, exp).
     have h_isEven_bridge : ∀ (y : Dyadic), F''.IsEven y ↔ F'.IsEven y :=
@@ -982,8 +980,7 @@ theorem rndUnbounded_unique_nearest (F : FiniteFormat) (tb : TieBreak) (x : ℝ)
       obtain ⟨F_y, hF_y_eq, hF_y_even⟩ := h_F_y_even
       obtain ⟨F_y', hF_y'_eq, hF_y'_even⟩ := h_F_y'_even
       -- Bridge via IsEven_iff_of_toFormat_eq to a common ParityFormat F''.
-      have h_unb : ¬ F.unbounded.IsUndefined (.nearest .toEven) := h
-      set F'' := F.unbounded.toParityFormatOfNearestEven h_unb with hF''_def
+      set F'' := F.unbounded.toParityFormatOfNearestEven h with hF''_def
       have hF''_eq : F''.toFormat = F.unbounded.toFormat := rfl
       have hF_y_eq_F'' : F_y.toFormat = F''.toFormat := by rw [hF_y_eq, hF''_eq]
       have hF_y'_eq_F'' : F_y'.toFormat = F''.toFormat := by rw [hF_y'_eq, hF''_eq]

@@ -547,18 +547,16 @@ theorem lt_next_of_p_top (F : Format) {e : ℤ}
     -- `match (some e), ⊤ with ...`. The match doesn't auto-reduce because
     -- `⊤ : Prec` doesn't syntactically match the `none` constructor. We
     -- rewrite `⊤` to `none` explicitly via the `Top` instance.
-    have hp' : F.p = (none : Prec) := hp
     unfold next
-    rw [he, hp']
+    rw [he, hp]
   rw [h_next_eq]; push_cast; linarith
 
 /-- Computed form of `next` for `F.exp = ⊥, F.p = ⊤` (junk arm: excluded by
 `FiniteFormat`). -/
 theorem next_eq_bot_p_top' (F : Format) (he : F.exp = ⊥) (hp : F.p = ⊤)
     (b : Dyadic) : F.next b = b + 1 := by
-  have hp' : F.p = (none : Prec) := hp
   unfold next
-  rw [he, hp']
+  rw [he, hp]
 
 /-- Computed form of `next` for `F.exp = ⊥, b ≤ 0` (junk arm: no grid
 successor exists). -/
@@ -643,9 +641,8 @@ theorem next_eq_finite_pos (F : Format) {e : ℤ} {p : ℕ}
 theorem next_eq_p_top (F : Format) {e : ℤ}
     (he : F.exp = (e : WithBot ℤ)) (hp : F.p = ⊤) (b : Dyadic) :
     F.next b = b + Dyadic.ofIntZpow 1 e := by
-  have hp' : F.p = (none : Prec) := hp
   unfold next
-  rw [he, hp']
+  rw [he, hp]
 
 /-- `b ≤ F.next b` for `b ≥ 0`. Combines all four `(F.p, F.exp)` shapes via
 case-split: finite-finite via `lt_next_of_finite`; `F.p = ⊤` finite-exp via

@@ -1915,9 +1915,8 @@ bound over `ℝ`. -/
 theorem abs_coe_real_le_of_boundOK {b₁ : NonNegDyadic} {y : Dyadic}
     (h : Format.boundOK ((b₁ : WithTop NonNegDyadic)) y) :
     |(y : ℝ)| ≤ ((b₁.val : Dyadic) : ℝ) := by
-  have h1 : |(y : ℚ)| ≤ ((b₁.val : Dyadic) : ℚ) := h
   rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
-  exact_mod_cast h1
+  exact_mod_cast h
 
 /-- Converse of `abs_coe_real_le_of_boundOK`. -/
 theorem boundOK_coe_of_abs_le {b : NonNegDyadic} {y : Dyadic}
@@ -1951,10 +1950,8 @@ theorem boundOK_of_between {b : WithTop NonNegDyadic} {lo hi g : Dyadic}
     have h2' : (g : ℚ) ≤ (hi : ℚ) := by
       rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h2
       exact_mod_cast h2
-    have hblo' : |(lo : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hblo
-    have hbhi' : |(hi : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hbhi
     change |(g : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-    exact abs_le.mpr ⟨by linarith [(abs_le.mp hblo').1], by linarith [(abs_le.mp hbhi').2]⟩
+    exact abs_le.mpr ⟨by linarith [(abs_le.mp hblo).1], by linarith [(abs_le.mp hbhi).2]⟩
 
 /-- Bounded membership weakens to unbounded membership (drop the bound check). -/
 theorem mem_unbounded_of_mem {F : FiniteFormat} {d : Dyadic}
