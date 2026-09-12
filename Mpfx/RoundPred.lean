@@ -500,4 +500,61 @@ theorem RoundsFinite.monotone_toOdd {F : FiniteFormat} (h : ¬ F.IsUndefined .to
       ((ParityFormat.IsOdd_iff_of_toFormat_eq hFb b).mp hFb_odd)
   · exact monotone_toPositive hua hub hxy
 
+/-- The nearest-minimality conjunct, extracted uniformly over the tie-break.
+Both `TieBreak` cases carry it in the same position, but the `match` on the
+mode does not reduce until `tb` is known. -/
+theorem RoundsFinite.nearest_min {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
+    {y : Dyadic} (h : RoundsFinite F (.nearest tb) x y) {z : Dyadic}
+    (hz : z ∈ F) (hzf : IsFaithfulRound F x z) :
+    |x - (y : ℝ)| ≤ |x - (z : ℝ)| := by
+  cases tb with
+  | toEven => exact h.2.2.1 z hz hzf
+  | awayZero => exact h.2.2.1 z hz hzf
+
+/-- **Nearest rounding is monotone**, for either tie-break.
+
+Flocq splits this in two: `Rnd_N_pt_monotone` (`Round_pred.v:435`) holds only
+for **strict** `x < y`, and `Rnd_NG_pt_monotone` (`:729`) patches `x = y` using
+uniqueness. We reach the same place in one theorem, because the faithful case
+split settles three of the four side-combinations without needing strictness.
+
+Only `a = UP x`, `b = DN y` is delicate. If `x ≤ b` or `a ≤ y` the relevant
+optimality applies. Otherwise `b < x ≤ y < a`, and then `b` is faithful for `x`
+and `a` for `y` — so each value's nearest-minimality can be tested against the
+*other*, and the two inequalities add up to `y ≤ x`. That forces `x = y`, where
+`unique_nearest` finishes. Flocq's strict/equal split is exactly this last
+step. -/
+theorem RoundsFinite.monotone_nearest {F : FiniteFormat} {tb : TieBreak}
+    (h : ¬ F.IsUndefined (.nearest tb)) {x y : ℝ} {a b : Dyadic}
+    (ha : RoundsFinite F.unbounded (.nearest tb) x a)
+    (hb : RoundsFinite F.unbounded (.nearest tb) y b)
+    (hxy : x ≤ y) : (a : ℝ) ≤ (b : ℝ) := by
+  have ha_mem := ha.1
+  have hb_mem := hb.1
+  rcases isFaithfulRound_iff_directed.mp ha.isFaithfulRound with hda | hua <;>
+    rcases isFaithfulRound_iff_directed.mp hb.isFaithfulRound with hdb | hub
+  · exact monotone_toNegative hda hdb hxy
+  · exact (hda.2.1.trans hxy).trans hub.2.1
+  · obtain ⟨-, -, ha_min⟩ := id hua
+    obtain ⟨-, -, hb_max⟩ := id hdb
+    by_cases hxb : x ≤ (b : ℝ)
+    · exact ha_min b hb_mem hxb
+    by_cases hay : (a : ℝ) ≤ y
+    · exact hb_max a ha_mem hay
+    push Not at hxb hay
+    have hbx : IsFaithfulRound F.unbounded x b :=
+      Or.inl ⟨hb_mem, hxb.le, fun z hz hzx => hb_max z hz (hzx.trans hxy)⟩
+    have hya : IsFaithfulRound F.unbounded y a :=
+      Or.inr ⟨ha_mem, hay.le, fun z hz hyz => ha_min z hz (hxy.trans hyz)⟩
+    have h1 := ha.nearest_min hb_mem hbx
+    have h2 := hb.nearest_min ha_mem hya
+    rw [abs_of_nonpos (by linarith : x - (a : ℝ) ≤ 0),
+        abs_of_nonneg (by linarith : (0 : ℝ) ≤ x - (b : ℝ))] at h1
+    rw [abs_of_nonneg (by linarith : (0 : ℝ) ≤ y - (b : ℝ)),
+        abs_of_nonpos (by linarith : y - (a : ℝ) ≤ 0)] at h2
+    have hxy_eq : x = y := le_antisymm hxy (by linarith)
+    subst hxy_eq
+    exact le_of_eq (by rw [RoundsFinite.unique_nearest h ha hb])
+  · exact monotone_toPositive hua hub hxy
+
 end Mpfx

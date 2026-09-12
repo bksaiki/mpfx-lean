@@ -392,8 +392,24 @@ Commit message: `Add monotonicity for round-to-odd`
 
 ## Phase 11 — nearest monotonicity
 
-- [ ] Strict version (`x < y`), then patch `x = y` using Phase 3's `unique_nearest`, as
+- [x] Strict version (`x < y`), then patch `x = y` using Phase 3's `unique_nearest`, as
       `Rnd_NG_pt_monotone` does.
+
+**Done.** +57 lines, and it came out as *one* theorem rather than Flocq's two.
+The faithful case split settles three of the four side-combinations without
+strictness, so Flocq's strict/equal split survives only as the last two lines of
+the fourth case.
+
+That fourth case is where our narrower quantifier bites: `.nearest` minimality
+ranges over *faithful* `z`, where Flocq's `Rnd_N_pt` ranges over all `g ∈ F`, so
+Flocq can test each value against the other for free. What rescues it is that
+under `b < x ≤ y < a`, `b` is faithful for `x` (round-down) and `a` for `y`
+(round-up); both minimality clauses then apply across the pair, the two `abs`
+inequalities add to `y ≤ x`, and `x = y` hands off to `unique_nearest`.
+
+Also added `RoundsFinite.nearest_min`, an accessor pulling the minimality
+conjunct out uniformly over `TieBreak` — both cases hold it in the same position
+but the mode `match` will not reduce with `tb` a variable.
 
 Commit message: `Add monotonicity for the nearest modes, via Phase 3 uniqueness`
 
