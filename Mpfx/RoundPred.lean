@@ -557,4 +557,25 @@ theorem RoundsFinite.monotone_nearest {F : FiniteFormat} {tb : TieBreak}
     exact le_of_eq (by rw [RoundsFinite.unique_nearest h ha hb])
   · exact monotone_toPositive hua hub hxy
 
+/-- **Rounding is monotone**, for every mode — Flocq's `round_le`
+(`Generic_fmt.v:923`). Flocq derives it once from the `Valid_rnd` class; lacking
+that abstraction we dispatch over the six per-mode proofs above.
+
+Stated on `RoundsFinite` only. A `RoundResult`-level version would need an order
+placing `.overflow false` below every `.finite` and `.overflow true` above them;
+nothing needs that yet, and Flocq has no counterpart since its formats have no
+magnitude bound. -/
+theorem RoundsFinite.monotone {F : FiniteFormat} {rm : RoundingMode}
+    (h : ¬ F.IsUndefined rm) {x y : ℝ} {a b : Dyadic}
+    (ha : RoundsFinite F.unbounded rm x a)
+    (hb : RoundsFinite F.unbounded rm y b)
+    (hxy : x ≤ y) : (a : ℝ) ≤ (b : ℝ) := by
+  cases rm with
+  | toNegative => exact monotone_toNegative ha hb hxy
+  | toPositive => exact monotone_toPositive ha hb hxy
+  | toZero => exact monotone_toZero ha hb hxy
+  | awayZero => exact monotone_awayZero ha hb hxy
+  | toOdd => exact monotone_toOdd h ha hb hxy
+  | nearest _ => exact monotone_nearest h ha hb hxy
+
 end Mpfx

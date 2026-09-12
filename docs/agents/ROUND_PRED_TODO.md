@@ -8,6 +8,10 @@ rounding monotonicity and the uniqueness theory it sits on, ported from Flocq's
 carries a suggested one-line commit message. Stop after each phase for review
 before starting the next. Do not commit — the author commits.
 
+**All twelve phases are complete.** What remains below the phase list are two
+follow-ups (the alternation duplication, and slimming `nearest_neighbors_setup`)
+and the deferred `Grid.lean` vocabulary question.
+
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked.
 
 Every phase's acceptance criterion is `lake build` exiting 0 with no new
@@ -417,8 +421,13 @@ Commit message: `Add monotonicity for the nearest modes, via Phase 3 uniqueness`
 
 ## Phase 12 — `round_le`
 
-- [ ] `round_le` on `RoundsFinite`. See the open question below on whether to
+- [x] `round_le` on `RoundsFinite`. See the open question below on whether to
       also state it at `RoundResult` level.
+
+**Done.** +21 lines. `RoundsFinite.monotone`, a six-line dispatch over the
+per-mode proofs, named to parallel `RoundsFinite.unique` with Flocq's `round_le`
+cited in the docstring. `RoundResult` level declined — see the resolved open
+question below.
 
 Commit message: `Add round_le, the monotonicity of rounding in its input`
 
@@ -518,9 +527,8 @@ lines, against ~200 saved by the whole uniqueness collapse.
       construction turned out to be avoidable, so the relational uniqueness
       theorems do *not* have to stay in `RoundOp/`. Phase 8 moves them into
       `RoundPred.lean`.
-- [ ] **`round_le` at `RoundResult` level (Phase 12).** Flocq has no overflow,
-      so `round_le` transfers cleanly only to the unbounded layer. A
-      `RoundResult`-level statement needs an order with
-      `overflow false < finite y < overflow true`. Suggest stating it on
-      `RoundsFinite` only and deferring the `RoundResult` order until something
-      needs it.
+- [x] **`round_le` at `RoundResult` level (Phase 12).** Resolved: stated on
+      `RoundsFinite` only. A `RoundResult` version needs an order with
+      `overflow false < finite y < overflow true`; nothing needs it yet, and
+      Flocq has no counterpart since its formats carry no magnitude bound.
+      Revisit if a caller wants it.
