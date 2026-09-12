@@ -12,15 +12,23 @@ namespace Mpfx
 
 attribute [local instance] Classical.propDecidable
 
-/-- Shared `nearest` neighbour setup, consumed by both the soundness and
-uniqueness proofs. Given the canonical scaling data
+/-- Neighbour setup for the `nearest` soundness proof, its only consumer since
+the uniqueness proofs moved to `Mpfx/RoundPred.lean`. Given the canonical
+scaling data
 `e = canonicalExp x`, `s = x·2^(-e)`, `lo = ⌊s⌋` and the two neighbours
 `dlo = lo·2^e`, `dhi = (lo+1)·2^e`, it packages: positivity of `2^e`,
 membership of both neighbours, their real values, the floor sandwich,
 the unscaling identity, the enclosure `dlo ≤ x ≤ dhi`, the two rounding
 directions (`round-down`/`round-up`) and the faithful-round dichotomy
 (any faithful round of `x` is `dlo` or `dhi`). The caller establishes the
-`set` variables and passes the defining equations. -/
+`set` variables and passes the defining equations.
+
+This bundle predates the relational layer and several conjuncts are now
+redundant against it — the two rounding directions are
+`RoundsFinite.toNegative_floor` / `toPositive_ceil`, and the dichotomy is
+`isFaithfulRound_iff_directed` composed with the `_eq_floor` / `_eq_ceil`
+bridges. Slimming it is the reason this construction-free helper still sits
+under `RoundOp/`; see `ROUND_PRED_TODO.md`. -/
 private theorem nearest_neighbors_setup (F : FiniteFormat) (x : ℝ)
     {e : ℤ} (h_e_def : e = F.canonicalExp x)
     {s : ℝ} (h_s_def : s = x * (2 : ℝ) ^ (-e))
@@ -408,104 +416,6 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
                 exact_mod_cast h_real
               omega
             exact (nearest_toEven_neighbors_alternate x h hx_ne h_lo_ne_s).2 h_even_dlo
-
-
-/-! ### Uniqueness for the nearest modes
-
-Two nearest roundings of `x` are equidistant from it, so if they differ they
-sit on opposite sides (`IsFaithfulRound.opposite_sides_of_ne`) and the
-tie-break clause has to separate them. For `.toEven` it cannot: adjacent grid
-points alternate in parity, so they are not both even. For `.awayZero` equal
-magnitudes on opposite sides force `x = 0`, where both roundings are `0`.
-
-This mirrors Flocq's `Rnd_NG_pt_unique` (`Round_pred.v:707`), whose
-`Rnd_NG_pt_unique_prop` obligation is exactly the mixed case handled here. -/
-
-/-- **Nearest rounding is unique**, for either tie-break. -/
-theorem RoundsFinite.unique_nearest {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
-    (h : ¬ F.IsUndefined (.nearest tb)) {y₁ y₂ : Dyadic}
-    (h₁ : RoundsFinite F.unbounded (.nearest tb) x y₁)
-    (h₂ : RoundsFinite F.unbounded (.nearest tb) x y₂) :
-    y₁ = y₂ := by
-  -- A round-down and a round-up that are equidistant from `x` and distinct
-  -- put `x` strictly between them; in particular `x` is neither of them, and
-  -- `x ≠ 0` (at `0` both roundings are `0`).
-  have offGrid : ∀ {a b : Dyadic}, RoundsFinite F.unbounded .toNegative x a →
-      RoundsFinite F.unbounded .toPositive x b → a ≠ b →
-      |x - (a : ℝ)| = |x - (b : ℝ)| → x ≠ (a : ℝ) ∧ x ≠ 0 := by
-    intro a b hda hub hab hdist
-    have hxa : x ≠ (a : ℝ) := by
-      intro hx
-      have hzero : |x - (b : ℝ)| = 0 := by rw [← hdist, hx, sub_self, abs_zero]
-      exact hab (Dyadic.ext_real (hx.symm.trans (by linarith [abs_eq_zero.mp hzero])))
-    refine ⟨hxa, fun hx0 => hxa ?_⟩
-    have hda0 : RoundsFinite F.unbounded .toNegative 0 a := by rw [← hx0]; exact hda
-    rw [hx0, RoundsFinite.eq_zero_of_zero hda0, Dyadic.coe_real_zero]
-  cases tb with
-  | awayZero =>
-    obtain ⟨hm₁, hf₁, hmin₁, htie₁⟩ := h₁
-    obtain ⟨hm₂, hf₂, hmin₂, htie₂⟩ := h₂
-    by_cases hne : y₁ = y₂
-    · exact hne
-    exfalso
-    have hdist : |x - (y₁ : ℝ)| = |x - (y₂ : ℝ)| :=
-      le_antisymm (hmin₁ y₂ hm₂ hf₂) (hmin₂ y₁ hm₁ hf₁)
-    -- Each tie-break clause bounds the other's magnitude, so they are equal.
-    have habs : |(y₁ : ℝ)| = |(y₂ : ℝ)| :=
-      le_antisymm (htie₂ y₁ hm₁ hf₁ hne hdist.symm)
-        (htie₁ y₂ hm₂ hf₂ (Ne.symm hne) hdist)
-    -- Opposite sides with equal magnitudes: `a = -b`, and equidistance pins
-    -- `x = 0`, where both are `0` — contradicting `y₁ ≠ y₂`.
-    have key : ∀ {a b : Dyadic}, RoundsFinite F.unbounded .toNegative x a →
-        RoundsFinite F.unbounded .toPositive x b → a ≠ b →
-        |x - (a : ℝ)| = |x - (b : ℝ)| → |(a : ℝ)| = |(b : ℝ)| → False := by
-      intro a b hda hub hab hdist habs'
-      obtain ⟨hxa, hx0⟩ := offGrid hda hub hab hdist
-      refine hx0 ?_
-      have hle : (a : ℝ) ≤ x := hda.2.1
-      have hge : x ≤ (b : ℝ) := hub.2.1
-      -- `|a| = |b|` with `a ≠ b` forces `a = -b`, hence `a ≤ 0 ≤ b`.
-      have hneg : (a : ℝ) = -(b : ℝ) := by
-        rcases abs_eq_abs.mp habs' with hEq | hEq
-        · exact absurd (Dyadic.ext_real hEq) hab
-        · exact hEq
-      rw [hneg] at hle
-      -- Equidistance between `-b` and `b` puts `x` at their midpoint, `0`.
-      rw [hneg, abs_of_nonneg (by linarith : (0:ℝ) ≤ x - -(b : ℝ)),
-          abs_of_nonpos (by linarith : x - (b : ℝ) ≤ 0)] at hdist
-      linarith
-    rcases hf₁.opposite_sides_of_ne hf₂ hne with ⟨hd, hu⟩ | ⟨hd, hu⟩
-    · exact key hd hu hne hdist habs
-    · exact key hd hu (Ne.symm hne) hdist.symm habs.symm
-  | toEven =>
-    obtain ⟨hm₁, hf₁, hmin₁, htie₁⟩ := h₁
-    obtain ⟨hm₂, hf₂, hmin₂, htie₂⟩ := h₂
-    by_cases hne : y₁ = y₂
-    · exact hne
-    exfalso
-    have hdist : |x - (y₁ : ℝ)| = |x - (y₂ : ℝ)| :=
-      le_antisymm (hmin₁ y₂ hm₂ hf₂) (hmin₂ y₁ hm₁ hf₁)
-    have hodd : ¬ F.IsUndefined .toOdd := fun ⟨h1, h2, _⟩ => h ⟨h1, h2, Or.inr rfl⟩
-    set F'' := F.unbounded.toParityFormatOfToOdd hodd with hF''
-    -- Each is a tie for the other, so the tie-break makes both even.
-    have even₁ : F''.IsEven y₁ := by
-      obtain ⟨F', hF', hev⟩ := htie₁ ⟨y₂, hm₂, hf₂, Ne.symm hne, hdist⟩
-      exact (ParityFormat.IsEven_iff_of_toFormat_eq hF' y₁).mp hev
-    have even₂ : F''.IsEven y₂ := by
-      obtain ⟨F', hF', hev⟩ := htie₂ ⟨y₁, hm₁, hf₁, hne, hdist.symm⟩
-      exact (ParityFormat.IsEven_iff_of_toFormat_eq hF' y₂).mp hev
-    -- But the two neighbours alternate in parity, so they are not both even.
-    have key : ∀ {a b : Dyadic}, RoundsFinite F.unbounded .toNegative x a →
-        RoundsFinite F.unbounded .toPositive x b → a ≠ b →
-        |x - (a : ℝ)| = |x - (b : ℝ)| → F''.IsEven a → F''.IsEven b → False := by
-      intro a b hda hub hab hdist' heva hevb
-      obtain ⟨hxa, hx0⟩ := offGrid hda hub hab hdist'
-      exact ParityFormat.not_isEven_and_isOdd hevb
-        ((isOdd_alternate_of_bracketing (F := F.unbounded) hodd hx0 hda hub hxa).mpr
-          (fun hoa => ParityFormat.not_isEven_and_isOdd heva hoa))
-    rcases hf₁.opposite_sides_of_ne hf₂ hne with ⟨hd, hu⟩ | ⟨hd, hu⟩
-    · exact key hd hu hne hdist even₁ even₂
-    · exact key hd hu (Ne.symm hne) hdist.symm even₂ even₁
 
 
 end Mpfx

@@ -1,5 +1,6 @@
 import Mpfx.Rounding
 import Mpfx.CanonicalExp
+import Mpfx.Parity
 
 /-!
 # Round-predicate layer: uniqueness and faithfulness
@@ -14,10 +15,10 @@ Flocq's `Core/Round_pred.v`. Two families:
   `Zrnd_DN_or_UP` / `Rnd_N_pt_DN_or_UP`). Lets mode-generic arguments stop
   case-splitting on `rm`.
 
-Nothing here mentions the `rnd` construction; sign case splits go through
-`le_total` rather than `by_cases`. The uniqueness proofs for the parity-aware
-modes (`toOdd`, `nearest`) additionally need the grid-neighbour parity theory
-and so live in `Mpfx/RoundOp/` until Phase 8 of `ROUND_PRED_TODO.md`.
+Nothing here mentions the `rnd` construction: these are facts about what the
+spec *says*, not about what any particular implementation computes. The
+parity-aware modes draw on the alternation lemmas in `Mpfx/Parity.lean`, which
+are likewise construction-free.
 -/
 
 namespace Mpfx
@@ -187,5 +188,199 @@ theorem RoundsFinite.toPositive_eq_ceil (F : FiniteFormat) (x : ℝ) {y : Dyadic
     (hy : RoundsFinite F.unbounded .toPositive x y) :
     y = Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x) :=
   RoundsFinite.unique_toPositive hy (RoundsFinite.toPositive_ceil F x)
+
+/-! ### Uniqueness for RTO
+
+The spec's `IsFaithfulRound` conjunct says the result is the round-down or
+the round-up (`RoundsFinite.isFaithfulRound`, `Mpfx/RoundPred.lean`); the
+parity conjunct then rules out the mixed case, because adjacent grid points
+alternate in parity. Flocq argues the same way in `Round_odd.v`. -/
+
+/-- Parity alternation between the two grid neighbours of `x`, stated over
+the relational round-down/round-up specs rather than the `rndUnbounded`
+construction. -/
+theorem isOdd_alternate_of_bracketing {F : FiniteFormat} {x : ℝ}
+    (h : ¬ F.IsUndefined .toOdd) (hx_ne : x ≠ 0) {y y' : Dyadic}
+    (hy : RoundsFinite F.unbounded .toNegative x y)
+    (hy' : RoundsFinite F.unbounded .toPositive x y')
+    (hne : x ≠ (y : ℝ)) :
+    ((F.toParityFormatOfToOdd h).IsOdd y' ↔
+      ¬ (F.toParityFormatOfToOdd h).IsOdd y) := by
+  set e := F.canonicalExp x with he
+  set s := x * (2 : ℝ) ^ (-e) with hs
+  have hy_eq : y = Dyadic.ofIntZpow ⌊s⌋ e := RoundsFinite.toNegative_eq_floor F x hy
+  -- `x ≠ y` says exactly that `x` is off the grid, i.e. `⌊s⌋ ≠ s`.
+  have h_lo_ne_s : (⌊s⌋ : ℝ) ≠ s := by
+    intro hcon
+    exact hne (by rw [hy_eq, Dyadic.coe_ofIntZpow, hcon, hs, mul_zpow_neg_self])
+  -- Off the grid, the ceiling is the floor's successor.
+  have h_ceil : ⌈s⌉ = ⌊s⌋ + 1 :=
+    le_antisymm (Int.ceil_le_floor_add_one s)
+      (Int.lt_ceil.mpr (lt_of_le_of_ne (Int.floor_le s) h_lo_ne_s))
+  have hy'_eq : y' = Dyadic.ofIntZpow (⌊s⌋ + 1) e := by
+    rw [RoundsFinite.toPositive_eq_ceil F x hy', h_ceil]
+  rw [hy_eq, hy'_eq]
+  exact toOdd_neighbors_alternate x h hx_ne h_lo_ne_s
+
+/-- **RTO is unique.** Both witnesses are faithful, so each is the round-down
+or the round-up. Matching sides collapse by directed uniqueness; the mixed
+case needs both neighbours odd, which `isOdd_alternate_of_bracketing`
+forbids. -/
+theorem RoundsFinite.unique_toOdd {F : FiniteFormat} {x : ℝ}
+    (h : ¬ F.IsUndefined .toOdd) {y₁ y₂ : Dyadic}
+    (h₁ : RoundsFinite F.unbounded .toOdd x y₁)
+    (h₂ : RoundsFinite F.unbounded .toOdd x y₂) :
+    y₁ = y₂ := by
+  obtain ⟨-, hf₁, hp₁⟩ := h₁
+  obtain ⟨-, hf₂, hp₂⟩ := h₂
+  -- `a` rounds down, `b` rounds up. Symmetric, so proved once.
+  have mixed : ∀ {a b : Dyadic},
+      RoundsFinite F.unbounded .toNegative x a →
+      RoundsFinite F.unbounded .toPositive x b →
+      (x ≠ (a : ℝ) → ∃ F' : ParityFormat,
+        F'.toFormat = F.unbounded.toFormat ∧ F'.IsOdd a) →
+      (x ≠ (b : ℝ) → ∃ F' : ParityFormat,
+        F'.toFormat = F.unbounded.toFormat ∧ F'.IsOdd b) →
+      a = b := by
+    intro a b hda hub hpa hpb
+    obtain ⟨ha_mem, ha_le, ha_max⟩ := id hda
+    obtain ⟨hb_mem, hb_ge, hb_min⟩ := id hub
+    by_cases hxa : x = (a : ℝ)
+    · exact Dyadic.ext_real (le_antisymm (hxa ▸ hb_ge) (hb_min a ha_mem hxa.le))
+    by_cases hxb : x = (b : ℝ)
+    · exact Dyadic.ext_real (le_antisymm (hxb ▸ ha_le) (ha_max b hb_mem hxb.ge))
+    exfalso
+    -- `x = 0` would put `x` on the grid at `a`, already excluded.
+    have hx_ne : x ≠ 0 := by
+      intro hx0
+      refine hxa ?_
+      have h0a : (0 : ℝ) ≤ (a : ℝ) := by
+        simpa [hx0] using ha_max 0 (FiniteFormat.zero_mem F.unbounded) (by simp [hx0])
+      have ha0 : (a : ℝ) ≤ 0 := by rw [← hx0]; exact ha_le
+      rw [hx0]; linarith
+    obtain ⟨Fa, hFa, hFa_odd⟩ := hpa hxa
+    obtain ⟨Fb, hFb, hFb_odd⟩ := hpb hxb
+    exact (isOdd_alternate_of_bracketing (F := F.unbounded) h hx_ne hda hub hxa).mp
+      ((ParityFormat.IsOdd_iff_of_toFormat_eq hFb b).mp hFb_odd)
+      ((ParityFormat.IsOdd_iff_of_toFormat_eq hFa a).mp hFa_odd)
+  rcases isFaithfulRound_iff_directed.mp hf₁ with hd₁ | hu₁ <;>
+    rcases isFaithfulRound_iff_directed.mp hf₂ with hd₂ | hu₂
+  · exact RoundsFinite.unique_toNegative hd₁ hd₂
+  · exact mixed hd₁ hu₂ hp₁ hp₂
+  · exact (mixed hd₂ hu₁ hp₂ hp₁).symm
+  · exact RoundsFinite.unique_toPositive hu₁ hu₂
+
+/-! ### Uniqueness for the nearest modes
+
+Two nearest roundings of `x` are equidistant from it, so if they differ they
+sit on opposite sides (`IsFaithfulRound.opposite_sides_of_ne`) and the
+tie-break clause has to separate them. For `.toEven` it cannot: adjacent grid
+points alternate in parity, so they are not both even. For `.awayZero` equal
+magnitudes on opposite sides force `x = 0`, where both roundings are `0`.
+
+This mirrors Flocq's `Rnd_NG_pt_unique` (`Round_pred.v:707`), whose
+`Rnd_NG_pt_unique_prop` obligation is exactly the mixed case handled here. -/
+
+/-- **Nearest rounding is unique**, for either tie-break. -/
+theorem RoundsFinite.unique_nearest {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
+    (h : ¬ F.IsUndefined (.nearest tb)) {y₁ y₂ : Dyadic}
+    (h₁ : RoundsFinite F.unbounded (.nearest tb) x y₁)
+    (h₂ : RoundsFinite F.unbounded (.nearest tb) x y₂) :
+    y₁ = y₂ := by
+  -- A round-down and a round-up that are equidistant from `x` and distinct
+  -- put `x` strictly between them; in particular `x` is neither of them, and
+  -- `x ≠ 0` (at `0` both roundings are `0`).
+  have offGrid : ∀ {a b : Dyadic}, RoundsFinite F.unbounded .toNegative x a →
+      RoundsFinite F.unbounded .toPositive x b → a ≠ b →
+      |x - (a : ℝ)| = |x - (b : ℝ)| → x ≠ (a : ℝ) ∧ x ≠ 0 := by
+    intro a b hda hub hab hdist
+    have hxa : x ≠ (a : ℝ) := by
+      intro hx
+      have hzero : |x - (b : ℝ)| = 0 := by rw [← hdist, hx, sub_self, abs_zero]
+      exact hab (Dyadic.ext_real (hx.symm.trans (by linarith [abs_eq_zero.mp hzero])))
+    refine ⟨hxa, fun hx0 => hxa ?_⟩
+    have hda0 : RoundsFinite F.unbounded .toNegative 0 a := by rw [← hx0]; exact hda
+    rw [hx0, RoundsFinite.eq_zero_of_zero hda0, Dyadic.coe_real_zero]
+  cases tb with
+  | awayZero =>
+    obtain ⟨hm₁, hf₁, hmin₁, htie₁⟩ := h₁
+    obtain ⟨hm₂, hf₂, hmin₂, htie₂⟩ := h₂
+    by_cases hne : y₁ = y₂
+    · exact hne
+    exfalso
+    have hdist : |x - (y₁ : ℝ)| = |x - (y₂ : ℝ)| :=
+      le_antisymm (hmin₁ y₂ hm₂ hf₂) (hmin₂ y₁ hm₁ hf₁)
+    -- Each tie-break clause bounds the other's magnitude, so they are equal.
+    have habs : |(y₁ : ℝ)| = |(y₂ : ℝ)| :=
+      le_antisymm (htie₂ y₁ hm₁ hf₁ hne hdist.symm)
+        (htie₁ y₂ hm₂ hf₂ (Ne.symm hne) hdist)
+    -- Opposite sides with equal magnitudes: `a = -b`, and equidistance pins
+    -- `x = 0`, where both are `0` — contradicting `y₁ ≠ y₂`.
+    have key : ∀ {a b : Dyadic}, RoundsFinite F.unbounded .toNegative x a →
+        RoundsFinite F.unbounded .toPositive x b → a ≠ b →
+        |x - (a : ℝ)| = |x - (b : ℝ)| → |(a : ℝ)| = |(b : ℝ)| → False := by
+      intro a b hda hub hab hdist habs'
+      obtain ⟨hxa, hx0⟩ := offGrid hda hub hab hdist
+      refine hx0 ?_
+      have hle : (a : ℝ) ≤ x := hda.2.1
+      have hge : x ≤ (b : ℝ) := hub.2.1
+      -- `|a| = |b|` with `a ≠ b` forces `a = -b`, hence `a ≤ 0 ≤ b`.
+      have hneg : (a : ℝ) = -(b : ℝ) := by
+        rcases abs_eq_abs.mp habs' with hEq | hEq
+        · exact absurd (Dyadic.ext_real hEq) hab
+        · exact hEq
+      rw [hneg] at hle
+      -- Equidistance between `-b` and `b` puts `x` at their midpoint, `0`.
+      rw [hneg, abs_of_nonneg (by linarith : (0:ℝ) ≤ x - -(b : ℝ)),
+          abs_of_nonpos (by linarith : x - (b : ℝ) ≤ 0)] at hdist
+      linarith
+    rcases hf₁.opposite_sides_of_ne hf₂ hne with ⟨hd, hu⟩ | ⟨hd, hu⟩
+    · exact key hd hu hne hdist habs
+    · exact key hd hu (Ne.symm hne) hdist.symm habs.symm
+  | toEven =>
+    obtain ⟨hm₁, hf₁, hmin₁, htie₁⟩ := h₁
+    obtain ⟨hm₂, hf₂, hmin₂, htie₂⟩ := h₂
+    by_cases hne : y₁ = y₂
+    · exact hne
+    exfalso
+    have hdist : |x - (y₁ : ℝ)| = |x - (y₂ : ℝ)| :=
+      le_antisymm (hmin₁ y₂ hm₂ hf₂) (hmin₂ y₁ hm₁ hf₁)
+    have hodd : ¬ F.IsUndefined .toOdd := fun ⟨h1, h2, _⟩ => h ⟨h1, h2, Or.inr rfl⟩
+    set F'' := F.unbounded.toParityFormatOfToOdd hodd with hF''
+    -- Each is a tie for the other, so the tie-break makes both even.
+    have even₁ : F''.IsEven y₁ := by
+      obtain ⟨F', hF', hev⟩ := htie₁ ⟨y₂, hm₂, hf₂, Ne.symm hne, hdist⟩
+      exact (ParityFormat.IsEven_iff_of_toFormat_eq hF' y₁).mp hev
+    have even₂ : F''.IsEven y₂ := by
+      obtain ⟨F', hF', hev⟩ := htie₂ ⟨y₁, hm₁, hf₁, hne, hdist.symm⟩
+      exact (ParityFormat.IsEven_iff_of_toFormat_eq hF' y₂).mp hev
+    -- But the two neighbours alternate in parity, so they are not both even.
+    have key : ∀ {a b : Dyadic}, RoundsFinite F.unbounded .toNegative x a →
+        RoundsFinite F.unbounded .toPositive x b → a ≠ b →
+        |x - (a : ℝ)| = |x - (b : ℝ)| → F''.IsEven a → F''.IsEven b → False := by
+      intro a b hda hub hab hdist' heva hevb
+      obtain ⟨hxa, hx0⟩ := offGrid hda hub hab hdist'
+      exact ParityFormat.not_isEven_and_isOdd hevb
+        ((isOdd_alternate_of_bracketing (F := F.unbounded) hodd hx0 hda hub hxa).mpr
+          (fun hoa => ParityFormat.not_isEven_and_isOdd heva hoa))
+    rcases hf₁.opposite_sides_of_ne hf₂ hne with ⟨hd, hu⟩ | ⟨hd, hu⟩
+    · exact key hd hu hne hdist even₁ even₂
+    · exact key hd hu (Ne.symm hne) hdist.symm even₂ even₁
+
+/-- **The rounding spec pins its value**, for every mode — Flocq's
+`round_unique` (`Round_pred.v:89`). Purely relational: it never mentions the
+`rnd` construction, so it holds of whatever realises the spec. -/
+theorem RoundsFinite.unique {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
+    (h : ¬ F.IsUndefined rm) {y₁ y₂ : Dyadic}
+    (h₁ : RoundsFinite F.unbounded rm x y₁)
+    (h₂ : RoundsFinite F.unbounded rm x y₂) :
+    y₁ = y₂ := by
+  cases rm with
+  | toNegative => exact RoundsFinite.unique_toNegative h₁ h₂
+  | toPositive => exact RoundsFinite.unique_toPositive h₁ h₂
+  | toZero => exact RoundsFinite.unique_toZero h₁ h₂
+  | awayZero => exact RoundsFinite.unique_awayZero h₁ h₂
+  | toOdd => exact RoundsFinite.unique_toOdd h h₁ h₂
+  | nearest _ => exact RoundsFinite.unique_nearest h h₁ h₂
 
 end Mpfx

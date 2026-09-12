@@ -310,15 +310,32 @@ Commit message: `Move the parity-alternation theory out of the function layer`
 
 ## Phase 8 — relational consequences come home
 
-- [ ] Move `isOdd_alternate_of_bracketing`, `RoundsFinite.unique_toOdd`,
+- [x] Move `isOdd_alternate_of_bracketing`, `RoundsFinite.unique_toOdd`,
       `RoundsFinite.unique_nearest` and `RoundsFinite.unique` into
       `Mpfx/RoundPred.lean`.
-- [ ] `RoundOp.lean` keeps only `rndUnbounded_satisfies`,
+- [x] `RoundOp.lean` keeps only `rndUnbounded_satisfies`,
       `rndUnbounded_unique` and `rnd_iff_rounds`.
 
 Extra acceptance: every theorem left under `Mpfx/RoundOp/` mentions `rnd`,
 `rndUnbounded`, `rndInt` or `rndParity` in its statement. `RoundPred.lean`
 still imports nothing from `Mpfx/RoundOp/`.
+
+**Done.** 199 insertions, 200 deletions — a pure move. `RoundPred.lean` 386
+lines, importing `Rounding` + `CanonicalExp` + `Parity` and nothing from
+`RoundOp/`. Sizes after Track B: `RoundOp.lean` 149, `Defs` 108, `Directed` 156,
+`ToOdd` 139, `Nearest` 413.
+
+**One documented exception to the acceptance criterion.**
+`nearest_neighbors_setup` (`Nearest.lean:24`, private) is construction-free but
+stays put. Several of its thirteen conjuncts are now redundant against the
+relational layer — the two rounding directions are
+`RoundsFinite.toNegative_floor` / `toPositive_ceil`, the dichotomy is
+`isFaithfulRound_iff_directed` composed with the `_eq_floor` / `_eq_ceil`
+bridges — so moving the bundle wholesale would carry that redundancy into the
+clean file. Slimming it first is proof work, not a move.
+
+- [ ] **Follow-up:** slim `nearest_neighbors_setup` against the relational
+      lemmas, then move what remains out of `RoundOp/`.
 
 Commit message: `Move the relational uniqueness theorems into RoundPred`
 

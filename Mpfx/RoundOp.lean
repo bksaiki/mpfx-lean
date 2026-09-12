@@ -31,22 +31,6 @@ theorem rndUnbounded_satisfies (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
   | nearest tb => exact rndUnbounded_satisfies_nearest F tb x h
 
 
-/-- **The rounding spec pins its value**, for every mode — Flocq's
-`round_unique` (`Round_pred.v:89`). Purely relational: it never mentions the
-`rnd` construction, so it holds of whatever realises the spec. -/
-theorem RoundsFinite.unique {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
-    (h : ¬ F.IsUndefined rm) {y₁ y₂ : Dyadic}
-    (h₁ : RoundsFinite F.unbounded rm x y₁)
-    (h₂ : RoundsFinite F.unbounded rm x y₂) :
-    y₁ = y₂ := by
-  cases rm with
-  | toNegative => exact RoundsFinite.unique_toNegative h₁ h₂
-  | toPositive => exact RoundsFinite.unique_toPositive h₁ h₂
-  | toZero => exact RoundsFinite.unique_toZero h₁ h₂
-  | awayZero => exact RoundsFinite.unique_awayZero h₁ h₂
-  | toOdd => exact RoundsFinite.unique_toOdd h h₁ h₂
-  | nearest _ => exact RoundsFinite.unique_nearest h h₁ h₂
-
 /-- Uniqueness against the construction: any `y` satisfying the unbounded
 rounding spec equals `rndUnbounded F rm x h`. -/
 theorem rndUnbounded_unique (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
