@@ -287,7 +287,7 @@ Roux's `hquant` (`cexp₂ v ≤ cexp₁ v − p₁`, i.e. `p₂ ≥ 2p₁`). `ro
 reduces to the near-midpoint case, which splits: `v = m` is handled exactly by
 `midp_mem_F₂` (even radix), and `v ≠ m` is impossible by `round_round_div_aux`. -/
 private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {a b v : ℝ} {p₁ p₂ : ℕ}
-    (hp₂ : F₂.p = (p₂ : Prec))
+    (hp₁pos : 0 < p₁) (hp₂ : F₂.p = (p₂ : Prec))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
     (ha : 0 < a) (hb : 0 < b) (hab : a = v * b)
     (hxrep : ∃ mx : ℤ, a = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp a))
@@ -304,7 +304,7 @@ private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} 
     rcases mul_pos_iff.mp (hab ▸ ha) with ⟨h, _⟩ | ⟨_, h⟩
     · exact h
     · linarith [hb]
-  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast hp₁pos
   have h21 : F₂.canonicalExp v < F₁.canonicalExp v := by omega
   refine round_round_mid_cases hundef₁ hv_pos h21 hle hz hw (fun hmid_le => ?_)
   by_cases heqmid : v = midp F₁ v
@@ -336,7 +336,7 @@ private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
   have hv_pos : 0 < v := div_pos hapos hbpos
   have hab : (a : ℝ) = v * (b : ℝ) := by rw [hv_def]; exact (div_mul_cancel₀ (a : ℝ) hbne).symm
   have hppZ : 2 * (p₁ : ℤ) ≤ (p₂ : ℤ) := by exact_mod_cast hpp
-  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   -- FLX closed forms
   have hcv : F₁.canonicalExp v = Int.log 2 v + 1 - (p₁ : ℤ) := by
     rw [canonicalExp_FLX hp₁ hexp₁ (ne_of_gt hv_pos), abs_of_pos hv_pos]
@@ -348,7 +348,7 @@ private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
     rw [canonicalExp_FLX hp₂ hexp₂ (ne_of_gt hv_pos), abs_of_pos hv_pos]
   have hlog := log_div_bounds hapos hbpos
   rw [← hv_def] at hlog
-  refine rndDiv_core (p₁ := p₁) hp₂ hundef₁ hapos hbpos hab ?_ ?_ ?_ ?_ ?_ ?_ hz hw
+  refine rndDiv_core (p₁ := p₁) (F₁.p_pos hp₁) hp₂ hundef₁ hapos hbpos hab ?_ ?_ ?_ ?_ ?_ ?_ hz hw
   · obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ ha hapos; exact ⟨c, hc⟩
   · obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ hb hbpos; exact ⟨c, hc⟩
   · rw [hcv2, hca]; omega
@@ -383,7 +383,7 @@ private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : 
   have hv_pos : 0 < v := div_pos hapos hbpos
   have hab : (a : ℝ) = v * (b : ℝ) := by rw [hv_def]; exact (div_mul_cancel₀ (a : ℝ) hbne).symm
   have hppZ : 2 * (p₁ : ℤ) ≤ (p₂ : ℤ) := by exact_mod_cast hpp
-  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   have hlogpair := log_div_bounds hapos hbpos
   rw [← hv_def] at hlogpair
   obtain ⟨hlog1, hlog2⟩ := hlogpair
@@ -401,7 +401,8 @@ private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : 
   have h2 : Int.log 2 v + 1 - (p₁ : ℤ) ≤ F₁.canonicalExp v := by rw [hcv]; exact le_max_left _ _
   have hquant : F₂.canonicalExp v ≤ F₁.canonicalExp v - (p₁ : ℤ) := by
     rw [hcv2]; exact max_le (by omega) (by omega)
-  refine rndDiv_core (p₁ := p₁) hp₂ hundef₁ hapos hbpos hab ?_ ?_ ?_ ?_ hle hquant hz hw
+  refine rndDiv_core (p₁ := p₁) (F₁.p_pos hp₁) hp₂ hundef₁ hapos hbpos hab
+    ?_ ?_ ?_ ?_ hle hquant hz hw
   · obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ ha hapos; exact ⟨c, hc⟩
   · obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ hb hbpos; exact ⟨c, hc⟩
   · omega
@@ -433,7 +434,7 @@ private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBrea
   have hne : (2 : ℝ) ≠ 0 := by norm_num
   have hbne : (b : ℝ) ≠ 0 := ne_of_gt hbpos
   have hv_pos : 0 < v := div_pos hapos hbpos
-  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   have hppZ : 2 * (p₁ : ℤ) ≤ (p₂ : ℤ) := by exact_mod_cast hpp
   by_cases hle : F₁.canonicalExp v ≤ Int.log 2 v + 1
   · exact rndDiv_pos_normal_FLT hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ ha hb hapos hbpos hle hz hw

@@ -207,7 +207,7 @@ private theorem exp_bot_of_subset {F₁ F₂ : FiniteFormat}
       | coe p₁ =>
         rw [Dyadic.precisionAtMost_coe]
         refine ⟨1, k, by rw [hw_q]; push_cast; ring, ?_⟩
-        have hp_pos : 1 ≤ (p₁ : ℕ) := p₁.pos
+        have hp_pos : 1 ≤ (p₁ : ℕ) := F₁.p_pos hp₁
         have : (2 : ℤ) ^ 1 ≤ (2 : ℤ) ^ (p₁ : ℕ) :=
           pow_le_pow_right₀ (by norm_num) hp_pos
         simp only [abs_one]
@@ -438,21 +438,18 @@ private theorem toOdd_notMem_of_lower_numDigits {F₁ F₂ : FiniteFormat}
   have hn_pos : 1 ≤ n := by
     have : (1 : ℤ) ≤ (n : ℤ) := by rw [hn_eq]; exact h_F₁_ge_1
     exact_mod_cast this
-  set w : ℕ := ⟨n, hn_pos⟩ with hw_def
-  have hw_val : ((w : ℕ) : ℕ) = n := rfl
   obtain ⟨c, e, hz_rep_real, hc_bound⟩ :=
     F₁.mem_imp_precisionAtMost_numDigits hzF₁ hz_ne_real
-  have hc_bound_w : |c| < (2 : ℤ) ^ ((w : ℕ) : ℕ) := by rw [hw_val]; exact hc_bound
-  have h_prec : Dyadic.precisionAtMost (w : Prec) z := by
+  have h_prec : Dyadic.precisionAtMost (n : Prec) z := by
     rw [Dyadic.precisionAtMost_coe_real]
-    exact ⟨c, e, hz_rep_real, hc_bound_w⟩
+    exact ⟨c, e, hz_rep_real, hc_bound⟩
   -- `numDigits F₂' z = numDigits F₂ z` (same underlying format), and it exceeds `w`.
   have hF₂'_nd : F₂'.toFiniteFormat.numDigits (z : ℝ) = F₂.numDigits (z : ℝ) := by
     unfold FiniteFormat.numDigits
     rw [show F₂'.toFiniteFormat.toFormat = F₂'.toFormat from rfl, hF₂'eq]
-  have hgt : (((w : ℕ) : ℕ) : ℤ) < F₂'.toFiniteFormat.numDigits (z : ℝ) := by
-    rw [hF₂'_nd, hw_val, hn_eq]; exact hlt
-  exact F₂'.precisionAtMost_not_IsOdd hgt h_prec hodd
+  have hgt : ((n : ℕ) : ℤ) < F₂'.toFiniteFormat.numDigits (z : ℝ) := by
+    rw [hF₂'_nd, hn_eq]; exact hlt
+  exact F₂'.precisionAtMost_not_IsOdd hn_pos hgt h_prec hodd
 
 /-- **Lemma 5.3, paper form (simpler hypothesis).** From `F₁.extend 1 ⊆ F₂`,
 `2 ≤ F₂.p`, and an RTO rounding `z` of `x` in `F₂` with `x ≠ z`, conclude
@@ -492,7 +489,6 @@ private theorem toOdd_notMem_of_extend_subset {F₁ F₂ : FiniteFormat}
   rw [hF₂'_nd] at h_eq
   -- `numDigits F₁ z + 1 = numDigits F₂ z`, so the strict inequality holds.
   have hlt : F₁.numDigits (z : ℝ) < F₂.numDigits (z : ℝ) := by
-    have h1 : (1 : ℤ) ≤ ((1 : ℕ) : ℤ) := by exact_mod_cast (1 : ℕ).one_le
     omega
   exact (toOdd_notMem_of_lower_numDigits hF₂'eq hF₂'odd hlt) hzF₁
 
@@ -512,11 +508,8 @@ private theorem extend_one_extend_one_p_exp (F : FiniteFormat) :
     ((F.extend 1).extend 1).p = (F.extend 2).p ∧
     ((F.extend 1).extend 1).exp = (F.extend 2).exp := by
   refine ⟨?_, ?_⟩
-  · change (F.p.map (· + (1 : ℕ))).map (· + (1 : ℕ)) = F.p.map (· + (2 : ℕ))
-    cases hF : F.p using Prec.recTopCoe with
-    | top => rfl
-    | coe n => rw [WithTop.map_coe, WithTop.map_coe, WithTop.map_coe,
-        show n + 1 + 1 = n + 2 from PNat.coe_injective (by push_cast; ring)]
+  · change F.p + ((1 : ℕ) : Prec) + ((1 : ℕ) : Prec) = F.p + ((2 : ℕ) : Prec)
+    rw [add_assoc]; norm_num
   · change (F.exp.map (· - (1 : ℤ))).map (· - (1 : ℤ)) = F.exp.map (· - (2 : ℤ))
     cases hF : F.exp with
     | bot => rfl
@@ -580,16 +573,12 @@ private theorem hp_F₂_or_F₁_trivial_extend {F₁ F₂ : FiniteFormat}
   -- F₁⁺.p = F₁.p + 1 ≥ 2 since F₁.p ≥ 1 (ℕ values are ≥ 1).
   have h_F₁ext_p_ge_2 :
       ((2 : ℕ) : Prec) ≤ (F₁.extend 1).p := by
-    change ((2 : ℕ) : Prec) ≤ F₁.p.map (· + (1 : ℕ))
+    change ((2 : ℕ) : Prec) ≤ F₁.p + ((1 : ℕ) : Prec)
     cases hp : F₁.p using Prec.recTopCoe with
     | top => simp
     | coe n =>
-      rw [WithTop.map_coe]
-      refine WithTop.coe_le_coe.mpr ?_
-      have : (1 : ℕ) ≤ (n : ℕ) := n.one_le
-      change (2 : ℕ) ≤ n + 1
-      have h2 : ((2 : ℕ) : ℕ) ≤ ((n + 1 : ℕ) : ℕ) := by push_cast; omega
-      exact_mod_cast h2
+      rw [← Nat.cast_add]
+      exact_mod_cast Nat.succ_le_succ (F₁.p_pos hp)
   -- Reduce to producing a precision-2 witness.
   suffices h_witness : ∃ v : Dyadic,
       v ∈ ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ∧
@@ -2811,7 +2800,7 @@ private theorem eq_zero_of_toZero_zero {F₁ : FiniteFormat} (hexp : F₁.exp = 
   have hg_mem : Dyadic.ofIntZpow 1 K ∈ F₁.unbounded := by
     refine ⟨?_, ?_, trivial⟩
     · change Dyadic.precisionAtMost F₁.p _
-      exact precisionAtMost_one_zpow K
+      exact precisionAtMost_one_zpow F₁.pos K
     · change Dyadic.quantumAtLeast F₁.exp _
       rw [hexp]
       trivial
@@ -2846,7 +2835,7 @@ private theorem eq_zero_of_faithful_zero {F₁ : FiniteFormat} (hexp : F₁.exp 
   have hg_mem : Dyadic.ofIntZpow 1 K ∈ F₁.unbounded := by
     refine ⟨?_, ?_, trivial⟩
     · change Dyadic.precisionAtMost F₁.p _
-      exact precisionAtMost_one_zpow K
+      exact precisionAtMost_one_zpow F₁.pos K
     · change Dyadic.quantumAtLeast F₁.exp _
       rw [hexp]
       trivial
@@ -2970,7 +2959,7 @@ private theorem grid_floor_setup {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
     have hg_mem : Dyadic.ofIntZpow 1 K ∈ F₁.unbounded := by
       refine ⟨?_, ?_, trivial⟩
       · change Dyadic.precisionAtMost F₁.p _
-        exact precisionAtMost_one_zpow K
+        exact precisionAtMost_one_zpow F₁.pos K
       · change Dyadic.quantumAtLeast F₁.exp _
         rw [hexp]
         trivial

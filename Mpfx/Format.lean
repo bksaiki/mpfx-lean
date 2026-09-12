@@ -170,7 +170,7 @@ instance : Membership Dyadic FiniteFormat := ⟨fun F d => d ∈ F.toFormat⟩
 namespace FiniteFormat
 
 /-- `F.pos` at a finite precision: the witness `p` in `F.p = ↑p` is positive.
-Stands in for `PNat.pos` wherever a proof case-splits `F.p`. -/
+Stands in for `ℕ+`'s old type-level positivity wherever a proof splits `F.p`. -/
 theorem p_pos {F : FiniteFormat} {p : ℕ} (hp : F.p = (p : Prec)) : 0 < p := by
   rcases Nat.eq_zero_or_pos p with rfl | h
   · exact absurd hp F.pos

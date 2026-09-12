@@ -138,7 +138,7 @@ private theorem toOdd_neighbors_alternate {F : FiniteFormat} (x : ℝ)
           have h_e_eq_log : e = Int.log 2 |x| := by
             change F.canonicalExp x = _
             unfold FiniteFormat.canonicalExp
-            simp only [hp_F, hexp_F, Nat.cast_id, Nat.cast_one]
+            simp only [hp_F, hexp_F, Nat.cast_one]
             rw [if_neg hx_ne]
             have h_max_eq : max (Int.log 2 |x| + 1 - 1) e'' =
                 Int.log 2 |x| + 1 - 1 := by

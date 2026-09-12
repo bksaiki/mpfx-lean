@@ -264,7 +264,7 @@ theorem rndSqrt_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
   · exact rndSqrt_zero hx0 hz hw
   have hs_pos : 0 < Real.sqrt (x : ℝ) := Real.sqrt_pos.mpr hxpos
   have habs : |Real.sqrt (x : ℝ)| = Real.sqrt (x : ℝ) := abs_of_pos hs_pos
-  have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   have hpp' : 2 * (p₁ : ℤ) + 2 ≤ (p₂ : ℤ) := by
     have : ((2 * p₁ + 2 : ℕ) : ℤ) ≤ ((p₂ : ℕ) : ℤ) := by exact_mod_cast hpp
     push_cast at this; omega
@@ -312,7 +312,7 @@ theorem rndSqrt_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
   · exact rndSqrt_zero hx0 hz hw
   have hs_pos : 0 < Real.sqrt (x : ℝ) := Real.sqrt_pos.mpr hxpos
   have habs : |Real.sqrt (x : ℝ)| = Real.sqrt (x : ℝ) := abs_of_pos hs_pos
-  have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   have hpp' : 2 * (p₁ : ℤ) + 2 ≤ (p₂ : ℤ) := by
     have : ((2 * p₁ + 2 : ℕ) : ℤ) ≤ ((p₂ : ℕ) : ℤ) := by exact_mod_cast hpp
     push_cast at this; omega

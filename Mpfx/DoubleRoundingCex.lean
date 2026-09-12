@@ -51,10 +51,11 @@ namespace Cex
 /-- The quantum target format `𝒜(p, e, ⊤)` with precision `p ≥ 2`, quantum `2^e`,
 unbounded magnitude. Built as a `ParityFormat`: both the `finite` and
 `parity` invariants hold because `exp = (e : ℤ) ≠ ⊥`. -/
-private def F₁_g (p : ℕ) (_hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ) : ParityFormat where
+private def F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ) : ParityFormat where
   toFiniteFormat :=
     { toFormat := { p := (p : Prec), exp := (e : WithBot ℤ), b := ⊤ }
-      finite := Or.inr WithBot.coe_ne_bot }
+      finite := Or.inr WithBot.coe_ne_bot
+      pos := by simp; omega }
   parity := Or.inr WithBot.coe_ne_bot
 
 @[simp] private theorem F₁_g_p (p : ℕ) (hp : 2 ≤ (p : ℕ)) (e : ℤ) :
@@ -489,7 +490,7 @@ private theorem p_ge2_of_y_lo_mem {F₂ : FiniteFormat} {e : ℤ}
   by_contra hq
   push Not at hq
   have h1 : (q₂ : ℕ) = 1 := by
-    have h2 : 1 ≤ (q₂ : ℕ) := q₂.one_le
+    have h2 : 1 ≤ (q₂ : ℕ) := F₂.p_pos hp
     omega
   rw [h1] at h
   norm_num at h
@@ -511,7 +512,7 @@ private theorem gap_below_pow (F₂ : FiniteFormat) {E : ℤ}
       · exact absurd hexp h
     obtain ⟨q₂, hq₂_eq⟩ := WithTop.ne_top_iff_exists.mp hp_ne
     have hp : F₂.p = (q₂ : Prec) := hq₂_eq.symm
-    have hq₂_one : 1 ≤ (q₂ : ℕ) := q₂.one_le
+    have hq₂_one : 1 ≤ (q₂ : ℕ) := F₂.p_pos hp
     refine ⟨E - (q₂ : ℕ), by omega, ?_⟩
     intro z hz hz_lt
     have h2K_le : (2 : ℝ)^(E - (q₂ : ℕ)) ≤ (2 : ℝ)^(E - 1) :=
@@ -570,7 +571,7 @@ private theorem gap_above_pow (F₂ : FiniteFormat) {E : ℤ}
       · exact absurd hexp h
     obtain ⟨q₂, hq₂_eq⟩ := WithTop.ne_top_iff_exists.mp hp_ne
     have hp : F₂.p = (q₂ : Prec) := hq₂_eq.symm
-    have hq₂_one : 1 ≤ (q₂ : ℕ) := q₂.one_le
+    have hq₂_one : 1 ≤ (q₂ : ℕ) := F₂.p_pos hp
     refine ⟨E - (q₂ : ℕ) + 1, by omega, ?_⟩
     intro z hz hz_gt
     have h2K_le : (2 : ℝ)^(E - (q₂ : ℕ) + 1) ≤ (2 : ℝ)^E :=
@@ -874,7 +875,7 @@ private theorem gap_around_mid3 (F₂ : FiniteFormat) {E : ℤ}
       · exact absurd hexp h
     obtain ⟨q₂, hq₂_eq⟩ := WithTop.ne_top_iff_exists.mp hp_ne
     have hp : F₂.p = (q₂ : Prec) := hq₂_eq.symm
-    have hq₂_one : 1 ≤ (q₂ : ℕ) := q₂.one_le
+    have hq₂_one : 1 ≤ (q₂ : ℕ) := F₂.p_pos hp
     refine ⟨E - (q₂ : ℕ) + 1, by omega, ?_, ?_⟩
     all_goals
       have h2K1_le : (2 : ℝ)^(E - (q₂ : ℕ) + 1 - 1) ≤ (2 : ℝ)^(E - 1) :=
@@ -1143,7 +1144,7 @@ private theorem notIsOdd_F₁_g_y_hi (p : ℕ) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : 
     have : ((p : ℕ) : ℤ) ≥ 2 := by exact_mod_cast hp_ge_2
     have h1 : ((1 : ℕ) : ℤ) = 1 := by decide
     rw [h1]; omega
-  exact (F₁_g p hp_ge_2 e).precisionAtMost_not_IsOdd h_gt h_prec
+  exact (F₁_g p hp_ge_2 e).precisionAtMost_not_IsOdd Nat.one_pos h_gt h_prec
 
 /-- `IsEven F₁_g y_lo_low_g`: at numDigits = 2, canonical significand is `2`. -/
 private theorem isEven_F₁_g_y_lo_low (p : ℕ) (hp_ge_2 : 2 ≤ (p : ℕ)) (e : ℤ) :
@@ -2162,8 +2163,8 @@ private noncomputable def quantumNeighborhood (p : ℕ) (hp_ge_2 : 2 ≤ (p : �
     (by
       have h_ext_p : ((F₁_g p hp_ge_2 e).toFiniteFormat.extend 1).p
           = (((p + 1 : ℕ)) : Prec) := by
-        change (F₁_g p hp_ge_2 e).p.map (· + (1 : ℕ)) = _
-        rw [F₁_g_p, WithTop.map_coe]
+        change (F₁_g p hp_ge_2 e).p + ((1 : ℕ) : Prec) = _
+        rw [F₁_g_p, ← Nat.cast_add]
       have h_pp1_cast : (((p + 1 : ℕ)) : ℕ) = (p : ℕ) + 1 := by exact_mod_cast rfl
       refine ⟨?_, ?_, trivial⟩
       · rw [h_ext_p, Dyadic.precisionAtMost_coe_real]
@@ -2190,7 +2191,8 @@ trivial, and parity reads the full integer coefficient
 private def F₁t_g (e : ℤ) : ParityFormat where
   toFiniteFormat :=
     { toFormat := { p := ⊤, exp := ((e : ℤ) : WithBot ℤ), b := ⊤ }
-      finite := Or.inr WithBot.coe_ne_bot }
+      finite := Or.inr WithBot.coe_ne_bot
+      pos := by simp }
   parity := Or.inr WithBot.coe_ne_bot
 
 @[simp] private theorem F₁t_g_p (e : ℤ) : (F₁t_g e).p = ⊤ := rfl
@@ -2301,7 +2303,7 @@ private theorem notIsOdd_F₁t_g_y_hi (e : ℤ) : ¬ (F₁t_g e).IsOdd (y_hi_g e
     rw [F₁t_g_numDigits e (coe_y_hi_g e)]
     have h1 : ((1 : ℕ) : ℤ) = 1 := by decide
     rw [h1]; omega
-  exact (F₁t_g e).precisionAtMost_not_IsOdd h_gt h_prec
+  exact (F₁t_g e).precisionAtMost_not_IsOdd Nat.one_pos h_gt h_prec
 
 /-! ## The full-precision neighborhood
 
@@ -2336,7 +2338,8 @@ dispatch reduces to binade quantization at precision `q₂`. -/
 private def F₁f_g (q : ℕ) (hq_ge_2 : 2 ≤ (q : ℕ)) : ParityFormat where
   toFiniteFormat :=
     { toFormat := { p := (q : Prec), exp := ⊥, b := ⊤ }
-      finite := Or.inl WithTop.coe_ne_top }
+      finite := Or.inl WithTop.coe_ne_top
+      pos := by simp; omega }
   parity := Or.inl (by
     intro h
     have h' : (q : Prec) = ((1 : ℕ) : Prec) := h
@@ -2359,7 +2362,7 @@ private theorem mem_F₁f_g (q : ℕ) (hq : 2 ≤ (q : ℕ)) {v : Dyadic} (c k :
     (hv : (v : ℚ) = (c : ℚ) * (2 : ℚ) ^ k) (hc : |c| ≤ 2 ^ (q : ℕ)) :
     v ∈ (F₁f_g q hq).toFormat := by
   refine ⟨?_, trivial, trivial⟩
-  exact Dyadic.precisionAtMost_of_abs_le c k hv hc
+  exact Dyadic.precisionAtMost_of_abs_le (by omega) c k hv hc
 
 /-- `numDigits` of the floating format is constantly `q` on nonzero reals. -/
 private theorem F₁f_g_numDigits (q : ℕ) (hq : 2 ≤ (q : ℕ)) {x : ℝ}
@@ -2406,8 +2409,8 @@ private theorem fs_ge_2 (q : ℕ) (hq : 2 ≤ (q : ℕ)) : 2 ≤ fs q := by
   omega
 
 /-- `2s = 2^q`: the binade's upper significand boundary. -/
-private theorem two_fs (q : ℕ) : 2 * fs q = 2 ^ (q : ℕ) := by
-  have h1 : 1 ≤ (q : ℕ) := q.one_le
+private theorem two_fs (q : ℕ) (hq : 0 < q) : 2 * fs q = 2 ^ (q : ℕ) := by
+  have h1 : 1 ≤ (q : ℕ) := hq
   have h : (2 : ℤ) ^ (((q : ℕ) - 1) + 1) = 2 ^ ((q : ℕ) - 1) * 2 := pow_succ 2 _
   rw [show ((q : ℕ) - 1) + 1 = (q : ℕ) by omega] at h
   have hfs : fs q = 2 ^ ((q : ℕ) - 1) := rfl
@@ -2418,8 +2421,8 @@ private theorem fs_even (q : ℕ) (hq : 2 ≤ (q : ℕ)) : Even (fs q) := by
   rw [hfs]
   exact (Int.even_pow).mpr ⟨even_two, by omega⟩
 
-private theorem fs_lt (q : ℕ) : fs q < 2 ^ (q : ℕ) := by
-  have h1 := two_fs q
+private theorem fs_lt (q : ℕ) (hq : 0 < q) : fs q < 2 ^ (q : ℕ) := by
+  have h1 := two_fs q hq
   have h2 := fs_pos q
   omega
 
@@ -2453,7 +2456,7 @@ private theorem mem_flo2 (q : ℕ) (hq : 2 ≤ (q : ℕ)) (t : ℤ) :
     flo2 q t ∈ (F₁f_g q hq).toFormat :=
   mem_F₁f_g q hq (fs q) t (Dyadic.coe_rat_ofIntZpow (fs q) t) (by
     have h1 := fs_pos q
-    have h2 := two_fs q
+    have h2 := two_fs q (by omega)
     rw [abs_of_pos h1]
     omega)
 
@@ -2461,7 +2464,7 @@ private theorem mem_flo (q : ℕ) (hq : 2 ≤ (q : ℕ)) (t : ℤ) :
     flo q t ∈ (F₁f_g q hq).toFormat :=
   mem_F₁f_g q hq (fs q + 1) t (Dyadic.coe_rat_ofIntZpow (fs q + 1) t) (by
     have h1 := fs_ge_2 q hq
-    have h2 := two_fs q
+    have h2 := two_fs q (by omega)
     rw [abs_of_pos (by omega)]
     omega)
 
@@ -2469,7 +2472,7 @@ private theorem mem_fhi (q : ℕ) (hq : 2 ≤ (q : ℕ)) (t : ℤ) :
     fhi q t ∈ (F₁f_g q hq).toFormat :=
   mem_F₁f_g q hq (fs q + 2) t (Dyadic.coe_rat_ofIntZpow (fs q + 2) t) (by
     have h1 := fs_ge_2 q hq
-    have h2 := two_fs q
+    have h2 := two_fs q (by omega)
     rw [abs_of_pos (by omega)]
     omega)
 
@@ -2504,7 +2507,7 @@ private theorem even_flo2 (q : ℕ) (hq : 2 ≤ (q : ℕ)) (t : ℤ) :
   · rw [h_nd_toNat, abs_of_pos (fs_pos q)]
     exact le_refl _
   · rw [h_nd_toNat, abs_of_pos (fs_pos q)]
-    exact fs_lt q
+    exact fs_lt q (by omega)
   · rw [if_neg (F₁f_g_p_ne_1 q hq)]
     exact fs_even q hq
 
@@ -2537,7 +2540,7 @@ private theorem even_fhi (q : ℕ) (hq : 2 ≤ (q : ℕ)) (t : ℤ) :
     · rw [if_neg (F₁f_g_p_ne_1 q hq)]; decide
   · -- `q ≥ 3`: canonical significand `2^(q−1)+2` directly.
     have hfs : fs q = 2 ^ ((q : ℕ) - 1) := rfl
-    have h2fs := two_fs q
+    have h2fs := two_fs q (by omega)
     have h4fs : 4 ≤ fs q := by
       have h4 : (2 : ℤ) ^ 2 ≤ 2 ^ ((q : ℕ) - 1) :=
         pow_le_pow_right₀ (by norm_num) (by omega)
@@ -2564,13 +2567,12 @@ private theorem not_odd_fhi (q : ℕ) (hq : 2 ≤ (q : ℕ)) (t : ℤ) :
       rw [show (q : ℕ) - 1 = ((q : ℕ) - 2) + 1 by omega, pow_succ]
       ring
     omega
-  have h_gt : (((⟨(q : ℕ) - 1, h_w_pos⟩ : ℕ) : ℕ) : ℤ)
+  have h_gt : (((q : ℕ) - 1 : ℕ) : ℤ)
       < (F₁f_g q hq).toFiniteFormat.numDigits ((fhi q t : Dyadic) : ℝ) := by
     rw [F₁f_g_numDigits q hq h_ne]
-    have hw : ((⟨(q : ℕ) - 1, h_w_pos⟩ : ℕ) : ℕ) = (q : ℕ) - 1 := rfl
     omega
-  refine (F₁f_g q hq).precisionAtMost_not_IsOdd h_gt ?_
-  refine Dyadic.precisionAtMost_of_abs_le (2 ^ ((q : ℕ) - 2) + 1) (t + 1) ?_ ?_
+  refine (F₁f_g q hq).precisionAtMost_not_IsOdd h_w_pos h_gt ?_
+  refine Dyadic.precisionAtMost_of_abs_le (by omega) (2 ^ ((q : ℕ) - 2) + 1) (t + 1) ?_ ?_
   · change ((Dyadic.ofIntZpow (fs q + 2) t : Dyadic) : ℚ) = _
     rw [Dyadic.coe_rat_ofIntZpow, hcoef,
         show (2 : ℚ) ^ (t + 1) = 2 * (2 : ℚ) ^ t from by
@@ -2744,7 +2746,7 @@ private theorem float_gap (F₂ : FiniteFormat) {q₂ : ℕ}
     (∀ z ∈ F₂.toFormat, (a : ℝ) * (2 : ℝ) ^ J < ((z : Dyadic) : ℝ) →
       (a : ℝ) * (2 : ℝ) ^ J + (2 : ℝ) ^ J ≤ ((z : Dyadic) : ℝ)) := by
   have h2J_pos : (0 : ℝ) < (2 : ℝ) ^ J := zpow_pos (by norm_num) _
-  have hq2_1 : 1 ≤ (q₂ : ℕ) := q₂.one_le
+  have hq2_1 : 1 ≤ (q₂ : ℕ) := F₂.p_pos hp
   have hE : (2 : ℝ) ^ (J + ((q₂ : ℕ) : ℤ))
       = (((2 : ℤ) ^ (q₂ : ℕ) : ℤ) : ℝ) * (2 : ℝ) ^ J := by
     have h := two_zpow_split (J + ((q₂ : ℕ) : ℤ)) J (by omega)
@@ -2943,14 +2945,14 @@ private noncomputable def floatingNeighborhood (q : ℕ) (hq : 2 ≤ (q : ℕ)) 
     have h_qq1_cast : (((q + 1 : ℕ)) : ℕ) = (q : ℕ) + 1 := by exact_mod_cast rfl
     have h_ext_p : ((F₁f_g q hq).toFiniteFormat.extend 1).p
         = (((q + 1 : ℕ)) : Prec) := by
-      change (F₁f_g q hq).p.map (· + (1 : ℕ)) = _
-      rw [F₁f_g_p, WithTop.map_coe]
+      change (F₁f_g q hq).p + ((1 : ℕ) : Prec) = _
+      rw [F₁f_g_p, ← Nat.cast_add]
     refine ⟨?_, ?_, trivial⟩
     · rw [h_ext_p, Dyadic.precisionAtMost_coe_real]
       refine ⟨2 * fs q + 3, t - 1, ?_, ?_⟩
       · rw [coe_fmid]; push_cast; ring
       · rw [h_qq1_cast]
-        have h2fs := two_fs q
+        have h2fs := two_fs q (by omega)
         have hfs2 := fs_ge_2 q hq
         have hpow1 : (2 : ℤ) ^ ((q : ℕ) + 1) = 2 * 2 ^ (q : ℕ) := by
           rw [pow_succ]; ring
@@ -2962,7 +2964,7 @@ private noncomputable def floatingNeighborhood (q : ℕ) (hq : 2 ≤ (q : ℕ)) 
     intro F₂ hsub
     obtain ⟨q₂, hp, hq_le, _⟩ := float_sub_data q hq F₂ hsub
     have hfs : fs q = 2 ^ ((q : ℕ) - 1) := rfl
-    have h2fs := two_fs q
+    have h2fs := two_fs q (by omega)
     have hfs2 := fs_ge_2 q hq
     have hpow : (2 : ℤ) ^ (((q : ℕ) - 1) + 1) = 2 ^ (q : ℕ) := by
       rw [show ((q : ℕ) - 1) + 1 = (q : ℕ) by omega]
@@ -2979,7 +2981,7 @@ private noncomputable def floatingNeighborhood (q : ℕ) (hq : 2 ≤ (q : ℕ)) 
     intro F₂ hsub
     obtain ⟨q₂, hp, hq_le, _⟩ := float_sub_data q hq F₂ hsub
     have hfs : fs q = 2 ^ ((q : ℕ) - 1) := rfl
-    have h2fs := two_fs q
+    have h2fs := two_fs q (by omega)
     have hfs2 := fs_ge_2 q hq
     have hpow : (2 : ℤ) ^ (((q : ℕ) - 1) + 1) = 2 ^ (q : ℕ) := by
       rw [show ((q : ℕ) - 1) + 1 = (q : ℕ) by omega]
@@ -2995,7 +2997,7 @@ private noncomputable def floatingNeighborhood (q : ℕ) (hq : 2 ≤ (q : ℕ)) 
   f2_mid_lo := by
     intro F₂ hsub
     obtain ⟨q₂, hp, hq_le, _⟩ := float_sub_data q hq F₂ hsub
-    have h2fs := two_fs q
+    have h2fs := two_fs q (by omega)
     have hfs2 := fs_ge_2 q hq
     have hpow1 : (2 : ℤ) ^ ((q : ℕ) + 1) = 2 * 2 ^ (q : ℕ) := by
       rw [pow_succ]; ring
@@ -3016,7 +3018,7 @@ private noncomputable def floatingNeighborhood (q : ℕ) (hq : 2 ≤ (q : ℕ)) 
   f2_mid_hi := by
     intro F₂ hsub
     obtain ⟨q₂, hp, hq_le, _⟩ := float_sub_data q hq F₂ hsub
-    have h2fs := two_fs q
+    have h2fs := two_fs q (by omega)
     have hfs2 := fs_ge_2 q hq
     have hpow1 : (2 : ℤ) ^ ((q : ℕ) + 1) = 2 * 2 ^ (q : ℕ) := by
       rw [pow_succ]; ring
@@ -3053,7 +3055,7 @@ private noncomputable def floatingNeighborhood (q : ℕ) (hq : 2 ≤ (q : ℕ)) 
         · exact absurd hexp_bot h
       obtain ⟨q₂, hq₂⟩ := WithTop.ne_top_iff_exists.mp hp_ne
       have hp : F₂.p = (q₂ : Prec) := hq₂.symm
-      have h2fs := two_fs q
+      have h2fs := two_fs q (by omega)
       have hfs2 := fs_ge_2 q hq
       have h_lt := coeff_lt_of_odd_mem hp h_odd (by omega) hmem h_mid_real
       have hq_lt : (q : ℕ) < (q₂ : ℕ) := by
@@ -3113,7 +3115,8 @@ dispatch. -/
 private def F₁p_g (e : ℤ) : ParityFormat where
   toFiniteFormat :=
     { toFormat := { p := ((1 : ℕ) : Prec), exp := ((e : ℤ) : WithBot ℤ), b := ⊤ }
-      finite := Or.inr WithBot.coe_ne_bot }
+      finite := Or.inr WithBot.coe_ne_bot
+      pos := by simp }
   parity := Or.inr WithBot.coe_ne_bot
 
 @[simp] private theorem F₁p_g_p (e : ℤ) : (F₁p_g e).p = ((1 : ℕ) : Prec) := rfl
@@ -3146,7 +3149,7 @@ private theorem F₁p_g_pow (e : ℤ) {v : Dyadic} (hv : v ∈ (F₁p_g e).toFor
   have hprec : Dyadic.precisionAtMost ((1 : ℕ) : Prec) v := hv.1
   rw [Dyadic.precisionAtMost_coe_real] at hprec
   obtain ⟨c, k, hck, hc_lt⟩ := hprec
-  simp only [PNat.one_coe, pow_one] at hc_lt
+  simp only [pow_one] at hc_lt
   have h2k_pos : (0 : ℝ) < (2 : ℝ)^k := zpow_pos (by norm_num) _
   have hc_pos : 0 < c := by
     rcases lt_trichotomy c 0 with h | h | h
@@ -3186,7 +3189,7 @@ private theorem F₁p_g_numDigits_pow (e : ℤ) {j : ℤ} (hj : e ≤ j) :
   have h_log : Int.log 2 |((Dyadic.ofIntZpow 1 j : Dyadic) : ℝ)| = j := by
     rw [h_real, abs_of_pos h_pos]; exact two_zpow_log j
   rw [(F₁p_g e).toFiniteFormat.numDigits_coe_coe h_ne (F₁p_g_p e) (F₁p_g_exp e), h_log]
-  simp only [PNat.one_coe, Nat.cast_one]
+  simp only [Nat.cast_one]
   omega
 
 /-- `IsEven` of `2^j` (`j ≥ e`) when `j − e + 1` is even (exponent parity). -/
@@ -3344,8 +3347,8 @@ private noncomputable def powerOfTwoNeighborhood (e : ℤ) :
   mid_mem_ext1 := by
     have h_ext_p : ((F₁p_g e).toFiniteFormat.extend 1).p
         = (((1 + 1 : ℕ)) : Prec) := by
-      change (F₁p_g e).p.map (· + (1 : ℕ)) = _
-      rw [F₁p_g_p, WithTop.map_coe]
+      change (F₁p_g e).p + ((1 : ℕ) : Prec) = _
+      rw [F₁p_g_p, ← Nat.cast_add]
     refine ⟨?_, ?_, trivial⟩
     · rw [h_ext_p, Dyadic.precisionAtMost_coe_real]
       refine ⟨3, e + 1, ?_, ?_⟩
@@ -3509,8 +3512,7 @@ private noncomputable def neighborhoodOf (F₁ : ParityFormat) (hb : F₁.b = �
           exact powerOfTwoNeighborhood e
     else
       have hp_ge_2 : 2 ≤ (p₁ : ℕ) := by
-        have h2 : (p₁ : ℕ) ≠ 1 := fun h => hp1 (PNat.coe_injective (by simpa using h))
-        have h3 : 1 ≤ (p₁ : ℕ) := p₁.one_le
+        have h3 : 0 < p₁ := F₁.p_pos hP
         omega
       match hexp : F₁.exp with
       | none => by

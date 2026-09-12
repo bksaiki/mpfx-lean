@@ -110,13 +110,13 @@ private theorem add_sub_mantissa_setup {F₁ : FiniteFormat} {p₁ : ℕ}
 
 /-- Common arithmetic tail: `2^(2p₁+1) = 2·A·A` (with `A = 2^p₁`) and the cast
 `((2p₁+1 : ℕ) : ℕ) = 2p₁+1`, used to package both precision bounds. -/
-private theorem two_pow_two_p_split (p₁ : ℕ) :
+private theorem two_pow_two_p_split {p₁ : ℕ} (hp : 0 < p₁) :
     (2 : ℤ) ≤ (2 : ℤ) ^ (p₁ : ℕ) ∧
     (2 : ℤ) ^ (2 * (p₁ : ℕ) + 1) = 2 * (2 : ℤ) ^ (p₁ : ℕ) * (2 : ℤ) ^ (p₁ : ℕ) ∧
     ((2 * p₁ + 1 : ℕ) : ℕ) = 2 * (p₁ : ℕ) + 1 := by
   refine ⟨?_, ?_, by push_cast; ring⟩
   · calc (2 : ℤ) = 2 ^ 1 := by norm_num
-      _ ≤ 2 ^ (p₁ : ℕ) := pow_le_pow_right₀ (by norm_num) p₁.one_le
+      _ ≤ 2 ^ (p₁ : ℕ) := pow_le_pow_right₀ (by norm_num) hp
   · rw [show 2 * (p₁ : ℕ) + 1 = (p₁ : ℕ) + ((p₁ : ℕ) + 1) from by ring, pow_add, pow_succ]; ring
 
 /-- **Case 1 precision bound** (Roux Theorem 20, the exact-intermediate case).
@@ -133,7 +133,7 @@ private theorem sum_precisionAtMost {F₁ : FiniteFormat} {p₁ : ℕ}
   obtain ⟨cx, cy, n, hcx_pos, hcy_pos, hcx_le, hcy_le, h2n_le, hx_rep, hy_rep⟩ :=
     add_sub_mantissa_setup hp₁ hx hy hxpos hypos hyx hgap
   set ey := F₁.canonicalExp (y : ℝ) with hey
-  obtain ⟨hAge, h2A2, hpcast⟩ := two_pow_two_p_split p₁
+  obtain ⟨hAge, h2A2, hpcast⟩ := two_pow_two_p_split (F₁.p_pos hp₁)
   set C : ℤ := cx * (2 : ℤ) ^ n + cy with hC
   have hxy_eq : ((x + y : Dyadic) : ℝ) = (C : ℝ) * (2 : ℝ) ^ ey := by
     rw [Dyadic.coe_real_add, hx_rep, hy_rep, hC]; push_cast; ring
@@ -163,7 +163,7 @@ private theorem diff_precisionAtMost {F₁ : FiniteFormat} {p₁ : ℕ}
   obtain ⟨cx, cy, n, hcx_pos, hcy_pos, hcx_le, hcy_le, h2n_le, hx_rep, hy_rep⟩ :=
     add_sub_mantissa_setup hp₁ hx hy hxpos hypos hyx hgap
   set ey := F₁.canonicalExp (y : ℝ) with hey
-  obtain ⟨hAge, h2A2, hpcast⟩ := two_pow_two_p_split p₁
+  obtain ⟨hAge, h2A2, hpcast⟩ := two_pow_two_p_split (F₁.p_pos hp₁)
   set C : ℤ := cx * (2 : ℤ) ^ n - cy with hC
   have hxy_eq : ((x - y : Dyadic) : ℝ) = (C : ℝ) * (2 : ℝ) ^ ey := by
     have hsub : ((x - y : Dyadic) : ℝ) = (x : ℝ) - (y : ℝ) := by push_cast; ring
@@ -187,14 +187,14 @@ private theorem diff_precisionAtMost {F₁ : FiniteFormat} {p₁ : ℕ}
 `2^(k−p₂−1) + y < 2^(k−p₁−1)`. This strictness is exactly what stops `z` from
 landing on the `F₁` midpoint (a double tie that would break innocuousness). It
 holds because `y ∈ F₁` (`y ≤ 2^(ey+p₁) − 2^ey`) together with `p₂ ≥ 2p₁+1`. -/
-private theorem sub_key_bound {p₁ p₂ : ℕ} {k eb : ℤ}
+private theorem sub_key_bound {p₁ p₂ : ℕ} (hp : 0 < p₁) {k eb : ℤ}
     (hpp' : 2 * (p₁ : ℤ) + 1 ≤ (p₂ : ℤ))
     (hgap : eb + (p₁ : ℤ) ≤ k - (p₁ : ℤ) - 1)
     {b : ℝ} (hb_le : b ≤ (2 : ℝ) ^ (eb + (p₁ : ℤ)) - (2 : ℝ) ^ eb) :
     (2 : ℝ) ^ (k - (p₂ : ℤ) - 1) + b < (2 : ℝ) ^ (k - (p₁ : ℤ) - 1) := by
   have hne : (2 : ℝ) ≠ 0 := by norm_num
   have h2eb : (0 : ℝ) < (2 : ℝ) ^ eb := zpow_pos (by norm_num) _
-  have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast hp
   rcases lt_or_ge (k - (p₂ : ℤ) - 1) eb with hc | hc
   · -- `2^(k−p₂−1) < 2^eb`, so the `−2^eb` slack in `y`'s bound absorbs it.
     have h1 : (2 : ℝ) ^ (k - (p₂ : ℤ) - 1) < (2 : ℝ) ^ eb :=
@@ -246,7 +246,7 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) ((x - y : Dyadic) : ℝ) w := by
   have hne : (2 : ℝ) ≠ 0 := by norm_num
-  have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   have hpp' : (2 * (p₁ : ℤ) + 1) ≤ (p₂ : ℤ) := by
     have : ((2 * p₁ + 1 : ℕ) : ℤ) ≤ ((p₂ : ℕ) : ℤ) := by exact_mod_cast hpp
     push_cast at this; omega
@@ -357,7 +357,7 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
       have hzx_close : |(z : ℝ) - (x : ℝ)| < (2 : ℝ) ^ (k - (p₁ : ℤ) - 1) := by
         have htri := abs_sub_le (z : ℝ) ((x - y : Dyadic) : ℝ) (x : ℝ)
         rw [hrx_abs] at htri
-        have hkey := sub_key_bound hpp' hgap_key hy_le
+        have hkey := sub_key_bound (F₁.p_pos hp₁) hpp' hgap_key hy_le
         linarith [htri, herr, hkey]
       -- `◦₁(x−y) = x`
       have hrx_round : RoundsFinite F₁.unbounded (.nearest tb₁) ((x - y : Dyadic) : ℝ) x := by
@@ -610,7 +610,7 @@ private theorem rndAdd_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
   have hxypos : 0 < ((x + y : Dyadic) : ℝ) := by rw [Dyadic.coe_real_add]; linarith
   set ex := F₁.canonicalExp (x : ℝ) with hex
   set ey := F₁.canonicalExp (y : ℝ) with hey
-  have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast p₁.one_le
+  have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   have hpp' : (2 * (p₁ : ℤ) + 1) ≤ (p₂ : ℤ) := by
     have : ((2 * p₁ + 1 : ℕ) : ℤ) ≤ ((p₂ : ℕ) : ℤ) := by exact_mod_cast hpp
     push_cast at this; omega
