@@ -117,14 +117,14 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ}
     rw [abs_of_pos hv]
     exact lt_of_lt_of_le (Int.lt_zpow_succ_log_self (b := 2) (by norm_num) v)
       (zpow_le_zpow_right₀ (by norm_num) hbound)
-  have h2p2 : ((2 : ℝ) ^ (p₂ : ℕ)) = (2 : ℝ) ^ (p₂ : ℤ) := by rw [← zpow_natCast]
+  have h2p2 : ((2 : ℝ) ^ p₂) = (2 : ℝ) ^ (p₂ : ℤ) := by rw [← zpow_natCast]
   have hsplit : (2 : ℝ) ^ (e₂ + (p₂ : ℤ)) = (2 : ℝ) ^ (p₂ : ℤ) * (2 : ℝ) ^ e₂ := by
     rw [show e₂ + (p₂ : ℤ) = (p₂ : ℤ) + e₂ from by ring, zpow_add₀ hne]
   have hCR : |(C : ℝ)| < (2 : ℝ) ^ (p₂ : ℤ) := by
     have hvC : |v| = |(C : ℝ)| * (2 : ℝ) ^ e₂ := by rw [hC, abs_mul, abs_of_pos h2e2]
     rw [hvC, hsplit] at hvlt
     exact lt_of_mul_lt_mul_right hvlt (le_of_lt h2e2)
-  have hcast : (|C| : ℝ) < ((2 : ℤ) ^ (p₂ : ℕ) : ℝ) := by push_cast; rw [h2p2]; exact hCR
+  have hcast : (|C| : ℝ) < ((2 : ℤ) ^ p₂ : ℝ) := by push_cast; rw [h2p2]; exact hCR
   exact_mod_cast hcast
 
 /-- **Small positive values round to zero** (FLT underflow). In an FLT format

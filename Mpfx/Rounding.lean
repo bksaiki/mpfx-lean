@@ -821,9 +821,7 @@ theorem not_isUndefined_of_two_le_p {F : FiniteFormat} {rm : RoundingMode}
     (hp : ((2 : ℕ) : Prec) ≤ F.p) : ¬ F.IsUndefined rm := by
   rintro ⟨h1, -, -⟩
   rw [h1] at hp
-  have h2 : (2 : ℕ) ≤ (1 : ℕ) := by exact_mod_cast hp
-  have h3 : ((2 : ℕ) : ℕ) ≤ ((1 : ℕ) : ℕ) := h2
-  simp at h3
+  simp at hp
 
 /-- Package an out-of-bound unbounded rounding as an overflow `Rounds`
 result (with the sign bit computed from the witness). -/

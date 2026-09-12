@@ -61,11 +61,10 @@ private theorem mul_precisionAtMost {p₁ p₂ : ℕ} (hpp : 2 * p₁ ≤ p₂)
   · rw [show ((x * y : Dyadic) : ℝ) = (x : ℝ) * (y : ℝ) from by push_cast; ring, hcx, hcy,
         zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; push_cast; ring
   · rw [abs_mul]
-    have hpn : 2 * (p₁ : ℕ) ≤ (p₂ : ℕ) := by exact_mod_cast hpp
-    calc |cx| * |cy| < (2 : ℤ) ^ (p₁ : ℕ) * (2 : ℤ) ^ (p₁ : ℕ) :=
+    calc |cx| * |cy| < (2 : ℤ) ^ p₁ * (2 : ℤ) ^ p₁ :=
           mul_lt_mul'' hcxb hcyb (abs_nonneg _) (abs_nonneg _)
-      _ = (2 : ℤ) ^ (2 * (p₁ : ℕ)) := by rw [← pow_add]; congr 1; ring
-      _ ≤ (2 : ℤ) ^ (p₂ : ℕ) := pow_le_pow_right₀ (by norm_num) hpn
+      _ = (2 : ℤ) ^ (2 * p₁) := by rw [← pow_add]; congr 1; ring
+      _ ≤ (2 : ℤ) ^ p₂ := pow_le_pow_right₀ (by norm_num) hpp
 
 /-- **Product exactly representable in the finer format.** For `x, y ∈ F₁` with
 `2p₁ ≤ p₂` and `F₂.exp ≤ F₁.exp + F₁.exp` (`exp₂ ≤ 2·exp₁`), the product `x · y`

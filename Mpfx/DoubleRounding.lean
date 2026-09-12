@@ -207,8 +207,8 @@ private theorem exp_bot_of_subset {F₁ F₂ : FiniteFormat}
       | coe p₁ =>
         rw [Dyadic.precisionAtMost_coe]
         refine ⟨1, k, by rw [hw_q]; push_cast; ring, ?_⟩
-        have hp_pos : 1 ≤ (p₁ : ℕ) := F₁.p_pos hp₁
-        have : (2 : ℤ) ^ 1 ≤ (2 : ℤ) ^ (p₁ : ℕ) :=
+        have hp_pos : 1 ≤ p₁ := F₁.p_pos hp₁
+        have : (2 : ℤ) ^ 1 ≤ (2 : ℤ) ^ p₁ :=
           pow_le_pow_right₀ (by norm_num) hp_pos
         simp only [abs_one]
         omega
@@ -313,7 +313,7 @@ theorem rndRTO_RTO {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
             F₂'.toFiniteFormat.numDigits_coe_bot hz_ne_real hp₂ hF₂'_exp_bot
           have hp₂_ge_2 : (2 : ℤ) ≤ (p₂ : ℤ) := by
             have : ((2 : ℕ) : Prec) ≤ (p₂ : Prec) := hp₂ ▸ (hF₂'eq ▸ hp_F₂)
-            have h2 : ((2 : ℕ) : ℕ) ≤ ((p₂ : ℕ) : ℕ) := by exact_mod_cast this
+            have h2 : (2 : ℕ) ≤ p₂ := by exact_mod_cast this
             simpa using (by exact_mod_cast h2 : (2 : ℤ) ≤ (p₂ : ℤ))
           rw [h_F₁_eq_1, h_F₂_eq_p₂] at h_eq
           omega
@@ -447,7 +447,7 @@ private theorem toOdd_notMem_of_lower_numDigits {F₁ F₂ : FiniteFormat}
   have hF₂'_nd : F₂'.toFiniteFormat.numDigits (z : ℝ) = F₂.numDigits (z : ℝ) := by
     unfold FiniteFormat.numDigits
     rw [show F₂'.toFiniteFormat.toFormat = F₂'.toFormat from rfl, hF₂'eq]
-  have hgt : ((n : ℕ) : ℤ) < F₂'.toFiniteFormat.numDigits (z : ℝ) := by
+  have hgt : (n : ℤ) < F₂'.toFiniteFormat.numDigits (z : ℝ) := by
     rw [hF₂'_nd, hn_eq]; exact hlt
   exact F₂'.precisionAtMost_not_IsOdd hn_pos hgt h_prec hodd
 
@@ -724,15 +724,15 @@ private theorem hp_F₂_or_F₁_trivial_extend {F₁ F₂ : FiniteFormat}
         push_cast
         rw [Dyadic.coe_ofIntZpow]; push_cast
         linarith
-      · -- F₁.p = (p : ℕ). Step ≥ 2^e.
+      · -- F₁.p = p. Step ≥ 2^e.
         have h_next_eq : F₁.toFormat.next b.val = b.val + Dyadic.ofIntZpow 1
-            (max e (Int.log 2 ((b.val : Dyadic) : ℝ) - ((p : ℕ) : ℤ) + 1)) :=
+            (max e (Int.log 2 ((b.val : Dyadic) : ℝ) - (p : ℤ) + 1)) :=
           Format.next_eq_finite_pos F₁.toFormat hF_exp hF_p hb_pos
         rw [h_next_eq, h_v_eq, abs_of_nonneg h_v_pos, h_v_split]
         push_cast
         rw [Dyadic.coe_ofIntZpow]; push_cast
         have h_step_pow : (2 : ℝ)^e ≤
-            (2 : ℝ)^(max e (Int.log 2 ((b.val : Dyadic) : ℝ) - ((p : ℕ) : ℤ) + 1)) :=
+            (2 : ℝ)^(max e (Int.log 2 ((b.val : Dyadic) : ℝ) - (p : ℤ) + 1)) :=
           zpow_le_zpow_right₀ (by norm_num : (1 : ℝ) ≤ 2) (le_max_left _ _)
         linarith
 

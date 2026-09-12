@@ -50,18 +50,18 @@ at most `w` and the rounding precision in `F` (= `numDigits F y`) strictly
 exceeds `w`, then `y` cannot be `IsOdd F`. -/
 theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ}
     (hw_pos : 0 < w) {y : Dyadic}
-    (hgt : ((w : ℕ) : ℤ) < F.toFiniteFormat.numDigits (y : ℝ))
+    (hgt : (w : ℤ) < F.toFiniteFormat.numDigits (y : ℝ))
     (hprec : Dyadic.precisionAtMost (w : Prec) y) :
     ¬ F.IsOdd y := by
   intro hodd
   obtain ⟨c₁, e₁, ⟨hy_eq₁, hlow, _hhigh⟩, hp_check⟩ := hodd
   set p_y : ℕ := (F.toFiniteFormat.numDigits (y : ℝ)).toNat with hp_y_def
   have h_nd_pos : 0 ≤ F.toFiniteFormat.numDigits (y : ℝ) := by
-    have : (0 : ℤ) ≤ ((w : ℕ) : ℤ) := by positivity
+    have : (0 : ℤ) ≤ (w : ℤ) := by positivity
     linarith
   have h_pyZ : (p_y : ℤ) = F.toFiniteFormat.numDigits (y : ℝ) := Int.toNat_of_nonneg h_nd_pos
-  have hp_y_ge : p_y ≥ (w : ℕ) + 1 := by
-    have : (p_y : ℤ) ≥ ((w : ℕ) : ℤ) + 1 := by rw [h_pyZ]; linarith
+  have hp_y_ge : p_y ≥ w + 1 := by
+    have : (p_y : ℤ) ≥ (w : ℤ) + 1 := by rw [h_pyZ]; linarith
     exact_mod_cast this
   -- Show `F.p ≠ 1` (else `numDigits F y ≤ 1`, but `numDigits ≥ w + 1 ≥ 2`).
   have hFp_ne_1 : F.p ≠ ((1 : ℕ) : Prec) := by
@@ -72,8 +72,8 @@ theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ}
     omega
   rw [if_neg hFp_ne_1] at hp_check
   have hc₁_odd : Odd c₁ := hp_check
-  set k : ℕ := p_y - (w : ℕ) with hk_def
-  have hpyw : p_y = (w : ℕ) + k := by omega
+  set k : ℕ := p_y - w with hk_def
+  have hpyw : p_y = w + k := by omega
   -- Unpack the precision witness for `y` (over ℚ).
   rw [Dyadic.precisionAtMost_coe] at hprec
   obtain ⟨c₂, e₂, hy_eq₂, hc₂_low⟩ := hprec
@@ -95,13 +95,13 @@ theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ}
       rw [heq_int, abs_mul, abs_pow]; congr 1
     -- `2^(p_y - 1) ≤ |c₁|` (the low bound of `IsRepresentableAtP`).
     have hlow' : (2 : ℤ) ^ (p_y - 1) ≤ |c₁| := hlow
-    have hpow_le : (2 : ℤ) ^ (w : ℕ) ≤ (2 : ℤ) ^ (p_y - 1) := by
+    have hpow_le : (2 : ℤ) ^ w ≤ (2 : ℤ) ^ (p_y - 1) := by
       apply pow_le_pow_right₀ (by norm_num : (1 : ℤ) ≤ 2)
       omega
     have h2pow_pos : (0 : ℤ) < 2 ^ (e₁ - e₂).toNat := by positivity
     have h_one_le : (1 : ℤ) ≤ 2 ^ (e₁ - e₂).toNat := h2pow_pos
-    have h_chain : (2 : ℤ) ^ (w : ℕ) ≤ |c₂| := by
-      calc (2 : ℤ) ^ (w : ℕ)
+    have h_chain : (2 : ℤ) ^ w ≤ |c₂| := by
+      calc (2 : ℤ) ^ w
           ≤ (2 : ℤ) ^ (p_y - 1) := hpow_le
         _ ≤ |c₁| := hlow'
         _ = |c₁| * 1 := (mul_one _).symm
@@ -127,7 +127,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
   have hF₂_ne_1 : F₂.p ≠ ((1 : ℕ) : Prec) := by
     intro h
     rw [h] at hp_F₂
-    have : ((2 : ℕ) : ℕ) ≤ ((1 : ℕ) : ℕ) := by exact_mod_cast hp_F₂
+    have : (2 : ℕ) ≤ (1 : ℕ) := by exact_mod_cast hp_F₂
     simp at this
   obtain ⟨c, e, ⟨hy_eq, hc_low, hc_high⟩, hp_check⟩ := hodd
   rw [if_neg hF₂_ne_1] at hp_check
@@ -139,9 +139,6 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
   have hp₂_pos : 1 ≤ p₂ := by
     have : (0 : ℤ) < F₂.toFiniteFormat.numDigits (y : ℝ) := h_F₂_pos
     rw [← hp₂_eq] at this; exact_mod_cast this
-  -- The `IsRepresentableAtP` bounds (`hc_low`/`hc_high`) are stated at `p₂`.
-  have hc_low : (2 : ℤ) ^ (p₂ - 1) ≤ |c| := hc_low
-  have hc_high : |c| < (2 : ℤ) ^ p₂ := hc_high
   have hc_ne : c ≠ 0 := by
     intro h; rw [h, abs_zero] at hc_low
     have : (1 : ℤ) ≤ (2 : ℤ) ^ (p₂ - 1) := one_le_pow₀ (by norm_num)
@@ -235,10 +232,9 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
     apply mul_lt_mul_of_pos_right _ (zpow_pos h2real_pos _)
     have h_cast_high : (|c| : ℝ) < ((2 : ℤ) ^ p₂ : ℝ) := by
       exact_mod_cast hc_high
-    have h_cast_zp : (2 : ℝ) ^ ((p₂ : ℕ) : ℤ) = ((2 : ℤ) ^ p₂ : ℝ) :=
+    have h_cast_zp : (2 : ℝ) ^ (p₂ : ℤ) = ((2 : ℤ) ^ p₂ : ℝ) :=
       (h_cast_pow p₂).symm
-    have h_eq : (p₂ : ℤ) = ((p₂ : ℕ) : ℤ) := rfl
-    rw [h_eq, h_cast_zp]; exact h_cast_high
+    rw [h_cast_zp]; exact h_cast_high
   have h_log_y_eq : Int.log 2 |((y : Dyadic) : ℝ)| = (p₂ - 1 : ℤ) + e := by
     apply le_antisymm
     · have : Int.log 2 |((y : Dyadic) : ℝ)| < (p₂ - 1 : ℤ) + e + 1 :=
@@ -255,20 +251,20 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
       | coe n =>
         rw [Dyadic.precisionAtMost_coe]
         refine ⟨c'', e - 1, rfl, ?_⟩
-        have h_le_n : F₁.numDigits ((y : Dyadic) : ℝ) ≤ ((n : ℕ) : ℤ) := by
+        have h_le_n : F₁.numDigits ((y : Dyadic) : ℝ) ≤ (n : ℤ) := by
           cases hexp : F₁.exp with
           | bot =>
             rw [F₁.numDigits_coe_bot hy_ne_zero hp1 hexp]
           | coe e' =>
             rw [F₁.numDigits_coe_coe hy_ne_zero hp1 hexp]
             exact min_le_left _ _
-        have hp₂_lt_n : (p₂ : ℤ) < ((n : ℕ) : ℤ) := by
+        have hp₂_lt_n : (p₂ : ℤ) < (n : ℤ) := by
           rw [hp₂_eq]; exact lt_of_lt_of_le h_lt h_le_n
-        have hp₂_lt_n_nat : p₂ + 1 ≤ (n : ℕ) := by
-          exact_mod_cast (by omega : (p₂ : ℤ) + 1 ≤ ((n : ℕ) : ℤ))
+        have hp₂_lt_n_nat : p₂ + 1 ≤ n := by
+          exact_mod_cast (by omega : (p₂ : ℤ) + 1 ≤ (n : ℤ))
         calc |c''|
             < (2 : ℤ) ^ (p₂ + 1) := hc''_high
-          _ ≤ (2 : ℤ) ^ (n : ℕ) :=
+          _ ≤ (2 : ℤ) ^ n :=
               pow_le_pow_right₀ (by norm_num : (1 : ℤ) ≤ 2) hp₂_lt_n_nat
     · cases hexp : F₁.exp with
       | bot => trivial
@@ -369,11 +365,11 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
       · cases hp2 : F₂.p using Prec.recTopCoe with
         | top => exact absurd hp2 hp_top_neg
         | coe n =>
-          have h_numD_eq_n : (p₂ : ℤ) = ((n : ℕ) : ℤ) := by
+          have h_numD_eq_n : (p₂ : ℤ) = (n : ℤ) := by
             rw [hp₂_eq, F₂.toFiniteFormat.numDigits_coe_bot hy_ne_zero hp2 hexp2]
-          have hp₂_eq_n : p₂ = (n : ℕ) := by exact_mod_cast h_numD_eq_n
+          have hp₂_eq_n : p₂ = n := by exact_mod_cast h_numD_eq_n
           have hp₂_ge_2 : p₂ ≥ 2 := by
-            have h2le : (2 : ℕ) ≤ (n : ℕ) := by
+            have h2le : (2 : ℕ) ≤ n := by
               have : ((2 : ℕ) : Prec) ≤ (n : Prec) := hp2 ▸ hp_F₂
               exact_mod_cast this
             omega
@@ -386,7 +382,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
           rw [hp2, Dyadic.precisionAtMost_coe] at h_pre
           obtain ⟨c''', e''', hy''_rep, hc'''_low⟩ := h_pre
           have h_abs := h_int_rep_abs c''' e''' (ratrep_to_realrep c''' e''' hy''_rep)
-          have hchain : (2 : ℤ) ^ (n : ℕ) + 1 ≤ |c'''| := by
+          have hchain : (2 : ℤ) ^ n + 1 ≤ |c'''| := by
             rw [← hp₂_eq_n]; linarith
           linarith
       · exact absurd hexp2 hexp_bot_neg
@@ -407,15 +403,15 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
         omega
       | coe n =>
         have h_numD : F₂.toFiniteFormat.numDigits ((y : Dyadic) : ℝ) =
-            min ((n : ℕ) : ℤ) (Int.log 2 |((y : Dyadic) : ℝ)| - e₂ + 1) := by
+            min (n : ℤ) (Int.log 2 |((y : Dyadic) : ℝ)| - e₂ + 1) := by
           rw [F₂.toFiniteFormat.numDigits_coe_coe hy_ne_zero hp2 hexp2]
         rw [h_log_y_eq] at h_numD
-        have hp₂_le_n : (p₂ : ℤ) ≤ ((n : ℕ) : ℤ) := by
+        have hp₂_le_n : (p₂ : ℤ) ≤ (n : ℤ) := by
           rw [hp₂_eq, h_numD]; exact min_le_left _ _
         rcases eq_or_lt_of_le hp₂_le_n with hp₂_eq_n | hp₂_lt_n
-        · have hn_eq_p₂ : (n : ℕ) = p₂ := by exact_mod_cast hp₂_eq_n.symm
+        · have hn_eq_p₂ : n = p₂ := by exact_mod_cast hp₂_eq_n.symm
           have hp₂_ge_2 : p₂ ≥ 2 := by
-            have h2le : (2 : ℕ) ≤ (n : ℕ) := by
+            have h2le : (2 : ℕ) ≤ n := by
               have : ((2 : ℕ) : Prec) ≤ (n : Prec) := hp2 ▸ hp_F₂
               exact_mod_cast this
             omega
@@ -428,14 +424,14 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
           rw [hp2, Dyadic.precisionAtMost_coe] at h_pre
           obtain ⟨c''', e''', hy''_rep, hc'''_low⟩ := h_pre
           have h_abs := h_int_rep_abs c''' e''' (ratrep_to_realrep c''' e''' hy''_rep)
-          have h_chain : (2 : ℤ) ^ (n : ℕ) + 1 ≤ |c'''| := by
+          have h_chain : (2 : ℤ) ^ n + 1 ≤ |c'''| := by
             rw [hn_eq_p₂]; linarith
           linarith
         · have h_e_eq : e = e₂ := by
-            have h1 : (p₂ : ℤ) = min ((n : ℕ) : ℤ) ((p₂ : ℤ) - 1 + e - e₂ + 1) := by
+            have h1 : (p₂ : ℤ) = min (n : ℤ) ((p₂ : ℤ) - 1 + e - e₂ + 1) := by
               rw [← h_numD]; exact hp₂_eq
             have h2 : (p₂ : ℤ) = (p₂ : ℤ) - 1 + e - e₂ + 1 := by
-              rcases min_cases ((n : ℕ) : ℤ) ((p₂ : ℤ) - 1 + e - e₂ + 1) with
+              rcases min_cases (n : ℤ) ((p₂ : ℤ) - 1 + e - e₂ + 1) with
                 ⟨hmin, _⟩ | ⟨hmin, _⟩
               · rw [hmin] at h1; omega
               · rw [hmin] at h1; exact h1
@@ -593,14 +589,14 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
         have h_n : F₂.toFiniteFormat.numDigits ((y : Dyadic) : ℝ) = (n : ℤ) := by
           rw [F₂.toFiniteFormat.numDigits_coe_bot hy_ne_zero hF₂_p_cases hF₂_exp_cases]
         rw [h_n] at h_p₂_eq_1
-        have hn_eq_1 : (n : ℕ) = 1 := by exact_mod_cast h_p₂_eq_1
+        have hn_eq_1 : n = 1 := by exact_mod_cast h_p₂_eq_1
         have hn_eq_1' : n = 1 := by
-          have : ((n : ℕ) : ℕ) = ((1 : ℕ) : ℕ) := hn_eq_1
+          have : n = (1 : ℕ) := hn_eq_1
           exact_mod_cast this
         have hF₂_p_eq_1 : F₂.p = ((1 : ℕ) : Prec) := by
           rw [hF₂_p_cases, hn_eq_1']
         rw [hF₂_p_eq_1] at hp_F₂
-        have : ((2 : ℕ) : ℕ) ≤ ((1 : ℕ) : ℕ) := by exact_mod_cast hp_F₂
+        have : (2 : ℕ) ≤ (1 : ℕ) := by exact_mod_cast hp_F₂
         simp at this
     | coe e₂ =>
       refine ⟨e₂, rfl, ?_⟩
@@ -613,13 +609,13 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
         omega
       | coe n =>
         have h_n : F₂.toFiniteFormat.numDigits ((y : Dyadic) : ℝ) =
-            min ((n : ℕ) : ℤ) (Int.log 2 |((y : Dyadic) : ℝ)| - e₂ + 1) := by
+            min (n : ℤ) (Int.log 2 |((y : Dyadic) : ℝ)| - e₂ + 1) := by
           rw [F₂.toFiniteFormat.numDigits_coe_coe hy_ne_zero hF₂_p_cases hF₂_exp_cases]
         rw [h_n, h_log_y_eq] at h_p₂_eq_1
-        have hn_ge_2 : (2 : ℤ) ≤ ((n : ℕ) : ℤ) := by
+        have hn_ge_2 : (2 : ℤ) ≤ (n : ℤ) := by
           have : ((2 : ℕ) : Prec) ≤ (n : Prec) := hF₂_p_cases ▸ hp_F₂
           exact_mod_cast this
-        rcases min_cases ((n : ℕ) : ℤ) (e - e₂ + 1) with ⟨h1, _⟩ | ⟨h1, _⟩
+        rcases min_cases (n : ℤ) (e - e₂ + 1) with ⟨h1, _⟩ | ⟨h1, _⟩
         · rw [h1] at h_p₂_eq_1; omega
         · rw [h1] at h_p₂_eq_1; omega
   obtain ⟨e₂, hF₂_exp_eq, h_e_eq⟩ := h_e_eq_F₂_exp_or_p_eq_1
@@ -698,7 +694,7 @@ theorem IsOdd.transfer_of_numDigits_eq {F₁ F₂ : ParityFormat}
   have hF₂_ne_1 : F₂.p ≠ ((1 : ℕ) : Prec) := by
     intro h
     rw [h] at hp_F₂
-    have : ((2 : ℕ) : ℕ) ≤ ((1 : ℕ) : ℕ) := by exact_mod_cast hp_F₂
+    have : (2 : ℕ) ≤ (1 : ℕ) := by exact_mod_cast hp_F₂
     simp at this
   rw [if_neg hF₂_ne_1] at h_par_F₂
   have h_par_c : Odd c := h_par_F₂

@@ -10,20 +10,25 @@ development is put together.
 
 ```lean
 structure Format where
-  p   : Prec                -- precision ≥ 1, ⊤ = no precision constraint
+  p   : Prec                -- precision; 0 = trivial {0}, ⊤ = no constraint
   exp : WithBot ℤ           -- min-quantum exponent, ⊥ = no quantum constraint
   b   : WithTop NonNegDyadic -- magnitude bound ≥ 0, ⊤ = unbounded
 ```
 
-`Prec` abbreviates `WithTop ℕ+`. Case-split it with `Prec.recTopCoe`, not a bare
+`Prec` abbreviates `WithTop ℕ`. Case-split it with `Prec.recTopCoe`, not a bare
 `cases` — the eliminator states its `coe` branch with the `↑p` coercion, so
-`rw`/`simp` on `↑p`-shaped lemmas fire.
+`rw`/`simp` on `↑p`-shaped lemmas fire. (`Prec` is reducible, so a bare `cases`
+unfolds past `WithTop` to `Option` and asks for `none`/`some`.)
 
-`ℕ+` bakes in `p ≥ 1` and `NonNegDyadic` bakes in `b ≥ 0`, so those invariants
-never need to be threaded as hypotheses. Two subtypes refine it:
+`p = 0` is the trivial format: `|c| < 2^0 = 1` forces `c = 0`
+(`Dyadic.precisionAtMost_zero_iff_eq_zero`). `NonNegDyadic` bakes in `b ≥ 0`, so
+that invariant never needs threading. Two subtypes refine `Format`:
 
 - `FiniteFormat extends Format` adds `finite : p ≠ ⊤ ∨ exp ≠ ⊥` — rules out the
-  doubly-unbounded format, which has no well-defined rounding.
+  doubly-unbounded format, which has no well-defined rounding — and
+  `pos : p ≠ 0`, which recovers the `p ≥ 1` that `ℕ+` used to give for free.
+  Use `FiniteFormat.p_pos` to get `0 < p` from `hp : F.p = ↑p`. At `Format`
+  level, `Format.Nontrivial.p_ne_zero` plays the same role.
 - `ParityFormat extends FiniteFormat` adds `parity : p ≠ 1 ∨ exp ≠ ⊥` — the
   extra condition under which `IsOdd` / `IsEven` are well-anchored.
 

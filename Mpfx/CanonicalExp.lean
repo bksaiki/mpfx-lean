@@ -22,7 +22,7 @@ grid lemmas (both have grid step `= canonicalExp`). -/
 theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ}
     (hp : F.p = (p : Prec))
     {y : Dyadic} (hmem : y ∈ F) (hpos : 0 < (y : ℝ)) :
-    ∃ c : ℤ, |c| < (2 : ℤ) ^ (p : ℕ) ∧
+    ∃ c : ℤ, |c| < (2 : ℤ) ^ p ∧
       (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ (F.canonicalExp (y : ℝ)) := by
   have hy_ne : (y : ℝ) ≠ 0 := ne_of_gt hpos
   obtain ⟨hprec, hquant, _⟩ := hmem

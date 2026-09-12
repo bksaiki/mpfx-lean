@@ -8,9 +8,10 @@ pairings), and format inference (§6.1). Three design decisions shape the
 development:
 
 1. **Looser top-level type, layered subtypes.** `Format` encodes only
-   the natural type-level constraints (`p ≥ 1` via `WithTop ℕ+`, `b ≥ 0`
-   via `WithTop NonNegDyadic`). `FiniteFormat extends Format` rules out
-   `(p = ⊤, exp = ⊥)`; `ParityFormat extends FiniteFormat` additionally
+   the natural type-level constraints (`p : Prec = WithTop ℕ`, where `p = 0`
+   is the trivial format `{0}`; `b ≥ 0` via `WithTop NonNegDyadic`).
+   `FiniteFormat extends Format` rules out `(p = ⊤, exp = ⊥)` and `p = 0`;
+   `ParityFormat extends FiniteFormat` additionally
    rules out `(p = 1, exp = ⊥)` so `IsOdd` / `IsEven` are anchored.
 2. **Constructive rounding.** Alongside the spec relation
    `Rounds F rm x r : Prop`, a function `rnd F rm x : RoundResult`
