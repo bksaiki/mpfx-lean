@@ -248,16 +248,28 @@ Commit message: `Rehome the scaled-mantissa arithmetic out of the function layer
 
 The only phase in Track B with real proof work.
 
-- [ ] `RoundsFinite.toNegative_floor` / `toPositive_ceil`: the grid point at
+- [x] `RoundsFinite.toNegative_floor` / `toPositive_ceil`: the grid point at
       the canonical exponent *satisfies* the directed spec, stated without
       mentioning `rndUnbounded`. Invert the bodies of
       `rndUnbounded_satisfies_toNegative` / `_toPositive`.
-- [ ] Rederive `rndUnbounded_satisfies_toNegative` / `_toPositive` from them
+- [x] Rederive `rndUnbounded_satisfies_toNegative` / `_toPositive` from them
       (one line each, after the `unfold rndUnbounded` rewrite).
-- [ ] Rederive the Phase 2 bridges `toNegative_eq_floor` / `toPositive_eq_ceil`
+- [x] Rederive the Phase 2 bridges `toNegative_eq_floor` / `toPositive_eq_ceil`
       as `unique_toNegative hy (toNegative_floor F x)` — no construction.
 
 Extra acceptance: neither bridge mentions `rndUnbounded`.
+
+**Done.** 73 insertions, 81 deletions. The inversion went as predicted — the
+whole argument already sat in `rndUnbounded_satisfies_toNegative`, aimed at the
+wrong object. The four lemmas live in `RoundPred.lean`, which gained one import
+(`Mpfx.CanonicalExp`) and still imports nothing from `RoundOp/`.
+
+The dependency direction is now reversed, which is the point: before,
+bridge → `rndUnbounded_unique` → construction; after,
+`rndUnbounded_satisfies_toNegative` → `RoundsFinite.toNegative_floor`. The
+function layer depends on the relational layer instead of the reverse, and both
+`satisfies` proofs are 11 lines that unfold `rndUnbounded` to the grid point and
+hand off.
 
 Commit message: `Prove the grid bridges without reference to the construction`
 
@@ -427,6 +439,12 @@ not a clean delete — but the iff component is ~100% redundant across ~450
 lines, against ~200 saved by the whole uniqueness collapse.
 
 ## Open questions
+
+- [ ] **Deferred to the end of Track C:** the `Grid.lean` "grid" vocabulary has
+      no Flocq counterpart (the word appears zero times there; the concept is
+      `ulp` + `canonical` + `discrete` + `succ`/`pred`). Recorded under item 4
+      of `FLOCQ_ROADMAP.md`, to travel with the `Ulp.lean` work rather than as a
+      standalone rename.
 
 - [x] **File placement.** Resolved by Track B: the Phase 2–3 dependency on the
       construction turned out to be avoidable, so the relational uniqueness

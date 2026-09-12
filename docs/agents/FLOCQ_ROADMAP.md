@@ -108,6 +108,40 @@ Worth promoting to its own file, and adding:
   `round_N_eq_UP`, `round_N_eq_ties`. These turn "what does rounding do to *this*
   value" from a proof into a rewrite.
 
+### Deferred: the "grid" vocabulary
+
+**Revisit at the end**, once Tracks A–C are complete — not before, and not as a
+standalone change.
+
+`Grid.lean`'s "grid" convention has no counterpart in Flocq: the word appears
+**zero times** in its source. The concept is split across four standard terms:
+
+| mpfx | Flocq |
+| ---- | ----- |
+| grid step `2^e` | `ulp x = bpow (cexp x)` (`Ulp.v:93`) |
+| grid point | canonical float — `canonical f := Fexp f = cexp (F2R f)` (`Generic_fmt.v:79`) |
+| `exists_grid_rep` | `canonical_generic_format` / `generic_format_canonical` |
+| `no_F_element_in_step_interval` | `generic_format_discrete` (`Generic_fmt.v:462`) |
+| `F_adjacent_step_form` | `succ` / `pred` (`Ulp.v:391`); also `float_distribution_pos` |
+| `midpoint` | `midp` (`Double_rounding.v:67`) — already matches |
+
+`generic_format_discrete` is nearly our lemma verbatim: if `m·2^e < x <
+(m+1)·2^e` at the canonical exponent then `x` is not in the format. Same
+content, called discreteness rather than "no element in the step interval".
+
+Caveat: none of these names the *set* of points at a given exponent, which is
+what "grid" most naturally denotes. Flocq has no noun for it — it says "the
+format" and uses `ulp` for spacing, moving between exponents with
+`F2R_change_exp`. So "grid" is doing work Flocq distributes across `ulp`,
+`canonical` and `discrete`; the issue is not that Flocq has a better word but
+that it never needs one.
+
+Why defer: half the vocabulary is already aligned (`NearestMidpoint.lean`
+defines `ulp` and `midp` with docstrings citing Flocq), and the items above
+*restructure* the very lemmas a rename would touch — `F_adjacent_step_form`
+becomes a `succ` fact, `no_F_element_in_step_interval` becomes discreteness.
+Renaming first means touching them twice.
+
 ### Latent divergence: `ulp 0`
 
 `canonicalExp F 0 = 0` in the `(p finite, exp = ⊥)` branch

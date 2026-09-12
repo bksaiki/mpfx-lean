@@ -1,4 +1,5 @@
 import Mpfx.Rounding
+import Mpfx.CanonicalExp
 
 /-!
 # Round-predicate layer: uniqueness and faithfulness
@@ -13,11 +14,10 @@ Flocq's `Core/Round_pred.v`. Two families:
   `Zrnd_DN_or_UP` / `Rnd_N_pt_DN_or_UP`). Lets mode-generic arguments stop
   case-splitting on `rm`.
 
-This file stays in constructive logic and depends only on
-`Mpfx/Rounding.lean`: sign case splits go through `le_total`, never
-`by_cases`, and nothing here mentions the `rnd` construction. The
-uniqueness proofs for the parity-aware modes (`toOdd`, `nearest`) need the
-grid-neighbour parity theory and so live in `Mpfx/RoundOp/`.
+Nothing here mentions the `rnd` construction; sign case splits go through
+`le_total` rather than `by_cases`. The uniqueness proofs for the parity-aware
+modes (`toOdd`, `nearest`) additionally need the grid-neighbour parity theory
+and so live in `Mpfx/RoundOp/` until Phase 8 of `ROUND_PRED_TODO.md`.
 -/
 
 namespace Mpfx
@@ -121,5 +121,71 @@ theorem IsFaithfulRound.opposite_sides_of_ne {F : FiniteFormat} {x : ℝ}
   · exact Or.inl ⟨hda, hub⟩
   · exact Or.inr ⟨hdb, hua⟩
   · exact absurd (RoundsFinite.unique_toPositive hua hub) hab
+
+/-! ### Reading the directed roundings off the grid
+
+The round-down and round-up of `x` are the floor and ceiling of the scaled
+mantissa at the canonical exponent. Stated as *the grid point satisfies the
+spec*, so that `unique_toNegative` / `unique_toPositive` turn each into an
+equation — Flocq's `round_DN_eq` / `round_UP_eq` (`Ulp.v:2217`), and the route
+by which grid-level facts (parity, adjacency) reach the relational layer. -/
+
+/-- The floor grid point at the canonical exponent **is** the round-down. -/
+theorem RoundsFinite.toNegative_floor (F : FiniteFormat) (x : ℝ) :
+    RoundsFinite F.unbounded .toNegative x
+      (Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-(F.canonicalExp x))⌋ (F.canonicalExp x)) := by
+  set e := F.canonicalExp x
+  set c := ⌊x * (2 : ℝ) ^ (-e)⌋
+  set y : Dyadic := Dyadic.ofIntZpow c e
+  have h_y_real : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow c e
+  have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
+  have h_c_bound : ∀ {p : ℕ}, F.p = (p : Prec) →
+      |c| ≤ (2 : ℤ) ^ p := fun hp => by
+    apply abs_floor_le_of_abs_lt
+    push_cast; exact floor_mantissa_lt hp
+  obtain ⟨h_prec, h_quant, h_bnd⟩ :=
+    ofIntZpow_mem_unbounded F (fun hexp => F.exp_le_canonicalExp x hexp) h_c_bound
+  refine ⟨⟨h_prec, h_quant, h_bnd⟩, ?_, ?_⟩
+  · rw [h_y_real, ← mul_zpow_neg_self x e]
+    exact mul_le_mul_of_nonneg_right (Int.floor_le _) h_2e_pos.le
+  · intro z hz_mem hz_le_x
+    obtain ⟨hz_prec, hz_quant, _⟩ := hz_mem
+    rw [h_y_real]
+    exact floor_minimality F x hz_prec hz_quant hz_le_x
+
+/-- The ceiling grid point at the canonical exponent **is** the round-up. -/
+theorem RoundsFinite.toPositive_ceil (F : FiniteFormat) (x : ℝ) :
+    RoundsFinite F.unbounded .toPositive x
+      (Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x)) := by
+  set e := F.canonicalExp x
+  set c := ⌈x * (2 : ℝ) ^ (-e)⌉
+  set y : Dyadic := Dyadic.ofIntZpow c e
+  have h_y_real : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow c e
+  have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
+  have h_c_bound : ∀ {p : ℕ}, F.p = (p : Prec) →
+      |c| ≤ (2 : ℤ) ^ p := fun hp => by
+    apply abs_ceil_le_of_abs_lt
+    push_cast; exact floor_mantissa_lt hp
+  obtain ⟨h_prec, h_quant, h_bnd⟩ :=
+    ofIntZpow_mem_unbounded F (fun hexp => F.exp_le_canonicalExp x hexp) h_c_bound
+  refine ⟨⟨h_prec, h_quant, h_bnd⟩, ?_, ?_⟩
+  · rw [h_y_real, ← mul_zpow_neg_self x e]
+    exact mul_le_mul_of_nonneg_right (Int.le_ceil _) h_2e_pos.le
+  · intro z hz_mem hx_le_z
+    obtain ⟨hz_prec, hz_quant, _⟩ := hz_mem
+    rw [h_y_real]
+    exact ceil_minimality F x hz_prec hz_quant hx_le_z
+
+/-- Any round-down of `x` *is* that floor grid point. -/
+theorem RoundsFinite.toNegative_eq_floor (F : FiniteFormat) (x : ℝ) {y : Dyadic}
+    (hy : RoundsFinite F.unbounded .toNegative x y) :
+    y = Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-(F.canonicalExp x))⌋ (F.canonicalExp x) :=
+  RoundsFinite.unique_toNegative hy (RoundsFinite.toNegative_floor F x)
+
+/-- Any round-up of `x` *is* that ceiling grid point. -/
+theorem RoundsFinite.toPositive_eq_ceil (F : FiniteFormat) (x : ℝ) {y : Dyadic}
+    (hy : RoundsFinite F.unbounded .toPositive x y) :
+    y = Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x) :=
+  RoundsFinite.unique_toPositive hy (RoundsFinite.toPositive_ceil F x)
 
 end Mpfx
