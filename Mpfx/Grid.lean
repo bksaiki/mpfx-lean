@@ -404,7 +404,8 @@ private theorem F_adjacent_step_form_z_core (F : FiniteFormat) {p : ℕ}
     rw [Dyadic.coe_ofIntZpow]
   have hz_p : Dyadic.precisionAtMost F.p z := by
     rw [hp]
-    apply Dyadic.precisionAtMost_of_abs_le (c + 1) k (by rw [Dyadic.coe_rat_ofIntZpow])
+    apply Dyadic.precisionAtMost_of_abs_le (F.p_pos hp) (c + 1) k
+      (by rw [Dyadic.coe_rat_ofIntZpow])
     have h_c1_pos : 0 < c + 1 := by omega
     rw [abs_of_pos h_c1_pos]
     omega
@@ -518,12 +519,8 @@ definitional. -/
 private theorem extend_one_p (F : FiniteFormat) {p : ℕ}
     (hp : F.p = (p : Prec)) :
     (F.extend 1).p = (((p + 1 : ℕ)) : Prec) := by
-  change F.p.map (· + (1 : ℕ)) = _
-  rw [hp, WithTop.map_coe]
-
-/-- `((p + 1 : ℕ) : ℕ) = (p : ℕ) + 1`. -/
-private theorem pnat_succ_natCast (p : ℕ) : (((p + 1 : ℕ)) : ℕ) = (p : ℕ) + 1 := by
-  exact_mod_cast rfl
+  change F.p + ((1 : ℕ) : Prec) = _
+  rw [hp, ← Nat.cast_add]
 
 /-- Shared precision component for the `midpoint_mem_extend_one_of_F_adjacent_pos`
 pair. Given the grid reps `y₁ = c·2^k`, `y₂ = (c+1)·2^k` with `0 < c`, the
@@ -550,9 +547,9 @@ private theorem midpoint_precision_extend_one (F : FiniteFormat) {p : ℕ}
     rw [Dyadic.coe_rat_midpoint, hy₁_eq_rat, hy₂_eq_rat, zpow_sub₀ h_2q_ne]
     push_cast; field_simp; ring
   rw [extend_one_p F hp]
-  apply Dyadic.precisionAtMost_of_abs_le (2 * c + 1) (k - 1) h_mid_eq_rat
+  apply Dyadic.precisionAtMost_of_abs_le p.succ_pos (2 * c + 1) (k - 1) h_mid_eq_rat
   have h_c1_pos : 0 < 2 * c + 1 := by omega
-  rw [abs_of_pos h_c1_pos, pnat_succ_natCast]
+  rw [abs_of_pos h_c1_pos]
   have h_pow : (2 : ℤ) ^ ((p : ℕ) + 1) = 2 * (2 : ℤ) ^ (p : ℕ) := by
     rw [pow_succ]; ring
   omega
@@ -779,7 +776,7 @@ theorem midpoint_mem_extend_one_of_p_top (F : FiniteFormat) {exp : ℤ}
   · -- precision: (F.extend 1).p = ⊤. Trivial.
     show Dyadic.precisionAtMost (F.extend 1).p _
     have h_p_top : (F.extend 1).p = ⊤ := by
-      change F.p.map (· + (1 : ℕ)) = _
+      change F.p + ((1 : ℕ) : Prec) = _
       rw [hp]; rfl
     rw [h_p_top]; trivial
   · -- quantum: midpoint at quantum exp - 1.

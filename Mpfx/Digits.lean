@@ -48,7 +48,8 @@ theorem FiniteFormat.numDigits_le_one_of_p_one {F : FiniteFormat}
 /-- **Lemma 5.3 corollary** (format-parameterized form): If `y` has precision
 at most `w` and the rounding precision in `F` (= `numDigits F y`) strictly
 exceeds `w`, then `y` cannot be `IsOdd F`. -/
-theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ} {y : Dyadic}
+theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ}
+    (hw_pos : 0 < w) {y : Dyadic}
     (hgt : ((w : ℕ) : ℤ) < F.toFiniteFormat.numDigits (y : ℝ))
     (hprec : Dyadic.precisionAtMost (w : Prec) y) :
     ¬ F.IsOdd y := by
@@ -68,7 +69,6 @@ theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ} {y :
     have h_le := F.toFiniteFormat.numDigits_le_one_of_p_one hFp1 (y : ℝ)
     have h1 : (p_y : ℤ) ≤ 1 := by rw [h_pyZ]; exact h_le
     have h2 : p_y ≤ 1 := by exact_mod_cast h1
-    have hw_pos : 1 ≤ (w : ℕ) := w.pos
     omega
   rw [if_neg hFp_ne_1] at hp_check
   have hc₁_odd : Odd c₁ := hp_check
@@ -97,7 +97,6 @@ theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ} {y :
     have hlow' : (2 : ℤ) ^ (p_y - 1) ≤ |c₁| := hlow
     have hpow_le : (2 : ℤ) ^ (w : ℕ) ≤ (2 : ℤ) ^ (p_y - 1) := by
       apply pow_le_pow_right₀ (by norm_num : (1 : ℤ) ≤ 2)
-      have hw_pos : 1 ≤ (w : ℕ) := w.pos
       omega
     have h2pow_pos : (0 : ℤ) < 2 ^ (e₁ - e₂).toNat := by positivity
     have h_one_le : (1 : ℤ) ≤ 2 ^ (e₁ - e₂).toNat := h2pow_pos
@@ -474,21 +473,18 @@ theorem numDigits_eq_of_subset_of_isOdd
   have hn_pos : 1 ≤ n := by
     have : (1 : ℤ) ≤ (n : ℤ) := by rw [hn_eq]; exact h_F₁_ge_1
     exact_mod_cast this
-  set w : ℕ := ⟨n, hn_pos⟩ with hw_def
-  have hw_val : ((w : ℕ) : ℕ) = n := rfl
-  -- Repackage the `mem_imp` witness (ℝ rep) as `precisionAtMost w y` (ℚ).
+  -- Repackage the `mem_imp` witness (ℝ rep) as `precisionAtMost n y` (ℚ).
   obtain ⟨c, e, hy_rep_real, hc_bound⟩ :=
     F₁.mem_imp_precisionAtMost_numDigits hyF₁ hy_ne_zero
-  have hc_bound_w : |c| < (2 : ℤ) ^ ((w : ℕ) : ℕ) := by rw [hw_val]; exact hc_bound
-  have h_prec_F₁ : Dyadic.precisionAtMost (w : Prec) y := by
+  have h_prec_F₁ : Dyadic.precisionAtMost (n : Prec) y := by
     rw [Dyadic.precisionAtMost_coe_real]
-    exact ⟨c, e, hy_rep_real, hc_bound_w⟩
+    exact ⟨c, e, hy_rep_real, hc_bound⟩
   -- `≥`: from the corollary.
   have h_ge : F₁.numDigits (y : ℝ) ≥ F₂.toFiniteFormat.numDigits (y : ℝ) := by
-    rw [← hn_eq, ← hw_val]
+    rw [← hn_eq]
     by_contra h
     push Not at h
-    exact F₂.precisionAtMost_not_IsOdd h h_prec_F₁ hodd
+    exact F₂.precisionAtMost_not_IsOdd hn_pos h h_prec_F₁ hodd
   -- `≤`: by contradiction via `_aux`.
   refine le_antisymm ?_ h_ge
   by_contra h_lt

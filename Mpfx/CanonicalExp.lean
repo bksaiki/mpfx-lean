@@ -31,7 +31,7 @@ theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ}
     obtain ⟨k, c, hc, hyeq, hk⟩ := exists_grid_rep_exp_bot F hp hprec hpos
     have hcexp : F.canonicalExp (y : ℝ) = Int.log 2 (y : ℝ) + 1 - (p : ℤ) := by
       unfold FiniteFormat.canonicalExp
-      simp only [hp, hexp, hy_ne, abs_of_pos hpos, if_false]
+      simp only [hp, hexp, hy_ne, abs_of_pos hpos, if_false, Nat.cast_id]
     have hkexp : k = F.canonicalExp (y : ℝ) := by rw [hcexp, hk]; omega
     exact ⟨c, hc, by rw [← hkexp]; exact hyeq⟩
   | coe e =>
@@ -40,7 +40,7 @@ theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ}
     have hcexp : F.canonicalExp (y : ℝ)
         = max (Int.log 2 (y : ℝ) + 1 - (p : ℤ)) e := by
       unfold FiniteFormat.canonicalExp
-      simp only [hp, hexp, hy_ne, abs_of_pos hpos, if_false]
+      simp only [hp, hexp, hy_ne, abs_of_pos hpos, if_false, Nat.cast_id]
     have hkexp : k = F.canonicalExp (y : ℝ) := by rw [hcexp, hk]; omega
     exact ⟨c, hc, by rw [← hkexp]; exact hyeq⟩
 
@@ -70,9 +70,9 @@ theorem canonicalExp_closed {F : FiniteFormat} {p : ℕ}
     F.canonicalExp v = Int.log 2 |v| + 1 - (p : ℤ) := by
   unfold FiniteFormat.canonicalExp
   cases hexp : F.exp with
-  | bot => simp only [hp, hv, if_false]
+  | bot => simp only [hp, hv, if_false, Nat.cast_id]
   | coe e =>
-    simp only [hp, hv, if_false]
+    simp only [hp, hv, if_false, Nat.cast_id]
     rw [hexp] at hnorm
     exact max_eq_left (by exact_mod_cast hnorm)
 
@@ -89,7 +89,7 @@ theorem canonicalExp_FLT {F : FiniteFormat} {p : ℕ} {emin : ℤ}
     (hp : F.p = (p : Prec)) (hexp : F.exp = (emin : WithBot ℤ))
     {v : ℝ} (hv : v ≠ 0) :
     F.canonicalExp v = max (Int.log 2 |v| + 1 - (p : ℤ)) emin := by
-  unfold FiniteFormat.canonicalExp; simp only [hp, hexp, hv, if_false]
+  unfold FiniteFormat.canonicalExp; simp only [hp, hexp, hv, if_false, Nat.cast_id]
 
 /-- `F.exp ≤ (F.canonicalExp x : WithBot ℤ)`, uniformly over `exp = ⊥`/finite. -/
 theorem exp_le_canonicalExp_coe (F : FiniteFormat) (x : ℝ) :
