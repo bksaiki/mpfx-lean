@@ -75,6 +75,9 @@ def nnPow (e : ℤ) : NonNegDyadic :=
   change ((Dyadic.ofIntZpow 1 e : Dyadic) : ℚ) = _
   rw [Dyadic.coe_rat_ofIntZpow]; push_cast; ring
 
+@[simp] theorem coe_real_nnPow (e : ℤ) : (((nnPow e).val : Dyadic) : ℝ) = (2 : ℝ) ^ e := by
+  rw [Dyadic.coe_real_eq_ratCast, coe_nnPow]; push_cast; ring
+
 /-- **𝒜-Contains-Sub** (Fig. 8). If `F₁`'s bound is at most `2^(exp₁ + p₂)`
 (so every value of `F₁` fits in `F₂.p = p₂` bits at exponent `exp₁`), plus
 the standard quantum and bound orderings, then `F₁ ⊆ F₂` — even when
@@ -119,6 +122,243 @@ theorem containsSub {F₁ F₂ : Format}
   · rw [hp₂]; exact Dyadic.precisionAtMost_of_abs_le c exp₁ hx_eq hc_le
   · exact Dyadic.quantumAtLeast_anti he hex
   · exact boundOK_mono hb hbx
+
+/-! ### Completeness of the two rules (§5.1)
+
+The rules above are also *complete*, so together they decide containment
+(`subset_iff_contains`). Two of §4.2's well-formedness restrictions are needed,
+and only on `F₁`: `BoundRep F₁` (`b₁ ∈ 𝒜(p₁, exp₁, ∞) ∪ {∞}`) and
+`F₁.Nontrivial`. Both are essential: `𝒜(∞, 0, 3/2) = 𝒜(∞, 0, 1) = {0, ±1}`
+fails both tests on `b₁ ≤ b₂`, and `𝒜(∞, 0, 0) = 𝒜(∞, 1, 0) = {0}` fails both
+on `exp₂ ≤ exp₁`.
+
+Each necessity proof exhibits one value of `F₁` that `F₂` cannot represent. -/
+
+/-- Above any real there is a power of two, at an exponent above `e`. -/
+theorem exists_zpow_gt (r : ℝ) (e : WithBot ℤ) :
+    ∃ k : ℤ, e ≤ (k : WithBot ℤ) ∧ r < (2 : ℝ) ^ k := by
+  refine ⟨max (e.unbotD 0) (Int.log 2 r + 1), ?_, lt_of_lt_of_le
+    (Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) r)
+    (zpow_le_zpow_right₀ (by norm_num) (le_max_right _ _))⟩
+  cases e with
+  | bot => exact bot_le
+  | coe e => simp
+
+/-- Below any positive real there is a scaled power of two `C · 2^k`, at an
+exponent below `e`. -/
+theorem exists_mul_zpow_le {C r : ℝ} (hC : 0 < C) (hr : 0 < r) (e : ℤ) :
+    ∃ k : ℤ, k ≤ e ∧ C * (2 : ℝ) ^ k ≤ r := by
+  refine ⟨min e (Int.log 2 (r / C)), min_le_left _ _, ?_⟩
+  have h1 : (2 : ℝ) ^ (min e (Int.log 2 (r / C))) ≤ (2 : ℝ) ^ (Int.log 2 (r / C)) :=
+    zpow_le_zpow_right₀ (by norm_num) (min_le_right _ _)
+  have h2 : (2 : ℝ) ^ (Int.log 2 (r / C)) ≤ r / C :=
+    Int.zpow_log_le_self (by norm_num : (1 : ℕ) < 2) (div_pos hr hC)
+  calc C * (2 : ℝ) ^ (min e (Int.log 2 (r / C))) ≤ C * (r / C) := by nlinarith
+    _ = r := by field_simp
+
+/-- **Necessity of `b₁ ≤ b₂`.** A finite `b₁` is a value of `F₁`, so it must be
+a value of `F₂`; an infinite `b₁` gives `F₁` arbitrarily large powers of two. -/
+theorem b_le_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (h : F₁ ⊆ F₂) :
+    F₁.b ≤ F₂.b := by
+  cases hb2 : F₂.b with
+  | top => exact le_top
+  | coe b₂ =>
+    cases hb1 : F₁.b with
+    | coe b₁ =>
+      refine WithTop.coe_le_coe.mpr (NonNegDyadic.le_iff_coe_real.mpr ?_)
+      have := (h _ (bound_mem hbr hb1)).2.2
+      rw [hb2] at this
+      rw [← abs_of_nonneg (a := ((b₁.val : Dyadic) : ℝ)) (nonneg_coe_real b₁)]
+      exact abs_coe_real_le_of_boundOK this
+    | top =>
+      -- `F₁` is unbounded, so it contains a power of two exceeding `b₂`.
+      obtain ⟨k, hk, hgt⟩ := exists_zpow_gt ((b₂.val : Dyadic) : ℝ) F₁.exp
+      have hv := (h _ (ofIntZpow_mem (precisionAtMost_one_zpow k) hk (by rw [hb1]; trivial))).2.2
+      rw [hb2] at hv
+      have := abs_coe_real_le_of_boundOK hv
+      rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) k)] at this
+      exact absurd this (not_le_of_gt hgt)
+
+/-- **Necessity of `exp₂ ≤ exp₁`.** `F₁` is non-trivial, so `2^exp₁` is one of
+its values (or, when `exp₁ = -∞`, so is `2^k` for arbitrarily small `k`), while
+every value of `F₂` is a multiple of `2^exp₂`. -/
+theorem exp_le_of_subset {F₁ F₂ : Format} (hnt : F₁.Nontrivial) (h : F₁ ⊆ F₂) :
+    F₂.exp ≤ F₁.exp := by
+  obtain ⟨x₀, hx₀, hx₀ne⟩ := hnt
+  cases he2 : F₂.exp with
+  | bot => exact bot_le
+  | coe e₂ =>
+    -- `2^k ∈ F₁` forces `e₂ ≤ k`, since `F₂`'s values are multiples of `2^e₂`.
+    have key : ∀ k : ℤ, Dyadic.ofIntZpow 1 k ∈ F₁ → e₂ ≤ k := by
+      intro k hk
+      have hq := (h _ hk).2.1
+      rw [he2] at hq
+      exact quantum_le_of_odd_rep hq odd_one (by rw [coe_real_ofIntZpow_one]; norm_num)
+    cases he1 : F₁.exp with
+    | coe e₁ =>
+      -- `2^e₁ ≤ |x₀| ≤ b₁`, so `2^e₁` is in bound.
+      refine WithBot.coe_le_coe.mpr (key e₁ (ofIntZpow_mem (precisionAtMost_one_zpow e₁)
+        (by rw [he1]) (boundOK_of_abs_le ?_ hx₀.2.2)))
+      rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) e₁)]
+      exact Dyadic.abs_ge_two_zpow_of_quantum (he1 ▸ hx₀.2.1) hx₀ne
+    | bot =>
+      -- `F₁` has values `2^k` with `k` arbitrarily small, contradicting `e₂ ≤ k`.
+      exfalso
+      obtain ⟨k, hk_le, hk_bnd⟩ :
+          ∃ k : ℤ, k ≤ e₂ - 1 ∧ boundOK F₁.b (Dyadic.ofIntZpow 1 k) := by
+        cases hb1 : F₁.b with
+        | top => exact ⟨e₂ - 1, le_refl _, trivial⟩
+        | coe b₁ =>
+          have hpos : 0 < ((b₁.val : Dyadic) : ℝ) :=
+            lt_of_lt_of_le (abs_pos.mpr hx₀ne) (abs_coe_real_le_of_boundOK (hb1 ▸ hx₀.2.2))
+          obtain ⟨k, hk_le, hk⟩ := exists_mul_zpow_le one_pos hpos (e₂ - 1)
+          refine ⟨k, hk_le, boundOK_coe_of_abs_le ?_⟩
+          rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) k)]
+          linarith
+      have := key k (ofIntZpow_mem (precisionAtMost_one_zpow k) (by rw [he1]; exact bot_le) hk_bnd)
+      omega
+
+/-! ### The precision test
+
+When `p₁ > p₂` containment can still hold, but only because `F₁`'s bound cuts
+off every value that needs more than `p₂` digits. The narrowest such value is
+`wit p₂ · 2^exp₁`, where `wit p₂ = 2^p₂ + 1` is the smallest odd significand
+wider than `p₂` digits. -/
+
+/-- `2^p + 1`: odd, exactly `p+1` digits wide. -/
+def wit (p : ℕ+) : ℤ := 2 ^ (p : ℕ) + 1
+
+theorem one_lt_two_pow (p : ℕ+) : (1 : ℤ) < 2 ^ (p : ℕ) := by
+  calc (1 : ℤ) = 2 ^ 0 := by norm_num
+    _ < 2 ^ (p : ℕ) := pow_lt_pow_right₀ (by norm_num) p.pos
+
+theorem wit_pos (p : ℕ+) : 0 < wit p := by have := one_lt_two_pow p; unfold wit; omega
+
+theorem odd_wit (p : ℕ+) : Odd (wit p) :=
+  (by rw [Int.even_pow]; exact ⟨even_two, p.pos.ne'⟩ : Even ((2 : ℤ) ^ (p : ℕ))).add_one
+
+/-- `wit p₂` is too wide for `p₂` digits ... -/
+theorem not_precisionAtMost_wit (p₂ : ℕ+) (k : ℤ) :
+    ¬ Dyadic.precisionAtMost ((p₂ : ℕ+) : WithTop ℕ+) (Dyadic.ofIntZpow (wit p₂) k) :=
+  Dyadic.not_precisionAtMost_of_odd (odd_wit p₂) (by rw [Dyadic.coe_ofIntZpow])
+    (by rw [abs_of_pos (wit_pos p₂)]; unfold wit; omega)
+
+/-- ... but fits in any strictly larger precision bound. -/
+theorem precisionAtMost_wit {p₁ : WithTop ℕ+} {p₂ : ℕ+}
+    (hlt : ((p₂ : ℕ+) : WithTop ℕ+) < p₁) (k : ℤ) :
+    Dyadic.precisionAtMost p₁ (Dyadic.ofIntZpow (wit p₂) k) := by
+  cases hp : p₁ with
+  | top => trivial
+  | coe q =>
+    rw [Dyadic.precisionAtMost_coe]
+    refine ⟨wit p₂, k, by rw [Dyadic.coe_rat_ofIntZpow], ?_⟩
+    have hq : (p₂ : ℕ) + 1 ≤ (q : ℕ) := by
+      have : (p₂ : ℕ+) < q := WithTop.coe_lt_coe.mp (hp ▸ hlt)
+      exact_mod_cast this
+    have h1 := one_lt_two_pow p₂
+    calc |wit p₂| = 2 ^ (p₂ : ℕ) + 1 := by rw [abs_of_pos (wit_pos p₂)]; rfl
+      _ < 2 ^ ((p₂ : ℕ) + 1) := by rw [pow_succ]; omega
+      _ ≤ 2 ^ (q : ℕ) := pow_le_pow_right₀ (by norm_num) hq
+
+/-- `wit p₂ · 2^k`, as a positive real. -/
+theorem abs_coe_wit (p₂ : ℕ+) (k : ℤ) :
+    |((Dyadic.ofIntZpow (wit p₂) k : Dyadic) : ℝ)| = ((wit p₂ : ℤ) : ℝ) * (2 : ℝ) ^ k := by
+  have hw : (0 : ℝ) < ((wit p₂ : ℤ) : ℝ) := by exact_mod_cast wit_pos p₂
+  rw [Dyadic.coe_ofIntZpow, abs_of_pos (mul_pos hw (zpow_pos (by norm_num) k))]
+
+/-- **Necessity of the `𝒜-Contains-Sub` premises.** If `F₁ ⊆ F₂` yet `p₁ > p₂`,
+then `exp₁` is finite and `b₁ ≤ 2^(exp₁ + p₂)`; otherwise `wit p₂ · 2^exp₁` is a
+value of `F₁` that `F₂` cannot represent. -/
+theorem sub_test_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial)
+    (h : F₁ ⊆ F₂) (hp : ¬ F₁.p ≤ F₂.p) :
+    ∃ (e₁ : ℤ) (p₂ : ℕ+), F₁.exp = (e₁ : WithBot ℤ) ∧ F₂.p = ((p₂ : ℕ+) : WithTop ℕ+) ∧
+      F₁.b ≤ ((nnPow (e₁ + (p₂ : ℤ)) : NonNegDyadic) : WithTop NonNegDyadic) := by
+  obtain ⟨x₀, hx₀, hx₀ne⟩ := hnt
+  have hlt : F₂.p < F₁.p := lt_of_not_ge hp
+  cases hp2 : F₂.p with
+  | top => exact absurd (hp2 ▸ hlt) (not_lt_of_ge le_top)
+  | coe p₂ =>
+  have hwpos : (0 : ℝ) < ((wit p₂ : ℤ) : ℝ) := by exact_mod_cast wit_pos p₂
+  -- The witness is never in `F₂`, so it must fail `F₁`'s quantum or bound check.
+  have key : ∀ k : ℤ, F₁.exp ≤ (k : WithBot ℤ) →
+      boundOK F₁.b (Dyadic.ofIntZpow (wit p₂) k) → False := by
+    intro k hk hbk
+    have hmem := (h _ (ofIntZpow_mem (precisionAtMost_wit (hp2 ▸ hlt) k) hk hbk)).1
+    rw [hp2] at hmem
+    exact not_precisionAtMost_wit p₂ k hmem
+  cases he1 : F₁.exp with
+  | bot =>
+    -- `exp₁ = -∞`: the witness can be scaled below any positive bound.
+    exfalso
+    obtain ⟨k, hk⟩ : ∃ k : ℤ, boundOK F₁.b (Dyadic.ofIntZpow (wit p₂) k) := by
+      cases hb1 : F₁.b with
+      | top => exact ⟨0, trivial⟩
+      | coe b₁ =>
+        have hpos : 0 < ((b₁.val : Dyadic) : ℝ) :=
+          lt_of_lt_of_le (abs_pos.mpr hx₀ne) (abs_coe_real_le_of_boundOK (hb1 ▸ hx₀.2.2))
+        obtain ⟨k, -, hk⟩ := exists_mul_zpow_le hwpos hpos 0
+        exact ⟨k, boundOK_coe_of_abs_le (by rw [abs_coe_wit]; exact hk)⟩
+    exact key k (by rw [he1]; exact bot_le) hk
+  | coe e₁ =>
+    refine ⟨e₁, p₂, rfl, rfl, ?_⟩
+    cases hb1 : F₁.b with
+    | top => exact absurd (key e₁ (by rw [he1]) (by rw [hb1]; trivial)) not_false
+    | coe b₁ =>
+      -- `b₁` is a grid point, `b₁ = m · 2^exp₁`; if `b₁ > 2^(exp₁+p₂)` then
+      -- `m ≥ wit p₂`, so the witness is in bound.
+      refine WithTop.coe_le_coe.mpr (NonNegDyadic.le_iff_coe_real.mpr ?_)
+      by_contra hcon
+      have h2e : (0 : ℝ) < (2 : ℝ) ^ e₁ := zpow_pos (by norm_num) _
+      rw [coe_real_nnPow] at hcon
+      push Not at hcon
+      obtain ⟨m, hm⟩ : ∃ m : ℤ, ((b₁.val : Dyadic) : ℝ) = (m : ℝ) * (2 : ℝ) ^ e₁ := by
+        rw [← Dyadic.quantumAtLeast_coe_real]
+        exact he1 ▸ (hbr b₁ hb1).2.1
+      have hm_ge : ((wit p₂ : ℤ) : ℝ) ≤ (m : ℝ) := by
+        have h1 : (2 : ℝ) ^ (p₂ : ℕ) < (m : ℝ) := by
+          refine lt_of_mul_lt_mul_right ?_ (le_of_lt h2e)
+          rw [hm, zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_natCast,
+            mul_comm ((2 : ℝ) ^ e₁)] at hcon
+          exact hcon
+        have h2 : (2 : ℤ) ^ (p₂ : ℕ) < m := by exact_mod_cast h1
+        exact_mod_cast (by unfold wit; omega : wit p₂ ≤ m)
+      refine key e₁ (by rw [he1]) (hb1 ▸ boundOK_coe_of_abs_le ?_)
+      rw [abs_coe_wit, hm]
+      exact mul_le_mul_of_nonneg_right hm_ge (le_of_lt h2e)
+
+/-! ### The decision procedure
+
+`ContainsSub` requires `p₂ < ∞`; the paper's rule does not, but with `p₂ = ∞`
+its bound test `b₁ ≤ 2^(exp₁+∞)` is vacuous and its remaining premises are
+those of `ContainsPrec` (whose `p₁ ≤ ∞` is free), so the disjunction below is
+unchanged either way. -/
+
+/-- Premises of `𝒜-Contains-Prec` (Fig. 7). -/
+def ContainsPrec (F₁ F₂ : Format) : Prop :=
+  F₁.p ≤ F₂.p ∧ F₂.exp ≤ F₁.exp ∧ F₁.b ≤ F₂.b
+
+/-- Premises of `𝒜-Contains-Sub` (Fig. 7). -/
+def ContainsSub (F₁ F₂ : Format) : Prop :=
+  ∃ (e₁ : ℤ) (p₂ : ℕ+), F₁.exp = (e₁ : WithBot ℤ) ∧ F₂.p = ((p₂ : ℕ+) : WithTop ℕ+) ∧
+    F₁.b ≤ ((nnPow (e₁ + (p₂ : ℤ)) : NonNegDyadic) : WithTop NonNegDyadic) ∧
+    F₂.exp ≤ F₁.exp ∧ F₁.b ≤ F₂.b
+
+/-- **Figure 7 decides containment.** For `F₁` with a representable bound that
+represents a nonzero value, `F₁ ⊆ F₂` holds exactly when one of the two rules
+fires. No assumption on `F₂` is needed. -/
+theorem subset_iff_contains {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial) :
+    F₁ ⊆ F₂ ↔ ContainsPrec F₁ F₂ ∨ ContainsSub F₁ F₂ := by
+  constructor
+  · intro h
+    have hb := b_le_of_subset hbr h
+    have he := exp_le_of_subset hnt h
+    by_cases hp : F₁.p ≤ F₂.p
+    · exact Or.inl ⟨hp, he, hb⟩
+    · obtain ⟨e₁, p₂, he₁, hp₂, hbb⟩ := sub_test_of_subset hbr hnt h hp
+      exact Or.inr ⟨e₁, p₂, he₁, hp₂, hbb, he, hb⟩
+  · rintro (⟨hp, he, hb⟩ | ⟨e₁, p₂, he₁, hp₂, hbb, he, hb⟩)
+    · exact containsPrec hp he hb
+    · exact containsSub he₁ hp₂ hbb he hb
 
 /-! ### Format extension
 
