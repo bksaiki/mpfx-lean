@@ -205,7 +205,7 @@ theorem nearest_error_le_half_ulp {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
   have hxa' : x ≤ (rndUp F x : ℝ) := le_rndUp F x
   rw [abs_of_nonneg (by linarith : (0 : ℝ) ≤ x - (rndDown F x : ℝ))] at h1
   rw [abs_of_nonpos (by linarith : x - (rndUp F x : ℝ) ≤ 0), neg_sub] at h2
-  have hstep : (rndUp F x : ℝ) - (rndDown F x : ℝ) ≤ ulp F x := by
+  have hulp : (rndUp F x : ℝ) - (rndDown F x : ℝ) ≤ ulp F x := by
     have := rndUp_le_rndDown_add_ulp F x; linarith
   rw [abs_sub_comm]
   linarith
@@ -447,7 +447,7 @@ theorem succ_le_of_lt (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
   rw [FiniteFormat.unbounded_canonicalExp] at hyeq
   have h2 : (0:ℝ) < (2:ℝ) ^ ex := zpow_pos (by norm_num) _
   -- `y` sits on `x`'s grid: `2^ey = 2^(ey-ex) * 2^ex` with a whole-number factor
-  have hstep : ((y : Dyadic) : ℝ)
+  have hulp : ((y : Dyadic) : ℝ)
       = ((cy * (2:ℤ) ^ (ey - ex).toNat : ℤ) : ℝ) * (2:ℝ) ^ ex := by
     rw [hyeq, ← hey]
     push_cast
@@ -457,9 +457,9 @@ theorem succ_le_of_lt (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
   -- both are integer multiples of `2^ex`, and `y > x`, so `y ≥ x + 2^ex`
   have hlt_int : cx < cy * (2:ℤ) ^ (ey - ex).toNat := by
     have := hlt
-    rw [hxeq, ← hex, hstep] at this
+    rw [hxeq, ← hex, hulp] at this
     exact_mod_cast (mul_lt_mul_iff_of_pos_right h2).mp this
-  rw [succ_of_nonneg F hx0.le, ulp_of_ne_zero F hxne, ← hex, hxeq, ← hex, hstep]
+  rw [succ_of_nonneg F hx0.le, ulp_of_ne_zero F hxne, ← hex, hxeq, ← hex, hulp]
   have : (cx : ℝ) + 1 ≤ ((cy * (2:ℤ) ^ (ey - ex).toNat : ℤ) : ℝ) := by exact_mod_cast hlt_int
   nlinarith [h2]
 
@@ -580,13 +580,13 @@ theorem next_mem (F : FiniteFormat) {b : Dyadic} (hb : b ∈ F.unbounded) :
           ((b : Dyadic) : ℝ)))⌋ : ℤ) : ℝ)
         * (2 : ℝ) ^ F.canonicalExp ((b : Dyadic) : ℝ) = ((b : Dyadic) : ℝ) := by
       rw [← Dyadic.coe_ofIntZpow, hfl]
-    have hstep : b + Dyadic.ofIntZpow 1 (F.canonicalExp ((b : Dyadic) : ℝ))
+    have hulp : b + Dyadic.ofIntZpow 1 (F.canonicalExp ((b : Dyadic) : ℝ))
         = Dyadic.ofIntZpow (⌊((b : Dyadic) : ℝ) * (2 : ℝ) ^ (-(F.canonicalExp
             ((b : Dyadic) : ℝ)))⌋ + 1) (F.canonicalExp ((b : Dyadic) : ℝ)) := by
       apply Dyadic.ext_real
       rw [Dyadic.coe_real_add, Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow]
       push_cast; linear_combination -hflr
-    rw [hstep]
+    rw [hulp]
     exact ofIntZpow_mem_unbounded F (fun hexp => F.exp_le_canonicalExp _ hexp)
       (fun {p} hp => abs_floor_add_one_le_of_abs_lt (floor_mantissa_lt hp))
 
@@ -595,7 +595,7 @@ theorem next_mem (F : FiniteFormat) {b : Dyadic} (hb : b ∈ F.unbounded) :
 
 `succ_le_of_lt` gives one direction; the other is that `succ y₁` is itself
 representable (`next_mem`) and lies above `y₁`, so adjacency bounds `y₂` by it.
-This is `Grid.lean`'s `F_adjacent_step_form` in `succ` form. -/
+This is `Discrete.lean`'s `adjacent_canonical_form` in `succ` form. -/
 theorem succ_eq_of_adjacent (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
     {y₁ y₂ : Dyadic} (h₁ : y₁ ∈ F.unbounded) (h₂ : y₂ ∈ F.unbounded)
     (hpos : 0 < ((y₁ : Dyadic) : ℝ))
@@ -609,7 +609,7 @@ theorem succ_eq_of_adjacent (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
   exact hadj _ (next_mem F h₁) (by rw [hcoe]; exact lt_succ F hpos.le (ne_of_gt hpos))
 
 /-- **Discreteness in `succ` form**: no `F`-value lies strictly between `y` and
-`succ y`. This is `no_F_element_in_step_interval` restated. -/
+`succ y`. This is `not_mem_between_adjacent` restated. -/
 theorem not_mem_between_succ (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
     {y z : Dyadic} (hy : y ∈ F.unbounded) (hz : z ∈ F.unbounded)
     (hpos : 0 < ((y : Dyadic) : ℝ)) (hlt : ((y : Dyadic) : ℝ) < ((z : Dyadic) : ℝ)) :

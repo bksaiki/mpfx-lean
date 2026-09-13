@@ -247,7 +247,7 @@ theorem RoundsFinite.unique_nearest {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
   -- put `x` strictly between them; in particular `x` is neither of them, and
   -- `x ≠ 0` (at `0` both roundings are `0`).
   -- Equidistant and distinct puts `x` strictly between, so `x` is neither.
-  have offGrid : ∀ {a b : Dyadic}, a ≠ b →
+  have ne_of_tie : ∀ {a b : Dyadic}, a ≠ b →
       |x - (a : ℝ)| = |x - (b : ℝ)| → x ≠ (a : ℝ) := by
     intro a b hab hdist hx
     have hzero : |x - (b : ℝ)| = 0 := by rw [← hdist, hx, sub_self, abs_zero]
@@ -271,7 +271,7 @@ theorem RoundsFinite.unique_nearest {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
         RoundsFinite F.unbounded .toPositive x b → a ≠ b →
         |x - (a : ℝ)| = |x - (b : ℝ)| → |(a : ℝ)| = |(b : ℝ)| → False := by
       intro a b hda hub hab hdist habs'
-      have hxa := offGrid hab hdist
+      have hxa := ne_of_tie hab hdist
       refine (fun hx0 : x = 0 => hxa (by
         have hda0 : RoundsFinite F.unbounded .toNegative 0 a := by rw [← hx0]; exact hda
         rw [hx0, RoundsFinite.eq_zero_of_zero hda0, Dyadic.coe_real_zero])) ?_
@@ -314,7 +314,7 @@ theorem RoundsFinite.unique_nearest {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
       intro a b hda hub hab hdist' heva hevb
       exact ParityFormat.not_isEven_and_isOdd hevb
         ((isOdd_alternate_of_bracketing (F := F.unbounded) hodd hda hub
-            (offGrid hab hdist')).mpr
+            (ne_of_tie hab hdist')).mpr
           (fun hoa => ParityFormat.not_isEven_and_isOdd heva hoa))
     rcases hf₁.opposite_sides_of_ne hf₂ hne with ⟨hd, hu⟩ | ⟨hd, hu⟩
     · exact key hd hu hne hdist even₁ even₂

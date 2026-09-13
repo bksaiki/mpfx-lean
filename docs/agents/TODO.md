@@ -88,7 +88,7 @@ Mpfx/
 │                   Format.extend + self_subset_extend + extend_mono,
 │                   FiniteFormat.extend + numDigits_extend (Lemma 5.2),
 │                   withBound + next (+ next lemmas) — §5.2 bound API
-├── Grid.lean       grid-step / midpoint-membership theory (prereq for
+├── Discrete.lean   grid-step / midpoint-membership theory (prereq for
 │                   rndRTO_RN): log_le_of_canonical_rep,
 │                   exists_grid_rep_canonical, exists_grid_rep(_exp_bot),
 │                   grid_rep_c_pos,

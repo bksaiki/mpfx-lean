@@ -75,7 +75,7 @@ Worth promoting to its own file, and adding:
   `succ_le_lt`, `pred_UP_eq_DN`, `succ_DN_eq_UP`. Our `Format.next`
   (`Containment.lean:495`) is bound-oriented and documented as returning "a junk
   value" outside its intended range. A total `succ`/`pred` pair with an
-  involution law would simplify `Grid.lean` considerably.
+  involution law would simplify `Discrete.lean` considerably.
 - **Error bounds**: `error_lt_ulp` (faithful), `error_le_half_ulp` (nearest),
   `error_le_half_ulp_round`, `ulp_DN`, `ulp_round`. We have only
   `nearest_error_le_half_ulp`. These are the entry point to any
@@ -131,13 +131,13 @@ Three consequences:
    It also gives a computable mirror of `rnd` on dyadic inputs, which is what
    the "smoke tests" item in `TODO.md` wants.
 
-## 6. `Grid.lean` case duplication — **done**
+## 6. `Discrete.lean` case duplication — **done**
 
 All the `_exp_bot` twins are gone, merged on `canonicalExp`:
 `no_F_element_in_step_interval`, `F_adjacent_step_form`,
 `midpoint_mem_extend_one_of_F_adjacent_pos` and its wrapper. `exists_grid_rep`
 and `exists_grid_rep_exp_bot` were deleted outright once
-`exists_grid_rep_canonical` absorbed their consumers. `Grid.lean` 753 → 626.
+`exists_grid_rep_canonical` absorbed their consumers. `Discrete.lean` 753 → 626.
 
 `midpoint_mem_extend_one_of_p_top` remains separate and should: with
 unrestricted precision it needs no adjacency at all, so it is a different
@@ -178,7 +178,7 @@ reasoning. `generic_round_generic` (rounding an `F₁`-value into `F₂` stays i
   constructor is cheap and Flocq carries the full theory
   (`Round_pred.v:1030` onwards).
 - **`Float_prop.v`**: `F2R_change_exp`, `F2R_prec_normalize`, `mag_F2R_bounds`,
-  `mag_F2R_Zdigits`, `float_distribution_pos`. `Grid.lean` has ad hoc versions
+  `mag_F2R_Zdigits`, `float_distribution_pos`. `Discrete.lean` has ad hoc versions
   of several.
 - **`Digits.v`**: `Zdigits_mult`, `Zdigits_mult_strong`, `Zdigits_mult_ge`,
   `Zdigits_div_Zpower`. Mathlib's `Int.log` covers much of this, but the
@@ -200,9 +200,9 @@ over adding capability. Measured reduction potential:
 | Item | What it shrinks | Estimate |
 | ---- | --------------- | -------- |
 | §5 `location` / `inbetween` | `Format.lean` parity (1217 of 2019 lines) + `Parity.lean` (515) | **~800–1000** |
-| §4 `succ`/`pred` | `Grid.lean` F-adjacency (797), `Containment.next`'s junk cases | moderate, unmeasured |
+| §4 `succ`/`pred` | `Discrete.lean` F-adjacency (797), `Containment.next`'s junk cases | moderate, unmeasured |
 | §6 remaining `Grid` twins | three unexamined pairs | ≤ 100 |
-| §9 `Float_prop` items | ad hoc versions in `Grid.lean` | small |
+| §9 `Float_prop` items | ad hoc versions in `Discrete.lean` | small |
 | §3, §7, §8 | nothing existing | 0 — pure capability |
 
 1. **§5 `location` / `inbetween`** — by far the largest reducer, and the reason
@@ -219,7 +219,7 @@ over adding capability. Measured reduction potential:
    This is also the highest-risk item: it changes what `IsOdd` *means*, so
    everything consuming it is re-proved. Spike the `p ≠ 1` case first.
 
-2. **§4 `succ` / `pred`** — the reducing half of §4. `Grid.lean`'s F-adjacency
+2. **§4 `succ` / `pred`** — the reducing half of §4. `Discrete.lean`'s F-adjacency
    theory is `succ`/`pred` in disguise, and `Containment.next` is documented as
    returning "a junk value" outside its range; a total pair with `succ_pred` /
    `pred_succ` replaces both. The error bounds in §4 are new capability, and the

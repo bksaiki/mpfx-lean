@@ -115,11 +115,11 @@ private theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 
       have : (ma : ℝ) < ((2 : ℤ) ^ (k + 1 - e₁).toNat : ℝ) := by rw [hcast]; exact hmaR
       have : ma < (2 : ℤ) ^ (k + 1 - e₁).toNat := by exact_mod_cast this
       omega
-    have hstep : ((ma : ℝ) + 1) ≤ (2 : ℝ) ^ (k + 1 - e₁) := by
+    have hulp : ((ma : ℝ) + 1) ≤ (2 : ℝ) ^ (k + 1 - e₁) := by
       rw [← hcast]; exact_mod_cast hmaZ
     calc a + (2 : ℝ) ^ e₁ = ((ma : ℝ) + 1) * (2 : ℝ) ^ e₁ := by rw [ha]; ring
       _ ≤ (2 : ℝ) ^ (k + 1 - e₁) * (2 : ℝ) ^ e₁ :=
-          mul_le_mul_of_nonneg_right hstep hu1_pos.le
+          mul_le_mul_of_nonneg_right hulp hu1_pos.le
       _ = (2 : ℝ) ^ (k + 1) := by rw [← zpow_add₀ hne]; congr 1; ring
   -- `u₂ ≤ u₁/2`
   have hu2_le_half : (2 : ℝ) ^ e₂ ≤ (2 : ℝ) ^ e₁ / 2 := by

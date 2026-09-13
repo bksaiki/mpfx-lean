@@ -490,11 +490,11 @@ private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBrea
         have hu2pos' := zpow_pos (show (0 : ℝ) < 2 by norm_num) (F₂.canonicalExp v)
         have h1 : ulp F₂ v / 2 ≤ (2 : ℝ) ^ (emin₁ - 2) := by
           rw [hu2]
-          have hstep : (2 : ℝ) ^ (F₂.canonicalExp v) ≤ (2 : ℝ) ^ (emin₁ - 3) :=
+          have hulp : (2 : ℝ) ^ (F₂.canonicalExp v) ≤ (2 : ℝ) ^ (emin₁ - 3) :=
             zpow_le_zpow_right₀ (by norm_num) (by omega)
           have hle32 : (2 : ℝ) ^ (emin₁ - 3) ≤ (2 : ℝ) ^ (emin₁ - 2) :=
             zpow_le_zpow_right₀ (by norm_num) (by omega)
-          linarith [hstep, hle32, hu2pos']
+          linarith [hulp, hle32, hu2pos']
         have hh : (2 : ℝ) ^ (emin₁ - 2) = (2 : ℝ) ^ (emin₁ - 1) / 2 := by
           rw [show (emin₁ - 2 : ℤ) = (emin₁ - 1) - 1 from by ring]; exact hhalf (emin₁ - 1)
         have hslv : (2 : ℝ) ^ (emin₁ - 2) ≤ v := by linarith [hfar, h1, hh]

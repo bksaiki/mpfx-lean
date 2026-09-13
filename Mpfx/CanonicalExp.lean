@@ -1,4 +1,4 @@
-import Mpfx.Grid
+import Mpfx.Discrete
 
 /-!
 # Canonical exponent: closed forms and grid representation
@@ -14,17 +14,6 @@ the operation-specific double-rounding proofs (addition, square root, …):
 -/
 
 namespace Mpfx
-
-/-- **Canonical grid representation.** A positive `y ∈ F` (precision `p`) is
-`c · 2^(canonicalExp y)` with `|c| < 2^p`. Unifies the `exp = ⊥` and finite-`exp`
-grid lemmas (both have grid step `= canonicalExp`). -/
-theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ}
-    (hp : F.p = (p : Prec))
-    {y : Dyadic} (hmem : y ∈ F) (hpos : 0 < (y : ℝ)) :
-    ∃ c : ℤ, |c| < (2 : ℤ) ^ p ∧
-      (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ (F.canonicalExp (y : ℝ)) :=
-  have ⟨hprec, hquant, _⟩ := hmem
-  exists_grid_rep_canonical F hp hprec hquant hpos
 
 /-- **Closed form of `canonicalExp` in the normal range** (unifies FLX and FLT).
 When `v` is nonzero and its FLX exponent `log₂|v| + 1 − p` is at least the

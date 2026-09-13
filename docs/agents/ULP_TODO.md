@@ -47,7 +47,7 @@ needs checking at `|x| = 2^e`.
 
 ## Vocabulary
 
-`Grid.lean`'s "grid" has no Flocq counterpart — the word appears nowhere in
+`Discrete.lean`'s "grid" has no Flocq counterpart — the word appears nowhere in
 Flocq's source. That is not an oversight: once you have `ulp`, `succ` and
 discreteness you never need to name the set of representable values at a fixed
 exponent.
@@ -68,12 +68,12 @@ many binades. That divergence is exactly what produced the `_exp_bot` twins.
 So "grid" is retired by attrition, not substitution: `exists_grid_rep` becomes
 "`y` is canonical", `no_F_element_in_step_interval` becomes "nothing lies
 strictly between `y` and `succ y`", `F_adjacent_step_form` becomes
-`y₂ = succ y₁`. None of them mentions a lattice, so `Grid.lean` does not get
+`y₂ = succ y₁`. None of them mentions a lattice, so `Discrete.lean` does not get
 renamed — it dissolves.
 
 ## Why
 
-The reducing half of roadmap §4. `Grid.lean`'s F-adjacency theory is `succ` and
+The reducing half of roadmap §4. `Discrete.lean`'s F-adjacency theory is `succ` and
 `pred` in disguise — `F_adjacent_step_form` says `y₂ = succ y₁` and
 `no_F_element_in_step_interval` is discreteness — so restating it collapses the
 roadmap §6 twins as a side effect rather than as separate work.
@@ -276,14 +276,14 @@ So the two are different operations that agree where both are meaningful:
 
 ## Phase 5 — adjacency through `succ` — **done, redirected**
 
-The phase as written wanted to restate `Grid.lean`'s adjacency in `succ` terms.
+The phase as written wanted to restate `Discrete.lean`'s adjacency in `succ` terms.
 That is not possible: the import chain is
 
 ```
 Format < Containment < Grid < CanonicalExp < RoundOp < Ulp
 ```
 
-so `Grid.lean` sits **below** `succ` and cannot mention it. (`canonicalExp` is
+so `Discrete.lean` sits **below** `succ` and cannot mention it. (`canonicalExp` is
 in `Format.lean`, which is why `Grid` can already use *that*.) Moving the
 `ulp`/`succ`/`pred` definitions down — they need only `Format.lean` — would fix
 it, but costs a restructure this phase does not justify.
@@ -314,7 +314,7 @@ should collapse: `no_F_element_in_step_interval` (43+29),
 
 - [x] Merge bottom-up: the `no_F_element` pair first, since the others call it.
 
-**Done, −153 lines** (estimate was 60–70). `Grid.lean` 753 → 626. All three
+**Done, −153 lines** (estimate was 60–70). `Discrete.lean` 753 → 626. All three
 pairs merged on `canonicalExp`, plus the two `midpoint_mem_extend_one_of_F_adjacent`
 wrappers, which became identical once their `_pos` variants did.
 
@@ -342,23 +342,37 @@ Most lemma renames happen on their own in Phases 5–6, where
 `no_F_element_in_step_interval` becomes discreteness. This phase is the
 residue.
 
-- [ ] Hypothesis names: `h_step`, `hstep`, `h_step_pos` → `h_ulp` and friends
+- [x] Hypothesis names: `h_step`, `hstep`, `h_step_pos` → `h_ulp` and friends
       (~50 sites). Mechanical, noisy in the diff, hence its own commit.
-- [ ] Survivors: `grid_rep_c_pos` → `canonical_rep_pos`, `grid_rep_reconstruct`,
+- [x] Survivors: `grid_rep_c_pos` → `canonical_rep_pos`, `grid_rep_reconstruct`,
       `step_interval_bounds`, `step_interval_squeeze_absurd`,
       `next_step_precision`, `next_step_min`, `coe_add_step_halves`,
       `grid_floor_setup`, `float_window_step`.
-- [ ] Resolve the `exists_canonical_rep` collision: `Grid`'s component-taking
+- [x] Resolve the `exists_canonical_rep` collision: `Grid`'s component-taking
       version and `CanonicalExp`'s membership-taking version are the same fact;
       keep one name with the other as a wrapper.
-- [ ] Dissolve `Grid.lean`. Canonical-rep, discreteness and adjacency belong in
+- [x] Dissolve `Discrete.lean`. Canonical-rep, discreteness and adjacency belong in
       `Ulp.lean`; the `midpoint_mem_extend_one_*` family is §5.2 containment
       groundwork for `rndRTO_RN`, not spacing theory, so it goes with
       `Containment.lean` or into its own file.
 
-Extra acceptance: `grep -ri "grid" Mpfx/` returns nothing outside prose.
+Extra acceptance: `grep -ri "grid" Mpfx/` returns nothing outside prose. **Met.**
 
-Commit message: `Retire the grid vocabulary in favour of ulp and succ`
+**Done.** ~25 names renamed across ~130 sites. The `exists_canonical_rep`
+collision resolved by moving the membership wrapper down beside the component
+form (`exists_canonical_rep_of_parts`) and deleting `CanonicalExp.lean`'s copy;
+callers were unaffected since the name they use did not change.
+
+`Grid.lean` could **not** be dissolved into `Ulp.lean` — the same ordering that
+redirected Phase 5: `Grid` sits below `Ulp`, so its content cannot move up. It
+was renamed `Mpfx/Discrete.lean`, after what it holds: canonical representation,
+discreteness, adjacency.
+
+"Grid" survives in prose only, as the vocabulary decision intended. In
+`Containment.lean` the `next` docstrings became "Lattice closure/minimality",
+since "Grid" there read like a file reference.
+
+Commit message: `Retire the grid vocabulary in favour of ulp and canonical`
 
 — **pause for review** —
 

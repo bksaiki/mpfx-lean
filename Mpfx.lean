@@ -6,7 +6,7 @@ import Mpfx.RoundPred
 import Mpfx.Parity
 import Mpfx.RoundOp
 import Mpfx.Containment
-import Mpfx.Grid
+import Mpfx.Discrete
 import Mpfx.Digits
 import Mpfx.DoubleRounding
 import Mpfx.DoubleRoundingCex

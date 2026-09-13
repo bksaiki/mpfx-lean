@@ -98,7 +98,7 @@ import Mpfx
 | `Mpfx/Parity.lean` | Adjacent grid points alternate in parity. |
 | `Mpfx/RoundOp.lean` | The constructive `rnd` and the bridge `rnd_iff_rounds`. |
 | `Mpfx/Containment.lean` | §5.1 containment; `extend`/`withBound`/`next`. |
-| `Mpfx/Grid.lean` | F-grid representation, F-adjacency, midpoint membership. |
+| `Mpfx/Discrete.lean` | F-grid representation, F-adjacency, midpoint membership. |
 | `Mpfx/Digits.lean` | Lemmas 5.2 and 5.3. |
 | `Mpfx/DoubleRounding.lean` | §5.2 positive rules. |
 | `Mpfx/DoubleRoundingCex.lean` | §5.2 counterexamples. |
