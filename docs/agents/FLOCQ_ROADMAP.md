@@ -76,7 +76,11 @@ twins as a side effect.
 
 Error bounds: `faithful_error_lt_ulp` (Flocq `error_lt_ulp`),
 `nearest_error_le_half_ulp_round` (`error_le_half_ulp_round`), `ulp_rndDown`
-(`ulp_DN`), `ulp_round_pos` (`ulp_round`).
+(`ulp_DN`), `ulp_round_pos` (`ulp_round`). The last three need Flocq's
+`Exp_not_FTZ` side condition; ours is `FiniteFormat.IsAboveQuantum`
+(`Format.lean`), a plain inequality `canonicalExp x ≤ ⌊log₂ |x|⌋` rather than a
+class on an exponent function, because `F.exp` is a value. `rndDown_pos_iff`
+records that it is exactly "`x` does not round down to `0`".
 
 Bracket characterisations: `rndDown_eq_of_bracket` (`round_DN_eq`),
 `rndUp_eq_of_bracket` (`round_UP_eq`), `nearest_le_of_lt_midp`
