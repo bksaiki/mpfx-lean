@@ -553,4 +553,41 @@ theorem pred_mem (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
     · rw [Dyadic.coe_ofIntZpow, ulp_of_ne_zero F hxne]
       push_cast; linear_combination -hxeq
 
+/-! ## `FiniteFormat.next` is `succ` in `Dyadic` form -/
+
+/-- The real value of `next` is `succ`. On the non-negative side the two agree
+exactly, guard branch included: `next F 0 = 0 = succ F 0` when there is no
+minimum quantum. -/
+theorem next_coe (F : FiniteFormat) {b : Dyadic} (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
+    ((F.next b : Dyadic) : ℝ) = succ F ((b : Dyadic) : ℝ) := by
+  rw [succ_of_nonneg F hb, FiniteFormat.next]
+  split_ifs with hg
+  · obtain ⟨hb0, hbot⟩ := hg
+    rw [hb0, ulp, if_pos ⟨rfl, hbot⟩]; ring
+  · rw [Dyadic.coe_real_add, Dyadic.coe_ofIntZpow, ulp_eq_zpow_of F hg]
+    push_cast; ring
+
+/-- The successor of a non-negative `F`-value is an `F`-value. -/
+theorem next_mem (F : FiniteFormat) {b : Dyadic} (hb : b ∈ F.unbounded) :
+    F.next b ∈ F.unbounded := by
+  rw [FiniteFormat.next]
+  split_ifs with hg
+  · exact hb
+  · -- `b` is its own round-down, so `b + 2^e` is the next grid point up
+    have hfl := RoundsFinite.eq_of_mem hb (rndDown_spec F ((b : Dyadic) : ℝ))
+    rw [rndDown_eq] at hfl
+    have hflr : ((⌊((b : Dyadic) : ℝ) * (2 : ℝ) ^ (-(F.canonicalExp
+          ((b : Dyadic) : ℝ)))⌋ : ℤ) : ℝ)
+        * (2 : ℝ) ^ F.canonicalExp ((b : Dyadic) : ℝ) = ((b : Dyadic) : ℝ) := by
+      rw [← Dyadic.coe_ofIntZpow, hfl]
+    have hstep : b + Dyadic.ofIntZpow 1 (F.canonicalExp ((b : Dyadic) : ℝ))
+        = Dyadic.ofIntZpow (⌊((b : Dyadic) : ℝ) * (2 : ℝ) ^ (-(F.canonicalExp
+            ((b : Dyadic) : ℝ)))⌋ + 1) (F.canonicalExp ((b : Dyadic) : ℝ)) := by
+      apply Dyadic.ext_real
+      rw [Dyadic.coe_real_add, Dyadic.coe_ofIntZpow, Dyadic.coe_ofIntZpow]
+      push_cast; linear_combination -hflr
+    rw [hstep]
+    exact ofIntZpow_mem_unbounded F (fun hexp => F.exp_le_canonicalExp _ hexp)
+      (fun {p} hp => abs_floor_add_one_le_of_abs_lt (floor_mantissa_lt hp))
+
 end Mpfx

@@ -91,13 +91,13 @@ There is no right value for `canonicalExp F 0` when `exp = ⊥`: the format hold
 takes the same view — `mag 0` is junk and `cexp` is never applied at 0. Fix
 `ulp` instead:
 
-- [ ] `ulp F x = if x = 0 ∧ F.exp = ⊥ then 0 else 2 ^ canonicalExp F x`.
+- [x] `ulp F x = if x = 0 ∧ F.exp = ⊥ then 0 else 2 ^ canonicalExp F x`.
       `canonicalExp F 0` already returns `e` in the finite-`exp` branches, so
       only `⊥` needs the guard.
-- [ ] `ulp_of_ne_zero`, `ulp_nonneg`; `ulp_pos` gains `x ≠ 0`.
-- [ ] Fix the 16 sites that `unfold ulp` and would newly meet the `if`, and the
+- [x] `ulp_of_ne_zero`, `ulp_nonneg`; `ulp_pos` gains `x ≠ 0`.
+- [x] Fix the 16 sites that `unfold ulp` and would newly meet the `if`, and the
       three `ulp_pos` call sites.
-- [ ] `rnd_lt_mid` (`NearestMidpoint.lean`) has no positivity hypothesis, and
+- [x] `rnd_lt_mid` (`NearestMidpoint.lean`) has no positivity hypothesis, and
       `h21 : F₂.canonicalExp x < F₁.canonicalExp x` does **not** force `x ≠ 0` —
       two formats with different finite `exp` satisfy it at zero. Either add
       `x ≠ 0` (and push it to callers) or rearrange. Confirm the statement is
@@ -107,18 +107,43 @@ This is Flocq's `negligible_exp`, which we get for free: Flocq needs `LPO_Z` to
 decide whether a minimal exponent exists, because `fexp : Z → Z` is arbitrary.
 Our `F.exp : WithBot ℤ` *is* that decision, in the type.
 
+**Done.** Bigger than estimated: not 16 mechanical rewrites, but ~10 theorems
+whose statements or proofs genuinely changed, because several were only true by
+accident of `ulp 0` being junk-positive.
+
+* `lt_rndDown_add_ulp` is *false* at `0` with no minimum quantum — there is no
+  next value above zero. It now takes the guard negation `¬(x = 0 ∧ F.exp = ⊥)`,
+  which is weaker than `x ≠ 0` and still true at zero when `exp` is finite.
+* `ulp_le_half_ulp_of_canonicalExp_lt`, `rnd_lt_mid`, `rnd_gt_mid` gained
+  `x ≠ 0`; their callers already had it.
+* `rndUp_le_rndDown_add_ulp` and `nearest_error_le_half_ulp` stayed
+  unconditional — true at zero, only their proofs needed case splits. Worth the
+  effort, since a hypothesis there would have rippled to every caller.
+* Two proofs needed real work rather than rewriting: one branch of
+  `rnd_lt_mid`'s neighbour analysis is contradictory at `z = 0`, the other
+  genuinely admits it and needed a sub-case where both roundings are zero.
+
+`ulp_guard_of_midp_ne` fell out and is reusable: without a minimum quantum `0`
+is its own midpoint, so any strict comparison of `ξ` against `midp F ξ` rules
+the guard out. It discharged the sites with no positivity available.
+
 Commit message: `Give ulp the right value at zero`
 
 — **pause for review** —
 
 ## Phase 2 — `Mpfx/Ulp.lean`
 
-- [ ] Move `ulp`, `rndDown`, `rndUp`, `midp` and their basic lemmas out of
+- [x] Move `ulp`, `rndDown`, `rndUp`, `midp` and their basic lemmas out of
       `NearestMidpoint.lean` into their own file, leaving the double-rounding
       midpoint theory behind.
-- [ ] Pure move — no proof should change.
+- [x] Pure move — no proof should change.
 
 Extra acceptance: `git diff -M` shows the block as a move, not a rewrite.
+
+**Done.** `Mpfx/Ulp.lean` is 361 lines; `NearestMidpoint.lean` 786 → 318.
+`canonicalExp_neg` went to `CanonicalExp.lean` where it belongs, which let
+`ulp_neg` sit beside `ulp_pos`. Every unpaired diff line is a module docstring,
+an import, a section header or `namespace`/`end` — no proof text changed.
 
 Commit message: `Split the ulp/rndDown/rndUp API into its own file`
 
@@ -129,15 +154,39 @@ Commit message: `Split the ulp/rndDown/rndUp API into its own file`
 The one phase with real proof work, and the one the convention section is
 about.
 
-- [ ] `succ` (uniform: `x + ulp x` for `0 ≤ x`) and `pred` with the
+- [x] `succ` (uniform: `x + ulp x` for `0 ≤ x`) and `pred` with the
       binade-floor special case.
-- [ ] Membership: `succ`/`pred` of an `F`-value is an `F`-value.
+- [x] Membership: `succ`/`pred` of an `F`-value is an `F`-value.
 - [ ] The involution pair `succ_pred` / `pred_succ`, and `succ_gt_id` /
       `pred_lt_id`.
-- [ ] `succ_le_lt` — `succ x ≤ y` iff `x < y` for `F`-values, the form that
+- [x] `succ_le_lt` — `succ x ≤ y` iff `x < y` for `F`-values, the form that
       makes `succ` usable as adjacency.
 
 Extra acceptance: a test that `pred (2^e) = 2^e − 2^(e−p)`, not `2^e − 2^(e+1−p)`.
+
+**Done, except the involutions.** Both convention checks pass:
+`ulp F (2^k) = 2^(k+1−p)` (spacing above) and `pred F (2^k) = 2^k − 2^(k−p)`
+(the smaller step down).
+
+Flocq's `bpow (fexp (mag x − 1))` translated neatly: at a power of two it is
+just `ulp F (x/2)`, since `x/2` lies in the binade below and `canonicalExp`
+there is exactly that step. No exponent-level `fexp` was needed.
+
+Landed: `predPos`/`succ`/`pred` with their reduction lemmas, `succ_mem`,
+`pred_mem`, `lt_succ`, `pred_lt`, `pred_eq_predPos`, `succ_le_of_lt`, plus
+`log_two_zpow` (`Utils.lean`) and `unbounded_canonicalExp` (`Format.lean`).
+
+`succ_le_of_lt` is what Phase 5 needs: `canonicalExp_mono` gives `ex ≤ ey`, so
+`y` is an integer multiple of `2^ex` as well, and `y > x` forces the multiplier
+up by at least one. That is discreteness, stated through `succ`.
+
+`pred_mem` needed the boundary case: away from a floor it is `(c−1)·2^e`; at a
+floor it is `2^k − 2^(e')` with coefficient `2^(k−e') − 1`, in range because
+`e' ≥ k − p` gives `k − e' ≤ p`.
+
+- [ ] **Outstanding:** the involutions `succ_pred` / `pred_succ`. Flocq spends
+      `pred_pos_plus_ulp` and three auxiliaries on these. Nothing in Phases 4–6
+      needs them; pick them up if Phase 9 does.
 
 Commit message: `Add succ and pred as total format functions`
 
@@ -158,24 +207,72 @@ containment theory is `Format`-level) while `canonicalExp` needs
 `FiniteFormat`'s invariant — and the excluded `(p = ⊤, exp = ⊥)` case is exactly
 where `next` returns `b + 1`.
 
-- [ ] Move `boundAfterNext` to `FiniteFormat`. `withBound : Format → Bound →
-      Format` stays put, so hypotheses go from
-      `F₁.toFormat.withBound F₁.toFormat.boundAfterNext ⊆ F₂.toFormat` to
-      `F₁.toFormat.withBound F₁.boundAfterNext ⊆ F₂.toFormat` — a rename, with
-      the `⊆` still `Format`-level and theorem shapes unchanged.
-- [ ] Replace the 18 `next_*` lemmas with their `succ` counterparts, and the
-      ~200 call sites with the renamed forms.
-- [ ] Delete `Format.next`. Add it back only if a use case appears that `succ`
-      cannot serve.
+**Three findings while starting this, which split the phase in two.**
 
-Doing this immediately after Phase 3 exercises `succ`'s lemma set against a
-demanding consumer before more is built on it, and avoids a window where both
-notions coexist. Note it only exercises non-negative arguments, so `pred`'s
-binade-floor case stays untested until Phase 5.
+*Typing.* `next : Dyadic → Dyadic` but `succ : ℝ → ℝ`. `boundAfterNext` must
+produce a `NonNegDyadic`, and `succ_mem` gives only existence, so `succ` cannot
+define it. The wrapper instead makes `next`'s *real value* be `succ`:
 
-Commit message: `Retire Format.next in favour of succ`
+```lean
+noncomputable def FiniteFormat.next (F : FiniteFormat) (b : Dyadic) : Dyadic :=
+  if (b : ℝ) = 0 ∧ F.exp = ⊥ then b
+  else b + Dyadic.ofIntZpow 1 (F.canonicalExp (b : ℝ))
 
-— **pause for review** —
+theorem next_coe (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
+    ((F.next b : Dyadic) : ℝ) = succ F ((b : Dyadic) : ℝ)
+```
+
+This agrees with the current `next` wherever it is sensible — for `b > 0` the
+old step exponent `max e (⌊log₂ b⌋ − p + 1)` *is* `canonicalExp b`. It differs
+only in the junk branches: at `b = 0` with `exp = ⊥` the old gives `b + 1`, the
+new gives `0`, matching `succ 0 = 0`. For `b < 0` the bridge is not stated —
+`succ` there goes through `predPos`, mirroring which needs machinery nothing
+uses, and every call site is at a non-negative bound.
+
+*Import order.* `Containment` sits below `Ulp`, so `next` cannot be defined via
+`ulp`. It does not need to: `canonicalExp` alone suffices, and that is in
+`Format.lean`. The definition stays in `Containment.lean`; `next_coe` goes in
+`Ulp.lean` where both are visible.
+
+*Namespace.* 13 of the declarations sit inside `namespace Format`
+(`Containment.lean` 18–690), six more at `Mpfx` level after `end FiniteFormat`.
+Migrating relocates 13 declarations across a namespace boundary in the file
+holding the §5.1 results.
+
+### Phase 4a — add the wrapper — **done**
+
+- [x] `FiniteFormat.next` (`Containment.lean`), `next_of_ne`,
+      `next_eq_format_next`; `next_coe` and `next_mem` (`Ulp.lean`).
+
+`next_mem` needs no sign hypothesis: the guard branch returns `b` itself and the
+other is the next grid point up, which is representable for any `b ∈ F`.
+
+Commit message: `Add a succ-backed successor on FiniteFormat`
+
+### Phase 4b — **will not do**
+
+`Format.next` stays. Its value at a degenerate format is not junk, it is
+load-bearing.
+
+`hp_F₂_or_F₁_trivial_extend` (`DoubleRounding.lean:563`) builds a witness
+`3·2^k` that must satisfy `|3·2^k| ≤ boundAfterNext F₁`. In the
+`F₁.exp = ⊥, F₁.b = 0` branch it uses `next 0 = 1` to get `3/4 ≤ 1`. Under the
+succ-backed definition `next 0 = 0`, so `boundAfterNext = 0` and *no* witness can
+exist — `withBound 0` holds only zero, so there is genuinely no 2-precision
+element. That branch would become false, not merely unproved.
+
+So the two are different operations that agree where both are meaningful:
+
+| | |
+| --- | --- |
+| `Format.next` | advances a **bound**, with a convention at degenerate formats |
+| `FiniteFormat.next` / `succ` | the **successor** in the grid; `0` when there is none |
+
+`next_eq_format_next` records that they coincide for `b > 0`.
+
+- [ ] **Optional follow-up:** rename `Format.next` to something bound-flavoured
+      (`nextBound`, `boundStep`) so the two do not read as the same notion.
+      ~200 call sites, mechanical.
 
 ## Phase 5 — adjacency through `succ`/`pred`
 

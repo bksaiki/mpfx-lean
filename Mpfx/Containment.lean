@@ -755,6 +755,42 @@ theorem numDigits_extend (F : FiniteFormat) (k : ℕ) {x : ℝ} (hx : x ≠ 0) :
           = Int.log 2 |x| - e' + 1 + (k : ℤ) := by ring
       rw [hlog]; omega
 
+/-- The next representable value at or above a non-negative `b` — the `Dyadic`
+counterpart of `succ`, whose real value it carries (`next_coe`, in
+`Mpfx/Ulp.lean`).
+
+Unlike `Format.next` this has no junk branches. Without a minimum quantum `0`
+has no successor, and `next F 0 = 0` records that rather than inventing one. -/
+noncomputable def next (F : FiniteFormat) (b : Dyadic) : Dyadic :=
+  if ((b : Dyadic) : ℝ) = 0 ∧ F.exp = ⊥ then b
+  else b + Dyadic.ofIntZpow 1 (F.canonicalExp ((b : Dyadic) : ℝ))
+
+theorem next_of_ne (F : FiniteFormat) {b : Dyadic}
+    (h : ¬(((b : Dyadic) : ℝ) = 0 ∧ F.exp = ⊥)) :
+    F.next b = b + Dyadic.ofIntZpow 1 (F.canonicalExp ((b : Dyadic) : ℝ)) := if_neg h
+
+/-- On positive arguments the new successor agrees with `Format.next`: the old
+step exponent `max exp (⌊log₂ b⌋ − p + 1)` *is* `canonicalExp b`. This is what
+lets the `Format.next` lemma interface transfer. -/
+theorem next_eq_format_next (F : FiniteFormat) {b : Dyadic}
+    (hb : 0 < ((b : Dyadic) : ℝ)) : F.toFormat.next b = F.next b := by
+  have hne : ((b : Dyadic) : ℝ) ≠ 0 := ne_of_gt hb
+  rw [FiniteFormat.next, if_neg (by simp [hne])]
+  unfold Format.next FiniteFormat.canonicalExp
+  cases hp : F.p using ENat.recTopCoe with
+  | top =>
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot => exact (F.finite.elim (fun hh => hh hp) (fun hh => hh hexp)).elim
+    | coe e => rfl
+  | coe p =>
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot =>
+      simp only [if_neg (not_le.mpr hb), if_neg hne, abs_of_pos hb]
+      congr 2; omega
+    | coe e =>
+      simp only [if_neg (not_le.mpr hb), if_neg hne, abs_of_pos hb]
+      congr 2; omega
+
 end FiniteFormat
 
 
