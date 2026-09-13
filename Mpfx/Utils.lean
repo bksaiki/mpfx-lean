@@ -299,6 +299,10 @@ theorem log_lt_p_of_abs_lt_two_pow {p : ℕ} (hp : 0 < p) {k : ℤ}
       (Int.lt_zpow_iff_log_lt (by norm_num : 1 < 2) h_abs_pos).mp h_abs_lt_zpow
     linarith
 
+/-- `Int.log 2 ((2 : ℝ) ^ k) = k` for integer `k`. -/
+theorem log_two_zpow (k : ℤ) : Int.log 2 ((2 : ℝ) ^ k) = k := by
+  simpa using Int.log_zpow (R := ℝ) (b := 2) (by norm_num) k
+
 /-- `Int.log 2 ((2 : ℝ) ^ n) = n` for natural `n`. -/
 theorem log_two_pow_nat (n : ℕ) : Int.log 2 ((2 : ℝ) ^ n) = (n : ℤ) := by
   rw [show ((2 : ℝ) ^ n) = ((2 : ℝ) ^ (n : ℤ)) from (zpow_natCast (2 : ℝ) n).symm]

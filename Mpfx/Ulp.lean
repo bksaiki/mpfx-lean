@@ -358,4 +358,57 @@ theorem rndDown_neg_real (F : FiniteFormat) (x : ℝ) :
         from by ring, Int.floor_neg]
   push_cast; ring
 
+/-! ## Successor and predecessor
+
+`succ` is uniform — `x + ulp x` on the non-negative side — but `pred` is not.
+Under Goldberg's convention `ulp (2^k)` is the spacing of the binade *above*,
+so stepping *down* from a power of two moves by half that. `predPos` carries
+the special case; `pred` and the negative branch of `succ` reflect through it.
+-/
+
+/-- Predecessor of a positive real. At the bottom of a binade the step down is
+the spacing of the binade below — `ulp` at `x/2`, which lies in it — rather than
+`ulp x`. Flocq `pred_pos`. -/
+noncomputable def predPos (F : FiniteFormat) (x : ℝ) : ℝ :=
+  if x = (2 : ℝ) ^ Int.log 2 x then x - ulp F (x / 2) else x - ulp F x
+
+/-- The next representable value at or above `x` (Flocq `succ`). -/
+noncomputable def succ (F : FiniteFormat) (x : ℝ) : ℝ :=
+  if 0 ≤ x then x + ulp F x else -predPos F (-x)
+
+/-- The previous representable value at or below `x` (Flocq `pred`). -/
+noncomputable def pred (F : FiniteFormat) (x : ℝ) : ℝ := -succ F (-x)
+
+theorem succ_of_nonneg (F : FiniteFormat) {x : ℝ} (hx : 0 ≤ x) :
+    succ F x = x + ulp F x := if_pos hx
+
+theorem predPos_of_binade_floor (F : FiniteFormat) {x : ℝ}
+    (hx : x = (2 : ℝ) ^ Int.log 2 x) : predPos F x = x - ulp F (x / 2) := if_pos hx
+
+theorem predPos_of_ne (F : FiniteFormat) {x : ℝ}
+    (hx : x ≠ (2 : ℝ) ^ Int.log 2 x) : predPos F x = x - ulp F x := if_neg hx
+
+/-- On the non-negative side the successor is the next grid point up. -/
+theorem succ_mem (F : FiniteFormat) {x : Dyadic} (hx : x ∈ F.unbounded)
+    (hx0 : 0 ≤ ((x : Dyadic) : ℝ)) (hne : ((x : Dyadic) : ℝ) ≠ 0) :
+    ∃ y : Dyadic, y ∈ F.unbounded ∧ ((y : Dyadic) : ℝ) = succ F (x : ℝ) := by
+  refine ⟨Dyadic.ofIntZpow (⌊(x : ℝ) * (2 : ℝ) ^ (-(F.canonicalExp (x : ℝ)))⌋ + 1)
+      (F.canonicalExp (x : ℝ)), ?_, ?_⟩
+  · refine ofIntZpow_mem_unbounded F (fun hexp => F.exp_le_canonicalExp _ hexp)
+      (fun {p} hp => abs_floor_add_one_le_of_abs_lt (floor_mantissa_lt hp))
+  · have hfl := RoundsFinite.eq_of_mem hx (rndDown_spec F (x : ℝ))
+    rw [rndDown_eq] at hfl
+    have hfl' : ((⌊(x : ℝ) * (2 : ℝ) ^ (-(F.canonicalExp (x : ℝ)))⌋ : ℤ) : ℝ)
+        * (2 : ℝ) ^ F.canonicalExp (x : ℝ) = (x : ℝ) := by
+      rw [← Dyadic.coe_ofIntZpow, hfl]
+    rw [succ_of_nonneg F hx0, ulp_of_ne_zero F hne, Dyadic.coe_ofIntZpow]
+    push_cast; linear_combination hfl'
+
+/-- `x < succ x` away from zero (Flocq `succ_gt_id`). At `x = 0` with no
+minimum quantum `succ 0 = 0`, so the hypothesis is needed. -/
+theorem lt_succ (F : FiniteFormat) {x : ℝ} (hx0 : 0 ≤ x) (hne : x ≠ 0) :
+    x < succ F x := by
+  rw [succ_of_nonneg F hx0]
+  linarith [ulp_pos F hne]
+
 end Mpfx
