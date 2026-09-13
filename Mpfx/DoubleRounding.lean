@@ -2941,7 +2941,7 @@ private theorem bound_floor_setup {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
       rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs] at hr
       change |(d : ℚ)| ≤ ((b₁.val : Dyadic) : ℚ)
       exact_mod_cast hr
-    · -- Lattice values within `b₁` are within `D`.
+    · -- Grid values within `b₁` are within `D`.
       intro v hv hbv
       rw [hF₁b] at hbv
       have h1r : |(v : ℝ)| ≤ ((b₁.val : Dyadic) : ℝ) := by

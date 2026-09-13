@@ -6,9 +6,8 @@ import Mpfx.Containment
 # Round-to-nearest midpoint theory (Roux Lemma 16)
 
 The round-to-nearest infrastructure behind Roux's operation-specific
-double-rounding results for addition, square root and division
-(`docs/agents/DOUBLE_ROUNDING_OPS_PLAN.md`, Phase 2). The centrepiece is
-**Lemma 16** (Flocq `round_round_lt_mid_further_place`): when a positive real
+double-rounding results for addition, square root and division. The centrepiece
+is **Lemma 16** (Flocq `round_round_lt_mid_further_place`): when a positive real
 sits far enough below its `F₁`-midpoint, an intermediate round-to-nearest in a
 finer format `F₂` followed by a round-to-nearest in `F₁` agrees with rounding
 directly into `F₁`.
@@ -18,13 +17,12 @@ directly into `F₁`.
 
 namespace Mpfx
 
-/-! ## Lemma 16 — double rounding below the midpoint (given binade consistency)
+/-! ## Lemma 16 — double rounding below the midpoint
 
-Flocq `round_round_lt_mid_further_place`, in the `_place'` form: `rnd_lt_mid`
-takes the binade-consistency `F₁.canonicalExp z = F₁.canonicalExp x` (⟺ Flocq's
-`mag x'' = mag x`) as an explicit hypothesis; `canonicalExp_eq_of_lt_mid` derives
-it from `hmid` and `F₁.canonicalExp x ≤ Int.log 2 x + 1`, and `rnd_lt_mid'` is the
-resulting hypothesis-free form. -/
+`rnd_lt_mid` takes binade consistency (`F₁.canonicalExp z = F₁.canonicalExp x`)
+as an explicit hypothesis; `canonicalExp_eq_of_lt_mid` derives it from `hmid`
+and `F₁.canonicalExp x ≤ Int.log 2 x + 1`, and `rnd_lt_mid'` is the resulting
+hypothesis-free form. -/
 
 /-- **Lemma 16 (with binade consistency).** For `0 < x` sitting more than
 `½·ulp₂` below its `F₁`-midpoint, with `F₂`'s canonical exponent strictly finer
@@ -123,7 +121,7 @@ theorem rnd_lt_mid {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
           rw [hmz]; exact hz_lt
         have := nearest_eq_rndDown_of_lt_midp F₁ tb₁ (z : ℝ) hundef₁ hmidz
         rwa [hrd_eq] at this
-  -- w = rndDown F₁ x by nearest-uniqueness, then close with Lemma L3 on x
+  -- w = rndDown F₁ x by nearest-uniqueness, then round `x` below its midpoint
   have hu₁ : ¬ (F₁.unbounded).IsUndefined (.nearest tb₁) := by
     rw [FiniteFormat.unbounded_isUndefined]; exact hundef₁
   have hw_eq : w = rndDown F₁ x := by
@@ -132,7 +130,7 @@ theorem rnd_lt_mid {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
   rw [hw_eq]
   exact nearest_eq_rndDown_of_lt_midp F₁ tb₁ x hundef₁ hx_lt_midp
 
-/-! ## L4 — binade consistency (Flocq `_further_place`) -/
+/-! ## Binade consistency -/
 
 /-- Read off `Int.log 2 x = k` from the binade bounds `2^k ≤ x < 2^(k+1)`. -/
 theorem log_eq_of_zpow_bounds {x : ℝ} {k : ℤ} (hx : 0 < x)
@@ -146,10 +144,7 @@ theorem log_eq_of_zpow_bounds {x : ℝ} {k : ℤ} (hx : 0 < x)
 /-- **Binade consistency from a direct upper bound.** For `0 < x` with the
 intermediate nearest rounding `z` below the top of `x`'s binade
 (`z < 2^(mag x + 1)`) and `F₂` finer than `F₁` at `x` (`h21`, `hle`), `z` stays
-in `x`'s `F₁`-binade: `F₁.canonicalExp z = F₁.canonicalExp x`. Shared by the
-below- and above-midpoint double-rounding lemmas (each supplies the upper bound
-differently). Lower bound `2^k ≤ z`: `h21` forces `F₂.canonicalExp x ≤ k`, so
-`2^k ∈ F₂` and `z` (faithful) is `≥` the `F₂` round-down `≥ 2^k`. -/
+in `x`'s `F₁`-binade: `F₁.canonicalExp z = F₁.canonicalExp x`. -/
 theorem canonicalExp_eq_of_binade_top {F₁ F₂ : FiniteFormat} {tb₂ : TieBreak} {x : ℝ}
     (hx : 0 < x)
     (h21 : F₂.canonicalExp x < F₁.canonicalExp x)

@@ -88,15 +88,15 @@ Mpfx/
 │                   Format.extend + self_subset_extend + extend_mono,
 │                   FiniteFormat.extend + numDigits_extend (Lemma 5.2),
 │                   withBound + next (+ next lemmas) — §5.2 bound API
-├── Discrete.lean   grid-step / midpoint-membership theory (prereq for
-│                   rndRTO_RN): log_le_of_canonical_rep,
-│                   exists_grid_rep_canonical, exists_grid_rep(_exp_bot),
-│                   grid_rep_c_pos,
-│                   no_F_element_in_step_interval(_exp_bot),
-│                   F_adjacent_step_form(_exp_bot), prev_F_adjacent_of_log_eq,
-│                   and the goal family midpoint_mem_extend_one_of_F_adjacent
-│                   (+_pos/_pos_exp_bot/_exp_bot/_of_p_top), half_mem_extend_one.
-│                   Built over the ℚ substrate.
+├── Ulp.lean        ulp/rndDown/rndUp/midp, the nearest error bound and the
+│                   below/above-midpoint characterisations, succ/pred/predPos
+│                   and their membership + adjacency lemmas
+├── Discrete.lean   canonical representation / adjacency / midpoint-membership
+│                   (prereq for rndRTO_RN): log_le_of_canonical_rep,
+│                   exists_canonical_rep(_of_parts), canonical_rep_pos,
+│                   not_mem_between_adjacent, adjacent_canonical_form,
+│                   midpoint_mem_extend_one_of_adjacent(_pos/_of_p_top),
+│                   half_mem_extend_one. Built over the ℚ substrate.
 ├── Digits.lean     §5.1-supporting digit/parity-transfer lemmas (Lemma 5.3):
 │                   numDigits_le_one_of_p_one, precisionAtMost_not_IsOdd
 │                   (corollary), numDigits_eq_of_subset_of_isOdd(_aux),

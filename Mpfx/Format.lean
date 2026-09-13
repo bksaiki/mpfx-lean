@@ -350,9 +350,9 @@ private theorem quantum_exp_le_log {y : Dyadic} {e' : ℤ} {c : ℤ}
     Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
   by_contra h_lt
   push Not at h_lt
-  have h_ulp : Int.log 2 |(y : ℝ)| + 1 ≤ e' := by omega
+  have h_log : Int.log 2 |(y : ℝ)| + 1 ≤ e' := by omega
   have h_pow_le : (2 : ℝ) ^ (Int.log 2 |(y : ℝ)| + 1) ≤ (2 : ℝ) ^ e' :=
-    zpow_le_zpow_right₀ (by norm_num) h_ulp
+    zpow_le_zpow_right₀ (by norm_num) h_log
   linarith
 
 /-- `numDigits` is non-negative for nonzero `y ∈ F`. -/
@@ -444,9 +444,9 @@ theorem mem_imp_precisionAtMost_numDigits {F : FiniteFormat} {y : Dyadic}
             exact_mod_cast hc_abs_ge
     by_contra h_lt
     push Not at h_lt
-    have h_ulp : e_y + 1 ≤ e' := by omega
+    have h_log : e_y + 1 ≤ e' := by omega
     have h_pow_le : (2 : ℝ) ^ (e_y + 1) ≤ (2 : ℝ) ^ e' :=
-      zpow_le_zpow_right₀ (by norm_num) h_ulp
+      zpow_le_zpow_right₀ (by norm_num) h_log
     linarith [habs_lo, he_y_hi]
   -- Case analysis on (F.p, F.exp).
   cases hp : F.p using ENat.recTopCoe with

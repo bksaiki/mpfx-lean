@@ -756,10 +756,9 @@ theorem numDigits_extend (F : FiniteFormat) (k : ℕ) {x : ℝ} (hx : x ≠ 0) :
       rw [hlog]; omega
 
 /-- The next representable value at or above a non-negative `b` — the `Dyadic`
-counterpart of `succ`, whose real value it carries (`next_coe`, in
-`Mpfx/Ulp.lean`).
+counterpart of `succ`, whose real value it carries (`next_coe`).
 
-Unlike `Format.next` this has no junk branches. Without a minimum quantum `0`
+Unlike `Format.next` this has no junk branches: without a minimum quantum `0`
 has no successor, and `next F 0 = 0` records that rather than inventing one. -/
 noncomputable def next (F : FiniteFormat) (b : Dyadic) : Dyadic :=
   if ((b : Dyadic) : ℝ) = 0 ∧ F.exp = ⊥ then b
@@ -769,9 +768,8 @@ theorem next_of_ne (F : FiniteFormat) {b : Dyadic}
     (h : ¬(((b : Dyadic) : ℝ) = 0 ∧ F.exp = ⊥)) :
     F.next b = b + Dyadic.ofIntZpow 1 (F.canonicalExp ((b : Dyadic) : ℝ)) := if_neg h
 
-/-- On positive arguments the new successor agrees with `Format.next`: the old
-step exponent `max exp (⌊log₂ b⌋ − p + 1)` *is* `canonicalExp b`. This is what
-lets the `Format.next` lemma interface transfer. -/
+/-- On positive arguments the two successors agree: `Format.next`'s step
+exponent `max exp (⌊log₂ b⌋ − p + 1)` *is* `canonicalExp b`. -/
 theorem next_eq_format_next (F : FiniteFormat) {b : Dyadic}
     (hb : 0 < ((b : Dyadic) : ℝ)) : F.toFormat.next b = F.next b := by
   have hne : ((b : Dyadic) : ℝ) ≠ 0 := ne_of_gt hb
@@ -794,7 +792,7 @@ theorem next_eq_format_next (F : FiniteFormat) {b : Dyadic}
 end FiniteFormat
 
 
-/-! ### Lattice lemmas for `next`: closure, minimality, monotonicity,
+/-! ### Grid lemmas for `next`: closure, minimality, monotonicity,
 midpoints, and the paper containment formats -/
 
 /-- `b < F.next b` for finite `exp` (any `p`), `b ≥ 0`. -/
@@ -813,7 +811,7 @@ theorem lt_next'' {F : Format} (b : Dyadic)
   | bot => exact Format.lt_next_of_bot F he b
   | coe e => exact lt_next' he b hb
 
-/-- **Core step lemma** for grid closure of `next`: at a positive base
+/-- **Step lemma** for grid closure of `next`: at a positive base
 `b = m·2^s` with `logB − p + 1 ≤ s` and `next b = b + 2^s`, the successor is
 `(m+1)·2^s` and stays on the `p`-bit precision grid (in the carry case
 `m + 1 = 2^p` it is the pure power `2^(p+s)`). -/
@@ -867,7 +865,7 @@ private theorem next_ulp_precision {F : Format} {p : ℕ} (hp : 0 < p) {b : Dyad
     exact ⟨1, (p : ℤ) + s, by rw [h_val']; push_cast; ring,
       abs_one_lt_two_pow hp⟩
 
-/-- **Core step lemma** for grid minimality of `next`: if `b = mb·2^s`,
+/-- **Step lemma** for grid minimality of `next`: if `b = mb·2^s`,
 `g = mg·2^s`, `b < g`, and `next b = b + 2^s`, then `next b ≤ g` (a strict
 increase between multiples of `2^s` is at least one step). -/
 private theorem next_ulp_min {F : Format} {b g : Dyadic} {mb mg s : ℤ}
@@ -895,7 +893,7 @@ private theorem coe_add_ulp_halves {b : Dyadic} (t : ℤ) :
     coe_real_ofIntZpow_one, zpow_sub_one₀ (by norm_num : (2 : ℝ) ≠ 0)]
   ring
 
-/-- **Lattice closure of `next`**, finite-`exp` case: if `b` lies on the
+/-- **Grid closure of `next`**, finite-`exp` case: if `b` lies on the
 `(p, exp)` grid, then `F.next b` does as well. -/
 private theorem next_mem_unbounded {F : FiniteFormat} {e : ℤ}
     (he : F.exp = (e : QExp)) {b : Dyadic}
@@ -964,7 +962,7 @@ private theorem next_mem_unbounded {F : FiniteFormat} {e : ℤ}
         rw [h_val, two_zpow_split_toNat he_le_s]
         push_cast; ring
 
-/-- Lattice closure of `next`, `exp = ⊥` case (`p` is finite by
+/-- Grid closure of `next`, `exp = ⊥` case (`p` is finite by
 `FiniteFormat.finite`; the step is purely binade-dependent, and `b = 0`
 falls back to `next 0 = 1`, which is also on the grid). -/
 private theorem next_mem_unbounded_bot {F : FiniteFormat} (he : F.exp = ⊥)
@@ -1009,7 +1007,7 @@ private theorem next_mem_unbounded_bot {F : FiniteFormat} (he : F.exp = ⊥)
       rw [he]
       trivial
 
-/-- Lattice closure of `next`, any `exp`. -/
+/-- Grid closure of `next`, any `exp`. -/
 theorem next_mem_unbounded' {F : FiniteFormat} {b : Dyadic}
     (hb_mem : b ∈ F.unbounded) (hb_nn : 0 ≤ ((b : Dyadic) : ℝ)) :
     F.toFormat.next b ∈ F.unbounded := by
@@ -1017,7 +1015,7 @@ theorem next_mem_unbounded' {F : FiniteFormat} {b : Dyadic}
   | bot => exact next_mem_unbounded_bot he hb_mem hb_nn
   | coe e => exact next_mem_unbounded he hb_mem
 
-/-- **Lattice minimality of `next`**: for `b ≥ 0` on the grid and finite `exp`,
+/-- **Grid minimality of `next`**: for `b ≥ 0` on the grid and finite `exp`,
 any grid point strictly above `b` is at least `F.next b` — i.e. the grid has
 no point in `(b, next b)`. -/
 private theorem next_min {F : FiniteFormat} {e : ℤ}
@@ -1081,7 +1079,7 @@ private theorem next_min {F : FiniteFormat} {e : ℤ}
         push_cast; ring
       exact next_ulp_min hkb hkg hbg h_next
 
-/-- Lattice minimality of `next`, `exp = ⊥` case. Requires `b > 0` (at `b = 0`
+/-- Grid minimality of `next`, `exp = ⊥` case. Requires `b > 0` (at `b = 0`
 no grid successor exists). -/
 private theorem next_min_bot {F : FiniteFormat} (he : F.exp = ⊥) {b g : Dyadic}
     (hb_mem : b ∈ F.unbounded) (hg_mem : g ∈ F.unbounded)
@@ -1115,7 +1113,7 @@ private theorem next_min_bot {F : FiniteFormat} (he : F.exp = ⊥) {b g : Dyadic
     push_cast; ring
   exact next_ulp_min hkb hkg hbg h_next
 
-/-- Lattice minimality of `next`, any `exp` (for `exp = ⊥` the base point must
+/-- Grid minimality of `next`, any `exp` (for `exp = ⊥` the base point must
 be positive). -/
 theorem next_min' {F : FiniteFormat} {b g : Dyadic}
     (hb_mem : b ∈ F.unbounded) (hg_mem : g ∈ F.unbounded)

@@ -1,12 +1,12 @@
 import Mpfx.RoundOp
 
 /-!
-# ulp, round-down, round-up and the midpoint
+# ulp, the directed roundings, and the neighbours `succ` / `pred`
 
 `ulp F x` is the spacing of `F` at `x`, `rndDown`/`rndUp` the two directed
 roundings as total functions, and `midp F x` the midpoint between them. On top
-of these sit the round-to-nearest error bound and the characterisations of
-nearest rounding below and above the midpoint.
+sit the round-to-nearest error bound, the characterisations of nearest rounding
+either side of the midpoint, and the neighbours `succ`/`pred`.
 -/
 
 namespace Mpfx
@@ -20,11 +20,7 @@ is right at a power of two but `pred x = x - ulp x` is not.
 
 `2 ^ canonicalExp x`, except at `x = 0` with no minimum quantum: the format
 then holds `c·2^k` at arbitrarily negative `k`, so the gap at zero has infimum
-`0` and no exponent describes it. `canonicalExp F 0` already returns `e` when
-`F.exp = e` is finite, so only the `⊥` branch needs the guard.
-
-This is Flocq's `negligible_exp`, which its `fexp : Z → Z` needs `LPO_Z` to
-decide. Our `F.exp : WithBot ℤ` *is* that decision. -/
+`0` and no exponent describes it. -/
 noncomputable def ulp (F : FiniteFormat) (x : ℝ) : ℝ :=
   if x = 0 ∧ F.exp = ⊥ then 0 else (2 : ℝ) ^ F.canonicalExp x
 
@@ -32,33 +28,17 @@ theorem ulp_of_ne_zero (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) :
     ulp F x = (2 : ℝ) ^ F.canonicalExp x :=
   if_neg (by simp [hx])
 
-/-- With a minimum quantum the guard never fires, `x = 0` included. -/
-theorem ulp_of_exp (F : FiniteFormat) (x : ℝ) {e : ℤ} (he : F.exp = (e : QExp)) :
-    ulp F x = (2 : ℝ) ^ F.canonicalExp x :=
-  if_neg (by simp [he])
-
-/-- The guard, negated, is what every rewrite of `ulp` needs. -/
 theorem ulp_eq_zpow_of (F : FiniteFormat) {x : ℝ} (h : ¬(x = 0 ∧ F.exp = ⊥)) :
     ulp F x = (2 : ℝ) ^ F.canonicalExp x := if_neg h
 
-theorem ulp_nonneg (F : FiniteFormat) (x : ℝ) : 0 ≤ ulp F x := by
-  unfold ulp; split_ifs
-  · exact le_refl _
-  · exact (zpow_pos (by norm_num) _).le
-
 theorem ulp_pos (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) : 0 < ulp F x := by
   rw [ulp_of_ne_zero F hx]; exact zpow_pos (by norm_num) _
-
-theorem ulp_pos_of_exp (F : FiniteFormat) (x : ℝ) {e : ℤ} (he : F.exp = (e : QExp)) :
-    0 < ulp F x := by
-  rw [ulp_of_exp F x he]; exact zpow_pos (by norm_num) _
 
 @[simp] theorem ulp_neg (F : FiniteFormat) (x : ℝ) : ulp F (-x) = ulp F x := by
   unfold ulp; rw [canonicalExp_neg]; simp [neg_eq_zero]
 
 /-- **Round-down** — the round-toward-`−∞` value of `x` in `F`, always finite
-(the unbounded directed rounding is never undefined). Flocq
-`round … Zfloor x`. -/
+(Flocq `round … Zfloor`). -/
 noncomputable def rndDown (F : FiniteFormat) (x : ℝ) : Dyadic :=
   rndUnbounded F .toNegative x (not_isUndefined_toNegative F)
 
@@ -69,7 +49,6 @@ theorem rndDown_eq (F : FiniteFormat) (x : ℝ) :
   RoundsFinite.toNegative_eq_floor F x
     (rndUnbounded_satisfies_toNegative F x (not_isUndefined_toNegative F))
 
-/-- The round-down satisfies the RTN spec in the unbounded format. -/
 theorem rndDown_spec (F : FiniteFormat) (x : ℝ) :
     RoundsFinite F.unbounded .toNegative x (rndDown F x) :=
   rndUnbounded_satisfies_toNegative F x (not_isUndefined_toNegative F)
@@ -80,12 +59,10 @@ theorem rndDown_le (F : FiniteFormat) (x : ℝ) : (rndDown F x : ℝ) ≤ x :=
 theorem rndDown_mem (F : FiniteFormat) (x : ℝ) : rndDown F x ∈ F.unbounded :=
   (rndDown_spec F x).1
 
-/-- Maximality of the round-down among unbounded-format values below `x`. -/
 theorem rndDown_max (F : FiniteFormat) (x : ℝ) {z : Dyadic}
     (hz : z ∈ F.unbounded) (hzx : (z : ℝ) ≤ x) : (z : ℝ) ≤ (rndDown F x : ℝ) :=
   (rndDown_spec F x).2.2 z hz hzx
 
-/-- `x` sits within one ulp above its round-down: `x < rndDown F x + ulp F x`. -/
 theorem lt_rndDown_add_ulp (F : FiniteFormat) {x : ℝ}
     (hx : ¬(x = 0 ∧ F.exp = ⊥)) :
     x < (rndDown F x : ℝ) + ulp F x := by
@@ -136,12 +113,10 @@ theorem rndUp_min (F : FiniteFormat) (x : ℝ) {z : Dyadic}
     (hz : z ∈ F.unbounded) (hxz : x ≤ (z : ℝ)) : (rndUp F x : ℝ) ≤ (z : ℝ) :=
   (rndUp_spec F x).2.2 z hz hxz
 
-/-- The round-up is within one ulp of the round-down: `rndUp ≤ rndDown + ulp`.
-Witness: `(⌊x·2^(−e)⌋+1)·2^e` is in the (unbounded) format and `≥ x`, so the
-minimal such value `rndUp` is at most it. -/
 @[simp] theorem rndUp_zero (F : FiniteFormat) : rndUp F 0 = 0 :=
   RoundsFinite.eq_zero_of_zero (rndUp_spec F 0)
 
+/-- The round-up is within one ulp of the round-down. -/
 theorem rndUp_le_rndDown_add_ulp (F : FiniteFormat) (x : ℝ) :
     (rndUp F x : ℝ) ≤ (rndDown F x : ℝ) + ulp F x := by
   by_cases hx : x = 0 ∧ F.exp = ⊥
@@ -166,8 +141,6 @@ theorem rndUp_le_rndDown_add_ulp (F : FiniteFormat) (x : ℝ) :
   have := rndUp_min F x hd_mem hx_le_d
   rwa [hd_real] at this
 
-/-! ## L1 — ulp gap from the canonical-exponent gap -/
-
 /-- If `F₂`'s canonical exponent at `x` is strictly below `F₁`'s, then
 `ulp F₂ x ≤ ulp F₁ x / 2` (integer exponents differ by at least one). -/
 theorem ulp_le_half_ulp_of_canonicalExp_lt {F₁ F₂ : FiniteFormat} {x : ℝ}
@@ -180,13 +153,9 @@ theorem ulp_le_half_ulp_of_canonicalExp_lt {F₁ F₂ : FiniteFormat} {x : ℝ}
     _ = (2 : ℝ) ^ F₁.canonicalExp x / 2 := by
         rw [zpow_sub₀ (by norm_num : (2 : ℝ) ≠ 0)]; norm_num
 
-/-! ## L2 — the round-to-nearest error bound -/
-
-/-- **Nearest error bound.** A round-to-nearest value `z` of `x` in the
-(unbounded) format is within half an ulp of `x`. Proof: `z` beats both the
-round-down `a` and round-up `a'` in distance, so `2|z − x| ≤ (a' − a) ≤ ulp`.
-Stated over `F.unbounded` (overflow-free, matching Roux's FLX setting), so the
-directed competitors are available. -/
+/-- **Nearest error bound.** A round-to-nearest value `z` of `x` is within half
+an ulp of `x`. Stated over `F.unbounded`, where the directed competitors always
+exist. -/
 theorem nearest_error_le_half_ulp {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
     {z : Dyadic} (h : RoundsFinite F.unbounded (.nearest tb) x z) :
     |(z : ℝ) - x| ≤ ulp F x / 2 := by
@@ -210,13 +179,10 @@ theorem nearest_error_le_half_ulp {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
   rw [abs_sub_comm]
   linarith
 
-/-! ## L3 — below the midpoint, round-to-nearest agrees with round-down -/
-
 /-- **Nearest of a value close to a grid point.** If `v`'s scaled mantissa is
 within `½` of an integer `m`, then the grid point `m · 2^(canonicalExp v)` is the
-nearest rounding of `v` (either tie-break). The primitive behind the one-sided
-`nearest_eq_rndDown_of_lt_midp`/`nearest_eq_rndUp_of_midp_lt`: the nearest integer
-to the scaled mantissa is `m` regardless of which side of it `v` falls. -/
+nearest rounding of `v` (either tie-break), whichever side of `m` the scaled
+mantissa falls on. -/
 theorem nearest_eq_of_close (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
     (hundef : ¬ F.IsUndefined (.nearest tb)) {m : ℤ}
     (h : |v * (2 : ℝ) ^ (-(F.canonicalExp v)) - (m : ℝ)| < 1 / 2) :
@@ -266,8 +232,7 @@ theorem nearest_eq_of_close (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
 
 /-- Dyadic-grid-point form of `nearest_eq_of_close`: if `g ∈ F`-grid at `v`'s
 scale (`quantumAtLeast (canonicalExp v) g`) and `|v − g| < ½·ulp F v`, then `g`
-is the nearest rounding of `v`. The convenient interface for callers holding a
-representable candidate `g`. -/
+is the nearest rounding of `v`. -/
 theorem nearest_eq_of_close' (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
     (hundef : ¬ F.IsUndefined (.nearest tb)) {g : Dyadic}
     (hg : Dyadic.quantumAtLeast ((F.canonicalExp v : ℤ) : QExp) g)
@@ -292,9 +257,7 @@ theorem nearest_eq_of_close' (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
     _ = 1 / 2 := by rw [div_mul_eq_mul_div, hcc]
 
 /-- **Below-midpoint ⟹ nearest rounds down.** If `ξ` lies strictly below its
-`F`-midpoint, its round-to-nearest value (either tie-break) is `rndDown F ξ`:
-the scaled-mantissa fraction `s − ⌊s⌋` is `< ½`, so `⌊s⌋` is the nearest integer
-(`nearest_eq_of_close` with `m = ⌊s⌋`). -/
+`F`-midpoint, its round-to-nearest value (either tie-break) is `rndDown F ξ`. -/
 theorem nearest_eq_rndDown_of_lt_midp (F : FiniteFormat) (tb : TieBreak) (ξ : ℝ)
     (hundef : ¬ F.IsUndefined (.nearest tb)) (hlt : ξ < midp F ξ) :
     RoundsFinite F.unbounded (.nearest tb) ξ (rndDown F ξ) := by
@@ -319,10 +282,8 @@ theorem rndUp_eq (F : FiniteFormat) (x : ℝ) :
   RoundsFinite.toPositive_eq_ceil F x
     (rndUnbounded_satisfies_toPositive F x (not_isUndefined_toPositive F))
 
-/-- **Above-midpoint ⟹ nearest rounds up** (mirror of
-`nearest_eq_rndDown_of_lt_midp`). If `midp F ξ < ξ`, its round-to-nearest value
-is `rndUp F ξ`: the scaled fraction exceeds `½`, so `⌈·⌉ = ⌊·⌋+1` is the nearest
-integer (`nearest_eq_of_close` with `m = ⌈s⌉`). -/
+/-- **Above-midpoint ⟹ nearest rounds up**, mirroring
+`nearest_eq_rndDown_of_lt_midp`. -/
 theorem nearest_eq_rndUp_of_midp_lt (F : FiniteFormat) (tb : TieBreak) (ξ : ℝ)
     (hundef : ¬ F.IsUndefined (.nearest tb)) (hlt : midp F ξ < ξ) :
     RoundsFinite F.unbounded (.nearest tb) ξ (rndUp F ξ) := by
@@ -381,28 +342,6 @@ noncomputable def pred (F : FiniteFormat) (x : ℝ) : ℝ := -succ F (-x)
 
 theorem succ_of_nonneg (F : FiniteFormat) {x : ℝ} (hx : 0 ≤ x) :
     succ F x = x + ulp F x := if_pos hx
-
-theorem predPos_of_binade_floor (F : FiniteFormat) {x : ℝ}
-    (hx : x = (2 : ℝ) ^ Int.log 2 x) : predPos F x = x - ulp F (x / 2) := if_pos hx
-
-theorem predPos_of_ne (F : FiniteFormat) {x : ℝ}
-    (hx : x ≠ (2 : ℝ) ^ Int.log 2 x) : predPos F x = x - ulp F x := if_neg hx
-
-/-- On the non-negative side the successor is the next grid point up. -/
-theorem succ_mem (F : FiniteFormat) {x : Dyadic} (hx : x ∈ F.unbounded)
-    (hx0 : 0 ≤ ((x : Dyadic) : ℝ)) (hne : ((x : Dyadic) : ℝ) ≠ 0) :
-    ∃ y : Dyadic, y ∈ F.unbounded ∧ ((y : Dyadic) : ℝ) = succ F (x : ℝ) := by
-  refine ⟨Dyadic.ofIntZpow (⌊(x : ℝ) * (2 : ℝ) ^ (-(F.canonicalExp (x : ℝ)))⌋ + 1)
-      (F.canonicalExp (x : ℝ)), ?_, ?_⟩
-  · refine ofIntZpow_mem_unbounded F (fun hexp => F.exp_le_canonicalExp _ hexp)
-      (fun {p} hp => abs_floor_add_one_le_of_abs_lt (floor_mantissa_lt hp))
-  · have hfl := RoundsFinite.eq_of_mem hx (rndDown_spec F (x : ℝ))
-    rw [rndDown_eq] at hfl
-    have hfl' : ((⌊(x : ℝ) * (2 : ℝ) ^ (-(F.canonicalExp (x : ℝ)))⌋ : ℤ) : ℝ)
-        * (2 : ℝ) ^ F.canonicalExp (x : ℝ) = (x : ℝ) := by
-      rw [← Dyadic.coe_ofIntZpow, hfl]
-    rw [succ_of_nonneg F hx0, ulp_of_ne_zero F hne, Dyadic.coe_ofIntZpow]
-    push_cast; linear_combination hfl'
 
 /-- `x < succ x` away from zero (Flocq `succ_gt_id`). At `x = 0` with no
 minimum quantum `succ 0 = 0`, so the hypothesis is needed. -/
@@ -555,9 +494,8 @@ theorem pred_mem (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
 
 /-! ## `FiniteFormat.next` is `succ` in `Dyadic` form -/
 
-/-- The real value of `next` is `succ`. On the non-negative side the two agree
-exactly, guard branch included: `next F 0 = 0 = succ F 0` when there is no
-minimum quantum. -/
+/-- The real value of `next` is `succ`, guard branch included: `next F 0 = 0 =
+succ F 0` when there is no minimum quantum. -/
 theorem next_coe (F : FiniteFormat) {b : Dyadic} (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
     ((F.next b : Dyadic) : ℝ) = succ F ((b : Dyadic) : ℝ) := by
   rw [succ_of_nonneg F hb, FiniteFormat.next]
@@ -567,7 +505,7 @@ theorem next_coe (F : FiniteFormat) {b : Dyadic} (hb : 0 ≤ ((b : Dyadic) : ℝ
   · rw [Dyadic.coe_real_add, Dyadic.coe_ofIntZpow, ulp_eq_zpow_of F hg]
     push_cast; ring
 
-/-- The successor of a non-negative `F`-value is an `F`-value. -/
+/-- `F.next` maps `F` into `F`. -/
 theorem next_mem (F : FiniteFormat) {b : Dyadic} (hb : b ∈ F.unbounded) :
     F.next b ∈ F.unbounded := by
   rw [FiniteFormat.next]
@@ -590,12 +528,16 @@ theorem next_mem (F : FiniteFormat) {b : Dyadic} (hb : b ∈ F.unbounded) :
     exact ofIntZpow_mem_unbounded F (fun hexp => F.exp_le_canonicalExp _ hexp)
       (fun {p} hp => abs_floor_add_one_le_of_abs_lt (floor_mantissa_lt hp))
 
+/-- On the non-negative side the successor is representable. -/
+theorem succ_mem (F : FiniteFormat) {x : Dyadic} (hx : x ∈ F.unbounded)
+    (hx0 : 0 ≤ ((x : Dyadic) : ℝ)) :
+    ∃ y : Dyadic, y ∈ F.unbounded ∧ ((y : Dyadic) : ℝ) = succ F (x : ℝ) :=
+  ⟨F.next x, next_mem F hx, next_coe F hx0⟩
+
 /-- **`succ` is adjacency.** If `y₂` is the next `F`-value above a positive
 `y₁` — nothing of `F` strictly between — then `y₂` is exactly `succ y₁`.
 
-`succ_le_of_lt` gives one direction; the other is that `succ y₁` is itself
-representable (`next_mem`) and lies above `y₁`, so adjacency bounds `y₂` by it.
-This is `Discrete.lean`'s `adjacent_canonical_form` in `succ` form. -/
+This is `adjacent_canonical_form` in `succ` form. -/
 theorem succ_eq_of_adjacent (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
     {y₁ y₂ : Dyadic} (h₁ : y₁ ∈ F.unbounded) (h₂ : y₂ ∈ F.unbounded)
     (hpos : 0 < ((y₁ : Dyadic) : ℝ))
@@ -607,13 +549,5 @@ theorem succ_eq_of_adjacent (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
   have hcoe := next_coe F hpos.le
   rw [← hcoe]
   exact hadj _ (next_mem F h₁) (by rw [hcoe]; exact lt_succ F hpos.le (ne_of_gt hpos))
-
-/-- **Discreteness in `succ` form**: no `F`-value lies strictly between `y` and
-`succ y`. This is `not_mem_between_adjacent` restated. -/
-theorem not_mem_between_succ (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
-    {y z : Dyadic} (hy : y ∈ F.unbounded) (hz : z ∈ F.unbounded)
-    (hpos : 0 < ((y : Dyadic) : ℝ)) (hlt : ((y : Dyadic) : ℝ) < ((z : Dyadic) : ℝ)) :
-    ¬ ((z : Dyadic) : ℝ) < succ F ((y : Dyadic) : ℝ) :=
-  not_lt.mpr (succ_le_of_lt F hp hy hz hpos hlt)
 
 end Mpfx

@@ -63,27 +63,21 @@ Still missing: the `abs` family — `round_ZR_abs`, `round_AW_abs`,
 `round_abs_abs`, `Rnd_N_pt_abs`. We have the `neg` family, which is the harder
 half; these are cheap and get used constantly.
 
-## 4. A real `Mpfx/Ulp.lean` — `Core/Ulp.v`
+## 4. `Mpfx/Ulp.lean` — `Core/Ulp.v` — **mostly done**
 
-*Planned in detail in [`ULP_TODO.md`](ULP_TODO.md).*
+*Remaining work in [`ULP_TODO.md`](ULP_TODO.md).*
 
-`NearestMidpoint.lean` already defines `ulp`, `rndDown`, `rndUp`, `midp` as
-helpers for one proof. Flocq's `Ulp.v` is 2663 lines of exactly this theory.
-Worth promoting to its own file, and adding:
+Landed: `ulp` (Goldberg's convention, `0` at zero when there is no minimum
+quantum), `rndDown`/`rndUp`/`midp`, `succ`/`pred`/`predPos` as total format
+functions, `succ_le_of_lt`, `succ_eq_of_adjacent`, and `FiniteFormat.next` as
+the `Dyadic` face of `succ`. Adjacency in `Discrete.lean` is now stated through
+`succ`, which collapsed the §6 twins as a side effect.
 
-- **`succ` / `pred` as total format functions**, with `succ_pred`, `pred_succ`,
-  `succ_le_lt`, `pred_UP_eq_DN`, `succ_DN_eq_UP`. Our `Format.next`
-  (`Containment.lean:495`) is bound-oriented and documented as returning "a junk
-  value" outside its intended range. A total `succ`/`pred` pair with an
-  involution law would simplify `Discrete.lean` considerably.
-- **Error bounds**: `error_lt_ulp` (faithful), `error_le_half_ulp` (nearest),
-  `error_le_half_ulp_round`, `ulp_DN`, `ulp_round`. We have only
-  `nearest_error_le_half_ulp`. These are the entry point to any
-  numerical-analysis extension.
-- **Bracket characterizations**: `round_DN_eq` (`d ≤ x < succ d → rndDown x = d`),
-  `round_UP_eq`, `round_N_le_midp`, `round_N_ge_midp`, `round_N_eq_DN`,
-  `round_N_eq_UP`, `round_N_eq_ties`. These turn "what does rounding do to *this*
-  value" from a proof into a rewrite.
+Still open, both capability rather than reduction: the `succ`/`pred`
+involutions, the error bounds (`error_lt_ulp`, `error_le_half_ulp`, `ulp_DN`,
+`ulp_round`), and the bracket characterizations (`round_DN_eq`, `round_UP_eq`,
+`round_N_eq_DN`, …) that turn "what does rounding do to *this* value" from a
+proof into a rewrite.
 
 ### The "grid" vocabulary — resolved
 
@@ -91,18 +85,6 @@ Retired in favour of `ulp`, `succ`/`pred`, discreteness and `binade`; see the
 *Vocabulary* section of [`ULP_TODO.md`](ULP_TODO.md). The short version: Flocq
 has no word for the set of representable values at a fixed exponent because,
 given `ulp` and `succ`, it never needs one.
-
-### Latent divergence: `ulp 0`
-
-`canonicalExp F 0 = 0` in the `(p finite, exp = ⊥)` branch
-(`Format.lean:196`), so `ulp F 0 = 1` for FLX-shaped formats, and `ulp_pos`
-(`NearestMidpoint.lean:34`) asserts `0 < ulp F x` unconditionally.
-
-Flocq handles this deliberately with `negligible_exp : option Z`
-(`Ulp.v:45`): `ulp 0 = 0` when there is no minimal exponent (FLX), and
-`bpow (fexp n)` when there is (FIX, FLT). Harmless today — nothing states a
-property of `ulp` at `0` — but it will bite the moment one does. Decide the
-convention before building the ulp theory on top.
 
 ## 5. The `location` / `inbetween` abstraction — `Calc/Bracket.v`
 
@@ -134,10 +116,11 @@ Three consequences:
 ## 6. `Discrete.lean` case duplication — **done**
 
 All the `_exp_bot` twins are gone, merged on `canonicalExp`:
-`no_F_element_in_step_interval`, `F_adjacent_step_form`,
-`midpoint_mem_extend_one_of_F_adjacent_pos` and its wrapper. `exists_grid_rep`
-and `exists_grid_rep_exp_bot` were deleted outright once
-`exists_grid_rep_canonical` absorbed their consumers. `Discrete.lean` 753 → 626.
+`not_mem_between_adjacent`, `adjacent_canonical_form`,
+`midpoint_mem_extend_one_of_adjacent_pos` and its wrapper. The two
+`exists_grid_rep` variants were deleted outright once
+`exists_canonical_rep_of_parts` absorbed their consumers. `Grid.lean` 753 →
+`Discrete.lean` 626.
 
 `midpoint_mem_extend_one_of_p_top` remains separate and should: with
 unrestricted precision it needs no adjacency at all, so it is a different
@@ -194,16 +177,15 @@ reasoning. `generic_round_generic` (rounding an `F₁`-value into `F₂` stays i
 
 ## Suggested order
 
-§1 and §2 are done. The ordering below prioritises **shrinking existing proofs**
-over adding capability. Measured reduction potential:
+§1, §2, §6 and the reducing half of §4 are done. The ordering below prioritises
+**shrinking existing proofs** over adding capability. Measured reduction
+potential:
 
 | Item | What it shrinks | Estimate |
 | ---- | --------------- | -------- |
 | §5 `location` / `inbetween` | `Format.lean` parity (1217 of 2019 lines) + `Parity.lean` (515) | **~800–1000** |
-| §4 `succ`/`pred` | `Discrete.lean` F-adjacency (797), `Containment.next`'s junk cases | moderate, unmeasured |
-| §6 remaining `Grid` twins | three unexamined pairs | ≤ 100 |
 | §9 `Float_prop` items | ad hoc versions in `Discrete.lean` | small |
-| §3, §7, §8 | nothing existing | 0 — pure capability |
+| §3, §4 remainder, §7, §8 | nothing existing | 0 — pure capability |
 
 1. **§5 `location` / `inbetween`** — by far the largest reducer, and the reason
    is parity. Ours is format-relative (`numDigits` + `IsRepresentableAtP`), which
@@ -219,28 +201,21 @@ over adding capability. Measured reduction potential:
    This is also the highest-risk item: it changes what `IsOdd` *means*, so
    everything consuming it is re-proved. Spike the `p ≠ 1` case first.
 
-2. **§4 `succ` / `pred`** — the reducing half of §4. `Discrete.lean`'s F-adjacency
-   theory is `succ`/`pred` in disguise, and `Containment.next` is documented as
-   returning "a junk value" outside its range; a total pair with `succ_pred` /
-   `pred_succ` replaces both. The error bounds in §4 are new capability, and the
-   bracket characterizations are already hand-rolled in `NearestMidpoint.lean`
-   (`nearest_eq_of_close`, `nearest_eq_rndDown_of_lt_midp`), so adopting Flocq's
-   would rename rather than reduce.
+2. **§9** — the `Float_prop` items, small and self-contained.
 
-3. **§6** — the remaining `Grid` twins, *after* §4 restates them as `succ`/`pred`
-   facts. Doing it first duplicates the work.
+§3, the §4 remainder, §7 and §8 add surface without touching existing proofs;
+take them when the capability is wanted, not for cleanup. In particular, §4's
+bracket characterizations are already hand-rolled in `Ulp.lean`
+(`nearest_eq_of_close`, `nearest_eq_rndDown_of_lt_midp`), so adopting Flocq's
+would rename rather than reduce.
 
-§3, §7 and §8 add surface without touching existing proofs; take them when the
-capability is wanted, not for cleanup.
+## Notes on hunting for duplication
 
-## What this session established
+Two scans looked for further duplication to collapse. Real hits: the alternation
+pair in `Parity.lean` (−419) and `gap_around_m_mem` / `gap_around_mid3_mem`, now
+both wrappers over `gap_around_odd_mem` (odd `c`, `2^j < c < 2^(j+1)`). False
+positives: the `Grid` `_exp_bot` twins were not a single theorem in two shapes,
+and the `rounds*` family shares a narrative rather than a proof.
 
-Two scans looked for further duplication to collapse. One hit (the alternation
-pair, −419) and two false positives: the `Grid` `_exp_bot` twins are not a
-single theorem in two shapes, and the `rounds*` family shares a narrative rather
-than a proof. A near-duplicate similarity score detects *the same steps with
-different lemmas* as readily as real duplication — check what varies before
-committing.
-
-The one real hit was `gap_around_m_mem` / `gap_around_mid3_mem`, now both
-wrappers over `gap_around_odd_mem` (odd `c`, `2^j < c < 2^(j+1)`).
+A near-duplicate similarity score detects *the same steps with different lemmas*
+as readily as real duplication — check what varies before committing.
