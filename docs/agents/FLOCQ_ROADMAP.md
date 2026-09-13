@@ -63,21 +63,31 @@ Still missing: the `abs` family — `round_ZR_abs`, `round_AW_abs`,
 `round_abs_abs`, `Rnd_N_pt_abs`. We have the `neg` family, which is the harder
 half; these are cheap and get used constantly.
 
-## 4. `Mpfx/Ulp.lean` — `Core/Ulp.v` — **mostly done**
+## 4. `Mpfx/Ulp.lean` — `Core/Ulp.v` — **done**
 
-*Remaining work in [`ULP_TODO.md`](ULP_TODO.md).*
+*Residual notes in [`ULP_TODO.md`](ULP_TODO.md).*
 
-Landed: `ulp` (Goldberg's convention, `0` at zero when there is no minimum
-quantum), `rndDown`/`rndUp`/`midp`, `succ`/`pred`/`predPos` as total format
-functions, `succ_le_of_lt`, `succ_eq_of_adjacent`, and `FiniteFormat.next` as
-the `Dyadic` face of `succ`. Adjacency in `Discrete.lean` is now stated through
-`succ`, which collapsed the §6 twins as a side effect.
+`ulp` (Goldberg's convention, `0` at zero when there is no minimum quantum),
+`rndDown`/`rndUp`/`midp`, `succ`/`pred`/`predPos` as total format functions with
+the involutions `succ_pred` / `pred_succ`, `succ_le_of_lt` and `le_pred_of_lt`
+(Flocq `succ_le_lt`), and `FiniteFormat.next` as the `Dyadic` face of `succ`.
+Adjacency in `Discrete.lean` is stated through `succ`, which collapsed the §6
+twins as a side effect.
 
-Still open, both capability rather than reduction: the `succ`/`pred`
-involutions, the error bounds (`error_lt_ulp`, `error_le_half_ulp`, `ulp_DN`,
-`ulp_round`), and the bracket characterizations (`round_DN_eq`, `round_UP_eq`,
-`round_N_eq_DN`, …) that turn "what does rounding do to *this* value" from a
-proof into a rewrite.
+Error bounds: `faithful_error_lt_ulp` (Flocq `error_lt_ulp`),
+`nearest_error_le_half_ulp_round` (`error_le_half_ulp_round`), `ulp_rndDown`
+(`ulp_DN`), `ulp_round_pos` (`ulp_round`). The last three need Flocq's
+`Exp_not_FTZ` side condition; ours is `FiniteFormat.IsAboveQuantum`
+(`Format.lean`), a plain inequality `canonicalExp x ≤ ⌊log₂ |x|⌋` rather than a
+class on an exponent function, because `F.exp` is a value. `rndDown_pos_iff`
+records that it is exactly "`x` does not round down to `0`".
+
+Bracket characterisations: `rndDown_eq_of_bracket` (`round_DN_eq`),
+`rndUp_eq_of_bracket` (`round_UP_eq`), `nearest_le_of_lt_midp`
+(`round_N_le_midp`), `le_nearest_of_midp_lt` (`round_N_ge_midp`). Flocq's
+`round_N_eq_DN` / `round_N_eq_UP` are our `nearest_eq_rndDown_of_lt_midp` /
+`nearest_eq_rndUp_of_midp_lt`, stated through `midp`; `midp_eq_midpoint_succ`
+shows the two midpoint notions agree.
 
 ### The "grid" vocabulary — resolved
 
@@ -177,7 +187,7 @@ reasoning. `generic_round_generic` (rounding an `F₁`-value into `F₂` stays i
 
 ## Suggested order
 
-§1, §2, §6 and the reducing half of §4 are done. The ordering below prioritises
+§1, §2, §4 and §6 are done. The ordering below prioritises
 **shrinking existing proofs** over adding capability. Measured reduction
 potential:
 
@@ -185,7 +195,7 @@ potential:
 | ---- | --------------- | -------- |
 | §5 `location` / `inbetween` | `Format.lean` parity (1217 of 2019 lines) + `Parity.lean` (515) | **~800–1000** |
 | §9 `Float_prop` items | ad hoc versions in `Discrete.lean` | small |
-| §3, §4 remainder, §7, §8 | nothing existing | 0 — pure capability |
+| §3, §7, §8 | nothing existing | 0 — pure capability |
 
 1. **§5 `location` / `inbetween`** — by far the largest reducer, and the reason
    is parity. Ours is format-relative (`numDigits` + `IsRepresentableAtP`), which
@@ -203,11 +213,8 @@ potential:
 
 2. **§9** — the `Float_prop` items, small and self-contained.
 
-§3, the §4 remainder, §7 and §8 add surface without touching existing proofs;
-take them when the capability is wanted, not for cleanup. In particular, §4's
-bracket characterizations are already hand-rolled in `Ulp.lean`
-(`nearest_eq_of_close`, `nearest_eq_rndDown_of_lt_midp`), so adopting Flocq's
-would rename rather than reduce.
+§3, §7 and §8 add surface without touching existing proofs; take them when the
+capability is wanted, not for cleanup.
 
 ## Notes on hunting for duplication
 

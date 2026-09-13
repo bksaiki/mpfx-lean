@@ -7,19 +7,20 @@ Format-generic facts about `FiniteFormat.canonicalExp` (Flocq `cexp`), shared by
 the operation-specific double-rounding proofs (addition, square root, …):
 
 * `exists_canonical_rep` — a positive member as `c · 2^cexp` with `|c| < 2^p`;
-* `canonicalExp_closed` / `canonicalExp_FLX` / `canonicalExp_FLT` — the closed
-  forms of `cexp` in the normal range, the FLX regime (`exp = ⊥`), and the FLT
-  regime (`exp = emin` finite);
+* `canonicalExp_closed` / `canonicalExp_expBot` / `canonicalExp_expFinite` — the
+  closed forms of `cexp` in the normal range, with no minimum quantum
+  (`exp = ⊥`), and with one (`exp = emin` finite);
 * `exp_le_canonicalExp_coe` — `F.exp ≤ cexp` uniformly over `exp = ⊥`/finite.
 -/
 
 namespace Mpfx
 
-/-- **Closed form of `canonicalExp` in the normal range** (unifies FLX and FLT).
-When `v` is nonzero and its FLX exponent `log₂|v| + 1 − p` is at least the
-format's minimum exponent `F.exp` (the *normal* regime — vacuous for `exp = ⊥`),
-`canonicalExp` takes the FLX form. This is the single lemma that lets the FLX
-proofs run unchanged for FLT: in the genuine-midpoint case all values are normal. -/
+/-- **Closed form of `canonicalExp` in the normal range**, uniform over both
+exponent regimes. When `v` is nonzero and its precision exponent
+`log₂|v| + 1 − p` is at least `F.exp` (the *normal* regime — vacuous for
+`exp = ⊥`), `canonicalExp` takes that form. This is the single lemma that lets
+the `exp = ⊥` proofs run unchanged for finite `exp`: in the genuine-midpoint
+case all values are normal. -/
 theorem canonicalExp_closed {F : FiniteFormat} {p : ℕ}
     (hp : F.p = (p : Prec)) {v : ℝ} (hv : v ≠ 0)
     (hnorm : F.exp ≤ ((Int.log 2 |v| + 1 - (p : ℤ) : ℤ) : QExp)) :
@@ -32,16 +33,16 @@ theorem canonicalExp_closed {F : FiniteFormat} {p : ℕ}
     rw [hexp] at hnorm
     exact max_eq_left (by exact_mod_cast hnorm)
 
-/-- Closed form of `canonicalExp` in an FLX format (`exp = ⊥`): `log₂|v| + 1 − p`
-(the vacuous-normality special case of `canonicalExp_closed`). -/
-theorem canonicalExp_FLX {F : FiniteFormat} {p : ℕ}
+/-- Closed form of `canonicalExp` with no minimum quantum (`exp = ⊥`):
+`log₂|v| + 1 − p` (the vacuous-normality case of `canonicalExp_closed`). -/
+theorem canonicalExp_expBot {F : FiniteFormat} {p : ℕ}
     (hp : F.p = (p : Prec)) (hexp : F.exp = ⊥)
     {v : ℝ} (hv : v ≠ 0) : F.canonicalExp v = Int.log 2 |v| + 1 - (p : ℤ) :=
   canonicalExp_closed hp hv (by rw [hexp]; exact bot_le)
 
-/-- Closed form of `canonicalExp` in an FLT format (`exp = emin` finite):
+/-- Closed form of `canonicalExp` with a minimum quantum (`exp = emin` finite):
 `max(log₂|v| + 1 − p, emin)`. -/
-theorem canonicalExp_FLT {F : FiniteFormat} {p : ℕ} {emin : ℤ}
+theorem canonicalExp_expFinite {F : FiniteFormat} {p : ℕ} {emin : ℤ}
     (hp : F.p = (p : Prec)) (hexp : F.exp = (emin : QExp))
     {v : ℝ} (hv : v ≠ 0) :
     F.canonicalExp v = max (Int.log 2 |v| + 1 - (p : ℤ)) emin := by
@@ -54,14 +55,27 @@ theorem exp_le_canonicalExp_coe (F : FiniteFormat) (x : ℝ) :
   | bot => exact bot_le
   | coe e => exact_mod_cast F.exp_le_canonicalExp x hexp
 
-/-- The FLX exponent lower-bounds `canonicalExp`: `log₂|v| + 1 − p ≤ canonicalExp v`
+/-- Closed form with unrestricted precision: `canonicalExp` is the quantum
+everywhere (`F.finite` rules out `exp = ⊥` here). -/
+theorem canonicalExp_pTop {F : FiniteFormat} {emin : ℤ}
+    (hp : F.p = ⊤) (hexp : F.exp = (emin : QExp)) (v : ℝ) : F.canonicalExp v = emin := by
+  unfold FiniteFormat.canonicalExp; rw [hp, hexp]; rfl
+
+/-- Closed form in the **subnormal** range: when the precision exponent falls
+below the quantum, `canonicalExp` *is* the quantum. -/
+theorem canonicalExp_subnormal {F : FiniteFormat} {p : ℕ} {emin : ℤ}
+    (hp : F.p = (p : Prec)) (hexp : F.exp = (emin : QExp)) {v : ℝ} (hv : v ≠ 0)
+    (h : Int.log 2 |v| + 1 - (p : ℤ) ≤ emin) : F.canonicalExp v = emin := by
+  rw [canonicalExp_expFinite hp hexp hv]; exact max_eq_right h
+
+/-- The precision exponent lower-bounds `canonicalExp`: `log₂|v| + 1 − p ≤ canonicalExp v`
 (equality for `exp = ⊥`; `≤` via `le_max_left` for finite `exp`). -/
 theorem log_sub_prec_le_canonicalExp {F : FiniteFormat} {p : ℕ}
     (hp : F.p = (p : Prec)) {v : ℝ} (hv : v ≠ 0) :
     Int.log 2 |v| + 1 - (p : ℤ) ≤ F.canonicalExp v := by
   cases hexp : F.exp using QExp.recBotCoe with
-  | bot => rw [canonicalExp_FLX hp hexp hv]
-  | coe e => rw [canonicalExp_FLT hp hexp hv]; exact le_max_left _ _
+  | bot => rw [canonicalExp_expBot hp hexp hv]
+  | coe e => rw [canonicalExp_expFinite hp hexp hv]; exact le_max_left _ _
 
 /-! ### Powers of two: predecessor identities
 

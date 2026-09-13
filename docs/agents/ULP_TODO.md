@@ -1,16 +1,10 @@
 # ulp, succ and pred
 
-Remaining work for item 4 of [`FLOCQ_ROADMAP.md`](FLOCQ_ROADMAP.md). The
-reducing half — `ulp` at zero, `Mpfx/Ulp.lean`, `succ`/`pred`,
-`FiniteFormat.next`, adjacency through `succ`, and the `Discrete.lean` merge —
-has landed. What is left adds capability rather than collapsing proofs.
-
-**Working policy.** Each phase is sized to be roughly one commit and carries a
-suggested one-line commit message. Stop after each phase for review before
-starting the next. Do not commit — the author commits.
-
-Every phase's acceptance criterion is `lake build` exiting 0 with no new
-`sorry`; only the extra criteria are listed per phase.
+Item 4 of [`FLOCQ_ROADMAP.md`](FLOCQ_ROADMAP.md) is done: `ulp` at zero,
+`Mpfx/Ulp.lean`, `succ`/`pred` with their involutions, `FiniteFormat.next`,
+adjacency through `succ`, the `Discrete.lean` merge, the error bounds and the
+bracket characterisations have all landed. One optional cleanup remains; the two
+reference sections below record the decisions the implementation rests on.
 
 ## Which convention `ulp` follows
 
@@ -52,17 +46,15 @@ need to name the set of representable values at a fixed exponent.
 | the lattice at a fixed exponent | *no name needed* |
 
 `binade` is **not** a synonym for "grid". They agree in the normal range, one
-binade to one grid, but diverge below it: under `FLT(p, emin)` everything under
+binade to one grid, but diverge below it: at precision `p` with minimum quantum
+`emin`, everything under
 `2^(emin+p−1)` has `canonicalExp = emin`, so one grid of spacing `2^emin` spans
 many binades. That divergence is exactly what produced the `_exp_bot` twins.
 
 ---
 
-## Leftovers from the landed phases
+## Optional cleanup
 
-- [ ] The involutions `succ_pred` / `pred_succ`. Flocq spends
-      `pred_pos_plus_ulp` and three auxiliaries on these. Nothing needs them
-      yet; pick them up if Phase 9 does.
 - [ ] **Optional:** rename `Format.next` to something bound-flavoured
       (`nextBound`, `boundStep`) so it does not read as the same notion as
       `FiniteFormat.next`. The two differ — `Format.next` advances a **bound**,
@@ -70,31 +62,3 @@ many binades. That divergence is exactly what produced the `_exp_bot` twins.
       **successor**, returning `0` when there is none, and
       `next_eq_format_next` records that they coincide for `b > 0`. ~200 call
       sites, mechanical.
-
-## Phase 8 — error bounds (capability, not reduction)
-
-- [ ] `error_lt_ulp` (faithful), `error_le_half_ulp` (nearest),
-      `error_le_half_ulp_round`, `ulp_DN`, `ulp_round`.
-
-Flocq's `ulp_round` carries an `Exp_not_FTZ` hypothesis and a disjunctive
-conclusion — `ulp (round x) = ulp x ∨ |round x| = 2 ^ mag x` — whose second
-disjunct is exactly the binade-boundary case. We have no FTZ regime, so check
-whether the hypothesis is needed here.
-
-Commit message: `Add the ulp error bounds`
-
-— **pause for review** —
-
-## Phase 9 — bracket characterizations (capability, not reduction)
-
-- [ ] `round_DN_eq` (`d ≤ x < succ d → rndDown x = d`), `round_UP_eq`,
-      `round_N_le_midp`, `round_N_ge_midp`, `round_N_eq_DN`, `round_N_eq_UP`,
-      `round_N_eq_ties`.
-- [ ] Reconcile with `Ulp.lean`'s hand-rolled equivalents
-      (`nearest_eq_of_close`, `nearest_eq_rndDown_of_lt_midp`,
-      `nearest_eq_rndUp_of_midp_lt`) — these are the same facts, so this should
-      replace rather than duplicate.
-
-Commit message: `Add the bracket characterizations of rounding`
-
-— **pause for review** —

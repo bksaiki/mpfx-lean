@@ -27,7 +27,7 @@ Roux's multiplication proof is `round_generic`: the exact product `x · y` is
 no-op and the chained rounding collapses to the direct one (`rndExact`). This
 holds for **any** rounding modes, not just round-to-nearest.
 
-`rndMul_FLX`/`rndMul_FLT` establish `x · y ∈ F₂.unbounded` from the explicit
+`rndMul_expBot`/`rndMul_expFinite` establish `x · y ∈ F₂.unbounded` from the explicit
 bounds `p₂ ≥ 2p₁` (mantissas multiply, `mul_precisionAtMost`) and `exp₂ ≤ 2·exp₁`
 (quanta add, `quantumAtLeast_mul`), then apply `rndExact`. Stated relationally
 over `RoundsFinite`: given `z` the `F₂`-rounding of the input and `w` the
@@ -81,18 +81,19 @@ private theorem mul_mem_F₂_unbounded {F₁ F₂ : FiniteFormat} {p₁ p₂ : �
     (mul_precisionAtMost (p₂ := 2 * p₁) (le_refl _) (hp₁ ▸ hx.1) (hp₁ ▸ hy.1))
     (quantumAtLeast_mul hx.2.1 hy.2.1)
 
-/-- **rnd-mult, FLX** (Roux Thm 10 / Figueroa, radix 2). With FLX formats
+/-- **rnd-mult, no minimum quantum** (Roux Thm 10 / Figueroa, radix 2). With
+`exp = ⊥` formats
 `F₁ = 𝒜(p₁, ⊥, b₁)` and `F₂ = 𝒜(p₂, ⊥, b₂)`, double rounding of a product `x · y`
 (`x, y ∈ F₁`) is innocuous for **any** rounding modes when
 
 * **precision:** `p₂ ≥ 2·p₁`,
-* **exponent:** both `⊥` (FLX, no minimum quantum),
+* **exponent:** both `⊥` (no minimum quantum),
 * **bounds:** no relationship required — the roundings are overflow-free (`unbounded`).
 
 *Containment view:* an exact product of two `p₁`-bit values needs `2p₁` bits, so
 `p₂ ≥ 2p₁` says the product format `𝒜(2p₁, ⊥, ⊤) ⊆ F₂`; hence `x · y` is exactly
 `F₂`-representable and the inner rounding is a no-op (`rndExact`). -/
-theorem rndMul_FLX {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁ p₂ : ℕ}
+theorem rndMul_expBot {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁ p₂ : ℕ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
     {x y : Dyadic} (hx : x ∈ F₁) (hy : y ∈ F₁) {z w : Dyadic}
@@ -102,7 +103,8 @@ theorem rndMul_FLX {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁
   rndExact (mul_mem_F₂_unbounded hp₁ hp₂ hpp
     (by rw [hexp₁, hexp₂]; simp) hx hy) hz hw
 
-/-- **rnd-mult, FLT** (Roux Thm 10, radix 2). With FLT formats
+/-- **rnd-mult, minimum quantum** (Roux Thm 10, radix 2). With `exp = emin`
+formats
 `F₁ = 𝒜(p₁, emin₁, b₁)` and `F₂ = 𝒜(p₂, emin₂, b₂)`, double rounding of `x · y`
 (`x, y ∈ F₁`) is innocuous for **any** rounding modes when
 
@@ -113,7 +115,7 @@ theorem rndMul_FLX {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁
 *Containment view:* the exact product lives in `𝒜(2p₁, 2·emin₁, ⊤)` (precisions
 double, minimum quanta add), and the two conditions say that product format
 `⊆ F₂` — so `x · y` is exactly `F₂`-representable (`rndExact`). -/
-theorem rndMul_FLT {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁ p₂ : ℕ}
+theorem rndMul_expFinite {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)

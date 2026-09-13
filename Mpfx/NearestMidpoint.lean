@@ -132,15 +132,6 @@ theorem rnd_lt_mid {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
 
 /-! ## Binade consistency -/
 
-/-- Read off `Int.log 2 x = k` from the binade bounds `2^k ≤ x < 2^(k+1)`. -/
-theorem log_eq_of_zpow_bounds {x : ℝ} {k : ℤ} (hx : 0 < x)
-    (hlo : (2 : ℝ) ^ k ≤ x) (hhi : x < (2 : ℝ) ^ (k + 1)) : Int.log 2 x = k := by
-  have h1 : k ≤ Int.log 2 x :=
-    (Int.zpow_le_iff_le_log (b := 2) (by norm_num) hx).mp (by exact_mod_cast hlo)
-  have h2 : Int.log 2 x < k + 1 :=
-    (Int.lt_zpow_iff_log_lt (b := 2) (by norm_num) hx).mp (by exact_mod_cast hhi)
-  omega
-
 /-- **Binade consistency from a direct upper bound.** For `0 < x` with the
 intermediate nearest rounding `z` below the top of `x`'s binade
 (`z < 2^(mag x + 1)`) and `F₂` finer than `F₁` at `x` (`h21`, `hle`), `z` stays

@@ -223,6 +223,40 @@ theorem log_sub_p_le_canonicalExp (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
   | bot => simp [hp, hx]
   | coe e' => simp [hp, hx]
 
+/-- **`x` is above `F`'s coarsest step** (Flocq's `Exp_not_FTZ`, localized at
+`x`): the canonical exponent does not exceed `x`'s binade. Equivalently, for
+`x ≠ 0`, `F.exp ≤ ⌊log₂ |x|⌋` — the precision term `⌊log₂ |x|⌋ + 1 − p` is never
+the binding one — and equivalently again, `x` does not round down to `0`
+(`rndDown_pos_iff`). Reducible, so arithmetic tactics see through it. -/
+abbrev IsAboveQuantum (F : FiniteFormat) (x : ℝ) : Prop :=
+  F.canonicalExp x ≤ Int.log 2 |x|
+
+/-- On the positive side the absolute value drops out. -/
+theorem IsAboveQuantum.le_log {F : FiniteFormat} {x : ℝ} (h : F.IsAboveQuantum x)
+    (hx : 0 < x) : F.canonicalExp x ≤ Int.log 2 x := by
+  have h' : F.canonicalExp x ≤ Int.log 2 |x| := h
+  rwa [abs_of_pos hx] at h'
+
+theorem isAboveQuantum_of_le_log {F : FiniteFormat} {x : ℝ} (hx : 0 < x)
+    (h : F.canonicalExp x ≤ Int.log 2 x) : F.IsAboveQuantum x := by
+  have : Int.log 2 |x| = Int.log 2 x := by rw [abs_of_pos hx]
+  omega
+
+/-- `F.exp ≤ ⌊log₂ |x|⌋` is the whole content of `IsAboveQuantum`. -/
+theorem isAboveQuantum_of_exp_le (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
+    (hexp : ∀ e : ℤ, F.exp = (e : QExp) → e ≤ Int.log 2 |x|) : F.IsAboveQuantum x := by
+  unfold IsAboveQuantum canonicalExp
+  cases hp : F.p using ENat.recTopCoe with
+  | top =>
+    cases hexp' : F.exp using QExp.recBotCoe with
+    | bot => exact (F.finite.elim (fun h => h hp) (fun h => h hexp')).elim
+    | coe e => exact hexp e hexp'
+  | coe p =>
+    have hpp : 0 < p := F.p_pos hp
+    cases hexp' : F.exp using QExp.recBotCoe with
+    | bot => simp only [if_neg hx]; omega
+    | coe e => simp only [if_neg hx]; exact max_le (by omega) (hexp e hexp')
+
 /-- `canonicalExp` is monotone in magnitude. -/
 theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)
     (hyz : |y| ≤ |z|) : F.canonicalExp y ≤ F.canonicalExp z := by

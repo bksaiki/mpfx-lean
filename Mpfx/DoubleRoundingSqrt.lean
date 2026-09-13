@@ -6,12 +6,13 @@ import Mpfx.DoubleRoundingAdd
 /-!
 # Operation-specific double rounding: square root (Roux 2014, Theorem 25)
 
-Roux's Theorem 25 (radix 2, FLX): double rounding of `√x` is innocuous when
+Roux's Theorem 25 (radix 2, no minimum quantum): double rounding of `√x` is
+innocuous when
 `p₂ ≥ 2p₁ + 2`. Unlike `×`/`+`, the result `√x` is generally irrational — but
 `RoundsFinite` rounds a *real*, so the statement simply takes `Real.sqrt x` as
 the value and leans on the two-sided midpoint engine (`round_round_mid_cases`).
 The new mathematical content is the *separation lemma* `round_round_sqrt_aux`:
-`√x` is never within `½·ulp₂` of an `F₁`-midpoint. `rndSqrt_FLX` and `rndSqrt_FLT`
+`√x` is never within `½·ulp₂` of an `F₁`-midpoint. `rndSqrt_expBot` and `rndSqrt_expFinite`
 assemble it (via the shared `rndSqrt_core`) for the two format configurations.
 -/
 
@@ -241,18 +242,19 @@ private theorem rndSqrt_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
   exact rndExact (F₁ := F₁.unbounded) (F₂ := F₂.unbounded)
     (FiniteFormat.zero_mem F₂.unbounded) hz hw
 
-/-- **rnd-sqrt, FLX** (Roux Theorem 25, radix 2). With FLX formats
+/-- **rnd-sqrt, no minimum quantum** (Roux Theorem 25, radix 2). With `exp = ⊥`
+formats
 `F₁ = 𝒜(p₁, ⊥, b₁)` and `F₂ = 𝒜(p₂, ⊥, b₂)`, double rounding to nearest of `√x`
 (`x ∈ F₁`, `0 ≤ x`) is innocuous when
 
 * **precision:** `p₂ ≥ 2·p₁ + 2`,
-* **exponent:** both `⊥` (FLX),
+* **exponent:** both `⊥`,
 * **bounds:** no relationship required (overflow-free `unbounded` roundings).
 
 Unlike `×`/`+`, `√x` is generally irrational, so this is a precision *margin*
 (with `2p₁+2` bits `√x` never lands near an `F₁`-midpoint), not exact containment
 of a result format. -/
-theorem rndSqrt_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
+theorem rndSqrt_expBot {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ + 2 ≤ p₂)
     (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
@@ -273,18 +275,19 @@ theorem rndSqrt_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
     obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ hx hxpos; exact ⟨c, hc⟩
   have hcE1s : F₁.canonicalExp (Real.sqrt (x : ℝ))
       = Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₁ : ℤ) := by
-    rw [canonicalExp_FLX hp₁ hexp₁ (ne_of_gt hs_pos), habs]
+    rw [canonicalExp_expBot hp₁ hexp₁ (ne_of_gt hs_pos), habs]
   have hcE2s : F₂.canonicalExp (Real.sqrt (x : ℝ))
       = Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₂ : ℤ) := by
-    rw [canonicalExp_FLX hp₂ hexp₂ (ne_of_gt hs_pos), habs]
+    rw [canonicalExp_expBot hp₂ hexp₂ (ne_of_gt hs_pos), habs]
   have hcE1x : F₁.canonicalExp (x : ℝ) = Int.log 2 (x : ℝ) + 1 - (p₁ : ℤ) := by
-    rw [canonicalExp_FLX hp₁ hexp₁ (ne_of_gt hxpos), abs_of_pos hxpos]
+    rw [canonicalExp_expBot hp₁ hexp₁ (ne_of_gt hxpos), abs_of_pos hxpos]
   refine rndSqrt_core hxpos hundef₁ hxrep ?_ ?_ ?_ hz hw
   · rw [hcE1s, hcE1x]; omega
   · rw [hcE1s]; omega
   · rw [hcE1s, hcE2s]; omega
 
-/-- **rnd-sqrt, FLT** (Roux Theorem 25, radix 2). With FLT formats
+/-- **rnd-sqrt, minimum quantum** (Roux Theorem 25, radix 2). With `exp = emin`
+formats
 `F₁ = 𝒜(p₁, emin₁, b₁)` and `F₂ = 𝒜(p₂, emin₂, b₂)`, double rounding to nearest of
 `√x` (`x ∈ F₁`, `0 ≤ x`) is innocuous when
 
@@ -295,7 +298,7 @@ theorem rndSqrt_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
 
 A precision + underflow *margin* (not exact containment — `√x` is generally
 irrational). -/
-theorem rndSqrt_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
+theorem rndSqrt_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ + 2 ≤ p₂)
@@ -333,12 +336,12 @@ theorem rndSqrt_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
     (Int.zpow_le_iff_le_log (b := 2) (by norm_num) hxpos).mp (by exact_mod_cast hx_ge)
   have hcE1s : F₁.canonicalExp (Real.sqrt (x : ℝ))
       = max (Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₁ : ℤ)) emin₁ := by
-    rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hs_pos), habs]
+    rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hs_pos), habs]
   have hcE2s : F₂.canonicalExp (Real.sqrt (x : ℝ))
       = max (Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₂ : ℤ)) emin₂ := by
-    rw [canonicalExp_FLT hp₂ hexp₂ (ne_of_gt hs_pos), habs]
+    rw [canonicalExp_expFinite hp₂ hexp₂ (ne_of_gt hs_pos), habs]
   have hcE1x : F₁.canonicalExp (x : ℝ) = max (Int.log 2 (x : ℝ) + 1 - (p₁ : ℤ)) emin₁ := by
-    rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hxpos), abs_of_pos hxpos]
+    rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hxpos), abs_of_pos hxpos]
   refine rndSqrt_core hxpos hundef₁ hxrep ?_ ?_ ?_ hz hw
   · rw [hcE1s, hcE1x]; omega
   · rw [hcE1s]; omega
