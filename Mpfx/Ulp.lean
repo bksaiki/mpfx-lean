@@ -31,11 +31,6 @@ theorem ulp_of_ne_zero (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) :
 theorem ulp_eq_zpow_of (F : FiniteFormat) {x : ℝ} (h : ¬(x = 0 ∧ F.exp = ⊥)) :
     ulp F x = (2 : ℝ) ^ F.canonicalExp x := if_neg h
 
-theorem ulp_nonneg (F : FiniteFormat) (x : ℝ) : 0 ≤ ulp F x := by
-  unfold ulp; split_ifs
-  · exact le_refl _
-  · exact (zpow_pos (by norm_num) _).le
-
 theorem ulp_pos (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) : 0 < ulp F x := by
   rw [ulp_of_ne_zero F hx]; exact zpow_pos (by norm_num) _
 
@@ -419,26 +414,9 @@ theorem faithful_error_lt_ulp {F : FiniteFormat} {x : ℝ} (hx : x ≠ 0) {y : D
       rw [hs] at this
       linarith [le_rndUp F x]
 
-/-- **Faithful error bound, non-strict.** Holds at `x = 0` too, where both sides
-are `0` when there is no minimum quantum. -/
-theorem faithful_error_le_ulp {F : FiniteFormat} (x : ℝ) {y : Dyadic}
-    (h : IsFaithfulRound F.unbounded x y) : |((y : Dyadic) : ℝ) - x| ≤ ulp F x := by
-  by_cases hx : x = 0
-  · subst hx
-    have hy0 : ((y : Dyadic) : ℝ) = 0 := by
-      rcases h with hd | hu <;>
-        [ have h0 := hd.2.2 0 (FiniteFormat.zero_mem _) (by rw [Dyadic.coe_real_zero]);
-          have h0 := hu.2.2 0 (FiniteFormat.zero_mem _) (by rw [Dyadic.coe_real_zero]) ] <;>
-        rw [Dyadic.coe_real_zero] at h0
-      · linarith [hd.2.1]
-      · linarith [hu.2.1]
-    rw [hy0]; simpa using ulp_nonneg F 0
-  · exact (faithful_error_lt_ulp hx h).le
-
 /-- **Rounding up stays in the binade or lands on its top** — the round-up half
-of Flocq `ulp_round`. `hdn` is the non-flush-to-zero side condition: it puts `x`
-at or above the format's coarsest step, so `2 ^ (⌊log₂ x⌋ + 1)` is
-representable and caps the round-up. -/
+of Flocq `ulp_round`. `hq` makes `2 ^ (⌊log₂ x⌋ + 1)` representable, which caps
+the round-up. -/
 theorem ulp_rndUp_pos (F : FiniteFormat) {x : ℝ} (hx : 0 < x)
     (hq : F.IsAboveQuantum x) :
     ulp F ((rndUp F x : Dyadic) : ℝ) = ulp F x ∨
@@ -483,8 +461,8 @@ theorem ulp_round_pos (F : FiniteFormat) {x : ℝ} (hx : 0 < x)
   · rw [RoundsFinite.unique_toPositive hu (rndUp_spec F x)]
     exact ulp_rndUp_pos F hx hq
 
-/-- The round-down is the nearest-to-zero faithful value, so a faithful rounding
-never shrinks the ulp. -/
+/-- A faithful rounding either moves away from zero, or is the round-down, which
+keeps `x`'s canonical exponent. -/
 private theorem canonicalExp_le_of_faithful_pos {F : FiniteFormat} {x : ℝ} (hx : 0 < x)
     {y : Dyadic} (h : IsFaithfulRound F.unbounded x y) (hy : ((y : Dyadic) : ℝ) ≠ 0) :
     F.canonicalExp x ≤ F.canonicalExp ((y : Dyadic) : ℝ) := by
@@ -632,21 +610,23 @@ theorem exp_le_log_of_mem (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp
   have hge : (2 : ℝ) ^ e ≤ ((z : Dyadic) : ℝ) := by nlinarith
   exact (Int.zpow_le_iff_le_log (by norm_num) hz0).mp (by exact_mod_cast hge)
 
-/-- `canonicalExp` at a power of two is capped by any bound that caps both the
-precision drop and `F.exp`. -/
-theorem canonicalExp_zpow_le (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
-    {m k : ℤ} (hmk : m ≤ k) (hexp : ∀ e : ℤ, F.exp = (e : QExp) → e ≤ k) :
-    F.canonicalExp ((2 : ℝ) ^ m) ≤ k := by
+/-- The spacing of the binade below a positive `F`-value is no coarser than that
+value's own binade. -/
+theorem canonicalExp_binade_below_le (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
+    {z : Dyadic} (hz : z ∈ F.unbounded) (hz0 : 0 < ((z : Dyadic) : ℝ)) :
+    F.canonicalExp ((2 : ℝ) ^ (Int.log 2 ((z : Dyadic) : ℝ) - 1))
+      ≤ Int.log 2 ((z : Dyadic) : ℝ) := by
   have hpp : 0 < p := FiniteFormat.p_pos hp
-  have hpos : (0 : ℝ) < (2 : ℝ) ^ m := zpow_pos (by norm_num) _
-  have hlog : Int.log 2 |((2 : ℝ) ^ m)| = m := by
-    rw [abs_of_pos hpos]; exact log_two_zpow m
+  set k := Int.log 2 ((z : Dyadic) : ℝ) with hk
+  have hpos : (0 : ℝ) < (2 : ℝ) ^ (k - 1) := zpow_pos (by norm_num) _
+  have hlog : Int.log 2 |((2 : ℝ) ^ (k - 1))| = k - 1 := by
+    rw [abs_of_pos hpos]; exact log_two_zpow (k - 1)
   unfold FiniteFormat.canonicalExp
-  cases hexp' : F.exp using QExp.recBotCoe with
+  cases hexp : F.exp using QExp.recBotCoe with
   | bot => simp only [hp, hlog, if_neg (ne_of_gt hpos)]; omega
   | coe e =>
     simp only [hp, hlog, if_neg (ne_of_gt hpos)]
-    exact max_le (by omega) (hexp e hexp')
+    exact max_le (by omega) (by rw [hk]; exact exp_le_log_of_mem F hexp hz hz0)
 
 /-- Every positive `F`-value is above `F`'s coarsest step. -/
 theorem isAboveQuantum_of_mem (F : FiniteFormat) {z : Dyadic} (hz : z ∈ F.unbounded)
@@ -670,10 +650,7 @@ theorem pred_mem (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
       rw [hbf, zpow_sub₀ (by norm_num : (2:ℝ) ≠ 0), zpow_one]
     have hpos2 : (0:ℝ) < (2:ℝ) ^ (k - 1) := by positivity
     set e' := F.canonicalExp ((2:ℝ) ^ (k - 1)) with he'
-    have he'_le : e' ≤ k := by
-      rw [he']
-      exact canonicalExp_zpow_le F hp (by omega)
-        (fun e hexp => by rw [hk]; exact exp_le_log_of_mem F hexp hx hx0)
+    have he'_le : e' ≤ k := canonicalExp_binade_below_le F hp hx hx0
     have he'_ge : k - (p : ℤ) ≤ e' := by
       rw [he']
       unfold FiniteFormat.canonicalExp
@@ -787,9 +764,7 @@ theorem succ_predPos (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
     set e' := F.canonicalExp ((2 : ℝ) ^ (k - 1)) with he'
     have hu : ulp F (((z : Dyadic) : ℝ) / 2) = (2 : ℝ) ^ e' := by
       rw [hhalf, ulp_of_ne_zero F (ne_of_gt hpos2), ← he']
-    have he'_le : e' ≤ k :=
-      canonicalExp_zpow_le F hp (by omega)
-        (fun e hexp => by rw [hk]; exact exp_le_log_of_mem F hexp hz hz0)
+    have he'_le : e' ≤ k := canonicalExp_binade_below_le F hp hz hz0
     rw [hu]
     rcases eq_or_lt_of_le he'_le with heq | hlt
     · -- the step down is the whole value, so the format's quantum *is* `2^k`
@@ -986,8 +961,7 @@ theorem predPos_nonneg (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
     have hhalf : ((z : Dyadic) : ℝ) / 2 = (2 : ℝ) ^ (k - 1) := by
       rw [hbf, zpow_sub₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_one]
     have he'_le : F.canonicalExp ((2 : ℝ) ^ (k - 1)) ≤ k :=
-      canonicalExp_zpow_le F hp (by omega)
-        (fun e hexp => by rw [hk]; exact exp_le_log_of_mem F hexp hz hz0)
+      canonicalExp_binade_below_le F hp hz hz0
     rw [hhalf, ulp_of_ne_zero F (ne_of_gt hpos2), hbf]
     have := zpow_le_zpow_right₀ (show (1 : ℝ) ≤ 2 by norm_num) he'_le
     linarith
@@ -1050,10 +1024,9 @@ theorem le_pred_of_lt (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
 
 /-! ## Bracket characterisations of rounding
 
-Each turns "what does rounding do to *this* value" from a proof into a rewrite:
-name the neighbour and the rounding is pinned. The nearest-mode counterparts of
-`round_N_eq_DN` / `round_N_eq_UP` are `nearest_eq_rndDown_of_lt_midp` and
-`nearest_eq_rndUp_of_midp_lt` above, stated through `midp`.
+Name the neighbour and the rounding is pinned. The nearest-mode forms for `x`'s
+own bracket are `nearest_eq_rndDown_of_lt_midp` / `nearest_eq_rndUp_of_midp_lt`
+above, stated through `midp`.
 -/
 
 /-- **Round-down by bracket** (Flocq `round_DN_eq`): `d ≤ x < succ d` with

@@ -223,14 +223,11 @@ theorem log_sub_p_le_canonicalExp (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
   | bot => simp [hp, hx]
   | coe e' => simp [hp, hx]
 
-/-- **`x` is above `F`'s coarsest step**: the canonical exponent does not exceed
-`x`'s binade. Equivalently (for `x ≠ 0`) `F.exp ≤ ⌊log₂ |x|⌋`, since the
-precision term `⌊log₂ |x|⌋ + 1 − p` never does — and equivalently again, `x`
-does not round down to `0` (`rndDown_pos_iff`, in `Mpfx/Ulp.lean`).
-
-This is Flocq's `Exp_not_FTZ` localised at `x`. Flocq must state it as a
-constraint on an exponent function `fexp : Z → Z`; `F.exp` is a value, so here
-it is a plain inequality. Reducible, so arithmetic tactics see through it. -/
+/-- **`x` is above `F`'s coarsest step** (Flocq's `Exp_not_FTZ`, localized at
+`x`): the canonical exponent does not exceed `x`'s binade. Equivalently, for
+`x ≠ 0`, `F.exp ≤ ⌊log₂ |x|⌋` — the precision term `⌊log₂ |x|⌋ + 1 − p` is never
+the binding one — and equivalently again, `x` does not round down to `0`
+(`rndDown_pos_iff`). Reducible, so arithmetic tactics see through it. -/
 abbrev IsAboveQuantum (F : FiniteFormat) (x : ℝ) : Prop :=
   F.canonicalExp x ≤ Int.log 2 |x|
 
@@ -245,8 +242,7 @@ theorem isAboveQuantum_of_le_log {F : FiniteFormat} {x : ℝ} (hx : 0 < x)
   have : Int.log 2 |x| = Int.log 2 x := by rw [abs_of_pos hx]
   omega
 
-/-- `F.exp ≤ ⌊log₂ |x|⌋` is the whole content of `IsAboveQuantum`: the precision
-term is never the binding one. -/
+/-- `F.exp ≤ ⌊log₂ |x|⌋` is the whole content of `IsAboveQuantum`. -/
 theorem isAboveQuantum_of_exp_le (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
     (hexp : ∀ e : ℤ, F.exp = (e : QExp) → e ≤ Int.log 2 |x|) : F.IsAboveQuantum x := by
   unfold IsAboveQuantum canonicalExp
