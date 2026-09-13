@@ -411,4 +411,146 @@ theorem lt_succ (F : FiniteFormat) {x : ℝ} (hx0 : 0 ≤ x) (hne : x ≠ 0) :
   rw [succ_of_nonneg F hx0]
   linarith [ulp_pos F hne]
 
+/-- `pred x < x` away from zero. At `x = 0` with no minimum quantum
+`pred 0 = 0`, so the hypothesis is needed (Flocq `pred_lt_id`). -/
+theorem pred_lt (F : FiniteFormat) {x : ℝ} (hne : x ≠ 0) : pred F x < x := by
+  rcases lt_or_gt_of_ne hne with hneg | hpos
+  · -- `-x > 0`, so `succ` takes its non-negative branch
+    rw [pred, succ_of_nonneg F (by linarith : (0:ℝ) ≤ -x), ulp_neg]
+    linarith [ulp_pos F hne]
+  · -- `-x < 0`, so `succ` reflects through `predPos`
+    rw [pred, succ, if_neg (by linarith : ¬ (0:ℝ) ≤ -x)]
+    simp only [neg_neg]
+    unfold predPos
+    split_ifs with h
+    · have : (0:ℝ) < x / 2 := by linarith
+      linarith [ulp_pos F (ne_of_gt this)]
+    · linarith [ulp_pos F hne]
+
+/-- **`succ` really is the next value**: no `F`-element lies strictly between
+`x` and `succ x` (Flocq `succ_le_lt`). Both values share `x`'s canonical
+exponent as a common quantum, so `y > x` forces `y` a whole step up. -/
+theorem succ_le_of_lt (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
+    {x y : Dyadic} (hx : x ∈ F.unbounded) (hy : y ∈ F.unbounded)
+    (hx0 : 0 < ((x : Dyadic) : ℝ)) (hlt : ((x : Dyadic) : ℝ) < ((y : Dyadic) : ℝ)) :
+    succ F (x : ℝ) ≤ ((y : Dyadic) : ℝ) := by
+  have hy0 : (0:ℝ) < ((y : Dyadic) : ℝ) := lt_trans hx0 hlt
+  have hxne : ((x : Dyadic) : ℝ) ≠ 0 := ne_of_gt hx0
+  set ex := F.canonicalExp ((x : Dyadic) : ℝ) with hex
+  set ey := F.canonicalExp ((y : Dyadic) : ℝ) with hey
+  have hmono : ex ≤ ey := by
+    rw [hex, hey]
+    exact canonicalExp_mono F hxne (by rw [abs_of_pos hx0, abs_of_pos hy0]; linarith)
+  obtain ⟨cx, -, hxeq⟩ := exists_canonical_rep F.unbounded hp hx hx0
+  rw [FiniteFormat.unbounded_canonicalExp] at hxeq
+  obtain ⟨cy, -, hyeq⟩ := exists_canonical_rep F.unbounded hp hy hy0
+  rw [FiniteFormat.unbounded_canonicalExp] at hyeq
+  have h2 : (0:ℝ) < (2:ℝ) ^ ex := zpow_pos (by norm_num) _
+  -- `y` sits on `x`'s grid: `2^ey = 2^(ey-ex) * 2^ex` with a whole-number factor
+  have hstep : ((y : Dyadic) : ℝ)
+      = ((cy * (2:ℤ) ^ (ey - ex).toNat : ℤ) : ℝ) * (2:ℝ) ^ ex := by
+    rw [hyeq, ← hey]
+    push_cast
+    rw [mul_assoc, ← zpow_natCast (2:ℝ) (ey - ex).toNat,
+        Int.toNat_of_nonneg (by omega : (0:ℤ) ≤ ey - ex), ← zpow_add₀ (by norm_num : (2:ℝ) ≠ 0)]
+    ring_nf
+  -- both are integer multiples of `2^ex`, and `y > x`, so `y ≥ x + 2^ex`
+  have hlt_int : cx < cy * (2:ℤ) ^ (ey - ex).toNat := by
+    have := hlt
+    rw [hxeq, ← hex, hstep] at this
+    exact_mod_cast (mul_lt_mul_iff_of_pos_right h2).mp this
+  rw [succ_of_nonneg F hx0.le, ulp_of_ne_zero F hxne, ← hex, hxeq, ← hex, hstep]
+  have : (cx : ℝ) + 1 ≤ ((cy * (2:ℤ) ^ (ey - ex).toNat : ℤ) : ℝ) := by exact_mod_cast hlt_int
+  nlinarith [h2]
+
+/-- On the positive side `pred` coincides with `predPos`. -/
+theorem pred_eq_predPos (F : FiniteFormat) {x : ℝ} (hx : 0 < x) :
+    pred F x = predPos F x := by
+  rw [pred, succ, if_neg (by linarith : ¬ (0:ℝ) ≤ -x)]; simp only [neg_neg]
+
+/-- The predecessor of a positive `F`-value is an `F`-value. Away from a binade
+floor it is one grid step down; at a floor the step is the finer one from the
+binade below, and `k - e' ≤ p` keeps the coefficient in range. -/
+theorem pred_mem (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
+    {x : Dyadic} (hx : x ∈ F.unbounded) (hx0 : 0 < ((x : Dyadic) : ℝ)) :
+    ∃ y : Dyadic, y ∈ F.unbounded ∧ ((y : Dyadic) : ℝ) = pred F ((x : Dyadic) : ℝ) := by
+  have hxne : ((x : Dyadic) : ℝ) ≠ 0 := ne_of_gt hx0
+  rw [pred_eq_predPos F hx0]
+  unfold predPos
+  split_ifs with hbf
+  · -- binade floor: step down by the spacing of the binade below
+    set k := Int.log 2 ((x : Dyadic) : ℝ) with hk
+    have hhalf : ((x : Dyadic) : ℝ) / 2 = (2 : ℝ) ^ (k - 1) := by
+      rw [hbf, zpow_sub₀ (by norm_num : (2:ℝ) ≠ 0), zpow_one]
+    have hpos2 : (0:ℝ) < (2:ℝ) ^ (k - 1) := by positivity
+    set e' := F.canonicalExp ((2:ℝ) ^ (k - 1)) with he'
+    have he'_le : e' ≤ k := by
+      rw [he']
+      unfold FiniteFormat.canonicalExp
+      have hlog : Int.log 2 |((2:ℝ) ^ (k-1))| = k - 1 := by
+        rw [abs_of_pos hpos2]; exact log_two_zpow (k-1)
+      cases hexp : F.exp using QExp.recBotCoe with
+      | bot => simp only [hp, hlog, if_neg (ne_of_gt hpos2)]; omega
+      | coe q =>
+          simp only [hp, hlog, if_neg (ne_of_gt hpos2)]
+          refine max_le (by omega) ?_
+          -- `2^k ∈ F` has quantum at least `2^q`, so `q ≤ k`
+          obtain ⟨-, hq, -⟩ := hx
+          rw [FiniteFormat.unbounded_exp, hexp, Dyadic.quantumAtLeast_coe_real] at hq
+          obtain ⟨c, hc⟩ := hq
+          by_contra hlt
+          push Not at hlt
+          have h1 : ((x : Dyadic) : ℝ) = (c : ℝ) * (2:ℝ) ^ q := hc
+          have : (1:ℝ) ≤ (c : ℝ) := by
+            by_contra hcc
+            push Not at hcc
+            have : (c : ℤ) ≤ 0 := by exact_mod_cast Int.lt_add_one_iff.mp (by exact_mod_cast hcc)
+            have : (c : ℝ) ≤ 0 := by exact_mod_cast this
+            nlinarith [zpow_pos (by norm_num : (0:ℝ) < 2) q, hx0, h1]
+          have h2 : (2:ℝ) ^ q ≤ ((x : Dyadic) : ℝ) := by
+            nlinarith [zpow_pos (by norm_num : (0:ℝ) < 2) q]
+          rw [hbf] at h2
+          have := (zpow_le_zpow_iff_right₀ (by norm_num : (1:ℝ) < 2)).mp h2
+          omega
+    have he'_ge : k - (p : ℤ) ≤ e' := by
+      rw [he']
+      unfold FiniteFormat.canonicalExp
+      have hlog : Int.log 2 |((2:ℝ) ^ (k-1))| = k - 1 := by
+        rw [abs_of_pos hpos2]; exact log_two_zpow (k-1)
+      cases hexp : F.exp using QExp.recBotCoe with
+      | bot => simp only [hp, hlog, if_neg (ne_of_gt hpos2)]; omega
+      | coe q => simp only [hp, hlog, if_neg (ne_of_gt hpos2)]; exact le_max_of_le_left (by omega)
+    refine ⟨Dyadic.ofIntZpow ((2:ℤ) ^ (k - e').toNat - 1) e', ?_, ?_⟩
+    · refine ofIntZpow_mem_unbounded F (fun hexp => ?_) (fun {p'} hp' => ?_)
+      · rw [he']; exact F.exp_le_canonicalExp _ hexp
+      · have hpp : p' = p := by have := hp'.symm.trans hp; exact_mod_cast this
+        have h1 : (k - e').toNat ≤ p := by omega
+        have hle : (2:ℤ) ^ (k - e').toNat ≤ 2 ^ p := pow_le_pow_right₀ (by norm_num) h1
+        have h1le : (1:ℤ) ≤ (2:ℤ) ^ (k - e').toNat := one_le_pow₀ (by norm_num)
+        rw [hpp, abs_of_nonneg (by linarith : (0:ℤ) ≤ (2:ℤ) ^ (k - e').toNat - 1)]
+        linarith
+    · rw [Dyadic.coe_ofIntZpow, hhalf, ulp_of_ne_zero F (ne_of_gt hpos2), ← he', hbf]
+      push_cast
+      rw [sub_mul, one_mul, ← zpow_natCast (2:ℝ) (k - e').toNat,
+          Int.toNat_of_nonneg (by omega : (0:ℤ) ≤ k - e'),
+          ← zpow_add₀ (by norm_num : (2:ℝ) ≠ 0)]
+      ring_nf
+  · -- interior: one grid step down
+    obtain ⟨c, hc, hxeq⟩ := exists_canonical_rep F.unbounded hp hx hx0
+    rw [FiniteFormat.unbounded_canonicalExp] at hxeq
+    have hcpos : 0 < c := by
+      by_contra hcc
+      push Not at hcc
+      have : (c : ℝ) ≤ 0 := by exact_mod_cast hcc
+      nlinarith [zpow_pos (by norm_num : (0:ℝ) < 2) (F.canonicalExp ((x : Dyadic) : ℝ)), hx0, hxeq]
+    refine ⟨Dyadic.ofIntZpow (c - 1) (F.canonicalExp ((x : Dyadic) : ℝ)), ?_, ?_⟩
+    · refine ofIntZpow_mem_unbounded F (fun hexp => F.exp_le_canonicalExp _ hexp)
+        (fun {p'} hp' => ?_)
+      have hpp : p' = p := by have := hp'.symm.trans hp; exact_mod_cast this
+      rw [hpp, abs_of_nonneg (by omega : (0:ℤ) ≤ c - 1)]
+      rw [abs_of_pos hcpos] at hc
+      omega
+    · rw [Dyadic.coe_ofIntZpow, ulp_of_ne_zero F hxne]
+      push_cast; linear_combination -hxeq
+
 end Mpfx

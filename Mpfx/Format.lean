@@ -234,6 +234,8 @@ def unbounded (F : FiniteFormat) : FiniteFormat where
 @[simp] theorem unbounded_toFormat (F : FiniteFormat) :
     F.unbounded.toFormat = F.toFormat.unbounded := rfl
 @[simp] theorem unbounded_p (F : FiniteFormat) : F.unbounded.p = F.p := rfl
+@[simp] theorem unbounded_canonicalExp (F : FiniteFormat) (x : ℝ) :
+    F.unbounded.canonicalExp x = F.canonicalExp x := rfl
 @[simp] theorem unbounded_exp (F : FiniteFormat) : F.unbounded.exp = F.exp := rfl
 @[simp] theorem unbounded_b (F : FiniteFormat) : F.unbounded.b = ⊤ := rfl
 @[simp] theorem unbounded_unbounded (F : FiniteFormat) :
