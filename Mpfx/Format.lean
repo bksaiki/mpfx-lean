@@ -223,6 +223,21 @@ theorem log_sub_p_le_canonicalExp (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
   | bot => simp [hp, hx]
   | coe e' => simp [hp, hx]
 
+/-- `canonicalExp` is monotone in magnitude. -/
+theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)
+    (hyz : |y| ≤ |z|) : F.canonicalExp y ≤ F.canonicalExp z := by
+  have hy_pos : 0 < |y| := abs_pos.mpr hy
+  have hz : z ≠ 0 := by
+    rintro rfl; rw [abs_zero] at hyz; exact absurd hyz (not_le.mpr hy_pos)
+  have hlog : Int.log 2 |y| ≤ Int.log 2 |z| := Int.log_mono_right hy_pos hyz
+  unfold FiniteFormat.canonicalExp
+  cases F.p using ENat.recTopCoe with
+  | top => cases F.exp using QExp.recBotCoe <;> simp <;> rfl
+  | coe p =>
+    cases F.exp using QExp.recBotCoe with
+    | bot => simp only [hy, hz, if_false]; omega
+    | coe e => simp only [hy, hz, if_false]; omega
+
 /-- `F` with the magnitude bound removed (`b := ⊤`). Used by the
 satisfies-spec to define the unbounded rounding. The `finite` invariant
 depends only on `(p, exp)`, so it's preserved. -/

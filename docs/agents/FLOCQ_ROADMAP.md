@@ -131,38 +131,17 @@ Three consequences:
    It also gives a computable mirror of `rnd` on dyadic inputs, which is what
    the "smoke tests" item in `TODO.md` wants.
 
-## 6. `Grid.lean` case duplication — partly done, re-scoped
+## 6. `Grid.lean` case duplication — **done**
 
-`exists_grid_rep` now rides a single `canonicalExp`-phrased engine,
-`exists_grid_rep_canonical`, and the shared binade bound is factored out as
-`log_le_of_canonical_rep`. `exists_canonical_rep` dropped from 24 lines to 6.
+All the `_exp_bot` twins are gone, merged on `canonicalExp`:
+`no_F_element_in_step_interval`, `F_adjacent_step_form`,
+`midpoint_mem_extend_one_of_F_adjacent_pos` and its wrapper. `exists_grid_rep`
+and `exists_grid_rep_exp_bot` were deleted outright once
+`exists_grid_rep_canonical` absorbed their consumers. `Grid.lean` 753 → 626.
 
-The original premise — that the `_exp_bot` twins collapse once phrased over
-`canonicalExp` — held only in part. `exists_grid_rep_exp_bot` never mentions
-`F.exp`: it is a *precision-only* statement true of any format, and `_exp_bot`
-names its use site rather than a hypothesis. So it does not merge.
-
-Of the four remaining twins, two do not merge: `midpoint_mem_extend_one_of_p_top`
-needs no adjacency at all, and `midpoint_mem_extend_one_of_F_adjacent` / `_exp_bot`
-are already thin wrappers over `midpoint_dispatch_core`. What is left is a
-three-link dependent chain, 206 lines:
-
-| pair | lines |
-| ---- | ----- |
-| `no_F_element_in_step_interval` / `_exp_bot` | 43 + 29 |
-| `F_adjacent_step_form` / `_exp_bot` | 43 + 38 |
-| `midpoint_mem_extend_one_of_F_adjacent_pos` / `_exp_bot` | 31 + 22 |
-
-All three `_exp_bot` variants do hypothesise `F.exp = ⊥`, so unlike
-`exists_grid_rep_exp_bot` they are genuine `⊥`-cases and would merge. But the
-shared cores are already extracted (`step_interval_bounds`,
-`F_adjacent_step_form_z_core`, `midpoint_precision_extend_one`), leaving perhaps
-60–70 recoverable.
-
-Independent of §4. `Grid.lean` sits below `Ulp.lean` in the import chain, so it
-cannot mention `succ`; the `succ`-phrased forms (`succ_eq_of_adjacent`,
-`not_mem_between_succ`) live in `Ulp.lean` instead. The merge itself needs only
-`canonicalExp`, which `Grid` can see.
+`midpoint_mem_extend_one_of_p_top` remains separate and should: with
+unrestricted precision it needs no adjacency at all, so it is a different
+argument rather than a case of the same one.
 
 ## 7. Operation-level error lemmas — `Prop/`
 

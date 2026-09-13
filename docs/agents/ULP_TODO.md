@@ -312,7 +312,24 @@ should collapse: `no_F_element_in_step_interval` (43+29),
 `F_adjacent_step_form` (43+38), `midpoint_mem_extend_one_of_F_adjacent_pos`
 (31+22). The shared cores are already extracted, so expect ~60–70 lines.
 
-- [ ] Merge bottom-up: the `no_F_element` pair first, since the others call it.
+- [x] Merge bottom-up: the `no_F_element` pair first, since the others call it.
+
+**Done, −153 lines** (estimate was 60–70). `Grid.lean` 753 → 626. All three
+pairs merged on `canonicalExp`, plus the two `midpoint_mem_extend_one_of_F_adjacent`
+wrappers, which became identical once their `_pos` variants did.
+
+The overshoot was a cascade: with everything routed through
+`exists_grid_rep_canonical`, *both* shaped forms — `exists_grid_rep` and
+`exists_grid_rep_exp_bot` — lost every consumer and were deleted. The earlier
+finding that `exists_grid_rep_exp_bot` "does not merge" was correct but beside
+the point: it did not merge, it became unnecessary. A downstream dispatch in
+`DoubleRounding.lean` that case-split on `F₁.exp` to choose between the two
+midpoint variants also collapsed.
+
+`canonicalExp_mono` moved from `CanonicalExp.lean` down to `Format.lean` —
+`Grid` sits below `CanonicalExp` and now needs it, and it only requires the
+definition plus `Int.log` monotonicity. ~5 call sites gained the
+`FiniteFormat.` qualifier.
 
 Commit message: `Collapse the remaining Grid exponent-case twins`
 

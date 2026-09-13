@@ -92,7 +92,7 @@ private theorem add_sub_mantissa_setup {F₁ : FiniteFormat} {p₁ : ℕ}
   have hcy_pos : 0 < cy := mantissa_pos hyeq hypos
   have hey_le_ex : ey ≤ ex := by
     rw [hey, hex]
-    exact canonicalExp_mono F₁ (ne_of_gt hypos)
+    exact FiniteFormat.canonicalExp_mono F₁ (ne_of_gt hypos)
       (by rw [abs_of_pos hypos, abs_of_pos hxpos]; exact hyx)
   set n : ℕ := (ex - ey).toNat with hn
   have hn_nat : n ≤ p₁ + 1 := by
@@ -276,7 +276,7 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
       rw [← hk] at this; exact_mod_cast this
     -- `x` is normal in `F₁` (gap `> p₁+1` rules out the subnormal clamp)
     have hey_le_ex : ey ≤ ex := by
-      rw [hey, hex]; exact canonicalExp_mono F₁ (ne_of_gt hypos)
+      rw [hey, hex]; exact FiniteFormat.canonicalExp_mono F₁ (ne_of_gt hypos)
         (by rw [abs_of_pos hypos, abs_of_pos hxpos]; exact le_of_lt hyx)
     have hex_le_k : ex ≤ k := by
       have hx_ge_ex : (2 : ℝ) ^ ex ≤ (x : ℝ) := by

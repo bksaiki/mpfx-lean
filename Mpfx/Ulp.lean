@@ -440,7 +440,7 @@ theorem succ_le_of_lt (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
   set ey := F.canonicalExp ((y : Dyadic) : ℝ) with hey
   have hmono : ex ≤ ey := by
     rw [hex, hey]
-    exact canonicalExp_mono F hxne (by rw [abs_of_pos hx0, abs_of_pos hy0]; linarith)
+    exact FiniteFormat.canonicalExp_mono F hxne (by rw [abs_of_pos hx0, abs_of_pos hy0]; linarith)
   obtain ⟨cx, -, hxeq⟩ := exists_canonical_rep F.unbounded hp hx hx0
   rw [FiniteFormat.unbounded_canonicalExp] at hxeq
   obtain ⟨cy, -, hyeq⟩ := exists_canonical_rep F.unbounded hp hy hy0

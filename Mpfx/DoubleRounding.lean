@@ -1073,13 +1073,7 @@ private theorem midpoint_in_F₁_extend_one_of_F_adjacent {F₁ : FiniteFormat}
         exact absurd F₁.finite (by push Not; exact ⟨hp, he⟩)
     | coe e' => exact midpoint_mem_extend_one_of_p_top F₁ hp he hy₁F hy₂F
   | coe p' =>
-    cases he : F₁.exp using QExp.recBotCoe with
-    | bot =>
-        exact midpoint_mem_extend_one_of_F_adjacent_exp_bot
-          F₁ hp he hy₁F hy₂F h_lt h_adj
-    | coe e' =>
-        exact midpoint_mem_extend_one_of_F_adjacent
-          F₁ hp he hy₁F hy₂F h_lt h_adj
+    exact midpoint_mem_extend_one_of_F_adjacent F₁ hp hy₁F hy₂F h_lt h_adj
 
 /-- F-adjacent midpoint membership in `F₂`. Gets `midpoint y₁ y₂ ∈ F₁.extend 1`
 from the Grid lemmas (dispatching on `F₁`'s precision/exponent shape) and then
