@@ -46,7 +46,8 @@ need to name the set of representable values at a fixed exponent.
 | the lattice at a fixed exponent | *no name needed* |
 
 `binade` is **not** a synonym for "grid". They agree in the normal range, one
-binade to one grid, but diverge below it: under `FLT(p, emin)` everything under
+binade to one grid, but diverge below it: at precision `p` with minimum quantum
+`emin`, everything under
 `2^(emin+p−1)` has `canonicalExp = emin`, so one grid of spacing `2^emin` spans
 many binades. That divergence is exactly what produced the `_exp_bot` twins.
 

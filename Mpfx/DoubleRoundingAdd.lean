@@ -6,7 +6,8 @@ import Mpfx.DoubleRoundingMul
 # Operation-specific double rounding: addition (Roux 2014, §3)
 
 Phase 3 of `docs/agents/DOUBLE_ROUNDING_OPS_PLAN.md`. Roux's Theorem 20 (radix 2,
-FLX): double rounding of addition is innocuous when `p₂ ≥ 2p₁ + 1`. The proof
+no minimum quantum): double rounding of addition is innocuous when
+`p₂ ≥ 2p₁ + 1`. The proof
 splits on the exponent gap between the operands:
 
 * **Case 1** (`ln y ≥ φ₁(ln x) − 1`, operands within `p₁+1` binades): `x + y`
@@ -23,7 +24,7 @@ signs `x + y` as a subtraction `x − (−y)` (Roux §3.1).
 
 namespace Mpfx
 
-/-- **FLT exact-representability of a subnormal result.** If `v` inherits `F₁`'s
+/-- **Exact representability of a subnormal result** (finite `exp`). If `v` inherits `F₁`'s
 quantum (`quantumAtLeast F₁.exp v`, e.g. `v = x ± y` for `x, y ∈ F₁`) and is
 *subnormal* in `F₂` (`F₂.exp = ↑e₂` with `log₂|v|+1−p₂ < e₂`), then `v ∈ F₂` — a
 subnormal result never needs the midpoint argument. `hexp : F₂.exp ≤ F₁.exp`
@@ -223,11 +224,13 @@ private theorem sub_key_bound {p₁ p₂ : ℕ} (hp : 0 < p₁) {k eb : ℤ}
         _ ≤ (2 : ℝ) ^ (k - (p₁ : ℤ) - 1) := zpow_le_zpow_right₀ (by norm_num) (by omega)
     linarith [hb_lt, h3, hfinal]
 
-/-- **rnd-minus, ordered positive, genuine-midpoint core** (radix 2, FLX/FLT).
+/-- **rnd-minus, ordered positive, genuine-midpoint core** (radix 2, either
+exponent regime).
 The `x − y` case that needs Roux's midpoint argument: the operand gap exceeds
 `p₁+1` (`hgap`) and `x − y` is *normal* in `F₂` (`hF2norm`) — hence normal in
-`F₁` too, so `canonicalExp` takes the FLX closed form (`canonicalExp_closed`)
-and the proof runs identically to the pure-FLX case. Split on whether `x` is a
+`F₁` too, so `canonicalExp` takes the precision-exponent closed form
+(`canonicalExp_closed`) and the proof runs identically to the `exp = ⊥` case.
+Split on whether `x` is a
 binade boundary: `x > 2^k` keeps `x − y` in `x`'s binade; `x = 2^k` drops a
 binade but `sub_key_bound` keeps the intermediate `z` strictly inside `x`'s
 lower cell. Both `◦₁(x−y)` and `◦₁(z)` equal `x`. -/
@@ -258,7 +261,7 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
   set ey := F₁.canonicalExp (y : ℝ) with hey
   by_cases hgapc : ex - ey ≤ (p₁ : ℤ) + 1
   · exact absurd hgapc (by omega)
-  · -- genuine midpoint case (`hgap`): the FLX body, with normality-supplied
+  · -- genuine midpoint case (`hgap`): the `exp = ⊥` body, with normality-supplied
     -- closed forms for `canonicalExp`.
     obtain ⟨cx, hcx_lt, hxeq⟩ := exists_canonical_rep F₁ hp₁ hx hxpos
     obtain ⟨cy, hcy_lt, hyeq⟩ := exists_canonical_rep F₁ hp₁ hy hypos
@@ -290,7 +293,7 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
     have hnormF1 : F₁.exp ≤ ((k - (p₁ : ℤ) : ℤ) : QExp) := by
       refine le_trans (exp_le_canonicalExp_coe F₁ (y : ℝ)) ?_
       rw [← hey]; exact_mod_cast (show ey ≤ k - (p₁ : ℤ) by omega)
-    -- FLX-form `canonicalExp` for any `F₁`-normal value with binade `≥ k−1`
+    -- precision-exponent `canonicalExp` for any `F₁`-normal value, binade `≥ k−1`
     have cE1 : ∀ v : ℝ, v ≠ 0 → k - 1 ≤ Int.log 2 |v| →
         F₁.canonicalExp v = Int.log 2 |v| + 1 - (p₁ : ℤ) := by
       intro v hv hlog
@@ -535,7 +538,8 @@ private theorem rndSmallGap_exact {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
       (by rw [hp₂]; exact_mod_cast hpp) hexp hprec hquant_r) hz hw
 
 /-- Subnormal exact fallback: a result `r` that inherits `F₁`'s quantum but is
-*subnormal* in `F₂` (FLX exponent below `F₂.exp`) is exactly `F₂`-representable,
+*subnormal* in `F₂` (precision exponent below `F₂.exp`) is exactly
+`F₂`-representable,
 so double rounding is a no-op. -/
 private theorem rndSubnormal_exact {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₂ : ℕ}
     (hp₂ : F₂.p = (p₂ : Prec)) (hexp : F₂.exp ≤ F₁.exp) {r : Dyadic}
@@ -555,9 +559,10 @@ private theorem rndSubnormal_exact {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : Tie
   exact rndExact (F₂ := F₂.unbounded)
     (mem_F₂_of_subnormal hp₂ hexp hquant_r he₂ hsublt) hz hw
 
-/-- **rnd-minus, positive ordered case** (Roux Theorem 20, radix 2, FLX **and
-FLT**). For `x, y ∈ F₁` with `0 < y < x`, `p₂ ≥ 2p₁+1` and `emin₂ ≤ emin₁`
-(`hexp : F₂.exp ≤ F₁.exp`, which also covers FLX `⊥ ≤ ⊥`), double rounding of
+/-- **rnd-minus, positive ordered case** (Roux Theorem 20, radix 2, **either
+exponent regime**). For `x, y ∈ F₁` with `0 < y < x`, `p₂ ≥ 2p₁+1` and
+`emin₂ ≤ emin₁` (`hexp : F₂.exp ≤ F₁.exp`, which also covers `⊥ ≤ ⊥`), double
+rounding of
 `x − y` is innocuous. Three cases: small gap ⟹ `x − y` fits `2p₁+1` bits
 (`diff_precisionAtMost`, exact); `x − y` subnormal in `F₂` ⟹ exact
 (`mem_F₂_of_subnormal`); otherwise `x − y` is normal in `F₂` (and hence `F₁`) and
@@ -587,9 +592,11 @@ private theorem rndSub_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
     · -- `x − y` subnormal in `F₂`: exactly representable
       exact rndSubnormal_exact hp₂ hexp hquant_r hF2norm hz hw
 
-/-- **rnd-plus, ordered positive, genuine-midpoint core** (radix 2, FLX/FLT).
+/-- **rnd-plus, ordered positive, genuine-midpoint core** (radix 2, either
+exponent regime).
 The `x + y` analog of `rndSub_pos_normal`: operand gap `> p₁+1` (`hgap`) and
-`x + y` normal in `F₂` (`hF2norm`), so `canonicalExp` takes the FLX closed form
+`x + y` normal in `F₂` (`hF2norm`), so `canonicalExp` takes the precision-exponent
+closed form
 and Roux's Lemma 16 (`rnd_lt_mid'`) applies unchanged. -/
 private theorem rndAdd_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     (hp₁ : F₁.p = (p₁ : Prec))
@@ -732,9 +739,10 @@ private theorem rndAdd_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
         ring
       linarith [hy_lt, hu2_le, h2ex2, h2ex]
 
-/-- **rnd-plus, positive ordered case** (Roux Theorem 20, radix 2, FLX **and
-FLT**). For `x, y ∈ F₁` with `0 < y ≤ x`, `p₂ ≥ 2p₁+1` and `emin₂ ≤ emin₁`
-(`hexp : F₂.exp ≤ F₁.exp`, covering FLX `⊥ ≤ ⊥`), double rounding of `x + y` is
+/-- **rnd-plus, positive ordered case** (Roux Theorem 20, radix 2, **either
+exponent regime**). For `x, y ∈ F₁` with `0 < y ≤ x`, `p₂ ≥ 2p₁+1` and
+`emin₂ ≤ emin₁` (`hexp : F₂.exp ≤ F₁.exp`, covering `⊥ ≤ ⊥`), double rounding of
+`x + y` is
 innocuous. Three cases: small gap ⟹ exact (`sum_precisionAtMost`); `x + y`
 subnormal in `F₂` ⟹ exact (`mem_F₂_of_subnormal`); otherwise normal ⟹
 `rndAdd_pos_normal`. -/
@@ -809,7 +817,7 @@ private theorem rndAdd_nonneg {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak
 `a − b` (`a, b ∈ F₁`, `0 ≤ a`, `0 ≤ b`) is innocuous when
 
 * **precision:** `p₂ ≥ 2·p₁ + 1`,
-* **exponent:** `exp₂ ≤ exp₁` (covers FLX `⊥ ≤ ⊥` and FLT `emin₂ ≤ emin₁`),
+* **exponent:** `exp₂ ≤ exp₁` (covers `⊥ ≤ ⊥` and `emin₂ ≤ emin₁`),
 * **bounds:** no relationship required (overflow-free `unbounded` roundings).
 
 The exponent condition `exp₂ ≤ exp₁` is exactly the *quantum half* of `F₁ ⊆ F₂`
@@ -856,12 +864,12 @@ theorem rndDiff {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ :
     · -- `a > b`: apply `rndSub_pos` directly.
       exact rndSub_pos hp₁ hp₂ hpp hexp hundef₁ ha hb hap hbp hab hz hw
 
-/-- **rnd-plus** (Roux Theorem 20, radix 2, FLX **and** FLT). With
+/-- **rnd-plus** (Roux Theorem 20, radix 2, **either exponent regime**). With
 `F₁ = 𝒜(p₁, exp₁, b₁)` and `F₂ = 𝒜(p₂, exp₂, b₂)`, double rounding to nearest of
 `x + y` for **arbitrary** `x, y ∈ F₁` is innocuous when
 
 * **precision:** `p₂ ≥ 2·p₁ + 1`,
-* **exponent:** `exp₂ ≤ exp₁` (subsumes FLX `⊥ ≤ ⊥` and FLT `emin₂ ≤ emin₁`),
+* **exponent:** `exp₂ ≤ exp₁` (subsumes `⊥ ≤ ⊥` and `emin₂ ≤ emin₁`),
 * **bounds:** no relationship required (overflow-free `unbounded` roundings).
 
 `exp₂ ≤ exp₁` is the *quantum half* of `F₁ ⊆ F₂` (`𝒜-Contains-Prec`): `F₂` is at

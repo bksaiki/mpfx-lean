@@ -22,8 +22,9 @@ The near-midpoint obligation therefore splits:
   canonical exponent drops by ≥ 1, absorbing the trailing `½·ulp₁`), so the
   intermediate rounding is exact.
 
-Top-level results: `rndDiv_FLX` and `rndDiv_FLT` (arbitrary operands, `b ≠ 0`);
-the FLT underflow regimes go through `nearest_zero_of_small`/`round_round_div_zero`.
+Top-level results: `rndDiv_expBot` (no minimum quantum) and `rndDiv_expFinite`
+(minimum quantum `emin`), for arbitrary operands with `b ≠ 0`; the underflow
+regimes go through `nearest_zero_of_small`/`round_round_div_zero`.
 See `docs/agents/DOUBLE_ROUNDING_OPS_PLAN.md` §9.
 -/
 
@@ -128,7 +129,8 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ}
   have hcast : (|C| : ℝ) < ((2 : ℤ) ^ p₂ : ℝ) := by push_cast; rw [h2p2]; exact hCR
   exact_mod_cast hcast
 
-/-- **Small positive values round to zero** (FLT underflow). In an FLT format
+/-- **Small positive values round to zero** (underflow). In an `exp = emin`
+format
 (`exp = emin`), any `0 ≤ x' < 2^(emin−1)` rounds to nearest to `0`: its scaled
 mantissa is `< ½`, and the grid point selected is `0`. -/
 private theorem nearest_zero_of_small {F₁ : FiniteFormat} {tb₁ : TieBreak} {p₁ : ℕ} {emin₁ : ℤ}
@@ -144,7 +146,7 @@ private theorem nearest_zero_of_small {F₁ : FiniteFormat} {tb₁ : TieBreak} {
       (by rw [zero_mul, Int.cast_zero, sub_zero, abs_zero]; norm_num)
     rwa [hz0] at h
   · have hcexp : F₁.canonicalExp x' = emin₁ := by
-      rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hpos), abs_of_pos hpos]
+      rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hpos), abs_of_pos hpos]
       have hlog : Int.log 2 x' < emin₁ - 1 :=
         (Int.lt_zpow_iff_log_lt (b := 2) (by norm_num) hpos).mp (by exact_mod_cast hx'lt)
       omega
@@ -157,7 +159,7 @@ private theorem nearest_zero_of_small {F₁ : FiniteFormat} {tb₁ : TieBreak} {
     have h := nearest_eq_of_close F₁ tb₁ x' hundef₁ hclose
     rwa [hz0] at h
 
-/-- **Underflow double rounding to zero** (FLT, the non-sliver underflow case).
+/-- **Underflow double rounding to zero** (the non-sliver underflow case).
 If `0 < v` is far enough below the underflow threshold `2^(emin₁−1)` (namely
 `v < 2^(emin₁−1) − ½·ulp₂ v`), then both `v` and its `F₂`-rounding `z = ◦₂ v`
 land in `[0, 2^(emin₁−1))`, so both round to `0` in `F₁` and double rounding is
@@ -203,7 +205,8 @@ an *integer* (each operand is a multiple of `2^s`). Since `v ≠ m` and `y ≠ 0
 2^(e₂+mag y)` (`y < 2^(mag y)`), forcing `s < e₂ + Int.log y` — contradicting the
 two hypotheses `hA` (`e₂ + Int.log y ≤ cexp₁ x`) and `hB` (`e₂ + Int.log y ≤
 e₁−1+cexp₁ y`), which together give `s ≥ e₂ + Int.log y`. The `min`-scale is what
-makes this robust for FLT: unlike a fixed `cexp₁ x`-vs-`e₁−1+cexp₁ y` comparison,
+makes this robust for finite `exp`: unlike a fixed `cexp₁ x`-vs-`e₁−1+cexp₁ y`
+comparison,
 it needs no ordering of the operand exponents (that ordering fails when a
 subnormal operand's `cexp` is inflated to `emin₁`). -/
 private theorem round_round_div_aux {F₁ F₂ : FiniteFormat} {x y v : ℝ}
@@ -324,9 +327,10 @@ private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} 
     exact absurd hmid_le (not_le.mpr
       (round_round_div_aux hb hab hxrep hyrep hA hB heqmid))
 
-/-- **rnd-div, positive case** (Roux Theorem 29, radix 2, FLX). For `a, b ∈ F₁`
+/-- **rnd-div, positive case** (Roux Theorem 29, radix 2, no minimum quantum).
+For `a, b ∈ F₁`
 with `0 < a`, `0 < b` and `p₂ ≥ 2p₁`, double rounding of `a / b` is innocuous.
-The `rndDiv_core` hypotheses are discharged from the FLX closed form
+The `rndDiv_core` hypotheses are discharged from the `exp = ⊥` closed form
 `canonicalExp = log₂|·| + 1 − p` and the quotient binade bounds `log_div_bounds`. -/
 private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
@@ -344,15 +348,15 @@ private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
   have hab : (a : ℝ) = v * (b : ℝ) := by rw [hv_def]; exact (div_mul_cancel₀ (a : ℝ) hbne).symm
   have hppZ : 2 * (p₁ : ℤ) ≤ (p₂ : ℤ) := by exact_mod_cast hpp
   have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
-  -- FLX closed forms
+  -- `exp = ⊥` closed forms
   have hcv : F₁.canonicalExp v = Int.log 2 v + 1 - (p₁ : ℤ) := by
-    rw [canonicalExp_FLX hp₁ hexp₁ (ne_of_gt hv_pos), abs_of_pos hv_pos]
+    rw [canonicalExp_expBot hp₁ hexp₁ (ne_of_gt hv_pos), abs_of_pos hv_pos]
   have hca : F₁.canonicalExp (a : ℝ) = Int.log 2 (a : ℝ) + 1 - (p₁ : ℤ) := by
-    rw [canonicalExp_FLX hp₁ hexp₁ (ne_of_gt hapos), abs_of_pos hapos]
+    rw [canonicalExp_expBot hp₁ hexp₁ (ne_of_gt hapos), abs_of_pos hapos]
   have hcb : F₁.canonicalExp (b : ℝ) = Int.log 2 (b : ℝ) + 1 - (p₁ : ℤ) := by
-    rw [canonicalExp_FLX hp₁ hexp₁ (ne_of_gt hbpos), abs_of_pos hbpos]
+    rw [canonicalExp_expBot hp₁ hexp₁ (ne_of_gt hbpos), abs_of_pos hbpos]
   have hcv2 : F₂.canonicalExp v = Int.log 2 v + 1 - (p₂ : ℤ) := by
-    rw [canonicalExp_FLX hp₂ hexp₂ (ne_of_gt hv_pos), abs_of_pos hv_pos]
+    rw [canonicalExp_expBot hp₂ hexp₂ (ne_of_gt hv_pos), abs_of_pos hv_pos]
   have hlog := log_div_bounds hapos hbpos
   rw [← hv_def] at hlog
   refine rndDiv_core (p₁ := p₁) (F₁.p_pos hp₁) hp₂ hundef₁ hapos hbpos hab ?_ ?_ ?_ ?_ ?_ ?_ hz hw
@@ -363,15 +367,16 @@ private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
   · rw [hcv]; omega
   · rw [hcv2, hcv]; omega
 
-/-- **rnd-div, positive normal-quotient case** (Roux Theorem 29, radix 2, FLT).
-For `a, b ∈ F₁` (FLT, `exp = emin`) with `0 < a, b`, `p₂ ≥ 2p₁`, Roux's underflow
+/-- **rnd-div, positive normal-quotient case** (Roux Theorem 29, radix 2,
+minimum quantum). For `a, b ∈ F₁` (`exp = emin`) with `0 < a, b`, `p₂ ≥ 2p₁`,
+Roux's underflow
 bound `emin₂ ≤ emin₁ − p₁ − 2`, and the quotient in the **normal regime**
 (`hle : cexp₁ (a/b) ≤ mag (a/b)`), double rounding of `a/b` is innocuous. The
 reworked `round_round_div_aux` uses a `min`-scale, so its bounds `hA`/`hB` are now
-`omega`-provable for FLT from `hquant`, `hle`, `log_div_bounds`, and the lower
+`omega`-provable here from `hquant`, `hle`, `log_div_bounds`, and the lower
 bounds `cexp₁ = max(…) ≥ mag − p₁` — dodging the subnormal-`cexp`-inflation that
-broke the FLX-style `hex_ge`. -/
-private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
+broke the `exp = ⊥`-style `hex_ge`. -/
+private theorem rndDiv_pos_normal_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
@@ -394,15 +399,15 @@ private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : 
   have hlogpair := log_div_bounds hapos hbpos
   rw [← hv_def] at hlogpair
   obtain ⟨hlog1, hlog2⟩ := hlogpair
-  -- FLT closed form of `cexp₁ v` and lower bounds `cexp ≥ mag − p₁`
+  -- `exp = emin` closed form of `cexp₁ v` and lower bounds `cexp ≥ mag − p₁`
   have hcv : F₁.canonicalExp v = max (Int.log 2 v + 1 - (p₁ : ℤ)) emin₁ := by
-    rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hv_pos), abs_of_pos hv_pos]
+    rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hv_pos), abs_of_pos hv_pos]
   have hcv2 : F₂.canonicalExp v = max (Int.log 2 v + 1 - (p₂ : ℤ)) emin₂ := by
-    rw [canonicalExp_FLT hp₂ hexp₂ (ne_of_gt hv_pos), abs_of_pos hv_pos]
+    rw [canonicalExp_expFinite hp₂ hexp₂ (ne_of_gt hv_pos), abs_of_pos hv_pos]
   have hca_lo : Int.log 2 (a : ℝ) + 1 - (p₁ : ℤ) ≤ F₁.canonicalExp (a : ℝ) := by
-    rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hapos), abs_of_pos hapos]; exact le_max_left _ _
+    rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hapos), abs_of_pos hapos]; exact le_max_left _ _
   have hcb_lo : Int.log 2 (b : ℝ) + 1 - (p₁ : ℤ) ≤ F₁.canonicalExp (b : ℝ) := by
-    rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hbpos), abs_of_pos hbpos]; exact le_max_left _ _
+    rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hbpos), abs_of_pos hbpos]; exact le_max_left _ _
   -- Roux's `hquant`, from the two arms of `cexp₂ v = max …`
   have h1 : emin₁ ≤ F₁.canonicalExp v := by rw [hcv]; exact le_max_right _ _
   have h2 : Int.log 2 v + 1 - (p₁ : ℤ) ≤ F₁.canonicalExp v := by rw [hcv]; exact le_max_left _ _
@@ -415,16 +420,17 @@ private theorem rndDiv_pos_normal_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : 
   · omega
   · omega
 
-/-- **rnd-div, positive case** (Roux Theorem 29, radix 2, FLT). For `a, b ∈ F₁`
-(FLT) with `0 < a, b`, `p₂ ≥ 2p₁`, and `emin₂ ≤ emin₁ − p₁ − 2`, double rounding of
+/-- **rnd-div, positive case** (Roux Theorem 29, radix 2, minimum quantum). For
+`a, b ∈ F₁` (`exp = emin`) with `0 < a, b`, `p₂ ≥ 2p₁`, and
+`emin₂ ≤ emin₁ − p₁ − 2`, double rounding of
 `a/b` is innocuous — **all regimes**. Dispatch on `cexp₁ v` vs `mag v`:
-* **normal** (`cexp₁ v ≤ mag v`): `rndDiv_pos_normal_FLT`;
+* **normal** (`cexp₁ v ≤ mag v`): `rndDiv_pos_normal_expFinite`;
 * **underflow** (`cexp₁ v = emin₁ > mag v`, so `v < 2^(emin₁−1) = midp₁ v`): if `v`
   is far below the threshold (`< 2^(emin₁−1) − ½ulp₂`) it rounds to `0` in both
   (`round_round_div_zero`); otherwise `v` is in the boundary sliver, which the
   reworked `round_round_div_aux` shows is impossible (`hA`/`hB` hold there too, so
   no separate `div_aux0` port is needed). -/
-private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
+private theorem rndDiv_pos_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
@@ -444,15 +450,16 @@ private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBrea
   have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   have hppZ : 2 * (p₁ : ℤ) ≤ (p₂ : ℤ) := by exact_mod_cast hpp
   by_cases hle : F₁.canonicalExp v ≤ Int.log 2 v + 1
-  · exact rndDiv_pos_normal_FLT hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ ha hb hapos hbpos hle hz hw
+  · exact rndDiv_pos_normal_expFinite hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ ha hb hapos hbpos
+      hle hz hw
   · -- underflow regime: `cexp₁ v = emin₁ > mag v`
     rw [not_le] at hle
     have hhalf : ∀ k : ℤ, (2 : ℝ) ^ (k - 1) = (2 : ℝ) ^ k / 2 := fun k => (two_zpow_half k).symm
     have hcvmax : F₁.canonicalExp v = max (Int.log 2 v + 1 - (p₁ : ℤ)) emin₁ := by
-      rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hv_pos), abs_of_pos hv_pos]
+      rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hv_pos), abs_of_pos hv_pos]
     have hcv_emin : F₁.canonicalExp v = emin₁ := by rw [hcvmax] at hle ⊢; omega
     have hcv2max : F₂.canonicalExp v = max (Int.log 2 v + 1 - (p₂ : ℤ)) emin₂ := by
-      rw [canonicalExp_FLT hp₂ hexp₂ (ne_of_gt hv_pos), abs_of_pos hv_pos]
+      rw [canonicalExp_expFinite hp₂ hexp₂ (ne_of_gt hv_pos), abs_of_pos hv_pos]
     have hlogv_hi : Int.log 2 v + 1 ≤ emin₁ - 1 := by omega
     have hvhi : v < (2 : ℝ) ^ (Int.log 2 v + 1) :=
       Int.lt_zpow_succ_log_self (b := 2) (by norm_num) v
@@ -504,9 +511,11 @@ private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBrea
       have hab : (a : ℝ) = v * (b : ℝ) := by
         rw [hv_def]; exact (div_mul_cancel₀ (a : ℝ) hbne).symm
       have hca_lo : Int.log 2 (a : ℝ) + 1 - (p₁ : ℤ) ≤ F₁.canonicalExp (a : ℝ) := by
-        rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hapos), abs_of_pos hapos]; exact le_max_left _ _
+        rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hapos), abs_of_pos hapos]
+        exact le_max_left _ _
       have hcb_lo : Int.log 2 (b : ℝ) + 1 - (p₁ : ℤ) ≤ F₁.canonicalExp (b : ℝ) := by
-        rw [canonicalExp_FLT hp₁ hexp₁ (ne_of_gt hbpos), abs_of_pos hbpos]; exact le_max_left _ _
+        rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hbpos), abs_of_pos hbpos]
+        exact le_max_left _ _
       have hlogpair := log_div_bounds hapos hbpos
       rw [← hv_def] at hlogpair
       obtain ⟨hlog1, hlog2⟩ := hlogpair
@@ -516,7 +525,7 @@ private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBrea
       have hsep := round_round_div_aux hbpos hab ⟨mx, hmx⟩ ⟨my, hmy⟩ hA hB hne_mid
       linarith [hsep, hclose]
 
-/-- The both-positive division hypothesis (`0 < a, 0 < b`), shared by the FLX/FLT
+/-- The both-positive division hypothesis (`0 < a, 0 < b`), shared by both
 sign wrappers as the base case `hpos`. -/
 private abbrev DivPosCase (F₁ F₂ : FiniteFormat) (tb₁ tb₂ : TieBreak) : Prop :=
   ∀ (a b : Dyadic), a ∈ F₁ → b ∈ F₁ → 0 < (a : ℝ) → 0 < (b : ℝ) →
@@ -570,18 +579,19 @@ private theorem rndDiv_of_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak
     exact rndDiv_posden_of_pos hpos hna hnb hnbpos hz hw
   · exact rndDiv_posden_of_pos hpos ha hb hbpos hz hw
 
-/-- **rnd-div, FLX** (Roux Theorem 29, radix 2). With FLX formats
+/-- **rnd-div, no minimum quantum** (Roux Theorem 29, radix 2). With `exp = ⊥`
+formats
 `F₁ = 𝒜(p₁, ⊥, b₁)` and `F₂ = 𝒜(p₂, ⊥, b₂)`, double rounding to nearest of `a / b`
 (**arbitrary** `a, b ∈ F₁`, `b ≠ 0`) is innocuous when
 
 * **precision:** `p₂ ≥ 2·p₁`,
-* **exponent:** both `⊥` (FLX),
+* **exponent:** both `⊥`,
 * **bounds:** no relationship required (overflow-free `unbounded` roundings).
 
 As with `√`, `a / b` is generally non-representable, so this is a precision
 *margin* (with `2p₁` bits a quotient never lands near an `F₁`-midpoint), not exact
 containment. Matches the generality of Flocq's `round_round_div_FLX`. -/
-theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
+theorem rndDiv_expBot {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
@@ -593,7 +603,8 @@ theorem rndDiv_FLX {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
   rndDiv_of_pos (fun _ _ ha hb hapos hbpos _ _ hz hw =>
     rndDiv_pos hp₁ hp₂ hpp hexp₁ hexp₂ hundef₁ ha hb hapos hbpos hz hw) ha hb hbne hz hw
 
-/-- **rnd-div, FLT** (Roux Theorem 29, radix 2). With FLT formats
+/-- **rnd-div, minimum quantum** (Roux Theorem 29, radix 2). With `exp = emin`
+formats
 `F₁ = 𝒜(p₁, emin₁, b₁)` and `F₂ = 𝒜(p₂, emin₂, b₂)`, double rounding to nearest of
 `a / b` (**arbitrary** `a, b ∈ F₁`, `b ≠ 0`) is innocuous — including underflowing
 quotients — when
@@ -604,7 +615,7 @@ quotients — when
 
 A precision + underflow *margin* (not exact containment — `a / b` is generally
 non-representable). Matches Flocq's `round_round_div_FLT`. -/
-theorem rndDiv_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
+theorem rndDiv_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂)
@@ -617,6 +628,7 @@ theorem rndDiv_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p�
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) ((a : ℝ) / (b : ℝ)) w :=
   rndDiv_of_pos (fun _ _ ha hb hapos hbpos _ _ hz hw =>
-    rndDiv_pos_FLT hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ ha hb hapos hbpos hz hw) ha hb hbne hz hw
+      rndDiv_pos_expFinite hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ ha hb hapos hbpos hz hw)
+    ha hb hbne hz hw
 
 end Mpfx
