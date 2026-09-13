@@ -137,8 +137,8 @@ private theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 
     rw [h1]; linarith [h2, h3]
   by_contra hcon
   rw [not_lt] at hcon
-  have hmidp : midp F₁ s = a + (2 : ℝ) ^ e₁ / 2 := by unfold midp ulp; rw [ha_eq, ← he₁]
-  rw [show ulp F₂ s = (2 : ℝ) ^ e₂ from by unfold ulp; rw [← he₂], hmidp, abs_le] at hcon
+  have hmidp : midp F₁ s = a + (2 : ℝ) ^ e₁ / 2 := by rw [midp, ulp_of_ne_zero F₁ hs_pos.ne', ha_eq, ← he₁]
+  rw [show ulp F₂ s = (2 : ℝ) ^ e₂ from by rw [ulp_of_ne_zero F₂ hs_pos.ne', ← he₂], hmidp, abs_le] at hcon
   -- `a + ½(u₁−u₂) ≤ s ≤ a + ½(u₁+u₂)`
   have hsl : a + ((2 : ℝ) ^ e₁ - (2 : ℝ) ^ e₂) / 2 ≤ s := by linarith [hcon.1]
   have hsr : s ≤ a + ((2 : ℝ) ^ e₁ + (2 : ℝ) ^ e₂) / 2 := by linarith [hcon.2]

@@ -87,7 +87,8 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ}
   -- the midpoint dyadic and its realization
   have hg_real : (Dyadic.ofIntZpow (2 * ma + 1) (e₁ - 1) : ℝ) = v := by
     have hmidp : midp F₁ v = (ma : ℝ) * (2 : ℝ) ^ e₁ + (2 : ℝ) ^ e₁ / 2 := by
-      unfold midp ulp; rw [rndDown_eq, ← he₁, ← hma, Dyadic.coe_ofIntZpow]
+      rw [midp, ulp_of_ne_zero F₁ hv.ne', rndDown_eq, ← he₁,
+        ← hma, Dyadic.coe_ofIntZpow]
     rw [Dyadic.coe_ofIntZpow, hmid, hmidp, two_zpow_dbl e₁]; push_cast; ring
   -- `g` is a multiple of `2^(e₁−1)`, hence at any coarser quantum
   have hq_e₁ : Dyadic.quantumAtLeast ((e₁ - 1 : ℤ) : QExp)
@@ -173,7 +174,7 @@ private theorem round_round_div_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : T
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) v z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) v w := by
-  have hu2pos : (0 : ℝ) < ulp F₂ v := ulp_pos F₂ v
+  have hu2pos : (0 : ℝ) < ulp F₂ v := ulp_pos F₂ hv.ne'
   have hv0 : RoundsFinite F₁.unbounded (.nearest tb₁) v 0 :=
     nearest_zero_of_small hp₁ hexp₁ hundef₁ hv.le (by linarith)
   have hzf : IsFaithfulRound F₂.unbounded v z := by cases tb₂ <;> exact hz.2.1
@@ -213,6 +214,11 @@ private theorem round_round_div_aux {F₁ F₂ : FiniteFormat} {x y v : ℝ}
     (hB : F₂.canonicalExp v + Int.log 2 y ≤ F₁.canonicalExp v - 1 + F₁.canonicalExp y)
     (hne_mid : v ≠ midp F₁ v) :
     ulp F₂ v / 2 < |v - midp F₁ v| := by
+  by_cases hg2 : v = 0 ∧ F₂.exp = ⊥
+  · -- no `F₂` quantum at `0`: the left side vanishes and `hne_mid` gives the rest
+    obtain ⟨rfl, hb⟩ := hg2
+    rw [ulp, if_pos ⟨rfl, hb⟩]
+    simpa using abs_pos.mpr (sub_ne_zero.mpr hne_mid)
   set e₁ := F₁.canonicalExp v with he₁
   set e₂ := F₂.canonicalExp v with he₂
   set ex := F₁.canonicalExp x
@@ -223,7 +229,8 @@ private theorem round_round_div_aux {F₁ F₂ : FiniteFormat} {x y v : ℝ}
   set ma : ℤ := ⌊v * (2 : ℝ) ^ (-e₁)⌋ with hma
   have hmidp : midp F₁ v = ((2 * ma + 1 : ℤ) : ℝ) * (2 : ℝ) ^ (e₁ - 1) := by
     have hmv : midp F₁ v = (ma : ℝ) * (2 : ℝ) ^ e₁ + (2 : ℝ) ^ e₁ / 2 := by
-      unfold midp ulp; rw [rndDown_eq, ← he₁, ← hma, Dyadic.coe_ofIntZpow]
+      rw [midp, ulp_eq_zpow_of F₁ (ulp_guard_of_midp_ne hne_mid), rndDown_eq, ← he₁,
+        ← hma, Dyadic.coe_ofIntZpow]
     rw [hmv, two_zpow_dbl e₁]; push_cast; ring
   obtain ⟨mx, hmx⟩ := hxrep
   obtain ⟨my, hmy⟩ := hyrep
@@ -259,7 +266,7 @@ private theorem round_round_div_aux {F₁ F₂ : FiniteFormat} {x y v : ℝ}
     nlinarith [hKabs, h2s_pos]
   -- upper bound (from the negated conclusion)
   by_contra hcon
-  rw [not_lt, show ulp F₂ v = (2 : ℝ) ^ e₂ from by unfold ulp; rw [← he₂]] at hcon
+  rw [not_lt, show ulp F₂ v = (2 : ℝ) ^ e₂ from by rw [ulp_eq_zpow_of F₂ hg2, ← he₂]] at hcon
   have h2e2half : (2 : ℝ) ^ e₂ / 2 = (2 : ℝ) ^ (e₂ - 1) := two_zpow_half e₂
   have hupp : |x - midp F₁ v * y| < (2 : ℝ) ^ (e₂ + Ly) := by
     have hxmy_eq : |x - midp F₁ v * y| = |v - midp F₁ v| * y := by
@@ -451,13 +458,13 @@ private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBrea
       Int.lt_zpow_succ_log_self (b := 2) (by norm_num) v
     have hvlt_thresh : v < (2 : ℝ) ^ (emin₁ - 1) :=
       lt_of_lt_of_le hvhi (zpow_le_zpow_right₀ (by norm_num) hlogv_hi)
-    have hu2 : ulp F₂ v = (2 : ℝ) ^ (F₂.canonicalExp v) := rfl
+    have hu2 : ulp F₂ v = (2 : ℝ) ^ (F₂.canonicalExp v) := ulp_of_ne_zero F₂ hv_pos.ne'
     by_cases hfar : v < (2 : ℝ) ^ (emin₁ - 1) - ulp F₂ v / 2
     · exact round_round_div_zero hp₁ hexp₁ hundef₁ hv_pos hfar hz hw
     · -- boundary sliver: impossible by the separation lemma
       exfalso
       rw [not_lt] at hfar
-      have hu2pos : (0 : ℝ) < ulp F₂ v := ulp_pos F₂ v
+      have hu2pos : (0 : ℝ) < ulp F₂ v := ulp_pos F₂ hv_pos.ne'
       -- `midp₁ v = 2^(emin₁−1)` (its `⌊·⌋` mantissa is `0`)
       have hma0 : ⌊v * (2 : ℝ) ^ (-(F₁.canonicalExp v))⌋ = 0 := by
         rw [hcv_emin, Int.floor_eq_zero_iff, Set.mem_Ico]
@@ -468,7 +475,7 @@ private theorem rndDiv_pos_FLT {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBrea
           _ = (2 : ℝ) ^ (-1 : ℤ) := by rw [← zpow_add₀ hne]; congr 1; ring
           _ < 1 := by norm_num
       have hmidp : midp F₁ v = (2 : ℝ) ^ (emin₁ - 1) := by
-        unfold midp ulp
+        rw [midp, ulp_of_ne_zero F₁ hv_pos.ne']
         rw [rndDown_eq, hcv_emin, Dyadic.coe_ofIntZpow,
             show ⌊v * (2 : ℝ) ^ (-emin₁)⌋ = 0 from by rw [← hcv_emin]; exact hma0]
         push_cast

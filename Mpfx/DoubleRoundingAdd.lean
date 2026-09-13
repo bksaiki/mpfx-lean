@@ -347,7 +347,7 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
         rw [canonicalExp_closed hp₂ hr_ne hF2norm, abs_of_pos hrpos, hlogr]; ring
       have herr : |(z : ℝ) - ((x - y : Dyadic) : ℝ)| ≤ (2 : ℝ) ^ (k - (p₂ : ℤ) - 1) := by
         have hh := nearest_error_le_half_ulp hz
-        rw [ulp, hcE2r] at hh
+        rw [ulp_of_ne_zero F₂ hr_ne, hcE2r] at hh
         rwa [pow_half (k - (p₂ : ℤ))] at hh
       have hrx_abs : |((x - y : Dyadic) : ℝ) - (x : ℝ)| = (y : ℝ) := by
         rw [hr_real, abs_of_nonpos (show (x : ℝ) - (y : ℝ) - (x : ℝ) ≤ 0 by linarith)]; ring
@@ -470,7 +470,7 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
         rw [canonicalExp_closed hp₂ hr_ne hF2norm, abs_of_pos hrpos, hlogr]
       have herr : |(z : ℝ) - ((x - y : Dyadic) : ℝ)| ≤ (2 : ℝ) ^ (k - (p₂ : ℤ)) := by
         have hh := nearest_error_le_half_ulp hz
-        rw [ulp, hcE2r] at hh
+        rw [ulp_of_ne_zero F₂ hr_ne, hcE2r] at hh
         have e3 : (2 : ℝ) ^ (k + 1 - (p₂ : ℤ)) / 2 = (2 : ℝ) ^ (k - (p₂ : ℤ)) := by
           rw [show k + 1 - (p₂ : ℤ) = (k - (p₂ : ℤ)) + 1 from by ring, zpow_add₀ hne, zpow_one]
           ring
@@ -719,9 +719,9 @@ private theorem rndAdd_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
     · rw [hcexp₁xy, hlogxy]; omega
     · -- x+y < midp F₁ (x+y) - ulp F₂ (x+y) / 2
       have hmidp : midp F₁ ((x + y : Dyadic) : ℝ) = (x : ℝ) + (2 : ℝ) ^ ex / 2 := by
-        unfold midp ulp; rw [hrdxy, hcexp₁xy]
+        rw [midp, ulp_of_ne_zero F₁ hxypos.ne', hrdxy, hcexp₁xy]
       have hulp₂ : ulp F₂ ((x + y : Dyadic) : ℝ) = (2 : ℝ) ^ (ex + (p₁ : ℤ) - (p₂ : ℤ)) := by
-        unfold ulp; rw [hcexp₂xy]
+        rw [ulp_of_ne_zero F₂ hxypos.ne', hcexp₂xy]
       rw [hmidp, hulp₂, Dyadic.coe_real_add]
       -- y < 2^ex/2 - 2^(ex+p₁-p₂)/2
       have hu2_le : (2 : ℝ) ^ (ex + (p₁ : ℤ) - (p₂ : ℤ)) ≤ (2 : ℝ) ^ (ex - 2) :=

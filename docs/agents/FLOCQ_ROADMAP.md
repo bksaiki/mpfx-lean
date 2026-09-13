@@ -65,6 +65,8 @@ half; these are cheap and get used constantly.
 
 ## 4. A real `Mpfx/Ulp.lean` — `Core/Ulp.v`
 
+*Planned in detail in [`ULP_TODO.md`](ULP_TODO.md).*
+
 `NearestMidpoint.lean` already defines `ulp`, `rndDown`, `rndUp`, `midp` as
 helpers for one proof. Flocq's `Ulp.v` is 2663 lines of exactly this theory.
 Worth promoting to its own file, and adding:
@@ -83,39 +85,12 @@ Worth promoting to its own file, and adding:
   `round_N_eq_UP`, `round_N_eq_ties`. These turn "what does rounding do to *this*
   value" from a proof into a rewrite.
 
-### Deferred: the "grid" vocabulary
+### The "grid" vocabulary — resolved
 
-**Revisit at the end**, once Tracks A–C are complete — not before, and not as a
-standalone change.
-
-`Grid.lean`'s "grid" convention has no counterpart in Flocq: the word appears
-**zero times** in its source. The concept is split across four standard terms:
-
-| mpfx | Flocq |
-| ---- | ----- |
-| grid step `2^e` | `ulp x = bpow (cexp x)` (`Ulp.v:93`) |
-| grid point | canonical float — `canonical f := Fexp f = cexp (F2R f)` (`Generic_fmt.v:79`) |
-| `exists_grid_rep` | `canonical_generic_format` / `generic_format_canonical` |
-| `no_F_element_in_step_interval` | `generic_format_discrete` (`Generic_fmt.v:462`) |
-| `F_adjacent_step_form` | `succ` / `pred` (`Ulp.v:391`); also `float_distribution_pos` |
-| `midpoint` | `midp` (`Double_rounding.v:67`) — already matches |
-
-`generic_format_discrete` is nearly our lemma verbatim: if `m·2^e < x <
-(m+1)·2^e` at the canonical exponent then `x` is not in the format. Same
-content, called discreteness rather than "no element in the step interval".
-
-Caveat: none of these names the *set* of points at a given exponent, which is
-what "grid" most naturally denotes. Flocq has no noun for it — it says "the
-format" and uses `ulp` for spacing, moving between exponents with
-`F2R_change_exp`. So "grid" is doing work Flocq distributes across `ulp`,
-`canonical` and `discrete`; the issue is not that Flocq has a better word but
-that it never needs one.
-
-Why defer: half the vocabulary is already aligned (`NearestMidpoint.lean`
-defines `ulp` and `midp` with docstrings citing Flocq), and the items above
-*restructure* the very lemmas a rename would touch — `F_adjacent_step_form`
-becomes a `succ` fact, `no_F_element_in_step_interval` becomes discreteness.
-Renaming first means touching them twice.
+Retired in favour of `ulp`, `succ`/`pred`, discreteness and `binade`; see the
+*Vocabulary* section of [`ULP_TODO.md`](ULP_TODO.md). The short version: Flocq
+has no word for the set of representable values at a fixed exponent because,
+given `ulp` and `succ`, it never needs one.
 
 ### Latent divergence: `ulp 0`
 
@@ -167,9 +142,26 @@ The original premise — that the `_exp_bot` twins collapse once phrased over
 `F.exp`: it is a *precision-only* statement true of any format, and `_exp_bot`
 names its use site rather than a hypothesis. So it does not merge.
 
-Three twin pairs remain unexamined (`F_adjacent_step_form`, two midpoint pairs).
-Check whether each is a genuine `max`-vs-no-`max` split before assuming it
-collapses.
+Of the four remaining twins, two do not merge: `midpoint_mem_extend_one_of_p_top`
+needs no adjacency at all, and `midpoint_mem_extend_one_of_F_adjacent` / `_exp_bot`
+are already thin wrappers over `midpoint_dispatch_core`. What is left is a
+three-link dependent chain, 206 lines:
+
+| pair | lines |
+| ---- | ----- |
+| `no_F_element_in_step_interval` / `_exp_bot` | 43 + 29 |
+| `F_adjacent_step_form` / `_exp_bot` | 43 + 38 |
+| `midpoint_mem_extend_one_of_F_adjacent_pos` / `_exp_bot` | 31 + 22 |
+
+All three `_exp_bot` variants do hypothesise `F.exp = ⊥`, so unlike
+`exists_grid_rep_exp_bot` they are genuine `⊥`-cases and would merge. But the
+shared cores are already extracted (`step_interval_bounds`,
+`F_adjacent_step_form_z_core`, `midpoint_precision_extend_one`), leaving perhaps
+60–70 recoverable.
+
+**Do this after §4, not before.** `F_adjacent_step_form` is `y₂ = succ y₁` and
+`no_F_element_in_step_interval` is discreteness; `succ`/`pred` restates both, so
+merging them on `canonicalExp` first means rewriting them twice.
 
 ## 7. Operation-level error lemmas — `Prop/`
 
@@ -222,12 +214,53 @@ reasoning. `generic_round_generic` (rounding an `F₁`-value into `F₂` stays i
 
 ## Suggested order
 
-§1 and §2 are done. Next:
+§1 and §2 are done. The ordering below prioritises **shrinking existing proofs**
+over adding capability. Measured reduction potential:
 
-1. **§4 `Ulp.lean`** (settling the `ulp 0` convention first) — everything
-   numerical needs it, and the deferred "grid" rename travels with it.
-2. **§5 `location` / `inbetween`** — the only structural change; removes
-   `ParityFormat` as a side effect and opens the path to computable operations.
+| Item | What it shrinks | Estimate |
+| ---- | --------------- | -------- |
+| §5 `location` / `inbetween` | `Format.lean` parity (1217 of 2019 lines) + `Parity.lean` (515) | **~800–1000** |
+| §4 `succ`/`pred` | `Grid.lean` F-adjacency (797), `Containment.next`'s junk cases | moderate, unmeasured |
+| §6 remaining `Grid` twins | three unexamined pairs | ≤ 100 |
+| §9 `Float_prop` items | ad hoc versions in `Grid.lean` | small |
+| §3, §7, §8 | nothing existing | 0 — pure capability |
 
-§3 and §6 are small and can be done opportunistically. §7 and §8 are new
-feature surface, not cleanup.
+1. **§5 `location` / `inbetween`** — by far the largest reducer, and the reason
+   is parity. Ours is format-relative (`numDigits` + `IsRepresentableAtP`), which
+   costs ~1730 lines across `Format.lean` and `Parity.lean`. Flocq's is the
+   parity of the canonical mantissa, where adjacent values alternate because
+   consecutive integers do — `Int.even_add_one` in place of a six-leaf dispatch.
+
+   Caveat: it will not remove all of it. The `p = 1` branch (302 lines) reads
+   parity off the *exponent*, since the significand is constantly `±1`, and has
+   no mantissa analogue; Flocq sidesteps that case with `prec_gt_1` and we
+   cannot. Budget ~800–1000, not 1730.
+
+   This is also the highest-risk item: it changes what `IsOdd` *means*, so
+   everything consuming it is re-proved. Spike the `p ≠ 1` case first.
+
+2. **§4 `succ` / `pred`** — the reducing half of §4. `Grid.lean`'s F-adjacency
+   theory is `succ`/`pred` in disguise, and `Containment.next` is documented as
+   returning "a junk value" outside its range; a total pair with `succ_pred` /
+   `pred_succ` replaces both. The error bounds in §4 are new capability, and the
+   bracket characterizations are already hand-rolled in `NearestMidpoint.lean`
+   (`nearest_eq_of_close`, `nearest_eq_rndDown_of_lt_midp`), so adopting Flocq's
+   would rename rather than reduce.
+
+3. **§6** — the remaining `Grid` twins, *after* §4 restates them as `succ`/`pred`
+   facts. Doing it first duplicates the work.
+
+§3, §7 and §8 add surface without touching existing proofs; take them when the
+capability is wanted, not for cleanup.
+
+## What this session established
+
+Two scans looked for further duplication to collapse. One hit (the alternation
+pair, −419) and two false positives: the `Grid` `_exp_bot` twins are not a
+single theorem in two shapes, and the `rounds*` family shares a narrative rather
+than a proof. A near-duplicate similarity score detects *the same steps with
+different lemmas* as readily as real duplication — check what varies before
+committing.
+
+The one unexplored candidate with real potential is
+`gap_around_m_mem` / `gap_around_mid3_mem` (see `TODO.md`).
