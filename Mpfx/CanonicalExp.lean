@@ -1,4 +1,4 @@
-import Mpfx.Grid
+import Mpfx.Discrete
 
 /-!
 # Canonical exponent: closed forms and grid representation
@@ -7,7 +7,6 @@ Format-generic facts about `FiniteFormat.canonicalExp` (Flocq `cexp`), shared by
 the operation-specific double-rounding proofs (addition, square root, …):
 
 * `exists_canonical_rep` — a positive member as `c · 2^cexp` with `|c| < 2^p`;
-* `canonicalExp_mono` — monotone in magnitude;
 * `canonicalExp_closed` / `canonicalExp_FLX` / `canonicalExp_FLT` — the closed
   forms of `cexp` in the normal range, the FLX regime (`exp = ⊥`), and the FLT
   regime (`exp = emin` finite);
@@ -15,32 +14,6 @@ the operation-specific double-rounding proofs (addition, square root, …):
 -/
 
 namespace Mpfx
-
-/-- **Canonical grid representation.** A positive `y ∈ F` (precision `p`) is
-`c · 2^(canonicalExp y)` with `|c| < 2^p`. Unifies the `exp = ⊥` and finite-`exp`
-grid lemmas (both have grid step `= canonicalExp`). -/
-theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ}
-    (hp : F.p = (p : Prec))
-    {y : Dyadic} (hmem : y ∈ F) (hpos : 0 < (y : ℝ)) :
-    ∃ c : ℤ, |c| < (2 : ℤ) ^ p ∧
-      (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ (F.canonicalExp (y : ℝ)) :=
-  have ⟨hprec, hquant, _⟩ := hmem
-  exists_grid_rep_canonical F hp hprec hquant hpos
-
-/-- `canonicalExp` is monotone in magnitude. -/
-theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)
-    (hyz : |y| ≤ |z|) : F.canonicalExp y ≤ F.canonicalExp z := by
-  have hy_pos : 0 < |y| := abs_pos.mpr hy
-  have hz : z ≠ 0 := by
-    rintro rfl; rw [abs_zero] at hyz; exact absurd hyz (not_le.mpr hy_pos)
-  have hlog : Int.log 2 |y| ≤ Int.log 2 |z| := Int.log_mono_right hy_pos hyz
-  unfold FiniteFormat.canonicalExp
-  cases F.p using ENat.recTopCoe with
-  | top => cases F.exp using QExp.recBotCoe <;> simp <;> rfl
-  | coe p =>
-    cases F.exp using QExp.recBotCoe with
-    | bot => simp only [hy, hz, if_false]; omega
-    | coe e => simp only [hy, hz, if_false]; omega
 
 /-- **Closed form of `canonicalExp` in the normal range** (unifies FLX and FLT).
 When `v` is nonzero and its FLX exponent `log₂|v| + 1 − p` is at least the
@@ -416,5 +389,18 @@ theorem floor_mantissa_lt {F : FiniteFormat} {x : ℝ}
           rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
       _ ≤ (2 : ℝ) ^ (p : ℤ) := zpow_le_zpow_right₀ (by norm_num) hle
       _ = (2 : ℝ) ^ p := by rw [zpow_natCast]
+
+/-- `canonicalExp` depends only on the binade `Int.log 2 |·|` (away from `0`):
+equal logs give equal canonical exponents. -/
+theorem canonicalExp_eq_of_log_eq (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0) (hz : z ≠ 0)
+    (h : Int.log 2 |y| = Int.log 2 |z|) : F.canonicalExp y = F.canonicalExp z := by
+  unfold FiniteFormat.canonicalExp
+  cases F.p <;> cases F.exp <;> simp only [if_neg hy, if_neg hz, h]
+
+/-- `canonicalExp` depends only on `|·|`, hence is negation-invariant. -/
+theorem canonicalExp_neg (F : FiniteFormat) (x : ℝ) :
+    F.canonicalExp (-x) = F.canonicalExp x := by
+  unfold FiniteFormat.canonicalExp
+  cases F.p <;> cases F.exp <;> simp only [abs_neg, neg_eq_zero]
 
 end Mpfx

@@ -1,5 +1,5 @@
 import Mpfx.Digits
-import Mpfx.Grid
+import Mpfx.Discrete
 import Mpfx.Rounding
 import Mpfx.RoundOp
 
@@ -379,27 +379,6 @@ of `z` in `F₁`, collapses to a single RTZ rounding of `x` in `F₁`. Uses the
 simpler containment hypothesis `F₁.extend 1 ⊆ F₂` plus the explicit
 precision bound `2 ≤ F₂.p`. -/
 
-/-- The RTO-rounding of `0` in any (finite) format is `0` itself: the only
-faithful rounding of `0` is `0`, since `0 ∈ F`. -/
-private theorem toOdd_eq_zero_of_zero {F : FiniteFormat} {z : Dyadic}
-    (h : RoundsFinite F .toOdd 0 z) : z = 0 := by
-  obtain ⟨_, hfaithful, _⟩ := h
-  have hz_eq : (z : ℝ) = 0 := by
-    rcases hfaithful with hRD | hRU
-    · obtain ⟨_, hz_le, hz_max⟩ := hRD
-      have h0 : ((0 : Dyadic) : ℝ) ≤ (z : ℝ) := by
-        have := hz_max 0 F.zero_mem (le_of_eq (by rw [Dyadic.coe_real_zero]))
-        rwa [Dyadic.coe_real_zero] at this ⊢
-      rw [Dyadic.coe_real_zero] at h0
-      linarith
-    · obtain ⟨_, hle, hz_min⟩ := hRU
-      have h0 : (z : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
-        have := hz_min 0 F.zero_mem (le_of_eq (by rw [Dyadic.coe_real_zero]))
-        rwa [Dyadic.coe_real_zero] at this ⊢
-      rw [Dyadic.coe_real_zero] at h0
-      linarith
-  exact eq_zero_of_coe_real_zero hz_eq
-
 /-- The RTO-rounding of a non-negative `x` is non-negative (uses faithfulness:
 either disjunct of `IsFaithfulRound` forces `0 ≤ z` when `0 ≤ x`). -/
 private theorem toOdd_nonneg_of_nn {F : FiniteFormat} {x : ℝ} {z : Dyadic}
@@ -727,7 +706,7 @@ private theorem hp_F₂_or_F₁_trivial_extend {F₁ F₂ : FiniteFormat}
         rw [h_next_eq, h_v_eq, abs_of_nonneg h_v_pos, h_v_split]
         push_cast
         rw [Dyadic.coe_ofIntZpow]; push_cast
-        have h_step_pow : (2 : ℝ)^e ≤
+        have h_ulp_pow : (2 : ℝ)^e ≤
             (2 : ℝ)^(max e (Int.log 2 ((b.val : Dyadic) : ℝ) - (p : ℤ) + 1)) :=
           zpow_le_zpow_right₀ (by norm_num : (1 : ℝ) ≤ 2) (le_max_left _ _)
         linarith
@@ -870,7 +849,7 @@ theorem rndRTO_RTZ {F₁ F₂ : FiniteFormat}
       rwa [neg_neg, neg_neg] at hfinal
     · -- x = 0: forces z = 0 and w' = 0.
       subst hx_zero
-      have hz_zero : z = 0 := toOdd_eq_zero_of_zero hz
+      have hz_zero : z = 0 := RoundsFinite.eq_zero_of_zero hz
       rw [hz_zero] at hw
       obtain ⟨hw'F₁, hw'_bnd, _, _⟩ := hw
       have hw'_zero : (w' : ℝ) = 0 := by
@@ -988,7 +967,7 @@ theorem rndRTO_RAZ {F₁ F₂ : FiniteFormat}
       rwa [neg_neg, neg_neg] at hfinal
     · -- x = 0: forces z = 0 and w' = 0.
       subst hx_zero
-      have hz_zero : z = 0 := toOdd_eq_zero_of_zero hz
+      have hz_zero : z = 0 := RoundsFinite.eq_zero_of_zero hz
       rw [hz_zero] at hw
       obtain ⟨hw'F₁, _, _, hw'_min⟩ := hw
       have h_min := hw'_min 0 F₁.zero_mem (le_refl _) (by simp)
@@ -1060,7 +1039,7 @@ private theorem F_adjacent_of_RN_round_pair {F₁ : FiniteFormat}
       exact hz_min y hyF₁ (le_of_lt h_y_le_x)
 
 /-- F-adjacent midpoint membership in `F₁.extend 1`. Dispatches on `F₁`'s
-precision/exponent shape, routing to the appropriate Grid lemma. -/
+precision/exponent shape, routing to the appropriate discreteness lemma. -/
 private theorem midpoint_in_F₁_extend_one_of_F_adjacent {F₁ : FiniteFormat}
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F₁) (hy₂F : y₂ ∈ F₁)
     (h_lt : (y₁ : ℝ) < (y₂ : ℝ))
@@ -1073,16 +1052,10 @@ private theorem midpoint_in_F₁_extend_one_of_F_adjacent {F₁ : FiniteFormat}
         exact absurd F₁.finite (by push Not; exact ⟨hp, he⟩)
     | coe e' => exact midpoint_mem_extend_one_of_p_top F₁ hp he hy₁F hy₂F
   | coe p' =>
-    cases he : F₁.exp using QExp.recBotCoe with
-    | bot =>
-        exact midpoint_mem_extend_one_of_F_adjacent_exp_bot
-          F₁ hp he hy₁F hy₂F h_lt h_adj
-    | coe e' =>
-        exact midpoint_mem_extend_one_of_F_adjacent
-          F₁ hp he hy₁F hy₂F h_lt h_adj
+    exact midpoint_mem_extend_one_of_adjacent F₁ hp hy₁F hy₂F h_lt h_adj
 
 /-- F-adjacent midpoint membership in `F₂`. Gets `midpoint y₁ y₂ ∈ F₁.extend 1`
-from the Grid lemmas (dispatching on `F₁`'s precision/exponent shape) and then
+from `Mpfx/Discrete.lean` (dispatching on `F₁`'s precision/exponent shape) and then
 applies the subset hypothesis. -/
 private theorem midpoint_F₁_in_F₂_of_F_adjacent {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
@@ -2198,7 +2171,7 @@ private theorem toOdd_abs_le_of_awayZero {F₁ F₂ : FiniteFormat}
       · rw [abs_of_nonpos h1, abs_of_nonpos hy_np]; linarith
       · nlinarith
   · -- `x = 0`: `z = 0`.
-    have hz0 : z = 0 := toOdd_eq_zero_of_zero (hx_zero ▸ hz)
+    have hz0 : z = 0 := RoundsFinite.eq_zero_of_zero (hx_zero ▸ hz)
     rw [hz0]
     constructor
     · rw [Dyadic.coe_real_zero, abs_zero]; exact abs_nonneg _
@@ -2430,8 +2403,8 @@ private theorem nearest_components {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
     {y : Dyadic} (h : RoundsFinite F (.nearest tb) x y) :
     y ∈ F ∧ IsFaithfulRound F x y ∧
       ∀ c : Dyadic, c ∈ F → IsFaithfulRound F x c →
-        |x - (y : ℝ)| ≤ |x - (c : ℝ)| := by
-  cases tb <;> exact ⟨h.1, h.2.1, h.2.2.1⟩
+        |x - (y : ℝ)| ≤ |x - (c : ℝ)| :=
+  ⟨h.1, h.isFaithfulRound, fun _ hc hcf => h.nearest_min hc hcf⟩
 
 
 /-- The midpoint `M = nextᵉ(b₁)` lies in the paper RN containment format
@@ -2888,11 +2861,11 @@ private theorem rounds_total_of_zero_bound {F₁ F₂ : FiniteFormat}
   · left
     exact rounds_overflow_of_not_boundOK h₁u hy hbOK
 
-/-- Grid-floor setup for a finite bound `b₁`: either the degenerate corner
+/-- Bound-floor setup for a finite bound `b₁`: either the degenerate corner
 (`exp = ⊥` and `b₁ = 0`), or a floor `D` with a regular floor-adjusted
 format, the bound-transfer properties, and monotone `next` bounds at `F₁`
 and `F₁.extend 1`. -/
-private theorem grid_floor_setup {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
+private theorem bound_floor_setup {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
     (hF₁b : F₁.b = (b₁ : Bound)) :
     (F₁.exp = ⊥ ∧ ((b₁.val : Dyadic) : ℝ) = 0) ∨
     (∃ D : NonNegDyadic,
@@ -3027,7 +3000,7 @@ private theorem rounds_floor_lift {F₁ F₂ : FiniteFormat} {D : NonNegDyadic}
 
 Each proof first states a regular-bound core (`suffices key`: the bound is
 on the grid, and positive when `exp = ⊥`), reduces to it at the
-floor-adjusted format via `grid_floor_setup` +
+floor-adjusted format via `bound_floor_setup` +
 `rounds_withBoundFF_floor_iff` (degenerate corner via
 `rounds_total_of_zero_bound`), then proves the core. -/
 
@@ -3054,7 +3027,7 @@ theorem roundsRTZ_RTZ {F₁ F₂ : FiniteFormat}
         Rounds F .toZero x (.finite w)) by
     rcases hF₁b : F₁.b with _ | b₁
     · exact key F₁ hsub (regular_of_bound_top hF₁b)
-    · rcases grid_floor_setup hF₁b with ⟨hexp, hb₁0⟩ |
+    · rcases bound_floor_setup hF₁b with ⟨hexp, hb₁0⟩ |
         ⟨D, hreg_G, hD_le, hD_max, hmono, -⟩
       · exact rounds_total_of_zero_bound (not_isUndefined_toZero F₁)
           (not_isUndefined_toZero F₂)
@@ -3162,11 +3135,11 @@ theorem roundsRTO_RTO {F₁ F₂ : FiniteFormat}
         Rounds F .toOdd x (.finite w)) by
     rcases hF₁b : F₁.b with _ | b₁
     · exact key F₁ hsub (regular_of_bound_top hF₁b) h₁u
-    · rcases grid_floor_setup hF₁b with ⟨hexp, hb₁0⟩ |
+    · rcases bound_floor_setup hF₁b with ⟨hexp, hb₁0⟩ |
         ⟨D, hreg_G, hD_le, hD_max, hmono, -⟩
       · exact rounds_total_of_zero_bound h₁u (not_isUndefined_of_two_le_p hp_F₂)
           (fun hy hy0 => eq_zero_of_faithful_zero hexp hy.2.1 hy0)
-          (fun hz => by rw [toOdd_eq_zero_of_zero hz, Dyadic.coe_real_zero])
+          (fun hz => by rw [RoundsFinite.eq_zero_of_zero hz, Dyadic.coe_real_zero])
           hF₁b hb₁0 x
       · exact rounds_floor_lift hD_le hD_max (key _
           (fun v hv => hsub v ⟨hv.1, hv.2.1,
@@ -3238,12 +3211,12 @@ theorem roundsRTO_RTZ {F₁ F₂ : FiniteFormat}
         Rounds F .toZero x (.finite w)) by
     rcases hF₁b : F₁.b with _ | b₁
     · exact key F₁ hsub (regular_of_bound_top hF₁b)
-    · rcases grid_floor_setup hF₁b with ⟨hexp, hb₁0⟩ |
+    · rcases bound_floor_setup hF₁b with ⟨hexp, hb₁0⟩ |
         ⟨D, hreg_G, hD_le, hD_max, hmono, -⟩
       · exact rounds_total_of_zero_bound (not_isUndefined_toZero F₁)
           (not_isUndefined_of_two_le_p hp_F₂)
           (fun hy hy0 => eq_zero_of_toZero_zero hexp hy hy0)
-          (fun hz => by rw [toOdd_eq_zero_of_zero hz, Dyadic.coe_real_zero])
+          (fun hz => by rw [RoundsFinite.eq_zero_of_zero hz, Dyadic.coe_real_zero])
           hF₁b hb₁0 x
       · exact rounds_floor_lift hD_le hD_max (key _
           (fun v hv => hsub v ⟨hv.1, hv.2.1,
@@ -3371,11 +3344,11 @@ theorem roundsRTO_RN {F₁ F₂ : FiniteFormat}
         Rounds F (.nearest tb) x (.finite w)) by
     rcases hF₁b : F₁.b with _ | b₁
     · exact key F₁ hsub (regular_of_bound_top hF₁b) h₁u
-    · rcases grid_floor_setup hF₁b with ⟨hexp, hb₁0⟩ |
+    · rcases bound_floor_setup hF₁b with ⟨hexp, hb₁0⟩ |
         ⟨D, hreg_G, hD_le, hD_max, -, hmono_ext⟩
       · exact rounds_total_of_zero_bound h₁u (not_isUndefined_of_two_le_p hp_F₂)
           (fun hy hy0 => eq_zero_of_faithful_zero hexp (nearest_components hy).2.1 hy0)
-          (fun hz => by rw [toOdd_eq_zero_of_zero hz, Dyadic.coe_real_zero])
+          (fun hz => by rw [RoundsFinite.eq_zero_of_zero hz, Dyadic.coe_real_zero])
           hF₁b hb₁0 x
       · exact rounds_floor_lift hD_le hD_max (key _
           (fun v hv => hsub v ⟨hv.1, hv.2.1,

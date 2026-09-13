@@ -223,6 +223,21 @@ theorem log_sub_p_le_canonicalExp (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
   | bot => simp [hp, hx]
   | coe e' => simp [hp, hx]
 
+/-- `canonicalExp` is monotone in magnitude. -/
+theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)
+    (hyz : |y| ≤ |z|) : F.canonicalExp y ≤ F.canonicalExp z := by
+  have hy_pos : 0 < |y| := abs_pos.mpr hy
+  have hz : z ≠ 0 := by
+    rintro rfl; rw [abs_zero] at hyz; exact absurd hyz (not_le.mpr hy_pos)
+  have hlog : Int.log 2 |y| ≤ Int.log 2 |z| := Int.log_mono_right hy_pos hyz
+  unfold FiniteFormat.canonicalExp
+  cases F.p using ENat.recTopCoe with
+  | top => cases F.exp using QExp.recBotCoe <;> simp <;> rfl
+  | coe p =>
+    cases F.exp using QExp.recBotCoe with
+    | bot => simp only [hy, hz, if_false]; omega
+    | coe e => simp only [hy, hz, if_false]; omega
+
 /-- `F` with the magnitude bound removed (`b := ⊤`). Used by the
 satisfies-spec to define the unbounded rounding. The `finite` invariant
 depends only on `(p, exp)`, so it's preserved. -/
@@ -234,6 +249,8 @@ def unbounded (F : FiniteFormat) : FiniteFormat where
 @[simp] theorem unbounded_toFormat (F : FiniteFormat) :
     F.unbounded.toFormat = F.toFormat.unbounded := rfl
 @[simp] theorem unbounded_p (F : FiniteFormat) : F.unbounded.p = F.p := rfl
+@[simp] theorem unbounded_canonicalExp (F : FiniteFormat) (x : ℝ) :
+    F.unbounded.canonicalExp x = F.canonicalExp x := rfl
 @[simp] theorem unbounded_exp (F : FiniteFormat) : F.unbounded.exp = F.exp := rfl
 @[simp] theorem unbounded_b (F : FiniteFormat) : F.unbounded.b = ⊤ := rfl
 @[simp] theorem unbounded_unbounded (F : FiniteFormat) :
@@ -333,9 +350,9 @@ private theorem quantum_exp_le_log {y : Dyadic} {e' : ℤ} {c : ℤ}
     Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
   by_contra h_lt
   push Not at h_lt
-  have h_step : Int.log 2 |(y : ℝ)| + 1 ≤ e' := by omega
+  have h_log : Int.log 2 |(y : ℝ)| + 1 ≤ e' := by omega
   have h_pow_le : (2 : ℝ) ^ (Int.log 2 |(y : ℝ)| + 1) ≤ (2 : ℝ) ^ e' :=
-    zpow_le_zpow_right₀ (by norm_num) h_step
+    zpow_le_zpow_right₀ (by norm_num) h_log
   linarith
 
 /-- `numDigits` is non-negative for nonzero `y ∈ F`. -/
@@ -427,9 +444,9 @@ theorem mem_imp_precisionAtMost_numDigits {F : FiniteFormat} {y : Dyadic}
             exact_mod_cast hc_abs_ge
     by_contra h_lt
     push Not at h_lt
-    have h_step : e_y + 1 ≤ e' := by omega
+    have h_log : e_y + 1 ≤ e' := by omega
     have h_pow_le : (2 : ℝ) ^ (e_y + 1) ≤ (2 : ℝ) ^ e' :=
-      zpow_le_zpow_right₀ (by norm_num) h_step
+      zpow_le_zpow_right₀ (by norm_num) h_log
     linarith [habs_lo, he_y_hi]
   -- Case analysis on (F.p, F.exp).
   cases hp : F.p using ENat.recTopCoe with
@@ -1160,36 +1177,6 @@ theorem alternating_parity_mixed_subnormal_pne1_iff {F : ParityFormat}
     · intro h_not_odd_lo
       exact Even.add_one (Int.not_odd_iff_even.mp h_not_odd_lo)
 
-/-- Alternating parity (mixed-subnormal, `p ≠ 1`). Thin wrapper around
-`alternating_parity_mixed_subnormal_pne1_iff`. -/
-theorem alternating_parity_mixed_subnormal_pne1 {F : ParityFormat}
-    {p : ℕ} (hp_eq : F.p = (p : Prec))
-    (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
-    {e' : ℤ} (hexp : F.exp = (e' : QExp))
-    {lo : ℤ} (h_lo_lt : Int.log 2 (|lo| : ℝ) + 1 ≤ (p : ℤ))
-    (h_lop1_lt : Int.log 2 (|lo + 1| : ℝ) + 1 ≤ (p : ℤ)) :
-    ¬ F.IsOdd (Dyadic.ofIntZpow lo e') →
-    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e') :=
-  (alternating_parity_mixed_subnormal_pne1_iff hp_eq hp_ne_1 hexp
-    h_lo_lt h_lop1_lt).mpr
-
-/-- Anti-alternating parity (mixed-subnormal, `p ≠ 1`): not both can be
-`IsOdd`. Thin wrapper around `alternating_parity_mixed_subnormal_pne1_iff`. -/
-theorem not_both_isOdd_mixed_subnormal_pne1 {F : ParityFormat}
-    {p : ℕ} (hp_eq : F.p = (p : Prec))
-    (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
-    {e' : ℤ} (hexp : F.exp = (e' : QExp))
-    {lo : ℤ} (h_lo_lt : Int.log 2 (|lo| : ℝ) + 1 ≤ (p : ℤ))
-    (h_lop1_lt : Int.log 2 (|lo + 1| : ℝ) + 1 ≤ (p : ℤ)) :
-    ¬ (F.IsOdd (Dyadic.ofIntZpow lo e') ∧
-       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e')) :=
-  not_both_isOdd_of_alternating_iff
-    (alternating_parity_mixed_subnormal_pne1_iff hp_eq hp_ne_1 hexp
-      h_lo_lt h_lop1_lt)
-
-/-- Alternating `IsEven` (mixed-subnormal, `p ≠ 1`). Derived from the iff
-via the generic `alternating_isEven_of_alternating_iff`. Uses zero-or-canonical
-disjunction for the rep witness on each side. -/
 theorem alternating_isEven_mixed_subnormal_pne1 {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
@@ -1285,49 +1272,6 @@ theorem alternating_parity_mixed_normal_pne1_iff {F : ParityFormat}
         rw [hlo_neg]; exact h_2p_even.neg.add_one
       exact ⟨fun _ => h_not_odd_dlo, fun _ => h_odd_lop1⟩
 
-/-- Alternating parity (mixed-normal, `p ≠ 1`). Thin wrapper around
-`alternating_parity_mixed_normal_pne1_iff`. -/
-theorem alternating_parity_mixed_normal_pne1 {F : ParityFormat}
-    {p : ℕ} (hp_eq : F.p = (p : Prec))
-    (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
-    {e' : ℤ} (hexp : F.exp = (e' : QExp))
-    {y_lo y_hi : Dyadic} (h_y_lo_ne : (y_lo : ℝ) ≠ 0) (h_y_hi_ne : (y_hi : ℝ) ≠ 0)
-    (h_log_lo : (p : ℤ) ≤ Int.log 2 |(y_lo : ℝ)| - e' + 1)
-    (h_log_hi : (p : ℤ) ≤ Int.log 2 |(y_hi : ℝ)| - e' + 1)
-    {lo : ℤ} {e : ℤ}
-    (h_y_lo_eq : (y_lo : ℝ) = (lo : ℝ) * (2 : ℝ) ^ e)
-    (h_y_hi_eq : (y_hi : ℝ) = ((lo + 1 : ℤ) : ℝ) * (2 : ℝ) ^ e)
-    (hlo_lo : (2 : ℤ) ^ (p - 1) ≤ |lo|)
-    (hlo_hi : |lo| ≤ (2 : ℤ) ^ p)
-    (hlop1_lo : (2 : ℤ) ^ (p - 1) ≤ |lo + 1|)
-    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ p) :
-    ¬ F.IsOdd y_lo → F.IsOdd y_hi :=
-  (alternating_parity_mixed_normal_pne1_iff hp_eq hp_ne_1 hexp h_y_lo_ne h_y_hi_ne
-    h_log_lo h_log_hi h_y_lo_eq h_y_hi_eq hlo_lo hlo_hi hlop1_lo hlop1_hi).mpr
-
-/-- Anti-alternating parity (mixed-normal, `p ≠ 1`): not both can be `IsOdd`. -/
-theorem not_both_isOdd_mixed_normal_pne1 {F : ParityFormat}
-    {p : ℕ} (hp_eq : F.p = (p : Prec))
-    (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
-    {e' : ℤ} (hexp : F.exp = (e' : QExp))
-    {y_lo y_hi : Dyadic} (h_y_lo_ne : (y_lo : ℝ) ≠ 0) (h_y_hi_ne : (y_hi : ℝ) ≠ 0)
-    (h_log_lo : (p : ℤ) ≤ Int.log 2 |(y_lo : ℝ)| - e' + 1)
-    (h_log_hi : (p : ℤ) ≤ Int.log 2 |(y_hi : ℝ)| - e' + 1)
-    {lo : ℤ} {e : ℤ}
-    (h_y_lo_eq : (y_lo : ℝ) = (lo : ℝ) * (2 : ℝ) ^ e)
-    (h_y_hi_eq : (y_hi : ℝ) = ((lo + 1 : ℤ) : ℝ) * (2 : ℝ) ^ e)
-    (hlo_lo : (2 : ℤ) ^ (p - 1) ≤ |lo|)
-    (hlo_hi : |lo| ≤ (2 : ℤ) ^ p)
-    (hlop1_lo : (2 : ℤ) ^ (p - 1) ≤ |lo + 1|)
-    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ p) :
-    ¬ (F.IsOdd y_lo ∧ F.IsOdd y_hi) :=
-  not_both_isOdd_of_alternating_iff
-    (alternating_parity_mixed_normal_pne1_iff hp_eq hp_ne_1 hexp h_y_lo_ne h_y_hi_ne
-      h_log_lo h_log_hi h_y_lo_eq h_y_hi_eq hlo_lo hlo_hi hlop1_lo hlop1_hi)
-
-/-- Alternating `IsEven` (mixed-normal, `p ≠ 1`). Handles saturation cases
-manually via `isEven_at_saturation_mixed_normal`; applies the generic helper
-for the both-non-sat case. -/
 theorem alternating_isEven_mixed_normal_pne1 {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
@@ -1418,28 +1362,6 @@ theorem alternating_parity_mixed_subnormal_p1_iff {F : ParityFormat}
           (by decide) (le_refl _)]
     exact ⟨fun h _ => h_odd2_false h, fun h => absurd h_odd1 h⟩
 
-/-- Alternating parity (mixed-subnormal, `p = 1`). Wrapper. -/
-theorem alternating_parity_mixed_subnormal_p1 {F : ParityFormat}
-    (hp_eq : F.p = ((1 : ℕ) : Prec))
-    {e' : ℤ} (hexp : F.exp = (e' : QExp))
-    {lo : ℤ} (hlo_hi : |lo| ≤ 2) (hlop1_hi : |lo + 1| ≤ 2) :
-    ¬ F.IsOdd (Dyadic.ofIntZpow lo e') →
-    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e') :=
-  (alternating_parity_mixed_subnormal_p1_iff hp_eq hexp hlo_hi hlop1_hi).mpr
-
-/-- Anti-alternating parity (mixed-subnormal, `p = 1`). Wrapper. -/
-theorem not_both_isOdd_mixed_subnormal_p1 {F : ParityFormat}
-    (hp_eq : F.p = ((1 : ℕ) : Prec))
-    {e' : ℤ} (hexp : F.exp = (e' : QExp))
-    {lo : ℤ} (hlo_hi : |lo| ≤ 2) (hlop1_hi : |lo + 1| ≤ 2) :
-    ¬ (F.IsOdd (Dyadic.ofIntZpow lo e') ∧
-       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e')) :=
-  not_both_isOdd_of_alternating_iff
-    (alternating_parity_mixed_subnormal_p1_iff hp_eq hexp hlo_hi hlop1_hi)
-
-/-- Alternating `IsEven` (mixed-subnormal, `p = 1`). At |lo|, |lo+1| ≤ 2,
-the values are in {-2, -1, 0, 1}; some sides are zero (always IsEven),
-or are powers of two (always IsEven by the saturation argument). -/
 theorem alternating_isEven_mixed_subnormal_p1 {F : ParityFormat}
     (hp_eq : F.p = ((1 : ℕ) : Prec))
     {e' : ℤ} (hexp : F.exp = (e' : QExp))
@@ -1543,34 +1465,6 @@ theorem alternating_parity_mixed_normal_p1_iff {F : ParityFormat}
       have h_even : Even (e - e' + 1) := Int.not_odd_iff_even.mp h
       rcases h_even with ⟨m, hm⟩; exact ⟨m, by omega⟩
 
-/-- Alternating parity (mixed-normal, `p = 1`). Wrapper. -/
-theorem alternating_parity_mixed_normal_p1 {F : ParityFormat}
-    (hp_eq : F.p = ((1 : ℕ) : Prec))
-    {e' : ℤ} (hexp : F.exp = (e' : QExp))
-    {lo e : ℤ} (h_e_ge : e' ≤ e)
-    (hlo_lo : 1 ≤ |lo|) (hlo_hi : |lo| ≤ 2)
-    (hlop1_lo : 1 ≤ |lo + 1|) (hlop1_hi : |lo + 1| ≤ 2) :
-    ¬ F.IsOdd (Dyadic.ofIntZpow lo e) →
-    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e) :=
-  (alternating_parity_mixed_normal_p1_iff hp_eq hexp h_e_ge hlo_lo hlo_hi
-    hlop1_lo hlop1_hi).mpr
-
-/-- Anti-alternating parity (mixed-normal, `p = 1`). Wrapper. -/
-theorem not_both_isOdd_mixed_normal_p1 {F : ParityFormat}
-    (hp_eq : F.p = ((1 : ℕ) : Prec))
-    {e' : ℤ} (hexp : F.exp = (e' : QExp))
-    {lo e : ℤ} (h_e_ge : e' ≤ e)
-    (hlo_lo : 1 ≤ |lo|) (hlo_hi : |lo| ≤ 2)
-    (hlop1_lo : 1 ≤ |lo + 1|) (hlop1_hi : |lo + 1| ≤ 2) :
-    ¬ (F.IsOdd (Dyadic.ofIntZpow lo e) ∧
-       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e)) :=
-  not_both_isOdd_of_alternating_iff
-    (alternating_parity_mixed_normal_p1_iff hp_eq hexp h_e_ge hlo_lo hlo_hi
-      hlop1_lo hlop1_hi)
-
-/-- Alternating `IsEven` (mixed-normal, `p = 1`). Uses `interval_cases` on
-lo ∈ {-2, 1}; both sides are non-zero, so the generic IsEven dichotomy applies
-through `isEven_p1_iff_at_canonical_mixed`. -/
 theorem alternating_isEven_mixed_normal_p1 {F : ParityFormat}
     (hp_eq : F.p = ((1 : ℕ) : Prec))
     {e' : ℤ} (hexp : F.exp = (e' : QExp))
@@ -1734,26 +1628,6 @@ theorem alternating_parity_fixedpoint_iff {F : ParityFormat}
     · intro h_not_odd_lo
       exact Even.add_one (Int.not_odd_iff_even.mp h_not_odd_lo)
 
-/-- Alternating parity (fixed-point): `¬ IsOdd dlo → IsOdd dhi`. Thin
-wrapper around `alternating_parity_fixedpoint_iff`. -/
-theorem alternating_parity_fixedpoint {F : ParityFormat}
-    (hp_top : F.p = ⊤) {e' : ℤ}
-    (hexp : F.exp = (e' : QExp)) {lo : ℤ} :
-    ¬ F.IsOdd (Dyadic.ofIntZpow lo e') →
-    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e') :=
-  (alternating_parity_fixedpoint_iff hp_top hexp).mpr
-
-/-- Anti-alternating parity (fixed-point): not both can be `IsOdd`. -/
-theorem not_both_isOdd_fixedpoint {F : ParityFormat}
-    (hp_top : F.p = ⊤) {e' : ℤ}
-    (hexp : F.exp = (e' : QExp)) {lo : ℤ} :
-    ¬ (F.IsOdd (Dyadic.ofIntZpow lo e') ∧
-       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e')) :=
-  not_both_isOdd_of_alternating_iff (alternating_parity_fixedpoint_iff hp_top hexp)
-
-/-- Alternating `IsEven` (fixed-point). Derived from
-`alternating_parity_fixedpoint_iff` via the generic
-`alternating_isEven_of_alternating_iff`. -/
 theorem alternating_isEven_fixedpoint {F : ParityFormat}
     (hp_top : F.p = ⊤) {e' : ℤ}
     (hexp : F.exp = (e' : QExp)) {lo : ℤ} :
@@ -1832,40 +1706,6 @@ theorem alternating_parity_floating_iff {F : ParityFormat}
       rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlop1_lo h_lop1_lt]
       exact ⟨fun _ => h_not_odd_dlo, fun _ => h_odd_lop1⟩
 
-/-- Alternating parity at the canonical exponent (floating-point case):
-if `dlo = lo · 2^e` is not `F.IsOdd`, then `dhi = (lo+1) · 2^e` is. -/
-theorem alternating_parity_floating {F : ParityFormat}
-    {p : ℕ} (hp_eq : F.p = (p : Prec))
-    (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
-    (hexp_bot : F.exp = ⊥) {lo e : ℤ}
-    (hlo_lo : (2 : ℤ) ^ (p - 1) ≤ |lo|)
-    (hlo_hi : |lo| ≤ (2 : ℤ) ^ p)
-    (hlop1_lo : (2 : ℤ) ^ (p - 1) ≤ |lo + 1|)
-    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ p) :
-    ¬ F.IsOdd (Dyadic.ofIntZpow lo e) →
-    F.IsOdd (Dyadic.ofIntZpow (lo + 1) e) :=
-  (alternating_parity_floating_iff hp_eq hp_ne_1 hexp_bot
-    hlo_lo hlo_hi hlop1_lo hlop1_hi).mpr
-
-/-- Anti-alternating parity (floating-point): not both `dlo` and `dhi`
-can be `IsOdd`. Thin wrapper around `alternating_parity_floating_iff`. -/
-theorem not_both_isOdd_floating {F : ParityFormat}
-    {p : ℕ} (hp_eq : F.p = (p : Prec))
-    (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
-    (hexp_bot : F.exp = ⊥) {lo e : ℤ}
-    (hlo_lo : (2 : ℤ) ^ (p - 1) ≤ |lo|)
-    (hlo_hi : |lo| ≤ (2 : ℤ) ^ p)
-    (hlop1_lo : (2 : ℤ) ^ (p - 1) ≤ |lo + 1|)
-    (hlop1_hi : |lo + 1| ≤ (2 : ℤ) ^ p) :
-    ¬ (F.IsOdd (Dyadic.ofIntZpow lo e) ∧
-       F.IsOdd (Dyadic.ofIntZpow (lo + 1) e)) :=
-  not_both_isOdd_of_alternating_iff
-    (alternating_parity_floating_iff hp_eq hp_ne_1 hexp_bot
-      hlo_lo hlo_hi hlop1_lo hlop1_hi)
-
-/-- Alternating `IsEven` (floating-point). Handles saturation cases
-manually (where `isEven_at_saturation_floating` applies), and applies
-the generic `alternating_isEven_of_alternating_iff` for the non-sat case. -/
 theorem alternating_isEven_floating {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))

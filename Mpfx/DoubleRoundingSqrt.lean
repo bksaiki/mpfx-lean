@@ -115,11 +115,11 @@ private theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 
       have : (ma : ℝ) < ((2 : ℤ) ^ (k + 1 - e₁).toNat : ℝ) := by rw [hcast]; exact hmaR
       have : ma < (2 : ℤ) ^ (k + 1 - e₁).toNat := by exact_mod_cast this
       omega
-    have hstep : ((ma : ℝ) + 1) ≤ (2 : ℝ) ^ (k + 1 - e₁) := by
+    have hulp : ((ma : ℝ) + 1) ≤ (2 : ℝ) ^ (k + 1 - e₁) := by
       rw [← hcast]; exact_mod_cast hmaZ
     calc a + (2 : ℝ) ^ e₁ = ((ma : ℝ) + 1) * (2 : ℝ) ^ e₁ := by rw [ha]; ring
       _ ≤ (2 : ℝ) ^ (k + 1 - e₁) * (2 : ℝ) ^ e₁ :=
-          mul_le_mul_of_nonneg_right hstep hu1_pos.le
+          mul_le_mul_of_nonneg_right hulp hu1_pos.le
       _ = (2 : ℝ) ^ (k + 1) := by rw [← zpow_add₀ hne]; congr 1; ring
   -- `u₂ ≤ u₁/2`
   have hu2_le_half : (2 : ℝ) ^ e₂ ≤ (2 : ℝ) ^ e₁ / 2 := by
@@ -137,8 +137,10 @@ private theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 
     rw [h1]; linarith [h2, h3]
   by_contra hcon
   rw [not_lt] at hcon
-  have hmidp : midp F₁ s = a + (2 : ℝ) ^ e₁ / 2 := by unfold midp ulp; rw [ha_eq, ← he₁]
-  rw [show ulp F₂ s = (2 : ℝ) ^ e₂ from by unfold ulp; rw [← he₂], hmidp, abs_le] at hcon
+  have hmidp : midp F₁ s = a + (2 : ℝ) ^ e₁ / 2 := by
+    rw [midp, ulp_of_ne_zero F₁ hs_pos.ne', ha_eq, ← he₁]
+  rw [show ulp F₂ s = (2 : ℝ) ^ e₂ from by rw [ulp_of_ne_zero F₂ hs_pos.ne', ← he₂],
+    hmidp, abs_le] at hcon
   -- `a + ½(u₁−u₂) ≤ s ≤ a + ½(u₁+u₂)`
   have hsl : a + ((2 : ℝ) ^ e₁ - (2 : ℝ) ^ e₂) / 2 ≤ s := by linarith [hcon.1]
   have hsr : s ≤ a + ((2 : ℝ) ^ e₁ + (2 : ℝ) ^ e₂) / 2 := by linarith [hcon.2]
