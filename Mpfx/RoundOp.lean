@@ -4,21 +4,17 @@ import Mpfx.RoundOp.ToOdd
 import Mpfx.RoundOp.Nearest
 
 /-!
-# Constructive rounding function
+# The rounding function, assembled
 
-The noncomputable layer of the rounding architecture, aggregated from
-`Mpfx/RoundOp/`. Provides the function `rnd` (in `Defs`), the per-mode
-soundness/uniqueness proofs (in `Directed`/`ToOdd`/`Nearest`), the
-mode dispatchers `rndUnbounded_satisfies`/`rndUnbounded_unique`, and the
-bridge lemma `rnd_iff_rounds` connecting `rnd` to the relational spec
-`Rounds` from `Mpfx/Rounding.lean`.
+The mode dispatcher `rndUnbounded_satisfies`, its uniqueness counterpart, and
+the bridge `rnd_iff_rounds` tying `rnd` to the relational spec `Rounds`.
 -/
 
 namespace Mpfx
 
 attribute [local instance] Classical.propDecidable
 
-/-- The constructive `rndUnbounded` satisfies the unbounded rounding spec. -/
+/-- `rndUnbounded` satisfies the unbounded rounding spec. -/
 theorem rndUnbounded_satisfies (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
     (h : ¬ F.IsUndefined rm) :
     RoundsFinite F.unbounded rm x (rndUnbounded F rm x h) := by
@@ -31,19 +27,12 @@ theorem rndUnbounded_satisfies (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
   | nearest tb => exact rndUnbounded_satisfies_nearest F tb x h
 
 
-/-- Uniqueness: any `y` satisfying the unbounded rounding spec equals
-`rndUnbounded F rm x h`. -/
+/-- Any `y` satisfying the spec equals `rndUnbounded F rm x h`. -/
 theorem rndUnbounded_unique (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
     (h : ¬ F.IsUndefined rm) {y : Dyadic}
     (hy : RoundsFinite F.unbounded rm x y) :
-    y = rndUnbounded F rm x h := by
-  cases rm with
-  | toNegative => exact rndUnbounded_unique_toNegative F x h hy
-  | toPositive => exact rndUnbounded_unique_toPositive F x h hy
-  | toZero => exact rndUnbounded_unique_toZero F x h hy
-  | awayZero => exact rndUnbounded_unique_awayZero F x h hy
-  | toOdd => exact rndUnbounded_unique_toOdd F x h hy
-  | nearest tb => exact rndUnbounded_unique_nearest F tb x h hy
+    y = rndUnbounded F rm x h :=
+  RoundsFinite.unique h hy (rndUnbounded_satisfies F rm x h)
 
 /-! ### Bridge lemma
 

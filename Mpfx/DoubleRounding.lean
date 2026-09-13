@@ -1868,42 +1868,22 @@ private theorem RoundsFinite.toOdd_lift {F : FiniteFormat} {x : ℝ}
     fun hne => parity_witness_congr (F := F) (G := F.unbounded) rfl rfl (hwparity hne)⟩
 
 
-/-! ## Faithful-rounding uniqueness per side -/
-
-/-- Two below-maximal (RD-side) faithful witnesses agree. -/
-private theorem faithful_below_unique {G : FiniteFormat} {ξ : ℝ} {a b : Dyadic}
-    (ha : a ∈ G ∧ (a : ℝ) ≤ ξ ∧ ∀ v : Dyadic, v ∈ G → (v : ℝ) ≤ ξ → (v : ℝ) ≤ (a : ℝ))
-    (hb : b ∈ G ∧ (b : ℝ) ≤ ξ ∧ ∀ v : Dyadic, v ∈ G → (v : ℝ) ≤ ξ → (v : ℝ) ≤ (b : ℝ)) :
-    a = b :=
-  (Dyadic.coe_real_inj a b).mp
-    (le_antisymm (hb.2.2 a ha.1 ha.2.1) (ha.2.2 b hb.1 hb.2.1))
-
-/-- Two above-minimal (RU-side) faithful witnesses agree. -/
-private theorem faithful_above_unique {G : FiniteFormat} {ξ : ℝ} {a b : Dyadic}
-    (ha : a ∈ G ∧ ξ ≤ (a : ℝ) ∧ ∀ v : Dyadic, v ∈ G → ξ ≤ (v : ℝ) → (a : ℝ) ≤ (v : ℝ))
-    (hb : b ∈ G ∧ ξ ≤ (b : ℝ) ∧ ∀ v : Dyadic, v ∈ G → ξ ≤ (v : ℝ) → (b : ℝ) ≤ (v : ℝ)) :
-    a = b :=
-  (Dyadic.coe_real_inj a b).mp
-    (le_antisymm (ha.2.2 b hb.1 hb.2.1) (hb.2.2 a ha.1 ha.2.1))
-
-/-- Three faithful witnesses with `c ∉ {w, y}` force `y = w` (there are at
-most two distinct faithful values, one per side). -/
+/-- There are at most two faithful values, one per side, so a third witness
+`c ∉ {w, y}` forces `y = w`. -/
 private theorem faithful_eq_of_third {F : FiniteFormat} {x : ℝ} {w y c : Dyadic}
     (hwf : IsFaithfulRound F.unbounded x w)
     (hyf : IsFaithfulRound F.unbounded x y)
     (hcf : IsFaithfulRound F.unbounded x c)
     (hc_ne_w : c ≠ w) (hc_ne_y : c ≠ y) : y = w := by
-  rcases hwf with wRD | wRU
-  · rcases hcf with cRD | cRU
-    · exact absurd (faithful_below_unique cRD wRD) hc_ne_w
-    · rcases hyf with yRD | yRU
-      · exact faithful_below_unique yRD wRD
-      · exact absurd (faithful_above_unique cRU yRU) hc_ne_y
-  · rcases hcf with cRD | cRU
-    · rcases hyf with yRD | yRU
-      · exact absurd (faithful_below_unique cRD yRD) hc_ne_y
-      · exact faithful_above_unique yRU wRU
-    · exact absurd (faithful_above_unique cRU wRU) hc_ne_w
+  rcases hwf with wRD | wRU <;> rcases hcf with cRD | cRU
+  · exact absurd (RoundsFinite.unique_toNegative cRD wRD) hc_ne_w
+  · rcases hyf with yRD | yRU
+    · exact RoundsFinite.unique_toNegative yRD wRD
+    · exact absurd (RoundsFinite.unique_toPositive cRU yRU) hc_ne_y
+  · rcases hyf with yRD | yRU
+    · exact absurd (RoundsFinite.unique_toNegative cRD yRD) hc_ne_y
+    · exact RoundsFinite.unique_toPositive yRU wRU
+  · exact absurd (RoundsFinite.unique_toPositive cRU wRU) hc_ne_w
 
 /-! ## Restrict / lift for `.nearest` -/
 

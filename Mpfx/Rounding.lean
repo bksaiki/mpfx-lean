@@ -95,6 +95,21 @@ def FiniteFormat.IsUndefined (F : FiniteFormat) (rm : RoundingMode) : Prop :=
     (rm : RoundingMode) :
     F.unbounded.IsUndefined rm = F.IsUndefined rm := rfl
 
+/-- Promote to `ParityFormat` from a `¬ IsUndefined .toOdd` witness. -/
+def FiniteFormat.toParityFormatOfToOdd
+    (F : FiniteFormat) (h : ¬ F.IsUndefined .toOdd) : ParityFormat := by
+  refine ⟨F, ?_⟩
+  by_contra h_neg; push Not at h_neg
+  exact h ⟨h_neg.1, h_neg.2, Or.inl rfl⟩
+
+/-- Promote to `ParityFormat` from a `¬ IsUndefined (.nearest .toEven)`
+witness. Proof-irrelevantly the same value as `toParityFormatOfToOdd`. -/
+def FiniteFormat.toParityFormatOfNearestEven
+    (F : FiniteFormat) (h : ¬ F.IsUndefined (.nearest .toEven)) : ParityFormat := by
+  refine ⟨F, ?_⟩
+  by_contra h_neg; push Not at h_neg
+  exact h ⟨h_neg.1, h_neg.2, Or.inr rfl⟩
+
 /-! ### The specification relation `Rounds`
 
 `Rounds F rm x r : Prop` asserts that `r : RoundResult` is *the* answer

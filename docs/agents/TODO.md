@@ -46,7 +46,8 @@ and `docs/DESIGN.md` for how it is put together.
 
 ```
 Mpfx/
-├── Utils.lean      project-agnostic helpers (two_zpow_pos, etc.)
+├── Utils.lean      project-agnostic helpers (two_zpow_pos, etc.) and the
+│                   format-free scaled-mantissa arithmetic
 ├── Dyadic.lean     IsDyadic (ℚ), Dyadic := subring of ℚ, ofIntZpow (computable),
 │                   coe_real_* / coe_rat_ofIntZpow / ext_real bridge lemmas,
 │                   DecidableEq instance,
@@ -66,26 +67,31 @@ Mpfx/
 │                   TieBreak, RoundingMode,
 │                   RoundResult (with signed overflow), RoundResult.neg,
 │                   FiniteFormat.IsUndefined,
-│                   IsFaithfulRound, RoundsFinite, Rounds.
+│                   IsFaithfulRound, RoundsFinite, Rounds,
+│                   FiniteFormat.toParityFormatOf{ToOdd,NearestEven}.
 │                   Sign-symmetry block: IsFaithfulRound.neg_iff,
 │                   per-mode RoundsFinite.neg_*, Rounds.neg_*.
 │                   Mode-vs-sign block: RTP/RTN ↔ RTZ/RAZ by sign of x.
+├── RoundPred.lean  relational consequences of the spec: uniqueness per mode
+│                   and generic, isFaithfulRound, eq_zero_of_zero,
+│                   opposite_sides_of_ne, the grid bridges
+│                   toNegative_floor/toPositive_ceil (+ equation forms),
+│                   isOdd_alternate_of_bracketing, monotonicity per mode
+│                   and generic. Mentions no construction.
+├── Parity.lean     neighbors_alternate: adjacent grid points alternate in
+│                   parity; the toOdd and nearest .toEven forms
 ├── RoundOp.lean    function layer (noncomputable, classical):
-│                   abs_floor_le_of_abs_lt, log_two_pow_nat,
-│                   cast_two_pow_pred, log_lt_p_of_abs_lt_two_pow,
-│                   log_ge_p_pred_of_two_pow_pred_le,
-│                   two_pow_pred_le_scaled, abs_floor_ge_two_pow_pred,
-│                   rndInt, rndParity,
-│                   FiniteFormat.toParityFormatOf{ToOdd,NearestEven},
-│                   rndUnbounded, rnd (with overflow-sign computation),
-│                   rnd_iff_rounds
+│                   rndInt, rndParity, rndUnbounded, rnd, per-mode soundness,
+│                   rndUnbounded_satisfies/_unique, rnd_iff_rounds
 ├── Containment.lean §5.1 / Fig. 8: Format.Subset + HasSubset,
 │                   boundOK_mono, nnPow, containsPrec, containsSub,
 │                   Format.extend + self_subset_extend + extend_mono,
 │                   FiniteFormat.extend + numDigits_extend (Lemma 5.2),
 │                   withBound + next (+ next lemmas) — §5.2 bound API
 ├── Grid.lean       grid-step / midpoint-membership theory (prereq for
-│                   rndRTO_RN): exists_grid_rep(_exp_bot), grid_rep_c_pos,
+│                   rndRTO_RN): log_le_of_canonical_rep,
+│                   exists_grid_rep_canonical, exists_grid_rep(_exp_bot),
+│                   grid_rep_c_pos,
 │                   no_F_element_in_step_interval(_exp_bot),
 │                   F_adjacent_step_form(_exp_bot), prev_F_adjacent_of_log_eq,
 │                   and the goal family midpoint_mem_extend_one_of_F_adjacent
@@ -110,6 +116,17 @@ Mpfx/
 ```
 
 ## Open: Rounding API extensions
+
+- [ ] **Generalise `gap_around_m_mem` / `gap_around_mid3_mem`**
+      (`DoubleRoundingCex.lean`, 223 lines, ~110 recoverable). The same "gap of
+      width `2^K` around `c·2^(e-1)`" theorem for `c = 7` and `c = 3`, differing
+      only in the bracketing powers. Wants one lemma over odd `c` with
+      `2^k < c < 2^(k+1)` — a generalisation, not a merge.
+
+- [ ] **Move `nearest_neighbors_setup` out of `RoundOp/`.** It is
+      construction-free and now slim, but still sits under the function layer.
+      Its only consumer is `rndUnbounded_satisfies_nearest`, so inlining may
+      beat relocating.
 
 - [ ] `IsFaithfulRound`-extraction lemmas (split RTN-witness vs
       RTP-witness disjunct accessors).
