@@ -274,17 +274,36 @@ So the two are different operations that agree where both are meaningful:
       (`nextBound`, `boundStep`) so the two do not read as the same notion.
       ~200 call sites, mechanical.
 
-## Phase 5 — adjacency through `succ`/`pred`
+## Phase 5 — adjacency through `succ` — **done, redirected**
 
-- [ ] Restate `Grid.lean`'s F-adjacency as `succ`: `F_adjacent_step_form`
-      becomes `y₂ = succ y₁`, `no_F_element_in_step_interval` becomes
-      discreteness.
-- [ ] Keep the old names as wrappers if the call sites are many; otherwise
-      rewire them.
+The phase as written wanted to restate `Grid.lean`'s adjacency in `succ` terms.
+That is not possible: the import chain is
 
-Commit message: `Restate F-adjacency in terms of succ`
+```
+Format < Containment < Grid < CanonicalExp < RoundOp < Ulp
+```
 
-— **pause for review** —
+so `Grid.lean` sits **below** `succ` and cannot mention it. (`canonicalExp` is
+in `Format.lean`, which is why `Grid` can already use *that*.) Moving the
+`ulp`/`succ`/`pred` definitions down — they need only `Format.lean` — would fix
+it, but costs a restructure this phase does not justify.
+
+Done additively in `Ulp.lean` instead, where both notions are visible:
+
+- [x] `succ_eq_of_adjacent` — if nothing of `F` lies strictly between a positive
+      `y₁` and `y₂`, then `y₂ = succ y₁`. `succ_le_of_lt` gives one direction;
+      the other is that `succ y₁` is representable (`next_mem`) and above `y₁`,
+      so adjacency bounds `y₂` by it. This is `F_adjacent_step_form` in `succ`
+      form.
+- [x] `not_mem_between_succ` — discreteness, i.e.
+      `no_F_element_in_step_interval` restated.
+
+**Consequence for Phase 6:** it does not depend on this. The `_exp_bot` twins
+differ by `max exp (…)` versus plain, which `canonicalExp` unifies — and `Grid`
+can see `canonicalExp`. So Phase 6 proceeds on its own terms, as roadmap §6
+originally proposed, and the "do §6 after §4" ordering note no longer applies.
+
+Commit message: `Restate F-adjacency through succ`
 
 ## Phase 6 — merge the `Grid` twins (roadmap §6)
 

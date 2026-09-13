@@ -159,9 +159,10 @@ shared cores are already extracted (`step_interval_bounds`,
 `F_adjacent_step_form_z_core`, `midpoint_precision_extend_one`), leaving perhaps
 60–70 recoverable.
 
-**Do this after §4, not before.** `F_adjacent_step_form` is `y₂ = succ y₁` and
-`no_F_element_in_step_interval` is discreteness; `succ`/`pred` restates both, so
-merging them on `canonicalExp` first means rewriting them twice.
+Independent of §4. `Grid.lean` sits below `Ulp.lean` in the import chain, so it
+cannot mention `succ`; the `succ`-phrased forms (`succ_eq_of_adjacent`,
+`not_mem_between_succ`) live in `Ulp.lean` instead. The merge itself needs only
+`canonicalExp`, which `Grid` can see.
 
 ## 7. Operation-level error lemmas — `Prop/`
 

@@ -590,4 +590,30 @@ theorem next_mem (F : FiniteFormat) {b : Dyadic} (hb : b ∈ F.unbounded) :
     exact ofIntZpow_mem_unbounded F (fun hexp => F.exp_le_canonicalExp _ hexp)
       (fun {p} hp => abs_floor_add_one_le_of_abs_lt (floor_mantissa_lt hp))
 
+/-- **`succ` is adjacency.** If `y₂` is the next `F`-value above a positive
+`y₁` — nothing of `F` strictly between — then `y₂` is exactly `succ y₁`.
+
+`succ_le_of_lt` gives one direction; the other is that `succ y₁` is itself
+representable (`next_mem`) and lies above `y₁`, so adjacency bounds `y₂` by it.
+This is `Grid.lean`'s `F_adjacent_step_form` in `succ` form. -/
+theorem succ_eq_of_adjacent (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
+    {y₁ y₂ : Dyadic} (h₁ : y₁ ∈ F.unbounded) (h₂ : y₂ ∈ F.unbounded)
+    (hpos : 0 < ((y₁ : Dyadic) : ℝ))
+    (hlt : ((y₁ : Dyadic) : ℝ) < ((y₂ : Dyadic) : ℝ))
+    (hadj : ∀ z : Dyadic, z ∈ F.unbounded → ((y₁ : Dyadic) : ℝ) < ((z : Dyadic) : ℝ) →
+      ((y₂ : Dyadic) : ℝ) ≤ ((z : Dyadic) : ℝ)) :
+    ((y₂ : Dyadic) : ℝ) = succ F ((y₁ : Dyadic) : ℝ) := by
+  refine le_antisymm ?_ (succ_le_of_lt F hp h₁ h₂ hpos hlt)
+  have hcoe := next_coe F hpos.le
+  rw [← hcoe]
+  exact hadj _ (next_mem F h₁) (by rw [hcoe]; exact lt_succ F hpos.le (ne_of_gt hpos))
+
+/-- **Discreteness in `succ` form**: no `F`-value lies strictly between `y` and
+`succ y`. This is `no_F_element_in_step_interval` restated. -/
+theorem not_mem_between_succ (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
+    {y z : Dyadic} (hy : y ∈ F.unbounded) (hz : z ∈ F.unbounded)
+    (hpos : 0 < ((y : Dyadic) : ℝ)) (hlt : ((y : Dyadic) : ℝ) < ((z : Dyadic) : ℝ)) :
+    ¬ ((z : Dyadic) : ℝ) < succ F ((y : Dyadic) : ℝ) :=
+  not_lt.mpr (succ_le_of_lt F hp hy hz hpos hlt)
+
 end Mpfx
