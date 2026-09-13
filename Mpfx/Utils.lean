@@ -372,6 +372,30 @@ theorem abs_floor_ge_two_pow_pred {p : ℕ} {r : ℝ}
       linarith
     rw [abs_of_neg h_lo_neg]; linarith
 
+/-- The same for the upper neighbour `⌊r⌋ + 1`, when `r` is not itself an
+integer. Below zero the strict inequality `⌊r⌋ < r` is what keeps `⌊r⌋ + 1` from
+crossing back inside `2 ^ (p − 1)`. -/
+theorem abs_floor_add_one_ge_two_pow_pred {p : ℕ} {r : ℝ}
+    (h_r : ((2 : ℤ) ^ (p - 1) : ℝ) ≤ |r|) (h_ne : (⌊r⌋ : ℝ) ≠ r) :
+    (2 : ℤ) ^ (p - 1) ≤ |⌊r⌋ + 1| := by
+  have h_lo := abs_floor_ge_two_pow_pred (p := p) h_r
+  by_cases hr_nn : 0 ≤ r
+  · have h_lo_nn : 0 ≤ ⌊r⌋ := Int.floor_nonneg.mpr hr_nn
+    rw [abs_of_nonneg (by linarith : (0 : ℤ) ≤ ⌊r⌋ + 1)]
+    linarith [h_lo, abs_of_nonneg h_lo_nn]
+  · have hr_neg : r < 0 := not_le.mp hr_nn
+    have h_floor_lt : (⌊r⌋ : ℝ) < r := lt_of_le_of_ne (Int.floor_le r) h_ne
+    have h_r_le : r ≤ -((2 : ℤ) ^ (p - 1) : ℝ) := by
+      have : |r| = -r := abs_of_neg hr_neg
+      linarith
+    have h_lo_lt_int : ⌊r⌋ < -((2 : ℤ) ^ (p - 1)) := by
+      exact_mod_cast lt_of_lt_of_le h_floor_lt h_r_le
+    have h_neg : ⌊r⌋ + 1 < 0 := by
+      have : (0 : ℤ) < (2 : ℤ) ^ (p - 1) := by positivity
+      omega
+    rw [abs_of_neg h_neg]; omega
+
+
 /-- For `x ≠ 0` and `e = log₂|x| + 1 - p`, we have `2^(p-1) ≤ |x · 2^(-e)|`. -/
 theorem two_pow_pred_le_scaled {p : ℕ} (hp : 0 < p) {x : ℝ} (hx : x ≠ 0) {e : ℤ}
     (h_e_eq_log : e = Int.log 2 |x| + 1 - (p : ℤ)) :

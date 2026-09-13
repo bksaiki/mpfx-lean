@@ -55,6 +55,19 @@ theorem exp_le_canonicalExp_coe (F : FiniteFormat) (x : ℝ) :
   | bot => exact bot_le
   | coe e => exact_mod_cast F.exp_le_canonicalExp x hexp
 
+/-- Closed form with unrestricted precision: `canonicalExp` is the quantum
+everywhere (`F.finite` rules out `exp = ⊥` here). -/
+theorem canonicalExp_pTop {F : FiniteFormat} {emin : ℤ}
+    (hp : F.p = ⊤) (hexp : F.exp = (emin : QExp)) (v : ℝ) : F.canonicalExp v = emin := by
+  unfold FiniteFormat.canonicalExp; rw [hp, hexp]; rfl
+
+/-- Closed form in the **subnormal** range: when the precision exponent falls
+below the quantum, `canonicalExp` *is* the quantum. -/
+theorem canonicalExp_subnormal {F : FiniteFormat} {p : ℕ} {emin : ℤ}
+    (hp : F.p = (p : Prec)) (hexp : F.exp = (emin : QExp)) {v : ℝ} (hv : v ≠ 0)
+    (h : Int.log 2 |v| + 1 - (p : ℤ) ≤ emin) : F.canonicalExp v = emin := by
+  rw [canonicalExp_expFinite hp hexp hv]; exact max_eq_right h
+
 /-- The precision exponent lower-bounds `canonicalExp`: `log₂|v| + 1 − p ≤ canonicalExp v`
 (equality for `exp = ⊥`; `≤` via `le_max_left` for finite `exp`). -/
 theorem log_sub_prec_le_canonicalExp {F : FiniteFormat} {p : ℕ}
