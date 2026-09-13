@@ -2,8 +2,9 @@
 
 Remaining work for item 4 of [`FLOCQ_ROADMAP.md`](FLOCQ_ROADMAP.md). The
 reducing half — `ulp` at zero, `Mpfx/Ulp.lean`, `succ`/`pred`,
-`FiniteFormat.next`, adjacency through `succ`, and the `Discrete.lean` merge —
-has landed. What is left adds capability rather than collapsing proofs.
+`FiniteFormat.next`, adjacency through `succ`, the `Discrete.lean` merge — and
+the error bounds have landed. What is left adds capability rather than
+collapsing proofs.
 
 **Working policy.** Each phase is sized to be roughly one commit and carries a
 suggested one-line commit message. Stop after each phase for review before
@@ -70,20 +71,6 @@ many binades. That divergence is exactly what produced the `_exp_bot` twins.
       **successor**, returning `0` when there is none, and
       `next_eq_format_next` records that they coincide for `b > 0`. ~200 call
       sites, mechanical.
-
-## Phase 8 — error bounds (capability, not reduction)
-
-- [ ] `error_lt_ulp` (faithful), `error_le_half_ulp` (nearest),
-      `error_le_half_ulp_round`, `ulp_DN`, `ulp_round`.
-
-Flocq's `ulp_round` carries an `Exp_not_FTZ` hypothesis and a disjunctive
-conclusion — `ulp (round x) = ulp x ∨ |round x| = 2 ^ mag x` — whose second
-disjunct is exactly the binade-boundary case. We have no FTZ regime, so check
-whether the hypothesis is needed here.
-
-Commit message: `Add the ulp error bounds`
-
-— **pause for review** —
 
 ## Phase 9 — bracket characterizations (capability, not reduction)
 

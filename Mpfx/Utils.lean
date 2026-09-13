@@ -39,6 +39,15 @@ lemma two_zpow_split (e f : ℤ) (h : f ≤ e) :
     rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
   rw [h_split, two_zpow_diff_eq e f h]
 
+/-- Read off `Int.log 2 x = k` from the binade bounds `2^k ≤ x < 2^(k+1)`. -/
+theorem log_eq_of_zpow_bounds {x : ℝ} {k : ℤ} (hx : 0 < x)
+    (hlo : (2 : ℝ) ^ k ≤ x) (hhi : x < (2 : ℝ) ^ (k + 1)) : Int.log 2 x = k := by
+  have h1 : k ≤ Int.log 2 x :=
+    (Int.zpow_le_iff_le_log (b := 2) (by norm_num) hx).mp (by exact_mod_cast hlo)
+  have h2 : Int.log 2 x < k + 1 :=
+    (Int.lt_zpow_iff_log_lt (b := 2) (by norm_num) hx).mp (by exact_mod_cast hhi)
+  omega
+
 /-- `2^f = 4 · 2^(f − 2)`. -/
 lemma two_zpow_split_minus_two (f : ℤ) :
     (2 : ℝ) ^ f = 4 * (2 : ℝ) ^ (f - 2) := by
