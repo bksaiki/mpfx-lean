@@ -31,62 +31,37 @@ side condition; `b : Bound` inside the format with IEEE overflow modelled by
 
 ---
 
-## 1. Rounding monotonicity — `Core/Round_pred.v`
+## 1. Rounding monotonicity — **done**
 
-*Planned in detail in [`ROUND_PRED_TODO.md`](ROUND_PRED_TODO.md).*
+`Mpfx/RoundPred.lean` holds the relational consequences of the `RoundsFinite`
+spec, none of which mention the `rnd` construction:
 
-**Nothing in `Mpfx/` proves rounding is monotone.** Flocq builds its whole
-predicate theory on it:
+* uniqueness per mode and generic (`RoundsFinite.unique`, Flocq `round_unique`);
+* faithfulness (`RoundsFinite.isFaithfulRound`);
+* `eq_zero_of_zero`, `toNegative_nonneg`, `toPositive_nonpos`;
+* monotonicity per mode and generic (`RoundsFinite.monotone`, Flocq `round_le`);
+* the grid bridges `toNegative_floor` / `toPositive_ceil` and their equation
+  forms, plus `isOdd_alternate_of_bracketing`.
 
-```coq
-round_pred_monotone P := forall x y f g, P x f -> P y g -> (x <= y)%R -> (f <= g)%R
-round_unique : round_pred_monotone rnd -> rnd x f1 -> rnd x f2 -> f1 = f2
-```
+`rndUnbounded_unique` is now one line on top of `RoundsFinite.unique`, and the
+per-mode uniqueness wrappers are gone. The construction depends on the
+relational layer rather than the reverse.
 
-Two payoffs:
+## 2. Faithfulness for every mode — **done**
 
-- **`round_le`** (`x ≤ y → rnd x ≤ rnd y`) is Flocq's most-reused fact —
-  `round_ge_generic`, `round_le_generic`, `abs_round_le_generic`, `mag_round`
-  and every error bound route through it. We have none of these.
-- Uniqueness *derives* from monotonicity. The six bespoke
-  `rndUnbounded_unique_*` proofs dispatched at `RoundOp.lean:34` could collapse
-  to one `round_unique` plus six monotonicity proofs, which are easier.
+`RoundsFinite.isFaithfulRound` concludes `IsFaithfulRound F x y` for all seven
+modes; `isFaithfulRound_iff_directed` reads it back as the two-sided
+disjunction.
 
-Suggested shape: a new `Mpfx/RoundPred.lean` with `Monotone (RoundsFinite F rm)`
-per mode, then `round_unique`, `round_le`, and the cheap sign family
-`round_pred_ge_0 / gt_0 / le_0 / lt_0`.
+## 3. The `abs` family
 
-## 2. `round_DN_or_UP` for every mode — `Core/Generic_fmt.v:577`
+Done: `round_generic` (`RoundsFinite.eq_of_mem`), `round_0`
+(`RoundsFinite.eq_zero_of_zero`), and sign preservation for the directed modes
+(`toNegative_nonneg` / `toPositive_nonpos`).
 
-Flocq's `Valid_rnd` class (`Zrnd_le` + `Zrnd_IZR`) yields, once and for all,
-`Zrnd_DN_or_UP : rnd x = Zfloor x ∨ rnd x = Zceil x`, and `Zrnd_ZR_or_AW`.
-
-We assert faithfulness *inside* the spec for RTO and the nearest modes
-(`IsFaithfulRound`, `Rounding.lean:121`) but never state it for
-RTZ/RAZ/RTN/RTP. Half the work is already done: `isFaithfulRound_iff_directed`
-(`Rounding.lean:257`) converts a faithful witness into
-`RoundsFinite .toNegative ∨ RoundsFinite .toPositive`. What is missing is the
-all-modes version
-
-```lean
-theorem RoundsFinite.isFaithfulRound :
-    RoundsFinite F rm x y → IsFaithfulRound F x y
-```
-
-which lets every mode-generic argument stop case-splitting on `rm`. Note
-`isFaithfulRound_iff_directed` is currently used only in `DoubleRounding.lean` —
-never in `RoundOp/`, where it would do the most good (see §1).
-
-## 3. Exactness, zero, and the `abs` family
-
-- **`round_generic`** — *already present* as `RoundsFinite.eq_of_mem`
-  (`Rounding.lean:305`), covering every mode, with the `RoundResult`-level
-  corollary `rndExact` (`DoubleRoundingMul.lean:45`). Nothing to do.
-- **`round_0`**, `Rnd_DN_pt_refl`, `Rnd_DN_pt_idempotent`.
-- **`abs` family**: `round_ZR_abs`, `round_AW_abs`, `round_abs_abs`,
-  `Rnd_N_pt_abs`. We have the `neg` family (`Rounds.neg_*`) — the harder half;
-  the `abs` half is cheap and gets used constantly.
-- **Sign preservation**: `0 ≤ x → 0 ≤ rnd x`, `Rnd_N_pt_ge_0 / le_0 / 0`.
+Still missing: the `abs` family — `round_ZR_abs`, `round_AW_abs`,
+`round_abs_abs`, `Rnd_N_pt_abs`. We have the `neg` family, which is the harder
+half; these are cheap and get used constantly.
 
 ## 4. A real `Mpfx/Ulp.lean` — `Core/Ulp.v`
 
@@ -181,19 +156,20 @@ Three consequences:
    It also gives a computable mirror of `rnd` on dyadic inputs, which is what
    the "smoke tests" item in `TODO.md` wants.
 
-## 6. Collapse the `Grid.lean` case duplication
+## 6. `Grid.lean` case duplication — partly done, re-scoped
 
-`Grid.lean` carries near-duplicate twins and triplets: `exists_grid_rep` /
-`_exp_bot`, `F_adjacent_step_form` / `_exp_bot`,
-`midpoint_mem_extend_one_of_F_adjacent` / `_pos` / `_pos_exp_bot` / `_exp_bot` /
-`_of_p_top`.
+`exists_grid_rep` now rides a single `canonicalExp`-phrased engine,
+`exists_grid_rep_canonical`, and the shared binade bound is factored out as
+`log_le_of_canonical_rep`. `exists_canonical_rep` dropped from 24 lines to 6.
 
-Flocq has no such duplication because every statement is phrased through `fexp`,
-which absorbs FLX/FLT/FIX into one function. We already have that unifier —
-`canonicalExp` — and `CanonicalExp.lean` proves the `canonicalExp_FLX` /
-`canonicalExp_FLT` specializations. Restating the `Grid.lean` lemmas in terms of
-`canonicalExp`, instead of matching on `(F.p, F.exp)`, should collapse the
-variants into single statements.
+The original premise — that the `_exp_bot` twins collapse once phrased over
+`canonicalExp` — held only in part. `exists_grid_rep_exp_bot` never mentions
+`F.exp`: it is a *precision-only* statement true of any format, and `_exp_bot`
+names its use site rather than a hypothesis. So it does not merge.
+
+Three twin pairs remain unexamined (`F_adjacent_step_form`, two midpoint pairs).
+Check whether each is a genuine `max`-vs-no-`max` split before assuming it
+collapses.
 
 ## 7. Operation-level error lemmas — `Prop/`
 
@@ -246,12 +222,12 @@ reasoning. `generic_round_generic` (rounding an `F₁`-value into `F₂` stays i
 
 ## Suggested order
 
-1. **§1 monotonicity / `round_pred`** — retroactively simplifies proofs already
-   written, and unlocks the `round_le`-dependent lemmas in §3 and §4.
-2. **§4 `Ulp.lean`** (settling the `ulp 0` convention first) — everything
-   numerical needs it.
-3. **§5 `location` / `inbetween`** — the only structural change; removes
+§1 and §2 are done. Next:
+
+1. **§4 `Ulp.lean`** (settling the `ulp 0` convention first) — everything
+   numerical needs it, and the deferred "grid" rename travels with it.
+2. **§5 `location` / `inbetween`** — the only structural change; removes
    `ParityFormat` as a side effect and opens the path to computable operations.
 
-§2, §3 and §6 are small and can be done opportunistically. §7 and §8 are new
+§3 and §6 are small and can be done opportunistically. §7 and §8 are new
 feature surface, not cleanup.

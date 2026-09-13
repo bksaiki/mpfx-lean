@@ -2,20 +2,15 @@ import Mpfx.Rounding
 import Mpfx.CanonicalExp
 
 /-!
-# Constructive rounding: definitions + soundness helpers
+# The rounding function
 
-The noncomputable layer of the rounding architecture. See
-`Mpfx/Rounding.lean` for the relational spec `Rounds`; this file
-provides the function `rnd` and the shared arithmetic helpers used by
-the per-mode soundness/uniqueness proofs.
+`rnd` and the integer steps it dispatches to. The relational spec is
+`Mpfx/Rounding.lean`, its consequences `Mpfx/RoundPred.lean`; `rnd_iff_rounds`
+(in `Mpfx/RoundOp.lean`) connects the two.
 
-`rnd` is `noncomputable` because of `Int.log : ℝ → ℤ` and because the
-`if`-then-else branches reduce undecidable real comparisons via
-`Classical.propDecidable`. The bridge lemma `rnd_iff_rounds` connects
-this to the relational layer.
-
-Theorems about `Rounds` alone live in `Mpfx/Rounding.lean` and stay
-in constructive logic; the classical commitment is isolated here.
+`rnd` is `noncomputable`: `Int.log : ℝ → ℤ`, and the branches decide real
+comparisons through `Classical.propDecidable`. That commitment is confined to
+this directory.
 -/
 
 namespace Mpfx
@@ -93,16 +88,7 @@ noncomputable def rnd (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) : RoundRe
     if Format.boundOK F.b y then .finite y
     else .overflow (if (0 : ℚ) < (y : ℚ) then true else false)
 
-/-! ### Soundness of `rndUnbounded`
-
-The two key obligations linking `rnd` and `Rounds`:
-
-* `rndUnbounded_satisfies` — `rndUnbounded F rm x h` is a value
-  satisfying `RoundsFinite F.unbounded rm x`.
-* `rndUnbounded_unique` — uniquely so: any `y` satisfying that spec
-  equals `rndUnbounded F rm x h`.
-
-Together these say `rndUnbounded` *is* the unbounded rounding. They
-are mode-specific arithmetic obligations; deferred. -/
+/-! The per-mode proofs that `rndUnbounded` satisfies the spec live in
+`Directed.lean`, `ToOdd.lean` and `Nearest.lean`. -/
 
 end Mpfx

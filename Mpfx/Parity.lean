@@ -4,33 +4,17 @@ import Mpfx.CanonicalExp
 /-!
 # Parity of adjacent grid points
 
-The two *alternation* lemmas: for a real `x` strictly between its neighbouring
-grid points at the canonical exponent, those neighbours have opposite parity.
-Each runs the six-leaf `(F.p, F.exp) × regime` dispatch over the
-`ParityFormat.alternating_parity_*_iff` family in `Mpfx/Format.lean`.
-
-Nothing here concerns the rounding *function* — the proofs mention neither
-`rnd` nor `rndUnbounded`. They are consumed by the `toOdd` and `nearest .toEven`
-soundness obligations in `Mpfx/RoundOp/`, and by `isOdd_alternate_of_bracketing`,
-which restates the first over the relational round-down/round-up specs.
+For `x` strictly between its neighbouring grid points at the canonical exponent,
+those neighbours have opposite parity. `neighbors_alternate` proves it once; the
+`toOdd` and `nearest .toEven` forms are projections.
 -/
 
 namespace Mpfx
 
-/-- **Neighbours alternate in parity.** For `x` strictly between its grid
-neighbours `dlo = ⌊s⌋·2^e` and `dhi = (⌊s⌋+1)·2^e` at the canonical exponent,
-`dhi` is odd exactly when `dlo` is not — and evenness alternates with it.
-
-Runs the six-leaf `(F.p, F.exp) × regime` dispatch over the
-`ParityFormat.alternating_parity_*_iff` and `alternating_isEven_*` families in
-`Mpfx/Format.lean`, with the two saturation branches handled inline.
-
-The `toOdd` and `nearest .toEven` forms below are projections of this: the two
-parity-format promotions are the same term up to proof irrelevance, so one
-dispatch serves both modes. Flocq needs the analogous format-level statement
-only for round-to-nearest-even (`DN_UP_parity_generic_pos`, `Round_NE.v:108`);
-its round-to-odd counterpart works at the mantissa level, where consecutive
-integers alternate for free. -/
+/-- For `dlo = ⌊s⌋·2^e` and `dhi = (⌊s⌋+1)·2^e` at the canonical exponent, `dhi`
+is odd exactly when `dlo` is not, and evenness alternates with it. A six-leaf
+`(F.p, F.exp) × regime` dispatch over the `ParityFormat.alternating_*` families,
+with the saturation branches inline. Flocq `DN_UP_parity_generic_pos`. -/
 theorem neighbors_alternate {F : FiniteFormat} (x : ℝ)
     (h : ¬ F.IsUndefined .toOdd)
     (hx_ne : x ≠ 0)
@@ -499,7 +483,7 @@ theorem neighbors_alternate {F : FiniteFormat} (x : ℝ)
                    h_lo_lo h_lo_hi h_lop1_lo h_lop1_hi⟩
 
 
-/-- The `toOdd` projection: neighbours alternate in `IsOdd`. -/
+/-- The `IsOdd` half. -/
 theorem toOdd_neighbors_alternate {F : FiniteFormat} (x : ℝ)
     (h : ¬ F.IsUndefined .toOdd)
     (hx_ne : x ≠ 0)
@@ -511,8 +495,8 @@ theorem toOdd_neighbors_alternate {F : FiniteFormat} (x : ℝ)
         (Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ (F.canonicalExp x)) :=
   (neighbors_alternate x h hx_ne h_lo_ne_s).1
 
-/-- The `nearest .toEven` projection. The promotion differs only in its
-proof term, so this is the same dispatch. -/
+/-- Same dispatch: the two parity-format promotions differ only in their proof
+term, hence are the same value. -/
 theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
     (h : ¬ F.IsUndefined (.nearest .toEven))
     (hx_ne : x ≠ 0)

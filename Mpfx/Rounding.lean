@@ -95,16 +95,15 @@ def FiniteFormat.IsUndefined (F : FiniteFormat) (rm : RoundingMode) : Prop :=
     (rm : RoundingMode) :
     F.unbounded.IsUndefined rm = F.IsUndefined rm := rfl
 
-/-- Promote `F : FiniteFormat` to `ParityFormat` from a
-`¬ IsUndefined .toOdd` witness. -/
+/-- Promote to `ParityFormat` from a `¬ IsUndefined .toOdd` witness. -/
 def FiniteFormat.toParityFormatOfToOdd
     (F : FiniteFormat) (h : ¬ F.IsUndefined .toOdd) : ParityFormat := by
   refine ⟨F, ?_⟩
   by_contra h_neg; push Not at h_neg
   exact h ⟨h_neg.1, h_neg.2, Or.inl rfl⟩
 
-/-- Promote `F : FiniteFormat` to `ParityFormat` from a
-`¬ IsUndefined (.nearest .toEven)` witness. -/
+/-- Promote to `ParityFormat` from a `¬ IsUndefined (.nearest .toEven)`
+witness. Proof-irrelevantly the same value as `toParityFormatOfToOdd`. -/
 def FiniteFormat.toParityFormatOfNearestEven
     (F : FiniteFormat) (h : ¬ F.IsUndefined (.nearest .toEven)) : ParityFormat := by
   refine ⟨F, ?_⟩

@@ -71,9 +71,7 @@ private theorem grid_rep_reconstruct {p : ℕ} {y : Dyadic}
     rw [h_abs]; exact h_d_lt
   · rw [hy_eq]; exact two_zpow_shift_real c_can h_k_le_e_can
 
-/-- From a canonical representation `y = c · 2^e` with `|c| < 2^p` and `y > 0`,
-the binade of `y` is bounded: `⌊log₂ y⌋ ≤ e + p − 1`. The arithmetic core shared
-by the grid-representation lemmas below. -/
+/-- From `y = c · 2^e` with `|c| < 2^p` and `y > 0`: `⌊log₂ y⌋ ≤ e + p − 1`. -/
 theorem log_le_of_canonical_rep {p : ℕ} {y : Dyadic} {c_can e_can : ℤ}
     (hy_pos : 0 < ((y : Dyadic) : ℝ))
     (hy_eq : ((y : Dyadic) : ℝ) = (c_can : ℝ) * (2 : ℝ) ^ e_can)
@@ -114,14 +112,10 @@ theorem log_le_of_canonical_rep {p : ℕ} {y : Dyadic} {c_can e_can : ℤ}
     (Int.lt_zpow_iff_log_lt (by norm_num : 1 < (2 : ℕ)) hy_pos).mp h_y_lt_nat
   omega
 
-/-- **F-grid representation at the canonical exponent.** A positive `y` meeting
-`F`'s precision and quantum constraints is `c · 2^(canonicalExp y)` with
-`|c| < 2^p`.
-
-This is the single engine behind both shaped forms below: `canonicalExp` already
-absorbs the `max` with `F.exp`, so the `exp = ⊥` and finite-`exp` cases differ
-only in whether the quantum constraint has any content. Flocq states the
-corresponding fact as `canonical_generic_format` (`Generic_fmt.v:115`). -/
+/-- A positive `y` meeting `F`'s precision and quantum constraints is
+`c · 2^(canonicalExp y)` with `|c| < 2^p`. `canonicalExp` absorbs the `max` with
+`F.exp`, so this covers both exponent regimes
+(Flocq `canonical_generic_format`). -/
 theorem exists_grid_rep_canonical (F : FiniteFormat) {p : ℕ}
     (hp : F.p = (p : Prec))
     {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.p y)
@@ -166,9 +160,8 @@ theorem exists_grid_rep_canonical (F : FiniteFormat) {p : ℕ}
   obtain ⟨hd_bound, hd_eq⟩ := grid_rep_reconstruct hy_pos hy_eq h_k_le_e_can h_log_le_k
   exact ⟨c_can * (2 : ℤ) ^ (e_can - F.canonicalExp ((y : Dyadic) : ℝ)).toNat, hd_bound, hd_eq⟩
 
-/-- F-grid representation with the exponent written out as
-`max F.exp (⌊log₂ y⌋ − p + 1)`. A shaped form of
-`exists_grid_rep_canonical`. -/
+/-- `exists_grid_rep_canonical` with the exponent written out as
+`max F.exp (⌊log₂ y⌋ − p + 1)`. -/
 theorem exists_grid_rep (F : FiniteFormat) {p : ℕ} {exp : ℤ}
     (hp : F.p = (p : Prec)) (he : F.exp = (exp : QExp))
     {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.p y)
@@ -187,9 +180,8 @@ theorem exists_grid_rep (F : FiniteFormat) {p : ℕ} {exp : ℤ}
     omega
   exact ⟨_, c, hk ▸ F.exp_le_canonicalExp _ he, hc, hy, hk⟩
 
-/-- F-grid representation in the precision-only form: `k = ⌊log₂ y⌋ - p + 1`
-(no `max` with `F.exp`). A shaped form of `exists_grid_rep_canonical` for
-`F.exp = ⊥`, where the quantum constraint is vacuous. -/
+/-- Precision-only form: `k = ⌊log₂ y⌋ − p + 1`, with no `max` and no quantum
+hypothesis. Used where `F.exp = ⊥`. -/
 theorem exists_grid_rep_exp_bot (F : FiniteFormat) {p : ℕ}
     (hp : F.p = (p : Prec))
     {y : Dyadic} (hp_y_full : Dyadic.precisionAtMost F.p y)

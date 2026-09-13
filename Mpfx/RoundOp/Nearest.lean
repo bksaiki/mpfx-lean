@@ -1,34 +1,20 @@
 import Mpfx.RoundOp.Defs
 import Mpfx.Parity
-import Mpfx.RoundOp.ToOdd
+import Mpfx.RoundPred
 
 /-!
-# Constructive rounding: `nearest` obligations
-
-Soundness and uniqueness for the `nearest tb` rounding modes.
+# Soundness of `rndUnbounded` for the `nearest tb` modes
 -/
 
 namespace Mpfx
 
 attribute [local instance] Classical.propDecidable
 
-/-- Neighbour setup for the `nearest` soundness proof, its only consumer since
-the uniqueness proofs moved to `Mpfx/RoundPred.lean`. Given the canonical
-scaling data
-`e = canonicalExp x`, `s = x·2^(-e)`, `lo = ⌊s⌋` and the two neighbours
-`dlo = lo·2^e`, `dhi = (lo+1)·2^e`, it packages: positivity of `2^e`,
-membership of both neighbours, their real values, the floor sandwich,
-the unscaling identity, the enclosure `dlo ≤ x ≤ dhi`, the two rounding
-directions (`round-down`/`round-up`) and the faithful-round dichotomy
-(any faithful round of `x` is `dlo` or `dhi`). The caller establishes the
-`set` variables and passes the defining equations.
-
-This bundle predates the relational layer and several conjuncts are now
-redundant against it — the two rounding directions are
-`RoundsFinite.toNegative_floor` / `toPositive_ceil`, and the dichotomy is
-`isFaithfulRound_iff_directed` composed with the `_eq_floor` / `_eq_ceil`
-bridges. Slimming it is the reason this construction-free helper still sits
-under `RoundOp/`; see `ROUND_PRED_TODO.md`. -/
+/-- Facts about the grid neighbours `dlo = ⌊s⌋·2^e`, `dhi = (⌊s⌋+1)·2^e` of `x`
+at `e = canonicalExp x`, bundled for the soundness proof: membership, real
+values, the floor sandwich, the enclosure `dlo ≤ x ≤ dhi`, the two rounding
+directions, and that any faithful round of `x` is one of the two. The caller
+establishes the `set` variables and passes the defining equations. -/
 private theorem nearest_neighbors_setup (F : FiniteFormat) (x : ℝ)
     {e : ℤ} (h_e_def : e = F.canonicalExp x)
     {s : ℝ} (h_s_def : s = x * (2 : ℝ) ^ (-e))

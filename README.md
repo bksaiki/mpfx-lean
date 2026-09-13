@@ -94,6 +94,8 @@ import Mpfx
 | `Mpfx/Dyadic.lean` | `Dyadic` (subring of `ℚ`), `precisionAtMost`/`quantumAtLeast`, `IsRepresentableAtP`. |
 | `Mpfx/Format.lean` | `Format`/`FiniteFormat`/`ParityFormat`, membership, `numDigits`, `IsOdd`/`IsEven`. |
 | `Mpfx/Rounding.lean` | Rounding modes, the `Rounds`/`RoundsFinite` spec, `IsFaithfulRound`. |
+| `Mpfx/RoundPred.lean` | Consequences of the spec: uniqueness, faithfulness, monotonicity. |
+| `Mpfx/Parity.lean` | Adjacent grid points alternate in parity. |
 | `Mpfx/RoundOp.lean` | The constructive `rnd` and the bridge `rnd_iff_rounds`. |
 | `Mpfx/Containment.lean` | §5.1 containment; `extend`/`withBound`/`next`. |
 | `Mpfx/Grid.lean` | F-grid representation, F-adjacency, midpoint membership. |

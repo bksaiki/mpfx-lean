@@ -3,30 +3,19 @@ import Mpfx.CanonicalExp
 import Mpfx.Parity
 
 /-!
-# Round-predicate layer: uniqueness and faithfulness
+# Round-predicate layer
 
-The mode-generic consequences of the `RoundsFinite` spec, in the style of
-Flocq's `Core/Round_pred.v`. Two families:
+Consequences of the `RoundsFinite` spec, per mode and mode-generic: uniqueness,
+faithfulness, sign preservation and monotonicity.
 
-* `RoundsFinite.unique_*` — the spec pins its value. Flocq's `round_unique`
-  gets this from monotonicity; for the directed modes the antisymmetry
-  argument is direct, so it needs no monotonicity theory.
-* `RoundsFinite.isFaithfulRound` — every mode rounds down or up (Flocq's
-  `Zrnd_DN_or_UP` / `Rnd_N_pt_DN_or_UP`). Lets mode-generic arguments stop
-  case-splitting on `rm`.
-
-Nothing here mentions the `rnd` construction: these are facts about what the
-spec *says*, not about what any particular implementation computes. The
-parity-aware modes draw on the alternation lemmas in `Mpfx/Parity.lean`, which
-are likewise construction-free.
+Nothing here mentions the `rnd` construction.
 -/
 
 namespace Mpfx
 
 /-! ### Uniqueness for the directed modes -/
 
-/-- Round-down is unique: two largest `F`-elements `≤ x` coincide. This is
-Flocq's `Rnd_DN_pt_unique`. -/
+/-- Two largest `F`-elements `≤ x` coincide (Flocq `Rnd_DN_pt_unique`). -/
 theorem RoundsFinite.unique_toNegative {F : FiniteFormat} {x : ℝ} {y₁ y₂ : Dyadic}
     (h₁ : RoundsFinite F .toNegative x y₁) (h₂ : RoundsFinite F .toNegative x y₂) :
     y₁ = y₂ := by
@@ -34,7 +23,7 @@ theorem RoundsFinite.unique_toNegative {F : FiniteFormat} {x : ℝ} {y₁ y₂ :
   obtain ⟨hm₂, hle₂, hmax₂⟩ := h₂
   exact Dyadic.ext_real (le_antisymm (hmax₂ y₁ hm₁ hle₁) (hmax₁ y₂ hm₂ hle₂))
 
-/-- Round-up is unique (Flocq's `Rnd_UP_pt_unique`). -/
+/-- Flocq `Rnd_UP_pt_unique`. -/
 theorem RoundsFinite.unique_toPositive {F : FiniteFormat} {x : ℝ} {y₁ y₂ : Dyadic}
     (h₁ : RoundsFinite F .toPositive x y₁) (h₂ : RoundsFinite F .toPositive x y₂) :
     y₁ = y₂ := by
@@ -42,8 +31,7 @@ theorem RoundsFinite.unique_toPositive {F : FiniteFormat} {x : ℝ} {y₁ y₂ :
   obtain ⟨hm₂, hge₂, hmin₂⟩ := h₂
   exact Dyadic.ext_real (le_antisymm (hmin₁ y₂ hm₂ hge₂) (hmin₂ y₁ hm₁ hge₁))
 
-/-- Round-toward-zero is unique: it agrees with round-down on `0 ≤ x` and
-with round-up on `x ≤ 0`. -/
+/-- RTZ agrees with round-down on `0 ≤ x` and round-up on `x ≤ 0`. -/
 theorem RoundsFinite.unique_toZero {F : FiniteFormat} {x : ℝ} {y₁ y₂ : Dyadic}
     (h₁ : RoundsFinite F .toZero x y₁) (h₂ : RoundsFinite F .toZero x y₂) :
     y₁ = y₂ := by
@@ -55,7 +43,7 @@ theorem RoundsFinite.unique_toZero {F : FiniteFormat} {x : ℝ} {y₁ y₂ : Dya
       ((RoundsFinite.toPositive_iff_toZero_of_nonpos F hx y₁).mpr h₁)
       ((RoundsFinite.toPositive_iff_toZero_of_nonpos F hx y₂).mpr h₂)
 
-/-- Round-away-from-zero is unique. Sign-mirror of `unique_toZero`. -/
+/-- Sign-mirror of `unique_toZero`. -/
 theorem RoundsFinite.unique_awayZero {F : FiniteFormat} {x : ℝ} {y₁ y₂ : Dyadic}
     (h₁ : RoundsFinite F .awayZero x y₁) (h₂ : RoundsFinite F .awayZero x y₂) :
     y₁ = y₂ := by
@@ -69,17 +57,9 @@ theorem RoundsFinite.unique_awayZero {F : FiniteFormat} {x : ℝ} {y₁ y₂ : D
 
 /-! ### Every mode rounds faithfully -/
 
-/-- **Faithfulness, uniformly.** Whatever the mode, the rounded value is
-either the round-down or the round-up of `x`. The directed modes reduce to
-each other by the sign of `x`; `toOdd` and `nearest` carry the
-`IsFaithfulRound` conjunct outright.
-
-Use `isFaithfulRound_iff_directed` to read the result back as
-`RoundsFinite .toNegative ∨ RoundsFinite .toPositive` when a case split on
-the two sides is what is wanted.
-
-Flocq derives the same fact once from the `Valid_rnd` class
-(`Zrnd_DN_or_UP`, `Generic_fmt.v:577`) plus `Rnd_N_pt_DN_or_UP`. -/
+/-- Whatever the mode, the rounded value is the round-down or the round-up of
+`x`. `isFaithfulRound_iff_directed` reads the result back as the two-sided
+disjunction (Flocq `Zrnd_DN_or_UP`, `Rnd_N_pt_DN_or_UP`). -/
 theorem RoundsFinite.isFaithfulRound {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
     {y : Dyadic} (h : RoundsFinite F rm x y) :
     IsFaithfulRound F x y := by
@@ -101,16 +81,14 @@ theorem RoundsFinite.isFaithfulRound {F : FiniteFormat} {rm : RoundingMode} {x :
   | toOdd => exact h.2.1
   | nearest tb => cases tb <;> exact h.2.1
 
-/-- **Rounding fixes zero** (Flocq's `round_0`). Every mode sends `0` to `0`,
+/-- Every mode sends `0` to `0` (Flocq `round_0`),
 since `0` lies in every format. -/
 theorem RoundsFinite.eq_zero_of_zero {F : FiniteFormat} {rm : RoundingMode}
     {y : Dyadic} (h : RoundsFinite F rm 0 y) : y = 0 :=
   RoundsFinite.eq_of_mem (F.zero_mem) (by rwa [Dyadic.coe_real_zero])
 
-/-- Two *distinct* faithful roundings of `x` sit on opposite sides of it: one
-is the round-down, the other the round-up. Same-side pairs collapse by
-`unique_toNegative` / `unique_toPositive`. This is the case split behind
-Flocq's `Rnd_NG_pt_unique` (`Round_pred.v:707`). -/
+/-- Two *distinct* faithful roundings sit on opposite sides of `x`; same-side
+pairs collapse by uniqueness. The case split behind `unique_nearest`. -/
 theorem IsFaithfulRound.opposite_sides_of_ne {F : FiniteFormat} {x : ℝ}
     {a b : Dyadic} (ha : IsFaithfulRound F x a) (hb : IsFaithfulRound F x b)
     (hab : a ≠ b) :
@@ -125,11 +103,8 @@ theorem IsFaithfulRound.opposite_sides_of_ne {F : FiniteFormat} {x : ℝ}
 
 /-! ### Reading the directed roundings off the grid
 
-The round-down and round-up of `x` are the floor and ceiling of the scaled
-mantissa at the canonical exponent. Stated as *the grid point satisfies the
-spec*, so that `unique_toNegative` / `unique_toPositive` turn each into an
-equation — Flocq's `round_DN_eq` / `round_UP_eq` (`Ulp.v:2217`), and the route
-by which grid-level facts (parity, adjacency) reach the relational layer. -/
+Stated as *the grid point satisfies the spec*, so uniqueness turns each into an
+equation (Flocq `round_DN_eq` / `round_UP_eq`). -/
 
 /-- The floor grid point at the canonical exponent **is** the round-down. -/
 theorem RoundsFinite.toNegative_floor (F : FiniteFormat) (x : ℝ) :
@@ -189,23 +164,20 @@ theorem RoundsFinite.toPositive_eq_ceil (F : FiniteFormat) (x : ℝ) {y : Dyadic
     y = Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x) :=
   RoundsFinite.unique_toPositive hy (RoundsFinite.toPositive_ceil F x)
 
-/-! ### Uniqueness for RTO
+/-! ### Uniqueness for RTO -/
 
-The spec's `IsFaithfulRound` conjunct says the result is the round-down or
-the round-up (`RoundsFinite.isFaithfulRound`, `Mpfx/RoundPred.lean`); the
-parity conjunct then rules out the mixed case, because adjacent grid points
-alternate in parity. Flocq argues the same way in `Round_odd.v`. -/
-
-/-- Parity alternation between the two grid neighbours of `x`, stated over
-the relational round-down/round-up specs rather than the `rndUnbounded`
-construction. -/
+/-- `Parity.neighbors_alternate`, stated over the round-down/round-up specs. -/
 theorem isOdd_alternate_of_bracketing {F : FiniteFormat} {x : ℝ}
-    (h : ¬ F.IsUndefined .toOdd) (hx_ne : x ≠ 0) {y y' : Dyadic}
+    (h : ¬ F.IsUndefined .toOdd) {y y' : Dyadic}
     (hy : RoundsFinite F.unbounded .toNegative x y)
     (hy' : RoundsFinite F.unbounded .toPositive x y')
     (hne : x ≠ (y : ℝ)) :
     ((F.toParityFormatOfToOdd h).IsOdd y' ↔
       ¬ (F.toParityFormatOfToOdd h).IsOdd y) := by
+  -- `x = 0` would make `y` the round-down of `0`, hence `0 = x`.
+  have hx_ne : x ≠ 0 := fun hx0 => hne (by
+    have hy0 : RoundsFinite F.unbounded .toNegative 0 y := by rw [← hx0]; exact hy
+    rw [hx0, RoundsFinite.eq_zero_of_zero hy0, Dyadic.coe_real_zero])
   set e := F.canonicalExp x with he
   set s := x * (2 : ℝ) ^ (-e) with hs
   have hy_eq : y = Dyadic.ofIntZpow ⌊s⌋ e := RoundsFinite.toNegative_eq_floor F x hy
@@ -222,10 +194,8 @@ theorem isOdd_alternate_of_bracketing {F : FiniteFormat} {x : ℝ}
   rw [hy_eq, hy'_eq]
   exact toOdd_neighbors_alternate x h hx_ne h_lo_ne_s
 
-/-- **RTO is unique.** Both witnesses are faithful, so each is the round-down
-or the round-up. Matching sides collapse by directed uniqueness; the mixed
-case needs both neighbours odd, which `isOdd_alternate_of_bracketing`
-forbids. -/
+/-- Matching sides collapse by directed uniqueness; the mixed case would need
+both neighbours odd, which `isOdd_alternate_of_bracketing` forbids. -/
 theorem RoundsFinite.unique_toOdd {F : FiniteFormat} {x : ℝ}
     (h : ¬ F.IsUndefined .toOdd) {y₁ y₂ : Dyadic}
     (h₁ : RoundsFinite F.unbounded .toOdd x y₁)
@@ -250,17 +220,9 @@ theorem RoundsFinite.unique_toOdd {F : FiniteFormat} {x : ℝ}
     by_cases hxb : x = (b : ℝ)
     · exact Dyadic.ext_real (le_antisymm (hxb ▸ ha_le) (ha_max b hb_mem hxb.ge))
     exfalso
-    -- `x = 0` would put `x` on the grid at `a`, already excluded.
-    have hx_ne : x ≠ 0 := by
-      intro hx0
-      refine hxa ?_
-      have h0a : (0 : ℝ) ≤ (a : ℝ) := by
-        simpa [hx0] using ha_max 0 (FiniteFormat.zero_mem F.unbounded) (by simp [hx0])
-      have ha0 : (a : ℝ) ≤ 0 := by rw [← hx0]; exact ha_le
-      rw [hx0]; linarith
     obtain ⟨Fa, hFa, hFa_odd⟩ := hpa hxa
     obtain ⟨Fb, hFb, hFb_odd⟩ := hpb hxb
-    exact (isOdd_alternate_of_bracketing (F := F.unbounded) h hx_ne hda hub hxa).mp
+    exact (isOdd_alternate_of_bracketing (F := F.unbounded) h hda hub hxa).mp
       ((ParityFormat.IsOdd_iff_of_toFormat_eq hFb b).mp hFb_odd)
       ((ParityFormat.IsOdd_iff_of_toFormat_eq hFa a).mp hFa_odd)
   rcases isFaithfulRound_iff_directed.mp hf₁ with hd₁ | hu₁ <;>
@@ -270,18 +232,12 @@ theorem RoundsFinite.unique_toOdd {F : FiniteFormat} {x : ℝ}
   · exact (mixed hd₂ hu₁ hp₂ hp₁).symm
   · exact RoundsFinite.unique_toPositive hu₁ hu₂
 
-/-! ### Uniqueness for the nearest modes
+/-! ### Uniqueness for the nearest modes -/
 
-Two nearest roundings of `x` are equidistant from it, so if they differ they
-sit on opposite sides (`IsFaithfulRound.opposite_sides_of_ne`) and the
-tie-break clause has to separate them. For `.toEven` it cannot: adjacent grid
-points alternate in parity, so they are not both even. For `.awayZero` equal
-magnitudes on opposite sides force `x = 0`, where both roundings are `0`.
-
-This mirrors Flocq's `Rnd_NG_pt_unique` (`Round_pred.v:707`), whose
-`Rnd_NG_pt_unique_prop` obligation is exactly the mixed case handled here. -/
-
-/-- **Nearest rounding is unique**, for either tie-break. -/
+/-- Two nearest roundings are equidistant from `x`, so if they differ they sit
+on opposite sides and the tie-break must separate them. It cannot: `.toEven`
+would need both neighbours even, and `.awayZero` equal magnitudes across zero,
+forcing `x = 0` where both roundings are `0`. Flocq `Rnd_NG_pt_unique`. -/
 theorem RoundsFinite.unique_nearest {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
     (h : ¬ F.IsUndefined (.nearest tb)) {y₁ y₂ : Dyadic}
     (h₁ : RoundsFinite F.unbounded (.nearest tb) x y₁)
@@ -290,17 +246,12 @@ theorem RoundsFinite.unique_nearest {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
   -- A round-down and a round-up that are equidistant from `x` and distinct
   -- put `x` strictly between them; in particular `x` is neither of them, and
   -- `x ≠ 0` (at `0` both roundings are `0`).
-  have offGrid : ∀ {a b : Dyadic}, RoundsFinite F.unbounded .toNegative x a →
-      RoundsFinite F.unbounded .toPositive x b → a ≠ b →
-      |x - (a : ℝ)| = |x - (b : ℝ)| → x ≠ (a : ℝ) ∧ x ≠ 0 := by
-    intro a b hda hub hab hdist
-    have hxa : x ≠ (a : ℝ) := by
-      intro hx
-      have hzero : |x - (b : ℝ)| = 0 := by rw [← hdist, hx, sub_self, abs_zero]
-      exact hab (Dyadic.ext_real (hx.symm.trans (by linarith [abs_eq_zero.mp hzero])))
-    refine ⟨hxa, fun hx0 => hxa ?_⟩
-    have hda0 : RoundsFinite F.unbounded .toNegative 0 a := by rw [← hx0]; exact hda
-    rw [hx0, RoundsFinite.eq_zero_of_zero hda0, Dyadic.coe_real_zero]
+  -- Equidistant and distinct puts `x` strictly between, so `x` is neither.
+  have offGrid : ∀ {a b : Dyadic}, a ≠ b →
+      |x - (a : ℝ)| = |x - (b : ℝ)| → x ≠ (a : ℝ) := by
+    intro a b hab hdist hx
+    have hzero : |x - (b : ℝ)| = 0 := by rw [← hdist, hx, sub_self, abs_zero]
+    exact hab (Dyadic.ext_real (hx.symm.trans (by linarith [abs_eq_zero.mp hzero])))
   cases tb with
   | awayZero =>
     obtain ⟨hm₁, hf₁, hmin₁, htie₁⟩ := h₁
@@ -320,8 +271,10 @@ theorem RoundsFinite.unique_nearest {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
         RoundsFinite F.unbounded .toPositive x b → a ≠ b →
         |x - (a : ℝ)| = |x - (b : ℝ)| → |(a : ℝ)| = |(b : ℝ)| → False := by
       intro a b hda hub hab hdist habs'
-      obtain ⟨hxa, hx0⟩ := offGrid hda hub hab hdist
-      refine hx0 ?_
+      have hxa := offGrid hab hdist
+      refine (fun hx0 : x = 0 => hxa (by
+        have hda0 : RoundsFinite F.unbounded .toNegative 0 a := by rw [← hx0]; exact hda
+        rw [hx0, RoundsFinite.eq_zero_of_zero hda0, Dyadic.coe_real_zero])) ?_
       have hle : (a : ℝ) ≤ x := hda.2.1
       have hge : x ≤ (b : ℝ) := hub.2.1
       -- `|a| = |b|` with `a ≠ b` forces `a = -b`, hence `a ≤ 0 ≤ b`.
@@ -359,17 +312,15 @@ theorem RoundsFinite.unique_nearest {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
         RoundsFinite F.unbounded .toPositive x b → a ≠ b →
         |x - (a : ℝ)| = |x - (b : ℝ)| → F''.IsEven a → F''.IsEven b → False := by
       intro a b hda hub hab hdist' heva hevb
-      obtain ⟨hxa, hx0⟩ := offGrid hda hub hab hdist'
       exact ParityFormat.not_isEven_and_isOdd hevb
-        ((isOdd_alternate_of_bracketing (F := F.unbounded) hodd hx0 hda hub hxa).mpr
+        ((isOdd_alternate_of_bracketing (F := F.unbounded) hodd hda hub
+            (offGrid hab hdist')).mpr
           (fun hoa => ParityFormat.not_isEven_and_isOdd heva hoa))
     rcases hf₁.opposite_sides_of_ne hf₂ hne with ⟨hd, hu⟩ | ⟨hd, hu⟩
     · exact key hd hu hne hdist even₁ even₂
     · exact key hd hu (Ne.symm hne) hdist.symm even₂ even₁
 
-/-- **The rounding spec pins its value**, for every mode — Flocq's
-`round_unique` (`Round_pred.v:89`). Purely relational: it never mentions the
-`rnd` construction, so it holds of whatever realises the spec. -/
+/-- The spec pins its value, for every mode (Flocq `round_unique`). -/
 theorem RoundsFinite.unique {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
     (h : ¬ F.IsUndefined rm) {y₁ y₂ : Dyadic}
     (h₁ : RoundsFinite F.unbounded rm x y₁)
@@ -383,33 +334,22 @@ theorem RoundsFinite.unique {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
   | toOdd => exact RoundsFinite.unique_toOdd h h₁ h₂
   | nearest _ => exact RoundsFinite.unique_nearest h h₁ h₂
 
-/-! ### Sign preservation and monotonicity
+/-! ### Sign preservation and monotonicity -/
 
-Flocq's `Rnd_DN_pt_monotone` / `Rnd_UP_pt_monotone` / `Rnd_ZR_pt_monotone`
-(`Round_pred.v:103`, `:134`, `:342`), plus the `round_pred_ge_0` /
-`round_pred_le_0` sign facts (`:1275`, `:1298`) that the mixed case of the
-zero-crossing modes needs.
-
-The directed proofs are one application of the other value's optimality. The
-sign-symmetric modes reduce to them on each side of zero, with the crossing
-case `x ≤ 0 ≤ y` handled separately. -/
-
-/-- Round-down of a non-negative value is non-negative: `0 ∈ F` is a candidate.
-Flocq's `round_pred_ge_0`. -/
+/-- `0 ∈ F` is a candidate (Flocq `round_pred_ge_0`). -/
 theorem RoundsFinite.toNegative_nonneg {F : FiniteFormat} {x : ℝ} (hx : 0 ≤ x)
     {y : Dyadic} (h : RoundsFinite F .toNegative x y) : (0 : ℝ) ≤ (y : ℝ) := by
   obtain ⟨-, -, hmax⟩ := h
   simpa using hmax 0 F.zero_mem (by simpa using hx)
 
-/-- Round-up of a non-positive value is non-positive. Flocq's
-`round_pred_le_0`. -/
+/-- Flocq `round_pred_le_0`. -/
 theorem RoundsFinite.toPositive_nonpos {F : FiniteFormat} {x : ℝ} (hx : x ≤ 0)
     {y : Dyadic} (h : RoundsFinite F .toPositive x y) : (y : ℝ) ≤ 0 := by
   obtain ⟨-, -, hmin⟩ := h
   simpa using hmin 0 F.zero_mem (by simpa using hx)
 
-/-- Round-down is monotone (Flocq's `Rnd_DN_pt_monotone`): `a ≤ x ≤ y`, so `a`
-is a candidate for `y`'s round-down and loses to its maximality. -/
+/-- `a ≤ x ≤ y`, so `a` loses to the maximality of `y`'s round-down
+(Flocq `Rnd_DN_pt_monotone`). -/
 theorem RoundsFinite.monotone_toNegative {F : FiniteFormat} {x y : ℝ} {a b : Dyadic}
     (ha : RoundsFinite F .toNegative x a) (hb : RoundsFinite F .toNegative y b)
     (hxy : x ≤ y) : (a : ℝ) ≤ (b : ℝ) := by
@@ -417,7 +357,7 @@ theorem RoundsFinite.monotone_toNegative {F : FiniteFormat} {x y : ℝ} {a b : D
   obtain ⟨-, -, hb_max⟩ := hb
   exact hb_max a ha_mem (ha_le.trans hxy)
 
-/-- Round-up is monotone (Flocq's `Rnd_UP_pt_monotone`). -/
+/-- Flocq `Rnd_UP_pt_monotone`. -/
 theorem RoundsFinite.monotone_toPositive {F : FiniteFormat} {x y : ℝ} {a b : Dyadic}
     (ha : RoundsFinite F .toPositive x a) (hb : RoundsFinite F .toPositive y b)
     (hxy : x ≤ y) : (a : ℝ) ≤ (b : ℝ) := by
@@ -425,8 +365,8 @@ theorem RoundsFinite.monotone_toPositive {F : FiniteFormat} {x y : ℝ} {a b : D
   obtain ⟨hb_mem, hb_ge, -⟩ := hb
   exact ha_min b hb_mem (hxy.trans hb_ge)
 
-/-- Round-toward-zero is monotone (Flocq's `Rnd_ZR_pt_monotone`). On each side
-of zero it is a directed mode; across zero the two results straddle `0`. -/
+/-- On each side of zero RTZ is a directed mode; across zero the two results
+straddle `0` (Flocq `Rnd_ZR_pt_monotone`). -/
 theorem RoundsFinite.monotone_toZero {F : FiniteFormat} {x y : ℝ} {a b : Dyadic}
     (ha : RoundsFinite F .toZero x a) (hb : RoundsFinite F .toZero y b)
     (hxy : x ≤ y) : (a : ℝ) ≤ (b : ℝ) := by
@@ -439,8 +379,7 @@ theorem RoundsFinite.monotone_toZero {F : FiniteFormat} {x y : ℝ} {a b : Dyadi
   · exact (toPositive_nonpos hx ((toPositive_iff_toZero_of_nonpos F hx a).mpr ha)).trans
       (toNegative_nonneg hy ((toNegative_iff_toZero_of_nonneg F hy b).mpr hb))
 
-/-- Round-away-from-zero is monotone. Across zero the results straddle it
-outward: `a ≤ x ≤ 0 ≤ y ≤ b`. -/
+/-- Across zero the results straddle it outward: `a ≤ x ≤ 0 ≤ y ≤ b`. -/
 theorem RoundsFinite.monotone_awayZero {F : FiniteFormat} {x y : ℝ} {a b : Dyadic}
     (ha : RoundsFinite F .awayZero x a) (hb : RoundsFinite F .awayZero y b)
     (hxy : x ≤ y) : (a : ℝ) ≤ (b : ℝ) := by
@@ -453,16 +392,10 @@ theorem RoundsFinite.monotone_awayZero {F : FiniteFormat} {x y : ℝ} {a b : Dya
   · exact (((toNegative_iff_awayZero_of_nonpos F hx a).mpr ha).2.1.trans hx).trans
       (hy.trans ((toPositive_iff_awayZero_of_nonneg F hy b).mpr hb).2.1)
 
-/-- **RTO is monotone.** Flocq gets this from `Valid_rnd Zrnd_odd`
-(`Round_odd.v:37`): there the rounding is an integer function, and consecutive
-mantissas alternate in parity for free. Relationally we argue directly. Both
-values are faithful, so there are four side-combinations; three are immediate
-and the fourth cannot occur.
-
-In that fourth case `a` rounds `x` up while `b` rounds `y` down. If `x ≤ b` or
-`a ≤ y` the optimality of `a` resp. `b` settles it. Otherwise `b < x ≤ y < a`,
-which makes `b` the round-down of `x` as well — so `b` and `a` bracket `x` and
-must alternate in parity, while the RTO clauses make both odd. -/
+/-- Four side-combinations; three are immediate. In the fourth `a` rounds `x`
+up and `b` rounds `y` down: `x ≤ b` or `a ≤ y` settles it by optimality, and
+otherwise `b < x ≤ y < a` makes `b` the round-down of `x` too, so `a` and `b`
+bracket `x` and cannot both be odd. -/
 theorem RoundsFinite.monotone_toOdd {F : FiniteFormat} (h : ¬ F.IsUndefined .toOdd)
     {x y : ℝ} {a b : Dyadic}
     (ha : RoundsFinite F.unbounded .toOdd x a)
@@ -484,25 +417,16 @@ theorem RoundsFinite.monotone_toOdd {F : FiniteFormat} (h : ¬ F.IsUndefined .to
     push Not at hxb hay
     have hdn_x : RoundsFinite F.unbounded .toNegative x b :=
       ⟨hb_mem, hxb.le, fun z hz hzx => hb_max z hz (hzx.trans hxy)⟩
-    have hx_ne : x ≠ 0 := by
-      intro hx0
-      have h0y : ((0 : Dyadic) : ℝ) ≤ y := by
-        rw [Dyadic.coe_real_zero, ← hx0]; exact hxy
-      have h0b := hb_max 0 (FiniteFormat.zero_mem F.unbounded) h0y
-      rw [Dyadic.coe_real_zero] at h0b
-      rw [hx0] at hxb
-      linarith
     obtain ⟨Fa, hFa, hFa_odd⟩ := ha_par (ne_of_lt (hxy.trans_lt hay))
     obtain ⟨Fb, hFb, hFb_odd⟩ := hb_par (ne_of_lt (hxb.trans_le hxy)).symm
-    exact (isOdd_alternate_of_bracketing (F := F.unbounded) h hx_ne hdn_x hua
+    exact (isOdd_alternate_of_bracketing (F := F.unbounded) h hdn_x hua
         (ne_of_lt hxb).symm).mp
       ((ParityFormat.IsOdd_iff_of_toFormat_eq hFa a).mp hFa_odd)
       ((ParityFormat.IsOdd_iff_of_toFormat_eq hFb b).mp hFb_odd)
   · exact monotone_toPositive hua hub hxy
 
-/-- The nearest-minimality conjunct, extracted uniformly over the tie-break.
-Both `TieBreak` cases carry it in the same position, but the `match` on the
-mode does not reduce until `tb` is known. -/
+/-- The nearest-minimality conjunct, uniform in the tie-break: both cases carry
+it in the same position, but the mode `match` needs `tb` to reduce. -/
 theorem RoundsFinite.nearest_min {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
     {y : Dyadic} (h : RoundsFinite F (.nearest tb) x y) {z : Dyadic}
     (hz : z ∈ F) (hzf : IsFaithfulRound F x z) :
@@ -511,19 +435,10 @@ theorem RoundsFinite.nearest_min {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
   | toEven => exact h.2.2.1 z hz hzf
   | awayZero => exact h.2.2.1 z hz hzf
 
-/-- **Nearest rounding is monotone**, for either tie-break.
-
-Flocq splits this in two: `Rnd_N_pt_monotone` (`Round_pred.v:435`) holds only
-for **strict** `x < y`, and `Rnd_NG_pt_monotone` (`:729`) patches `x = y` using
-uniqueness. We reach the same place in one theorem, because the faithful case
-split settles three of the four side-combinations without needing strictness.
-
-Only `a = UP x`, `b = DN y` is delicate. If `x ≤ b` or `a ≤ y` the relevant
-optimality applies. Otherwise `b < x ≤ y < a`, and then `b` is faithful for `x`
-and `a` for `y` — so each value's nearest-minimality can be tested against the
-*other*, and the two inequalities add up to `y ≤ x`. That forces `x = y`, where
-`unique_nearest` finishes. Flocq's strict/equal split is exactly this last
-step. -/
+/-- As `monotone_toOdd`, but the fourth case closes differently: under
+`b < x ≤ y < a` each of `a`, `b` is faithful for the *other* point, so both
+minimality clauses apply across the pair and add up to `y ≤ x`. Then `x = y`
+and `unique_nearest` finishes (Flocq `Rnd_N_pt_monotone` + `Rnd_NG_pt_monotone`). -/
 theorem RoundsFinite.monotone_nearest {F : FiniteFormat} {tb : TieBreak}
     (h : ¬ F.IsUndefined (.nearest tb)) {x y : ℝ} {a b : Dyadic}
     (ha : RoundsFinite F.unbounded (.nearest tb) x a)
@@ -557,14 +472,9 @@ theorem RoundsFinite.monotone_nearest {F : FiniteFormat} {tb : TieBreak}
     exact le_of_eq (by rw [RoundsFinite.unique_nearest h ha hb])
   · exact monotone_toPositive hua hub hxy
 
-/-- **Rounding is monotone**, for every mode — Flocq's `round_le`
-(`Generic_fmt.v:923`). Flocq derives it once from the `Valid_rnd` class; lacking
-that abstraction we dispatch over the six per-mode proofs above.
-
-Stated on `RoundsFinite` only. A `RoundResult`-level version would need an order
-placing `.overflow false` below every `.finite` and `.overflow true` above them;
-nothing needs that yet, and Flocq has no counterpart since its formats have no
-magnitude bound. -/
+/-- Flocq `round_le`. Stated on `RoundsFinite`: a `RoundResult` version would
+need an order placing `.overflow false` below every `.finite` and
+`.overflow true` above. -/
 theorem RoundsFinite.monotone {F : FiniteFormat} {rm : RoundingMode}
     (h : ¬ F.IsUndefined rm) {x y : ℝ} {a b : Dyadic}
     (ha : RoundsFinite F.unbounded rm x a)

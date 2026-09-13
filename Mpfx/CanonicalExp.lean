@@ -165,9 +165,7 @@ theorem quantumAtLeast_mul {e₁ e₂ : QExp} {x y : Dyadic}
 
 /-! ### Format-dependent scaled-mantissa facts
 
-The companions of the arithmetic block in `Mpfx/Utils.lean` that mention the
-format — Flocq keeps these beside `cexp` in `Core/Generic_fmt.v`
-(`scaled_mantissa_lt_bpow`, `mantissa_small_pos`, …). -/
+The companions of the `Mpfx/Utils.lean` block that mention the format. -/
 
 /-- Generic floor-minimality: if `z ∈ F.unbounded` and `z ≤ x`, then `z` is
 ≤ the floor-projection of `x` at the canonical exponent. Used by `_toNegative`

@@ -1,21 +1,15 @@
 import Mpfx.RoundOp.Defs
 import Mpfx.Parity
-import Mpfx.RoundOp.Directed
 import Mpfx.RoundPred
 
 /-!
-# Constructive rounding: `toOdd` obligations
-
-Soundness and uniqueness for the `toOdd` rounding mode.
+# Soundness of `rndUnbounded` for `toOdd`
 -/
 
 namespace Mpfx
 
 attribute [local instance] Classical.propDecidable
 
-/-- `Dyadic.ofIntZpow k e` is in `F.unbounded` provided `e ≥ F.exp` and (when
-`F.p` is finite) `|k| ≤ 2^p`. The mantissa-bound boundary case `|k| = 2^p`
-is handled by `precisionAtMost_of_abs_le`. -/
 theorem rndUnbounded_satisfies_toOdd (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toOdd) :
     RoundsFinite F.unbounded .toOdd x (rndUnbounded F .toOdd x h) := by

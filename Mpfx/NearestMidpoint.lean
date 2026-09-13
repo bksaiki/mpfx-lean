@@ -8,15 +8,15 @@ import Mpfx.Containment
 This file builds the round-to-nearest infrastructure behind Roux's
 operation-specific double-rounding results for addition, square root and
 division (`docs/agents/DOUBLE_ROUNDING_OPS_PLAN.md`, Phase 2). The centrepiece
-is **Lemma 16** (`round_round_lt_mid_further_place` in Flocq
-`src/Prop/Double_rounding.v`): when a positive real sits far enough below its
+is **Lemma 16** (Flocq `round_round_lt_mid_further_place`): when a positive real
+sits far enough below its
 `F₁`-midpoint, an intermediate round-to-nearest in a finer format `F₂` followed
 by a round-to-nearest in `F₁` agrees with rounding directly into `F₁`.
 
 ## Definitions (faithful to Flocq)
 
 * `ulp F x := 2 ^ (F.canonicalExp x)` — the unit in the last place. `canonicalExp`
-  is Flocq's `cexp = fexp (mag x)`, and the Grid theory already proves F-adjacent
+  is Flocq's `cexp`, and the Grid theory already proves F-adjacent
   values differ by `2 ^ canonicalExp`, so this is the step the grid rests on.
 * `rndDown F x` — the round-**down** (toward `−∞`) value, `⌊x·2^(−e)⌋·2^e`; the
   analog of Flocq's `round … Zfloor`. Total and always finite (taken in the
@@ -28,19 +28,19 @@ by a round-to-nearest in `F₁` agrees with rounding directly into `F₁`.
 namespace Mpfx
 
 /-- **ulp** — unit in the last place of `x` in `F`, `2 ^ (F.canonicalExp x)`
-(Flocq `ulp beta fexp x = bpow (cexp x)`). -/
+(Flocq `ulp`). -/
 noncomputable def ulp (F : FiniteFormat) (x : ℝ) : ℝ := (2 : ℝ) ^ F.canonicalExp x
 
 theorem ulp_pos (F : FiniteFormat) (x : ℝ) : 0 < ulp F x :=
   zpow_pos (by norm_num) _
 
 /-- **Round-down** — the round-toward-`−∞` value of `x` in `F`, always finite
-(the unbounded directed rounding is never undefined). Flocq's
+(the unbounded directed rounding is never undefined). Flocq
 `round … Zfloor x`. -/
 noncomputable def rndDown (F : FiniteFormat) (x : ℝ) : Dyadic :=
   rndUnbounded F .toNegative x (not_isUndefined_toNegative F)
 
-/-- Closed form of the round-down: `⌊x·2^(−e)⌋·2^e` at `e = canonicalExp x`. -/
+/-- `⌊x·2^(−e)⌋·2^e` at `e = canonicalExp x`. -/
 theorem rndDown_eq (F : FiniteFormat) (x : ℝ) :
     rndDown F x =
       Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-(F.canonicalExp x))⌋ (F.canonicalExp x) :=
@@ -270,7 +270,7 @@ theorem nearest_eq_rndDown_of_lt_midp (F : FiniteFormat) (tb : TieBreak) (ξ : �
   rw [rndDown_eq]
   exact nearest_eq_of_close F tb ξ hundef (he ▸ hclose)
 
-/-- Closed form of the round-up: `⌈x·2^(−e)⌉·2^e`. -/
+/-- `⌈x·2^(−e)⌉·2^e`. -/
 theorem rndUp_eq (F : FiniteFormat) (x : ℝ) :
     rndUp F x =
       Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x) :=

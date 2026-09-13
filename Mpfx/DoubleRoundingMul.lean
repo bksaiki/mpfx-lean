@@ -7,7 +7,7 @@ import Mpfx.CanonicalExp
 # Operation-specific double rounding: multiplication (Roux 2014)
 
 Pierre Roux, *Innocuous Double Rounding of Basic Arithmetic Operations*
-(JFR 7(1), 2014; Flocq `src/Prop/Double_rounding.v`), proves double rounding
+(JFR 7(1), 2014), proves double rounding
 innocuous for the *results of specific operations* under precision
 relationships weaker than the generic §5.2 rules (`DoubleRounding.lean`).
 Where the generic rules hold for every real `x`, these hold only for the

@@ -2,16 +2,10 @@ import Mpfx.RoundOp.Defs
 import Mpfx.RoundPred
 
 /-!
-# Constructive rounding: directed-mode obligations
+# Soundness of `rndUnbounded` for the directed modes
 
-Soundness and uniqueness for the directed modes
-(`toNegative`, `toPositive`, `toZero`, `awayZero`).
-
-`toZero`/`awayZero` are *not* proved from scratch: on `0 ≤ x` they coincide
-(as functions) with `toNegative`/`toPositive`, and on `x < 0` with the other,
-so their obligations transport through the sign-equivalences
-`RoundsFinite.{toNegative_iff_toZero_of_nonneg, …}` already established in
-`Mpfx/Rounding.lean` (the mpfx analogues of Flocq `round_ZR_DN`/`round_AW_UP`).
+`toZero`/`awayZero` transport from `toNegative`/`toPositive` through the
+sign-equivalences in `Mpfx/Rounding.lean` (Flocq `round_ZR_DN`/`round_AW_UP`).
 -/
 
 namespace Mpfx

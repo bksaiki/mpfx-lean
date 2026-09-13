@@ -121,9 +121,8 @@ theorem mul_nonneg_of_common_sign {x : ℝ} {y z : ℝ}
 
 /-! ### Scaled-mantissa arithmetic
 
-Floor/ceiling and `Int.log` facts about `x · 2^(-e)` that the rounding
-construction leans on. Format-free, in the spirit of Flocq's `Core/Raux.v`;
-the format-dependent companions live in `Mpfx/CanonicalExp.lean`. -/
+Floor/ceiling and `Int.log` facts about `x · 2^(-e)`. The format-dependent
+companions are in `Mpfx/CanonicalExp.lean`. -/
 
 /-- For `r` with `|r| < N`, the floor `⌊r⌋` has `|⌊r⌋| ≤ N`. The
 asymmetry: negative floors can saturate (e.g. `⌊-1.5⌋ = -2` with

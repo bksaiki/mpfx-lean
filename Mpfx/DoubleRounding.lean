@@ -1868,10 +1868,8 @@ private theorem RoundsFinite.toOdd_lift {F : FiniteFormat} {x : ℝ}
     fun hne => parity_witness_congr (F := F) (G := F.unbounded) rfl rfl (hwparity hne)⟩
 
 
-/-- Three faithful witnesses with `c ∉ {w, y}` force `y = w`: there are at most
-two distinct faithful values, one per side, and `c` occupies one of them.
-Per-side uniqueness is `RoundsFinite.unique_toNegative` / `unique_toPositive`
-(`Mpfx/RoundPred.lean`). -/
+/-- There are at most two faithful values, one per side, so a third witness
+`c ∉ {w, y}` forces `y = w`. -/
 private theorem faithful_eq_of_third {F : FiniteFormat} {x : ℝ} {w y c : Dyadic}
     (hwf : IsFaithfulRound F.unbounded x w)
     (hyf : IsFaithfulRound F.unbounded x y)
