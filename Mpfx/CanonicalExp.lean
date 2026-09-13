@@ -417,4 +417,17 @@ theorem floor_mantissa_lt {F : FiniteFormat} {x : ℝ}
       _ ≤ (2 : ℝ) ^ (p : ℤ) := zpow_le_zpow_right₀ (by norm_num) hle
       _ = (2 : ℝ) ^ p := by rw [zpow_natCast]
 
+/-- `canonicalExp` depends only on the binade `Int.log 2 |·|` (away from `0`):
+equal logs give equal canonical exponents. -/
+theorem canonicalExp_eq_of_log_eq (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0) (hz : z ≠ 0)
+    (h : Int.log 2 |y| = Int.log 2 |z|) : F.canonicalExp y = F.canonicalExp z := by
+  unfold FiniteFormat.canonicalExp
+  cases F.p <;> cases F.exp <;> simp only [if_neg hy, if_neg hz, h]
+
+/-- `canonicalExp` depends only on `|·|`, hence is negation-invariant. -/
+theorem canonicalExp_neg (F : FiniteFormat) (x : ℝ) :
+    F.canonicalExp (-x) = F.canonicalExp x := by
+  unfold FiniteFormat.canonicalExp
+  cases F.p <;> cases F.exp <;> simp only [abs_neg, neg_eq_zero]
+
 end Mpfx
