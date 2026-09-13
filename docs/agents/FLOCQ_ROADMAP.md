@@ -242,5 +242,5 @@ than a proof. A near-duplicate similarity score detects *the same steps with
 different lemmas* as readily as real duplication — check what varies before
 committing.
 
-The one unexplored candidate with real potential is
-`gap_around_m_mem` / `gap_around_mid3_mem` (see `TODO.md`).
+The one real hit was `gap_around_m_mem` / `gap_around_mid3_mem`, now both
+wrappers over `gap_around_odd_mem` (odd `c`, `2^j < c < 2^(j+1)`).

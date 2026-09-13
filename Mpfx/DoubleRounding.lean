@@ -379,27 +379,6 @@ of `z` in `F₁`, collapses to a single RTZ rounding of `x` in `F₁`. Uses the
 simpler containment hypothesis `F₁.extend 1 ⊆ F₂` plus the explicit
 precision bound `2 ≤ F₂.p`. -/
 
-/-- The RTO-rounding of `0` in any (finite) format is `0` itself: the only
-faithful rounding of `0` is `0`, since `0 ∈ F`. -/
-private theorem toOdd_eq_zero_of_zero {F : FiniteFormat} {z : Dyadic}
-    (h : RoundsFinite F .toOdd 0 z) : z = 0 := by
-  obtain ⟨_, hfaithful, _⟩ := h
-  have hz_eq : (z : ℝ) = 0 := by
-    rcases hfaithful with hRD | hRU
-    · obtain ⟨_, hz_le, hz_max⟩ := hRD
-      have h0 : ((0 : Dyadic) : ℝ) ≤ (z : ℝ) := by
-        have := hz_max 0 F.zero_mem (le_of_eq (by rw [Dyadic.coe_real_zero]))
-        rwa [Dyadic.coe_real_zero] at this ⊢
-      rw [Dyadic.coe_real_zero] at h0
-      linarith
-    · obtain ⟨_, hle, hz_min⟩ := hRU
-      have h0 : (z : ℝ) ≤ ((0 : Dyadic) : ℝ) := by
-        have := hz_min 0 F.zero_mem (le_of_eq (by rw [Dyadic.coe_real_zero]))
-        rwa [Dyadic.coe_real_zero] at this ⊢
-      rw [Dyadic.coe_real_zero] at h0
-      linarith
-  exact eq_zero_of_coe_real_zero hz_eq
-
 /-- The RTO-rounding of a non-negative `x` is non-negative (uses faithfulness:
 either disjunct of `IsFaithfulRound` forces `0 ≤ z` when `0 ≤ x`). -/
 private theorem toOdd_nonneg_of_nn {F : FiniteFormat} {x : ℝ} {z : Dyadic}
@@ -870,7 +849,7 @@ theorem rndRTO_RTZ {F₁ F₂ : FiniteFormat}
       rwa [neg_neg, neg_neg] at hfinal
     · -- x = 0: forces z = 0 and w' = 0.
       subst hx_zero
-      have hz_zero : z = 0 := toOdd_eq_zero_of_zero hz
+      have hz_zero : z = 0 := RoundsFinite.eq_zero_of_zero hz
       rw [hz_zero] at hw
       obtain ⟨hw'F₁, hw'_bnd, _, _⟩ := hw
       have hw'_zero : (w' : ℝ) = 0 := by
@@ -988,7 +967,7 @@ theorem rndRTO_RAZ {F₁ F₂ : FiniteFormat}
       rwa [neg_neg, neg_neg] at hfinal
     · -- x = 0: forces z = 0 and w' = 0.
       subst hx_zero
-      have hz_zero : z = 0 := toOdd_eq_zero_of_zero hz
+      have hz_zero : z = 0 := RoundsFinite.eq_zero_of_zero hz
       rw [hz_zero] at hw
       obtain ⟨hw'F₁, _, _, hw'_min⟩ := hw
       have h_min := hw'_min 0 F₁.zero_mem (le_refl _) (by simp)
@@ -2192,7 +2171,7 @@ private theorem toOdd_abs_le_of_awayZero {F₁ F₂ : FiniteFormat}
       · rw [abs_of_nonpos h1, abs_of_nonpos hy_np]; linarith
       · nlinarith
   · -- `x = 0`: `z = 0`.
-    have hz0 : z = 0 := toOdd_eq_zero_of_zero (hx_zero ▸ hz)
+    have hz0 : z = 0 := RoundsFinite.eq_zero_of_zero (hx_zero ▸ hz)
     rw [hz0]
     constructor
     · rw [Dyadic.coe_real_zero, abs_zero]; exact abs_nonneg _
@@ -2424,8 +2403,8 @@ private theorem nearest_components {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
     {y : Dyadic} (h : RoundsFinite F (.nearest tb) x y) :
     y ∈ F ∧ IsFaithfulRound F x y ∧
       ∀ c : Dyadic, c ∈ F → IsFaithfulRound F x c →
-        |x - (y : ℝ)| ≤ |x - (c : ℝ)| := by
-  cases tb <;> exact ⟨h.1, h.2.1, h.2.2.1⟩
+        |x - (y : ℝ)| ≤ |x - (c : ℝ)| :=
+  ⟨h.1, h.isFaithfulRound, fun _ hc hcf => h.nearest_min hc hcf⟩
 
 
 /-- The midpoint `M = nextᵉ(b₁)` lies in the paper RN containment format
@@ -3160,7 +3139,7 @@ theorem roundsRTO_RTO {F₁ F₂ : FiniteFormat}
         ⟨D, hreg_G, hD_le, hD_max, hmono, -⟩
       · exact rounds_total_of_zero_bound h₁u (not_isUndefined_of_two_le_p hp_F₂)
           (fun hy hy0 => eq_zero_of_faithful_zero hexp hy.2.1 hy0)
-          (fun hz => by rw [toOdd_eq_zero_of_zero hz, Dyadic.coe_real_zero])
+          (fun hz => by rw [RoundsFinite.eq_zero_of_zero hz, Dyadic.coe_real_zero])
           hF₁b hb₁0 x
       · exact rounds_floor_lift hD_le hD_max (key _
           (fun v hv => hsub v ⟨hv.1, hv.2.1,
@@ -3237,7 +3216,7 @@ theorem roundsRTO_RTZ {F₁ F₂ : FiniteFormat}
       · exact rounds_total_of_zero_bound (not_isUndefined_toZero F₁)
           (not_isUndefined_of_two_le_p hp_F₂)
           (fun hy hy0 => eq_zero_of_toZero_zero hexp hy hy0)
-          (fun hz => by rw [toOdd_eq_zero_of_zero hz, Dyadic.coe_real_zero])
+          (fun hz => by rw [RoundsFinite.eq_zero_of_zero hz, Dyadic.coe_real_zero])
           hF₁b hb₁0 x
       · exact rounds_floor_lift hD_le hD_max (key _
           (fun v hv => hsub v ⟨hv.1, hv.2.1,
@@ -3369,7 +3348,7 @@ theorem roundsRTO_RN {F₁ F₂ : FiniteFormat}
         ⟨D, hreg_G, hD_le, hD_max, -, hmono_ext⟩
       · exact rounds_total_of_zero_bound h₁u (not_isUndefined_of_two_le_p hp_F₂)
           (fun hy hy0 => eq_zero_of_faithful_zero hexp (nearest_components hy).2.1 hy0)
-          (fun hz => by rw [toOdd_eq_zero_of_zero hz, Dyadic.coe_real_zero])
+          (fun hz => by rw [RoundsFinite.eq_zero_of_zero hz, Dyadic.coe_real_zero])
           hF₁b hb₁0 x
       · exact rounds_floor_lift hD_le hD_max (key _
           (fun v hv => hsub v ⟨hv.1, hv.2.1,

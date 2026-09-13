@@ -117,11 +117,10 @@ Mpfx/
 
 ## Open: Rounding API extensions
 
-- [ ] **Generalise `gap_around_m_mem` / `gap_around_mid3_mem`**
-      (`DoubleRoundingCex.lean`, 223 lines, ~110 recoverable). The same "gap of
-      width `2^K` around `c·2^(e-1)`" theorem for `c = 7` and `c = 3`, differing
-      only in the bracketing powers. Wants one lemma over odd `c` with
-      `2^k < c < 2^(k+1)` — a generalisation, not a merge.
+- [x] **Generalise `gap_around_m_mem` / `gap_around_mid3_mem`**
+      (`DoubleRoundingCex.lean`, −118 lines). Both are now `simpa` wrappers over
+      `gap_around_odd_mem`, stated for odd `c` with `2^j < c < 2^(j+1)`; `j`
+      fixes the binade, so the bracketing powers stop being constants.
 
 - [ ] **Move `nearest_neighbors_setup` out of `RoundOp/`.** It is
       construction-free and now slim, but still sits under the function layer.

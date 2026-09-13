@@ -727,10 +727,101 @@ private theorem gap_around_mid (F₂ : FiniteFormat) {e a : ℤ}
       rw [← hc] at h_gap
       exact gap_bound_above hz_gt h_gap
 
-/-- **Shape dispatch: full-step gaps around the representable midpoint**
-`m = 7·2^(e−1)` when `m ∈ F₂`: there is a local step `2^K` (`K ≤ e − 1`)
-with `m` on the step grid and `F₂`-elements keeping the full distance `2^K`
-from `m` on both sides. -/
+/-- **Full-step gaps around a representable odd multiple.** For odd `c` with
+`2^j < c < 2^(j+1)`, if `c·2^(e−1) ∈ F₂` then there is a local step `2^K`
+(`K ≤ e − 1`) with every other `F₂`-element at distance at least `2^K` from
+`c·2^(e−1)` on both sides.
+
+`j` is where the constant enters: it places `c·2^(e−1)` in the binade
+`[2^(e−1+j), 2^(e−1+j+1))`. -/
+private theorem gap_around_odd_mem (F₂ : FiniteFormat) {c : ℤ} {j : ℕ} {e : ℤ}
+    (hc_odd : Odd c) (hc_lo : (2 : ℤ) ^ j < c) (hc_hi : c < (2 : ℤ) ^ (j + 1))
+    (hm : Dyadic.ofIntZpow c (e - 1) ∈ F₂.toFormat) :
+    ∃ K : ℤ, K ≤ e - 1 ∧
+      (∀ z ∈ F₂.toFormat, ((z : Dyadic) : ℝ) < (c : ℝ) * (2 : ℝ) ^ (e - 1) →
+        ((z : Dyadic) : ℝ) ≤ (c : ℝ) * (2 : ℝ) ^ (e - 1) - (2 : ℝ) ^ K) ∧
+      (∀ z ∈ F₂.toFormat, (c : ℝ) * (2 : ℝ) ^ (e - 1) < ((z : Dyadic) : ℝ) →
+        (c : ℝ) * (2 : ℝ) ^ (e - 1) + (2 : ℝ) ^ K ≤ ((z : Dyadic) : ℝ)) := by
+  have hc_pos : 0 < c := lt_trans (by positivity) hc_lo
+  have hm_eq : ((Dyadic.ofIntZpow c (e - 1) : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ (e - 1) :=
+    Dyadic.coe_ofIntZpow _ _
+  have h2e1_pos : (0 : ℝ) < (2 : ℝ) ^ (e - 1) := zpow_pos (by norm_num) _
+  -- the two binade walls, as multiples of `2 ^ (e − 1)`
+  have hsplit : ∀ n : ℕ, (2 : ℝ) ^ (e - 1 + (n : ℤ)) = (2 : ℝ) ^ n * (2 : ℝ) ^ (e - 1) := by
+    intro n; rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_natCast]; ring
+  have hcR_lo : (2 : ℝ) ^ j + 1 ≤ (c : ℝ) := by
+    exact_mod_cast Int.add_one_le_iff.mpr hc_lo
+  have hcR_hi : (c : ℝ) + 1 ≤ (2 : ℝ) ^ (j + 1) := by
+    exact_mod_cast Int.add_one_le_iff.mpr hc_hi
+  rcases hexp : F₂.exp with _ | f₂
+  · -- `exp = ⊥`: membership bounds the coefficient, giving a binade-wide step
+    have hp_ne : F₂.p ≠ ⊤ := by
+      rcases F₂.finite with h | h
+      · exact h
+      · exact absurd hexp h
+    obtain ⟨q₂, hq₂_eq⟩ := WithTop.ne_top_iff_exists.mp hp_ne
+    have hp : F₂.p = (q₂ : Prec) := hq₂_eq.symm
+    have hcq := coeff_lt_of_odd_mem hp hc_odd hc_pos hm hm_eq
+    have hq₂_ge : (j : ℤ) + 1 ≤ (q₂ : ℤ) := by
+      have h : (2 : ℤ) ^ j < 2 ^ q₂ := lt_trans hc_lo hcq
+      have : j < q₂ := (pow_lt_pow_iff_right₀ (by norm_num : (1 : ℤ) < 2)).mp h
+      omega
+    refine ⟨e - 1 + (j : ℤ) - (q₂ : ℤ) + 1, by omega, ?_, ?_⟩ <;>
+      set K : ℤ := e - 1 + (j : ℤ) - (q₂ : ℤ) + 1 with hK_def <;>
+      have hK_le : (2 : ℝ) ^ K ≤ (2 : ℝ) ^ (e - 1) :=
+        zpow_le_zpow_right₀ (by norm_num) (by omega) <;>
+      have h_m_rep : (c : ℝ) * (2 : ℝ) ^ (e - 1)
+          = ((c * (2 : ℤ) ^ ((e - 1) - K).toNat : ℤ) : ℝ) * (2 : ℝ) ^ K := by
+        rw [two_zpow_split (e - 1) K (by omega)]; push_cast; ring
+    · intro z hz hz_lt
+      rcases lt_or_ge ((z : Dyadic) : ℝ) ((2 : ℝ) ^ (e - 1 + (j : ℤ))) with h_below | h_in
+      · rw [hsplit] at h_below; nlinarith
+      · have h_in_hi : ((z : Dyadic) : ℝ) < (2 : ℝ) ^ (e - 1 + (j : ℤ) + 1) := by
+          rw [show e - 1 + (j : ℤ) + 1 = e - 1 + ((j + 1 : ℕ) : ℤ) by push_cast; ring, hsplit]
+          nlinarith
+        obtain ⟨c', hc'⟩ := binade_quantum hp hz h_in h_in_hi
+        rw [show e - 1 + (j : ℤ) - (q₂ : ℤ) + 1 = K from hK_def.symm] at hc'
+        have h_gap := gap_of_ne_aligned (c := c')
+          (a := c * (2 : ℤ) ^ ((e - 1) - K).toNat) (K := K) (E := K) le_rfl
+          (by rw [← hc', ← h_m_rep]; exact ne_of_lt hz_lt)
+        rw [← hc', ← h_m_rep] at h_gap
+        exact gap_bound_below hz_lt h_gap
+    · intro z hz hz_gt
+      rcases lt_or_ge ((z : Dyadic) : ℝ) ((2 : ℝ) ^ (e - 1 + ((j + 1 : ℕ) : ℤ))) with h_in | h_above
+      · have h_in_lo : (2 : ℝ) ^ (e - 1 + (j : ℤ)) ≤ ((z : Dyadic) : ℝ) := by
+          rw [hsplit]; nlinarith
+        have h_in_hi : ((z : Dyadic) : ℝ) < (2 : ℝ) ^ (e - 1 + (j : ℤ) + 1) := by
+          rw [show e - 1 + (j : ℤ) + 1 = e - 1 + ((j + 1 : ℕ) : ℤ) by push_cast; ring]; exact h_in
+        obtain ⟨c', hc'⟩ := binade_quantum hp hz h_in_lo h_in_hi
+        rw [show e - 1 + (j : ℤ) - (q₂ : ℤ) + 1 = K from hK_def.symm] at hc'
+        have h_gap := gap_of_ne_aligned (c := c')
+          (a := c * (2 : ℤ) ^ ((e - 1) - K).toNat) (K := K) (E := K) le_rfl
+          (by rw [← hc', ← h_m_rep]; exact (ne_of_lt hz_gt).symm)
+        rw [← hc', ← h_m_rep] at h_gap
+        exact gap_bound_above hz_gt h_gap
+      · rw [hsplit] at h_above; nlinarith
+  · -- `exp = f₂`: every element sits on the quantum grid `2 ^ f₂`, and `f₂ ≤ e − 1`
+    have hexpc : F₂.exp = (f₂ : QExp) := hexp
+    have hf₂_le : f₂ ≤ e - 1 := f₂_le_e_sub_one_of_odd_in_F₂ hexpc hm hc_odd hm_eq
+    have h_m_rep : (c : ℝ) * (2 : ℝ) ^ (e - 1)
+        = ((c * (2 : ℤ) ^ ((e - 1) - f₂).toNat : ℤ) : ℝ) * (2 : ℝ) ^ f₂ := by
+      rw [two_zpow_split (e - 1) f₂ hf₂_le]; push_cast; ring
+    refine ⟨f₂, hf₂_le, ?_, ?_⟩ <;> intro z hz hz_cmp <;>
+      obtain ⟨_, hq, _⟩ := hz <;>
+      rw [hexpc, Dyadic.quantumAtLeast_coe_real] at hq <;>
+      obtain ⟨c', hc'⟩ := hq
+    · have h_gap := gap_of_ne_aligned (c := c')
+        (a := c * (2 : ℤ) ^ ((e - 1) - f₂).toNat) (K := f₂) (E := f₂) le_rfl
+        (by rw [← hc', ← h_m_rep]; exact ne_of_lt hz_cmp)
+      rw [← hc', ← h_m_rep] at h_gap
+      exact gap_bound_below hz_cmp h_gap
+    · have h_gap := gap_of_ne_aligned (c := c')
+        (a := c * (2 : ℤ) ^ ((e - 1) - f₂).toNat) (K := f₂) (E := f₂) le_rfl
+        (by rw [← hc', ← h_m_rep]; exact (ne_of_lt hz_cmp).symm)
+      rw [← hc', ← h_m_rep] at h_gap
+      exact gap_bound_above hz_cmp h_gap
+
+/-- **Full-step gaps around `m = 7·2^(e−1)` when `m ∈ F₂`.** -/
 private theorem gap_around_m_mem (F₂ : FiniteFormat) {e : ℤ}
     (hm : m_g e ∈ F₂.toFormat) :
     ∃ K : ℤ, K ≤ e - 1 ∧
@@ -738,114 +829,7 @@ private theorem gap_around_m_mem (F₂ : FiniteFormat) {e : ℤ}
         ((z : Dyadic) : ℝ) ≤ (7 : ℝ) * (2 : ℝ)^(e - 1) - (2 : ℝ)^K) ∧
       (∀ z ∈ F₂.toFormat, (7 : ℝ) * (2 : ℝ)^(e - 1) < ((z : Dyadic) : ℝ) →
         (7 : ℝ) * (2 : ℝ)^(e - 1) + (2 : ℝ)^K ≤ ((z : Dyadic) : ℝ)) := by
-  have h2e1_pos : (0 : ℝ) < (2 : ℝ)^(e - 1) := zpow_pos (by norm_num) _
-  have h_e1_split : (2 : ℝ)^(e + 1) = (4 : ℝ) * (2 : ℝ)^(e - 1) := by
-    have h := two_zpow_add_two (e - 1)
-    rwa [show e - 1 + 2 = e + 1 by ring] at h
-  have h_e2_split : (2 : ℝ)^(e + 2) = (8 : ℝ) * (2 : ℝ)^(e - 1) := by
-    have h := two_zpow_add_three (e - 1)
-    rwa [show e - 1 + 3 = e + 2 by ring] at h
-  rcases hexp : F₂.exp with _ | f₂
-  · -- `exp = ⊥`: `m ∈ F₂` forces `q₂ ≥ 3`; the binade-(e+1) step,
-    -- on which `m` lies.
-    have hp_ne : F₂.p ≠ ⊤ := by
-      rcases F₂.finite with h | h
-      · exact h
-      · exact absurd hexp h
-    obtain ⟨q₂, hq₂_eq⟩ := WithTop.ne_top_iff_exists.mp hp_ne
-    have hp : F₂.p = (q₂ : Prec) := hq₂_eq.symm
-    have h7 := coeff_lt_of_odd_mem hp (by decide : Odd (7 : ℤ)) (by norm_num) hm
-      (by rw [coe_m_g]; push_cast; ring)
-    have hq₂_three : 3 ≤ q₂ := by
-      by_contra hq
-      push Not at hq
-      have h_le : (2 : ℤ)^q₂ ≤ 2^2 :=
-        pow_le_pow_right₀ (by norm_num) (by omega)
-      norm_num at h_le
-      omega
-    set K : ℤ := e - q₂ + 2 with hK_def
-    have hK_le : K ≤ e - 1 := by omega
-    have h2K_le : (2 : ℝ)^K ≤ (2 : ℝ)^(e - 1) :=
-      zpow_le_zpow_right₀ (by norm_num) (by omega)
-    have h_m_rep : (7 : ℝ) * (2 : ℝ)^(e - 1)
-        = ((7 * (2 : ℤ)^((e - 1) - K).toNat : ℤ) : ℝ) * (2 : ℝ)^K := by
-      have h_split : (2 : ℝ)^(e - 1) = ((2 : ℤ)^((e - 1) - K).toNat : ℝ) * (2 : ℝ)^K :=
-        two_zpow_split (e - 1) K (by omega)
-      rw [h_split]; push_cast; ring
-    refine ⟨K, hK_le, ?_, ?_⟩
-    · intro z hz hz_lt
-      rcases lt_or_ge ((z : Dyadic) : ℝ) ((2 : ℝ)^(e + 1)) with h_below | h_in
-      · rw [h_e1_split] at h_below
-        linarith
-      · have h_in_hi : ((z : Dyadic) : ℝ) < (2 : ℝ)^(e + 1 + 1) := by
-          rw [show e + 1 + 1 = e + 2 by ring, h_e2_split]
-          linarith
-        obtain ⟨c, hc⟩ := binade_quantum hp hz h_in h_in_hi
-        rw [show e + 1 - (q₂ : ℤ) + 1 = K by omega] at hc
-        have hne : (c : ℝ) * (2 : ℝ)^K
-            ≠ ((7 * (2 : ℤ)^((e - 1) - K).toNat : ℤ) : ℝ) * (2 : ℝ)^K := by
-          rw [← hc, ← h_m_rep]
-          exact ne_of_lt hz_lt
-        have h_gap := gap_of_ne_aligned (c := c)
-          (a := 7 * (2 : ℤ)^((e - 1) - K).toNat) (K := K) (E := K) le_rfl hne
-        rw [← hc, ← h_m_rep] at h_gap
-        exact gap_bound_below hz_lt h_gap
-    · intro z hz hz_gt
-      rcases lt_or_ge ((z : Dyadic) : ℝ) ((2 : ℝ)^(e + 2)) with h_in | h_above
-      · have h_in_lo : (2 : ℝ)^(e + 1) ≤ ((z : Dyadic) : ℝ) := by
-          rw [h_e1_split]
-          linarith
-        have h_in_hi : ((z : Dyadic) : ℝ) < (2 : ℝ)^(e + 1 + 1) := by
-          rw [show e + 1 + 1 = e + 2 by ring]
-          exact h_in
-        obtain ⟨c, hc⟩ := binade_quantum hp hz h_in_lo h_in_hi
-        rw [show e + 1 - (q₂ : ℤ) + 1 = K by omega] at hc
-        have hne : (c : ℝ) * (2 : ℝ)^K
-            ≠ ((7 * (2 : ℤ)^((e - 1) - K).toNat : ℤ) : ℝ) * (2 : ℝ)^K := by
-          rw [← hc, ← h_m_rep]
-          exact (ne_of_lt hz_gt).symm
-        have h_gap := gap_of_ne_aligned (c := c)
-          (a := 7 * (2 : ℤ)^((e - 1) - K).toNat) (K := K) (E := K) le_rfl hne
-        rw [← hc, ← h_m_rep] at h_gap
-        exact gap_bound_above hz_gt h_gap
-      · rw [h_e2_split] at h_above
-        linarith
-  · -- `exp = f₂` finite: `m ∈ F₂` forces `f₂ ≤ e − 1`; the quantum grid,
-    -- on which `m` lies.
-    have hexpc : F₂.exp = (f₂ : QExp) := hexp
-    have hf₂_le : f₂ ≤ e - 1 :=
-      f₂_le_e_sub_one_of_odd_in_F₂ hexpc hm (by decide : Odd (7 : ℤ))
-        (by rw [coe_m_g]; push_cast; ring)
-    have h_m_rep : (7 : ℝ) * (2 : ℝ)^(e - 1)
-        = ((7 * (2 : ℤ)^((e - 1) - f₂).toNat : ℤ) : ℝ) * (2 : ℝ)^f₂ := by
-      have h_split : (2 : ℝ)^(e - 1) = ((2 : ℤ)^((e - 1) - f₂).toNat : ℝ) * (2 : ℝ)^f₂ :=
-        two_zpow_split (e - 1) f₂ hf₂_le
-      rw [h_split]; push_cast; ring
-    refine ⟨f₂, hf₂_le, ?_, ?_⟩
-    · intro z hz hz_lt
-      obtain ⟨_, hq, _⟩ := hz
-      rw [hexpc, Dyadic.quantumAtLeast_coe_real] at hq
-      obtain ⟨c, hc⟩ := hq
-      have hne : (c : ℝ) * (2 : ℝ)^f₂
-          ≠ ((7 * (2 : ℤ)^((e - 1) - f₂).toNat : ℤ) : ℝ) * (2 : ℝ)^f₂ := by
-        rw [← hc, ← h_m_rep]
-        exact ne_of_lt hz_lt
-      have h_gap := gap_of_ne_aligned (c := c)
-        (a := 7 * (2 : ℤ)^((e - 1) - f₂).toNat) (K := f₂) (E := f₂) le_rfl hne
-      rw [← hc, ← h_m_rep] at h_gap
-      exact gap_bound_below hz_lt h_gap
-    · intro z hz hz_gt
-      obtain ⟨_, hq, _⟩ := hz
-      rw [hexpc, Dyadic.quantumAtLeast_coe_real] at hq
-      obtain ⟨c, hc⟩ := hq
-      have hne : (c : ℝ) * (2 : ℝ)^f₂
-          ≠ ((7 * (2 : ℤ)^((e - 1) - f₂).toNat : ℤ) : ℝ) * (2 : ℝ)^f₂ := by
-        rw [← hc, ← h_m_rep]
-        exact (ne_of_lt hz_gt).symm
-      have h_gap := gap_of_ne_aligned (c := c)
-        (a := 7 * (2 : ℤ)^((e - 1) - f₂).toNat) (K := f₂) (E := f₂) le_rfl hne
-      rw [← hc, ← h_m_rep] at h_gap
-      exact gap_bound_above hz_gt h_gap
+  simpa using gap_around_odd_mem F₂ (c := 7) (j := 2) (by decide) (by norm_num) (by norm_num) hm
 
 /-- **Shape dispatch for `a = 3`: half-step gaps around `A = 3·2^(E−1)`.**
 The midpoints of the power-of-two neighborhood are odd multiples `3·2^k`,
@@ -937,8 +921,7 @@ private theorem gap_around_mid3 (F₂ : FiniteFormat) {E : ℤ}
       rw [← hc] at h_gap
       exact gap_bound_above hz_gt h_gap
 
-/-- **Full-step gaps around `A = 3·2^(E−1)` when `A ∈ F₂`.** The `a = 3`
-analogue of `gap_around_m_mem`. -/
+/-- **Full-step gaps around `A = 3·2^(E−1)` when `A ∈ F₂`.** -/
 private theorem gap_around_mid3_mem (F₂ : FiniteFormat) {E : ℤ}
     (hm : Dyadic.ofIntZpow 3 (E - 1) ∈ F₂.toFormat) :
     ∃ K : ℤ, K ≤ E - 1 ∧
@@ -946,103 +929,7 @@ private theorem gap_around_mid3_mem (F₂ : FiniteFormat) {E : ℤ}
         ((z : Dyadic) : ℝ) ≤ (3 : ℝ) * (2 : ℝ)^(E - 1) - (2 : ℝ)^K) ∧
       (∀ z ∈ F₂.toFormat, (3 : ℝ) * (2 : ℝ)^(E - 1) < ((z : Dyadic) : ℝ) →
         (3 : ℝ) * (2 : ℝ)^(E - 1) + (2 : ℝ)^K ≤ ((z : Dyadic) : ℝ)) := by
-  have hm_eq : ((Dyadic.ofIntZpow 3 (E - 1) : Dyadic) : ℝ) = (3 : ℝ) * (2 : ℝ)^(E - 1) := by
-    rw [Dyadic.coe_ofIntZpow]; push_cast; ring
-  have h2E1_pos : (0 : ℝ) < (2 : ℝ)^(E - 1) := zpow_pos (by norm_num) _
-  have h_lo_split : (2 : ℝ)^E = (2 : ℝ) * (2 : ℝ)^(E - 1) := by
-    have h := two_zpow_succ (E - 1)
-    rwa [show E - 1 + 1 = E by ring] at h
-  have h_hi_split : (2 : ℝ)^(E + 1) = (4 : ℝ) * (2 : ℝ)^(E - 1) := by
-    have h := two_zpow_add_two (E - 1)
-    rwa [show E - 1 + 2 = E + 1 by ring] at h
-  rcases hexp : F₂.exp with _ | f₂
-  · -- `exp = ⊥`: `A ∈ F₂` forces `q₂ ≥ 2`; the binade-`E` step, on which `A` lies.
-    have hp_ne : F₂.p ≠ ⊤ := by
-      rcases F₂.finite with h | h
-      · exact h
-      · exact absurd hexp h
-    obtain ⟨q₂, hq₂_eq⟩ := WithTop.ne_top_iff_exists.mp hp_ne
-    have hp : F₂.p = (q₂ : Prec) := hq₂_eq.symm
-    have h3 := coeff_lt_of_odd_mem hp (by decide : Odd (3 : ℤ)) (by norm_num) hm hm_eq
-    have hq₂_two : 2 ≤ q₂ := by
-      by_contra hq
-      push Not at hq
-      have h_le : (2 : ℤ)^q₂ ≤ 2^1 :=
-        pow_le_pow_right₀ (by norm_num) (by omega)
-      norm_num at h_le
-      omega
-    set K : ℤ := E - q₂ + 1 with hK_def
-    have hK_le : K ≤ E - 1 := by omega
-    have h2K_le : (2 : ℝ)^K ≤ (2 : ℝ)^(E - 1) :=
-      zpow_le_zpow_right₀ (by norm_num) (by omega)
-    have h_m_rep : (3 : ℝ) * (2 : ℝ)^(E - 1)
-        = ((3 * (2 : ℤ)^((E - 1) - K).toNat : ℤ) : ℝ) * (2 : ℝ)^K := by
-      have h_split : (2 : ℝ)^(E - 1) = ((2 : ℤ)^((E - 1) - K).toNat : ℝ) * (2 : ℝ)^K :=
-        two_zpow_split (E - 1) K (by omega)
-      rw [h_split]; push_cast; ring
-    refine ⟨K, hK_le, ?_, ?_⟩
-    · intro z hz hz_lt
-      rcases lt_or_ge ((z : Dyadic) : ℝ) ((2 : ℝ)^E) with h_below | h_in
-      · rw [h_lo_split] at h_below
-        linarith
-      · have h_in_hi : ((z : Dyadic) : ℝ) < (2 : ℝ)^(E + 1) := by
-          rw [h_hi_split]; linarith
-        obtain ⟨c, hc⟩ := binade_quantum hp hz h_in h_in_hi
-        rw [show E - (q₂ : ℤ) + 1 = K by omega] at hc
-        have hne : (c : ℝ) * (2 : ℝ)^K
-            ≠ ((3 * (2 : ℤ)^((E - 1) - K).toNat : ℤ) : ℝ) * (2 : ℝ)^K := by
-          rw [← hc, ← h_m_rep]; exact ne_of_lt hz_lt
-        have h_gap := gap_of_ne_aligned (c := c)
-          (a := 3 * (2 : ℤ)^((E - 1) - K).toNat) (K := K) (E := K) le_rfl hne
-        rw [← hc, ← h_m_rep] at h_gap
-        exact gap_bound_below hz_lt h_gap
-    · intro z hz hz_gt
-      rcases lt_or_ge ((z : Dyadic) : ℝ) ((2 : ℝ)^(E + 1)) with h_in | h_above
-      · have h_in_lo : (2 : ℝ)^E ≤ ((z : Dyadic) : ℝ) := by
-          rw [h_lo_split]; linarith
-        obtain ⟨c, hc⟩ := binade_quantum hp hz h_in_lo h_in
-        rw [show E - (q₂ : ℤ) + 1 = K by omega] at hc
-        have hne : (c : ℝ) * (2 : ℝ)^K
-            ≠ ((3 * (2 : ℤ)^((E - 1) - K).toNat : ℤ) : ℝ) * (2 : ℝ)^K := by
-          rw [← hc, ← h_m_rep]; exact (ne_of_lt hz_gt).symm
-        have h_gap := gap_of_ne_aligned (c := c)
-          (a := 3 * (2 : ℤ)^((E - 1) - K).toNat) (K := K) (E := K) le_rfl hne
-        rw [← hc, ← h_m_rep] at h_gap
-        exact gap_bound_above hz_gt h_gap
-      · rw [h_hi_split] at h_above
-        linarith
-  · -- `exp = f₂` finite: `A ∈ F₂` forces `f₂ ≤ E − 1`; the quantum grid.
-    have hexpc : F₂.exp = (f₂ : QExp) := hexp
-    have hf₂_le : f₂ ≤ E - 1 :=
-      f₂_le_e_sub_one_of_odd_in_F₂ hexpc hm (by decide : Odd (3 : ℤ)) hm_eq
-    have h_m_rep : (3 : ℝ) * (2 : ℝ)^(E - 1)
-        = ((3 * (2 : ℤ)^((E - 1) - f₂).toNat : ℤ) : ℝ) * (2 : ℝ)^f₂ := by
-      have h_split : (2 : ℝ)^(E - 1) = ((2 : ℤ)^((E - 1) - f₂).toNat : ℝ) * (2 : ℝ)^f₂ :=
-        two_zpow_split (E - 1) f₂ hf₂_le
-      rw [h_split]; push_cast; ring
-    refine ⟨f₂, hf₂_le, ?_, ?_⟩
-    · intro z hz hz_lt
-      obtain ⟨_, hq, _⟩ := hz
-      rw [hexpc, Dyadic.quantumAtLeast_coe_real] at hq
-      obtain ⟨c, hc⟩ := hq
-      have hne : (c : ℝ) * (2 : ℝ)^f₂
-          ≠ ((3 * (2 : ℤ)^((E - 1) - f₂).toNat : ℤ) : ℝ) * (2 : ℝ)^f₂ := by
-        rw [← hc, ← h_m_rep]; exact ne_of_lt hz_lt
-      have h_gap := gap_of_ne_aligned (c := c)
-        (a := 3 * (2 : ℤ)^((E - 1) - f₂).toNat) (K := f₂) (E := f₂) le_rfl hne
-      rw [← hc, ← h_m_rep] at h_gap
-      exact gap_bound_below hz_lt h_gap
-    · intro z hz hz_gt
-      obtain ⟨_, hq, _⟩ := hz
-      rw [hexpc, Dyadic.quantumAtLeast_coe_real] at hq
-      obtain ⟨c, hc⟩ := hq
-      have hne : (c : ℝ) * (2 : ℝ)^f₂
-          ≠ ((3 * (2 : ℤ)^((E - 1) - f₂).toNat : ℤ) : ℝ) * (2 : ℝ)^f₂ := by
-        rw [← hc, ← h_m_rep]; exact (ne_of_lt hz_gt).symm
-      have h_gap := gap_of_ne_aligned (c := c)
-        (a := 3 * (2 : ℤ)^((E - 1) - f₂).toNat) (K := f₂) (E := f₂) le_rfl hne
-      rw [← hc, ← h_m_rep] at h_gap
-      exact gap_bound_above hz_gt h_gap
+  simpa using gap_around_odd_mem F₂ (c := 3) (j := 1) (by decide) (by norm_num) (by norm_num) hm
 
 /-- RTO at an F-exact value is the identity (vacuous parity clause since
 `x = y`). -/
@@ -1056,11 +943,6 @@ private theorem rounds_RTO_self {F : FiniteFormat} {y : Dyadic} (h : y ∈ F) :
 
 /-! ## Parity lemmas -/
 
-/-- `Int.log 2 (2^j) = j`: the log of a pure power of two. -/
-private theorem two_zpow_log (j : ℤ) : Int.log 2 ((2 : ℝ)^j) = j := by
-  rw [show (2 : ℝ)^j = ((2 : ℕ) : ℝ)^j by push_cast; rfl]
-  exact Int.log_zpow (R := ℝ) (by norm_num : 1 < 2) j
-
 /-- `numDigits` of an anchor `x = 2^N` in the quantum grid `F₁_g` is
 `min p (N − e + 1)`. -/
 private theorem F₁_g_numDigits (p : ℕ) (hp : 2 ≤ p) (e : ℤ) {x : ℝ} {N : ℤ}
@@ -1069,7 +951,7 @@ private theorem F₁_g_numDigits (p : ℕ) (hp : 2 ≤ p) (e : ℤ) {x : ℝ} {N
   have h_pos : (0 : ℝ) < (2 : ℝ) ^ N := zpow_pos (by norm_num) _
   have h_ne : x ≠ 0 := by rw [hx]; exact ne_of_gt h_pos
   rw [(F₁_g p hp e).toFiniteFormat.numDigits_coe_coe h_ne
-    (F₁_g_p p hp e) (F₁_g_exp p hp e), hx, abs_of_pos h_pos, two_zpow_log]
+    (F₁_g_p p hp e) (F₁_g_exp p hp e), hx, abs_of_pos h_pos, log_two_zpow]
 
 /-- `IsEven F₁ (4·2^e)` for any `p ≥ 2`. -/
 private theorem isEven_F₁_g_y_hi (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
@@ -2242,7 +2124,7 @@ private theorem F₁t_g_numDigits (e : ℤ) {x : ℝ} {N : ℤ} (hx : x = (2 : �
   have h_pos : (0 : ℝ) < (2 : ℝ) ^ N := zpow_pos (by norm_num) _
   have h_ne : x ≠ 0 := by rw [hx]; exact ne_of_gt h_pos
   rw [(F₁t_g e).toFiniteFormat.numDigits_top_coe h_ne
-    (F₁t_g_exp e) (F₁t_g_p e), hx, abs_of_pos h_pos, two_zpow_log]
+    (F₁t_g_exp e) (F₁t_g_p e), hx, abs_of_pos h_pos, log_two_zpow]
 
 /-- `IsEven F₁t_g (4·2^e)`: at `numDigits = 3`, the canonical significand
 is `4`. -/
@@ -3176,7 +3058,7 @@ private theorem F₁p_g_numDigits_pow (e : ℤ) {j : ℤ} (hj : e ≤ j) :
   have h_pos : (0 : ℝ) < (2 : ℝ)^j := zpow_pos (by norm_num) _
   have h_ne : ((Dyadic.ofIntZpow 1 j : Dyadic) : ℝ) ≠ 0 := by rw [h_real]; exact ne_of_gt h_pos
   have h_log : Int.log 2 |((Dyadic.ofIntZpow 1 j : Dyadic) : ℝ)| = j := by
-    rw [h_real, abs_of_pos h_pos]; exact two_zpow_log j
+    rw [h_real, abs_of_pos h_pos]; exact log_two_zpow j
   rw [(F₁p_g e).toFiniteFormat.numDigits_coe_coe h_ne (F₁p_g_p e) (F₁p_g_exp e), h_log]
   simp only [Nat.cast_one]
   omega
@@ -3225,8 +3107,8 @@ private theorem notIsOdd_F₁p_g_pow (e : ℤ) {j : ℤ} (hj : e ≤ j)
   rw [hc_eq] at h_real
   have he' : e' = j := by
     have h2 : (2 : ℝ)^e' = (2 : ℝ)^j := by push_cast at h_real; linarith
-    have l1 := two_zpow_log e'
-    rw [h2, two_zpow_log j] at l1
+    have l1 := log_two_zpow e'
+    rw [h2, log_two_zpow j] at l1
     exact l1.symm
   rw [if_pos (F₁p_g_p e), F₁p_g_exp e, WithBot.unbotD_coe, he'] at hp_check
   exact (Int.not_even_iff_odd.mpr hp_check) hpar
