@@ -75,10 +75,10 @@ the `Dyadic` face of `succ`. Adjacency in `Discrete.lean` is now stated through
 
 Also landed: the error bounds — `faithful_error_lt_ulp` (Flocq `error_lt_ulp`),
 `nearest_error_le_half_ulp_round` (`error_le_half_ulp_round`), `ulp_rndDown`
-(`ulp_DN`) and `ulp_round_pos` (`ulp_round`).
+(`ulp_DN`), `ulp_round_pos` (`ulp_round`) — and the involutions `succ_pred` /
+`pred_succ`.
 
-Still open, both capability rather than reduction: the `succ`/`pred`
-involutions, and the bracket characterizations (`round_DN_eq`, `round_UP_eq`,
+Still open: the bracket characterizations (`round_DN_eq`, `round_UP_eq`,
 `round_N_eq_DN`, …) that turn "what does rounding do to *this* value" from a
 proof into a rewrite.
 

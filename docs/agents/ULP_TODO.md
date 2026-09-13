@@ -2,8 +2,8 @@
 
 Remaining work for item 4 of [`FLOCQ_ROADMAP.md`](FLOCQ_ROADMAP.md). The
 reducing half — `ulp` at zero, `Mpfx/Ulp.lean`, `succ`/`pred`,
-`FiniteFormat.next`, adjacency through `succ`, the `Discrete.lean` merge — and
-the error bounds have landed. What is left adds capability rather than
+`FiniteFormat.next`, adjacency through `succ`, the `Discrete.lean` merge — plus
+the error bounds and the `succ`/`pred` involutions have landed. What is left adds capability rather than
 collapsing proofs.
 
 **Working policy.** Each phase is sized to be roughly one commit and carries a
@@ -61,9 +61,6 @@ many binades. That divergence is exactly what produced the `_exp_bot` twins.
 
 ## Leftovers from the landed phases
 
-- [ ] The involutions `succ_pred` / `pred_succ`. Flocq spends
-      `pred_pos_plus_ulp` and three auxiliaries on these. Nothing needs them
-      yet; pick them up if Phase 9 does.
 - [ ] **Optional:** rename `Format.next` to something bound-flavoured
       (`nextBound`, `boundStep`) so it does not read as the same notion as
       `FiniteFormat.next`. The two differ — `Format.next` advances a **bound**,
