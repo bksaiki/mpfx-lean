@@ -1,7 +1,7 @@
-import Mpfx.FormatInference
-import Mpfx.Containment
-import Mpfx.Rounding
-import Mpfx.CanonicalExp
+import Mpfx.Format.Inference
+import Mpfx.Format.Containment
+import Mpfx.Rounding.Defs
+import Mpfx.Format.CanonicalExp
 
 /-!
 # Operation-specific double rounding: multiplication (Roux 2014)

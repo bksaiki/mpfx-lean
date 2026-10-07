@@ -1,7 +1,7 @@
-import Mpfx.Rounding
-import Mpfx.Discrete
-import Mpfx.Digits
-import Mpfx.RoundOp
+import Mpfx.Rounding.Defs
+import Mpfx.Format.Discrete
+import Mpfx.Format.Digits
+import Mpfx.Rounding.Op
 
 /-!
 # Counterexamples to the invalid double-rounding pairings (§5.2)

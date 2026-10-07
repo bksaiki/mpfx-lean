@@ -1,6 +1,6 @@
-import Mpfx.CanonicalExp
-import Mpfx.NearestMidpoint
-import Mpfx.DoubleRoundingMul
+import Mpfx.Format.CanonicalExp
+import Mpfx.DoubleRounding.NearestMidpoint
+import Mpfx.DoubleRounding.Mul
 
 /-!
 # Operation-specific double rounding: addition (Roux 2014, §3)

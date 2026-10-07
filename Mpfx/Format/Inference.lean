@@ -1,4 +1,4 @@
-import Mpfx.Format
+import Mpfx.Format.Defs
 import Mathlib.Algebra.Group.Pointwise.Set.Basic
 import Mathlib.Data.Nat.Log
 

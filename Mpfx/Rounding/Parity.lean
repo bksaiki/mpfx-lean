@@ -1,5 +1,5 @@
-import Mpfx.Rounding
-import Mpfx.CanonicalExp
+import Mpfx.Rounding.Defs
+import Mpfx.Format.CanonicalExp
 
 /-!
 # Parity of adjacent grid points

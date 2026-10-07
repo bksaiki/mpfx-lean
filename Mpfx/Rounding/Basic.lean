@@ -1,6 +1,6 @@
-import Mpfx.Rounding
-import Mpfx.CanonicalExp
-import Mpfx.Parity
+import Mpfx.Rounding.Defs
+import Mpfx.Format.CanonicalExp
+import Mpfx.Rounding.Parity
 
 /-!
 # Round-predicate layer

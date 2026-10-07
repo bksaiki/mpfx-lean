@@ -1,4 +1,4 @@
-import Mpfx.Discrete
+import Mpfx.Format.Discrete
 
 /-!
 # Canonical exponent: closed forms and grid representation

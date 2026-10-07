@@ -1,6 +1,6 @@
-import Mpfx.Ulp
-import Mpfx.Discrete
-import Mpfx.Containment
+import Mpfx.Rounding.Ulp
+import Mpfx.Format.Discrete
+import Mpfx.Format.Containment
 
 /-!
 # Round-to-nearest midpoint theory (Roux Lemma 16)

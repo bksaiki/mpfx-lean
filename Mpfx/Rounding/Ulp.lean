@@ -1,4 +1,4 @@
-import Mpfx.RoundOp
+import Mpfx.Rounding.Op
 
 /-!
 # ulp, the directed roundings, and the neighbours `succ` / `pred`

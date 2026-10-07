@@ -1,4 +1,4 @@
-import Mpfx.Containment
+import Mpfx.Format.Containment
 
 /-!
 # Discreteness: canonical representation and adjacency

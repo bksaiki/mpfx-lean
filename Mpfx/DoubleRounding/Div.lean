@@ -1,7 +1,7 @@
-import Mpfx.CanonicalExp
-import Mpfx.NearestMidpoint
-import Mpfx.DoubleRoundingMul
-import Mpfx.DoubleRoundingAdd
+import Mpfx.Format.CanonicalExp
+import Mpfx.DoubleRounding.NearestMidpoint
+import Mpfx.DoubleRounding.Mul
+import Mpfx.DoubleRounding.Add
 
 /-!
 # Operation-specific double rounding: division (Roux 2014, Theorem 29)

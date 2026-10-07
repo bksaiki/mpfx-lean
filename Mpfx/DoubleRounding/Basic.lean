@@ -1,7 +1,7 @@
-import Mpfx.Digits
-import Mpfx.Discrete
-import Mpfx.Rounding
-import Mpfx.RoundOp
+import Mpfx.Format.Digits
+import Mpfx.Format.Discrete
+import Mpfx.Rounding.Defs
+import Mpfx.Rounding.Op
 
 /-!
 # Correct double rounding (§5.2)
