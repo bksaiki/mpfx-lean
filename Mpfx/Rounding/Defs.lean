@@ -1,4 +1,4 @@
-import Mpfx.Format.Defs
+import Mpfx.Format.Parity
 
 /-!
 # Rounding spec (relational layer)

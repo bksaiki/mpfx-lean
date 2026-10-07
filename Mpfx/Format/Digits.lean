@@ -1,4 +1,5 @@
 import Mpfx.Format.Containment
+import Mpfx.Format.Parity
 
 /-!
 # Digit-count and parity-transfer lemmas (RTO-padding lemma)
