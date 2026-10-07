@@ -498,6 +498,41 @@ private theorem roundsRTO_RTZ_finite_pos {F₁ F₂ : FiniteFormat}
     have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
     exact hw'_max v hvF₁ hv_bnd_z hv_z_sign
 
+/-- **rnd-RTO-RTZ** under `F₁.extend 1 ⊆ F₂` and `2 ≤ F₂.p`, without the relaxed
+bound. -/
+theorem roundsRTO_RTZ_finite_of_extend {F₁ F₂ : FiniteFormat}
+    (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
+    (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
+    {x : ℝ} {z w' : Dyadic}
+    (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .toZero (z : ℝ) w') :
+    RoundsFinite F₁ .toZero x w' := by
+  rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
+  · -- x < 0: negate, apply the positive case, negate back.
+    have hx_pos' : 0 < (-x) := by linarith
+    have hz' : RoundsFinite F₂ .toOdd (-x) (-z) :=
+      (RoundsFinite.neg_toOdd F₂ x z).mp hz
+    have hw' : RoundsFinite F₁ .toZero ((-z : Dyadic) : ℝ) (-w') := by
+      rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_toZero F₁ (z : ℝ) w').mp hw
+    have h_result := roundsRTO_RTZ_finite_pos hsub hp_F₂ hx_pos' hz' hw'
+    have hfinal := (RoundsFinite.neg_toZero F₁ (-x) (-w')).mp h_result
+    rwa [neg_neg, neg_neg] at hfinal
+  · -- x = 0: forces z = 0 and w' = 0.
+    subst hx_zero
+    have hz_zero : z = 0 := RoundsFinite.eq_zero_of_zero hz
+    rw [hz_zero] at hw
+    obtain ⟨hw'F₁, hw'_bnd, _, _⟩ := hw
+    have hw'_zero : (w' : ℝ) = 0 := by
+      rw [Dyadic.coe_real_zero, abs_zero] at hw'_bnd
+      exact abs_nonpos_iff.mp hw'_bnd
+    refine ⟨hw'F₁, ?_, ?_, ?_⟩
+    · simp [hw'_zero]
+    · simp [hw'_zero]
+    · intro v _ hv_bnd _
+      rw [hw'_zero, abs_zero]
+      simpa using hv_bnd
+  · -- x > 0
+    exact roundsRTO_RTZ_finite_pos hsub hp_F₂ hx_pos hz hw
+
 /-- **rnd-RTO-RTZ**, general case, **paper form**. An RTO rounding
 `z` of `x` in `F₂` followed by an RTZ rounding `w'` of `z` in `F₁` collapses
 to an RTZ rounding of `x` in `F₁`. Uses the single bound-aware containment
@@ -509,34 +544,8 @@ theorem roundsRTO_RTZ_finite {F₁ F₂ : FiniteFormat}
     (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .toZero (z : ℝ) w') :
     RoundsFinite F₁ .toZero x w' := by
   rcases two_le_p_or_trivial_of_extend_one_withBound_subset hsub with hp_F₂ | hF₁_triv
-  · -- main case: 2 ≤ F₂.p. Recover the weaker subset and run the trichotomy.
-    have hsub' := extend_one_subset_of_withBound_subset hsub
-    rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
-    · -- x < 0: negate, apply the positive case, negate back.
-      have hx_pos' : 0 < (-x) := by linarith
-      have hz' : RoundsFinite F₂ .toOdd (-x) (-z) :=
-        (RoundsFinite.neg_toOdd F₂ x z).mp hz
-      have hw' : RoundsFinite F₁ .toZero ((-z : Dyadic) : ℝ) (-w') := by
-        rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_toZero F₁ (z : ℝ) w').mp hw
-      have h_result := roundsRTO_RTZ_finite_pos hsub' hp_F₂ hx_pos' hz' hw'
-      have hfinal := (RoundsFinite.neg_toZero F₁ (-x) (-w')).mp h_result
-      rwa [neg_neg, neg_neg] at hfinal
-    · -- x = 0: forces z = 0 and w' = 0.
-      subst hx_zero
-      have hz_zero : z = 0 := RoundsFinite.eq_zero_of_zero hz
-      rw [hz_zero] at hw
-      obtain ⟨hw'F₁, hw'_bnd, _, _⟩ := hw
-      have hw'_zero : (w' : ℝ) = 0 := by
-        rw [Dyadic.coe_real_zero, abs_zero] at hw'_bnd
-        exact abs_nonpos_iff.mp hw'_bnd
-      refine ⟨hw'F₁, ?_, ?_, ?_⟩
-      · simp [hw'_zero]
-      · simp [hw'_zero]
-      · intro v _ hv_bnd _
-        rw [hw'_zero, abs_zero]
-        simpa using hv_bnd
-    · -- x > 0
-      exact roundsRTO_RTZ_finite_pos hsub' hp_F₂ hx_pos hz hw
+  · exact roundsRTO_RTZ_finite_of_extend (extend_one_subset_of_withBound_subset hsub) hp_F₂
+      hz hw
   · -- trivial case: F₁ = {0}.
     exact RoundsFinite.toZero_of_trivial hF₁_triv hw.1
 
@@ -617,6 +626,41 @@ private theorem roundsRTO_RAZ_finite_pos {F₁ F₂ : FiniteFormat}
     have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
     exact hw'_min v hvF₁ hv_bnd_z hv_z_sign
 
+/-- **rnd-RTO-RAZ** under `F₁.extend 1 ⊆ F₂` and `2 ≤ F₂.p`, without the relaxed
+bound. -/
+theorem roundsRTO_RAZ_finite_of_extend {F₁ F₂ : FiniteFormat}
+    (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
+    (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
+    {x : ℝ} {z w' : Dyadic}
+    (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .awayZero (z : ℝ) w') :
+    RoundsFinite F₁ .awayZero x w' := by
+  rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
+  · -- x < 0: negate, apply the positive case, negate back.
+    have hx_pos' : 0 < (-x) := by linarith
+    have hz' : RoundsFinite F₂ .toOdd (-x) (-z) :=
+      (RoundsFinite.neg_toOdd F₂ x z).mp hz
+    have hw' : RoundsFinite F₁ .awayZero ((-z : Dyadic) : ℝ) (-w') := by
+      rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_awayZero F₁ (z : ℝ) w').mp hw
+    have h_result := roundsRTO_RAZ_finite_pos hsub hp_F₂ hx_pos' hz' hw'
+    have hfinal := (RoundsFinite.neg_awayZero F₁ (-x) (-w')).mp h_result
+    rwa [neg_neg, neg_neg] at hfinal
+  · -- x = 0: forces z = 0 and w' = 0.
+    subst hx_zero
+    have hz_zero : z = 0 := RoundsFinite.eq_zero_of_zero hz
+    rw [hz_zero] at hw
+    obtain ⟨hw'F₁, _, _, hw'_min⟩ := hw
+    have h_min := hw'_min 0 F₁.zero_mem (le_refl _) (by simp)
+    have hw'_zero : (w' : ℝ) = 0 := by
+      rw [Dyadic.coe_real_zero, abs_zero] at h_min
+      exact abs_nonpos_iff.mp h_min
+    refine ⟨hw'F₁, ?_, ?_, ?_⟩
+    · simp [hw'_zero]
+    · simp [hw'_zero]
+    · intro v _ _ _
+      simp [hw'_zero, abs_nonneg]
+  · -- x > 0
+    exact roundsRTO_RAZ_finite_pos hsub hp_F₂ hx_pos hz hw
+
 /-- **rnd-RTO-RAZ**, general case, **paper form**. An RTO rounding
 `z` of `x` in `F₂` followed by an RAZ (away-from-zero) rounding `w'` of `z` in
 `F₁` collapses to an RAZ rounding of `x` in `F₁`. Uses the single bound-aware
@@ -628,34 +672,8 @@ theorem roundsRTO_RAZ_finite {F₁ F₂ : FiniteFormat}
     (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .awayZero (z : ℝ) w') :
     RoundsFinite F₁ .awayZero x w' := by
   rcases two_le_p_or_trivial_of_extend_one_withBound_subset hsub with hp_F₂ | hF₁_triv
-  · -- main case: 2 ≤ F₂.p. Recover the weaker subset and run the trichotomy.
-    have hsub' := extend_one_subset_of_withBound_subset hsub
-    rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
-    · -- x < 0: negate, apply the positive case, negate back.
-      have hx_pos' : 0 < (-x) := by linarith
-      have hz' : RoundsFinite F₂ .toOdd (-x) (-z) :=
-        (RoundsFinite.neg_toOdd F₂ x z).mp hz
-      have hw' : RoundsFinite F₁ .awayZero ((-z : Dyadic) : ℝ) (-w') := by
-        rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_awayZero F₁ (z : ℝ) w').mp hw
-      have h_result := roundsRTO_RAZ_finite_pos hsub' hp_F₂ hx_pos' hz' hw'
-      have hfinal := (RoundsFinite.neg_awayZero F₁ (-x) (-w')).mp h_result
-      rwa [neg_neg, neg_neg] at hfinal
-    · -- x = 0: forces z = 0 and w' = 0.
-      subst hx_zero
-      have hz_zero : z = 0 := RoundsFinite.eq_zero_of_zero hz
-      rw [hz_zero] at hw
-      obtain ⟨hw'F₁, _, _, hw'_min⟩ := hw
-      have h_min := hw'_min 0 F₁.zero_mem (le_refl _) (by simp)
-      have hw'_zero : (w' : ℝ) = 0 := by
-        rw [Dyadic.coe_real_zero, abs_zero] at h_min
-        exact abs_nonpos_iff.mp h_min
-      refine ⟨hw'F₁, ?_, ?_, ?_⟩
-      · simp [hw'_zero]
-      · simp [hw'_zero]
-      · intro v _ _ _
-        simp [hw'_zero, abs_nonneg]
-    · -- x > 0
-      exact roundsRTO_RAZ_finite_pos hsub' hp_F₂ hx_pos hz hw
+  · exact roundsRTO_RAZ_finite_of_extend (extend_one_subset_of_withBound_subset hsub) hp_F₂
+      hz hw
   · -- trivial case: F₁ = {0}.
     exact RoundsFinite.awayZero_of_trivial hF₁_triv hz hw
 

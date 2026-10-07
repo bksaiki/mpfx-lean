@@ -46,6 +46,14 @@ theorem le_maxFinite (F : FiniteFormat) (hb : F.b ≠ ⊤) {v : Dyadic} (hv : v 
   rw [← WithTop.coe_untop F.b hb] at h
   exact (le_abs_self _).trans (abs_coe_real_le_of_boundOK h)
 
+/-- Every value of a bounded `F` is at most `maxFinite` in magnitude. -/
+theorem abs_le_maxFinite (F : FiniteFormat) (hb : F.b ≠ ⊤) {v : Dyadic} (hv : v ∈ F) :
+    |(v : ℝ)| ≤ (F.maxFinite hb : ℝ) := by
+  refine abs_le.mpr ⟨?_, F.le_maxFinite hb hv⟩
+  have h := F.le_maxFinite hb (neg_mem hv)
+  rw [Dyadic.coe_real_neg] at h
+  linarith
+
 /-- `±maxFinite`, the saturated value of the given sign. -/
 noncomputable def saturated (F : FiniteFormat) (hb : F.b ≠ ⊤) (negative : Bool) :
     WithSpecial Dyadic :=
@@ -56,6 +64,26 @@ theorem saturated_mem (F : FiniteFormat) (hb : F.b ≠ ⊤) (negative : Bool) :
   cases negative
   · exact F.maxFinite_mem hb
   · exact neg_mem (F.maxFinite_mem hb)
+
+/-- A value of magnitude `maxFinite` with sign `negative` is the saturated value. -/
+theorem saturated_eq_finite (F : FiniteFormat) (hb : F.b ≠ ⊤) {negative : Bool} {w : Dyadic}
+    (habs : |(w : ℝ)| = (F.maxFinite hb : ℝ))
+    (hsign : (w : ℝ) ≠ 0 → decide ((w : ℚ) < 0) = negative) :
+    F.saturated hb negative = .finite w := by
+  have hq : ((w : ℚ) < 0) ↔ (w : ℝ) < 0 := by
+    rw [Dyadic.coe_real_eq_ratCast, Rat.cast_lt_zero]
+  unfold saturated
+  congr 1
+  apply (Dyadic.coe_real_inj _ _).mp
+  rcases lt_trichotomy (w : ℝ) 0 with hw | hw | hw
+  · obtain rfl : negative = true := by rw [← hsign hw.ne]; exact decide_eq_true (hq.mpr hw)
+    rw [if_pos rfl, Dyadic.coe_real_neg, ← habs, abs_of_neg hw, neg_neg]
+  · rw [hw, abs_zero] at habs
+    split_ifs <;> simp [← habs, hw]
+  · obtain rfl : negative = false := by
+      rw [← hsign hw.ne']; exact decide_eq_false fun h => absurd (hq.mp h) (not_lt.mpr hw.le)
+    simp only [Bool.false_eq_true, ↓reduceIte]
+    rw [← habs, abs_of_pos hw]
 
 end FiniteFormat
 
@@ -103,6 +131,10 @@ noncomputable def ieee (F : FiniteFormat) (rm : RoundingMode) (hb : F.b ≠ ⊤)
 /-- Overflow saturates to `±maxFinite`. -/
 noncomputable def saturate (F : FiniteFormat) (hb : F.b ≠ ⊤) : OverflowMap F.toFormat :=
   ⟨F.saturated hb, F.saturated_mem hb⟩
+
+/-- The IEEE RTZ table is the saturating one. -/
+theorem ieee_toZero (F : FiniteFormat) (hb : F.b ≠ ⊤) (hinf) :
+    OverflowMap.ieee F .toZero hb hinf = OverflowMap.saturate F hb := rfl
 
 /-- Overflow becomes NaN. -/
 def toNaN (F : Format) (hnan : Special.nan ∈ F.specials) : OverflowMap F :=

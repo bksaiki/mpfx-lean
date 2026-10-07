@@ -391,9 +391,38 @@ name.
   double rounding with the hypotheses discharged, and the negation showing the
   IEEE tables do not compose for RTO → RTZ.
 
-**7d. Not started — handoff.** Make each rule's hypotheses as general as
-possible. The tree is at the 7c commit; an attempt at step 1 was reverted
-unbuilt.
+**7d. Done** (steps 1–6 in one pass, at the owner's request). Diverged from
+the steps below:
+
+- Step 1 as planned: `roundsRTO_{RTZ,RAZ,RN}_finite_of_extend`.
+- Step 2: the region A lemmas are `roundsXX_YY_agree` (`Total.lean`, section
+  "Agreement in bound"), all through a private `eq_of_inBound`. Plain
+  containment only; `hz` is used only for its unbounded rounding.
+- Step 3: `OverflowAgrees` as designed; `hA` stays a separate hypothesis of
+  `rnd_double`. The sign bookkeeping moved to `decide_lt_zero_of_chain`.
+- Step 4: `OverflowAgrees.of_bound` also takes `¬ F₂.IsUndefined rm₂` (for
+  uniqueness of `z`). `rndRAZ_RAZ_of_bound` keeps plain containment, since
+  RAZ → RAZ never had a relaxed form.
+- Steps 5–6 merged and generalized: `OverflowAgrees.of_saturate` and
+  `OverflowMap.saturate_composes` hold for **any** pair of modes under plain
+  `F₁ ⊆ F₂`. They only use faithfulness and `maxFinite₁ ∈ F₂`. In `chain`, the
+  chain overflowing forces `|x| ≥ maxFinite₁`, so `y = ±maxFinite₁`; it is not
+  vacuous. So the saturating-RTO discharges for RTO → RTO and RTO → RTZ are
+  `MpfxTest` examples, not library theorems. `ieee_toZero_composes` is
+  restated under plain containment; `overflows_of_maxFinite_le` (its only
+  user) is gone. New in `Rounding/Special.lean`: `abs_le_maxFinite`,
+  `saturated_eq_finite`, `OverflowMap.ieee_toZero` (`rfl`).
+- Step 6's RTO → RN test shows failure on the region where `F₂` overflows and
+  `F₁` does not (IEEE tables), rather than building a concrete `b₂ < M`
+  instance. The "if RTO saturated" RTO → RN cell (IEEE RN table, saturated RTO)
+  is still unchecked.
+- Test changes: the IEEE RTZ → RTZ example now uses plain containment; the
+  IEEE `hinf` arguments must be passed explicitly there, because the tables
+  unify as `saturate` first.
+
+The original handoff follows.
+
+Make each rule's hypotheses as general as possible.
 
 *Why the current bounds are not minimal.* The relaxed containment
 (`b₂ ≥ next(b₁)`, or `b₂ ≥ M` for RN) exists so `F₂` never overflows where `F₁`

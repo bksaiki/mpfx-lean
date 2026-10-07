@@ -510,25 +510,15 @@ private theorem rndRTO_nearest_facts {F₁ F₂ : FiniteFormat}
   exact rndRTO_no_tie_contradiction hsub_ext1 hz hxne hw'F₁ hz'F₁
     h_adj_x hz'_adj hz'_ne_w' hz'_eq_dist
 
-/-- **rnd-RTO-RN**, paper-aligned form for round-to-odd followed by
-round-to-nearest, parameterized by the nearest-rounding tie-break `tb`.
-Covers both RNE (`tb = .toEven`) and RNA (`tb = .awayZero`) in a single
-theorem: the hypothesis `hsub` encodes the paper's RN containment, uniform with
-the `roundsRTO_RTZ_finite`/`roundsRTO_RAZ_finite` signatures. -/
-theorem roundsRTO_RN_finite {F₁ F₂ : FiniteFormat}
-    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
-              ⊆ F₂.toFormat)
+/-- **rnd-RTO-RN** under `F₁.extend 2 ⊆ F₂` and `2 ≤ F₂.p`, without the relaxed
+bound. -/
+theorem roundsRTO_RN_finite_of_extend {F₁ F₂ : FiniteFormat}
+    (hsub2 : (F₁.extend 2).toFormat ⊆ F₂.toFormat)
+    (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
     {tb : TieBreak} {x : ℝ} {z w' : Dyadic}
     (hz : RoundsFinite F₂ .toOdd x z)
     (hw : RoundsFinite F₁ (.nearest tb) (z : ℝ) w') :
     RoundsFinite F₁ (.nearest tb) x w' := by
-  rcases two_le_p_or_trivial_of_extend_two_withBound_subset hsub with hp_F₂ | hF₁_triv
-  swap
-  · -- F₁ trivial: handled uniformly for any tb.
-    exact RoundsFinite.nearest_of_trivial hF₁_triv hw.1
-  -- main case: 2 ≤ F₂.p. Derive the weaker subset chain.
-  have hsub2 : (F₁.extend 2).toFormat ⊆ F₂.toFormat :=
-    extend_two_subset_of_withBound_subset hsub
   have h_ext1_sub_ext2 : (F₁.extend 1).toFormat ⊆ (F₁.extend 2).toFormat :=
     Format.extend_mono F₁.toFormat (by exact_mod_cast (by omega : (1 : ℕ) ≤ 2) : (1 : ℕ) ≤ 2)
   have hsub_ext1 : (F₁.extend 1).toFormat ⊆ F₂.toFormat :=
@@ -577,5 +567,23 @@ theorem roundsRTO_RN_finite {F₁ F₂ : FiniteFormat}
     intro z' hz'F₁ hz'_faithful hz'_ne_w' hz'_eq_dist
     exact (h_no_tie z' hz'F₁ (isFaithfulRound_iff_directed.mp hz'_faithful)
       hz'_ne_w' hz'_eq_dist).elim
+
+/-- **rnd-RTO-RN**, paper-aligned form for round-to-odd followed by
+round-to-nearest, parameterized by the nearest-rounding tie-break `tb`.
+Covers both RNE (`tb = .toEven`) and RNA (`tb = .awayZero`) in a single
+theorem: the hypothesis `hsub` encodes the paper's RN containment, uniform with
+the `roundsRTO_RTZ_finite`/`roundsRTO_RAZ_finite` signatures. -/
+theorem roundsRTO_RN_finite {F₁ F₂ : FiniteFormat}
+    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
+              ⊆ F₂.toFormat)
+    {tb : TieBreak} {x : ℝ} {z w' : Dyadic}
+    (hz : RoundsFinite F₂ .toOdd x z)
+    (hw : RoundsFinite F₁ (.nearest tb) (z : ℝ) w') :
+    RoundsFinite F₁ (.nearest tb) x w' := by
+  rcases two_le_p_or_trivial_of_extend_two_withBound_subset hsub with hp_F₂ | hF₁_triv
+  · exact roundsRTO_RN_finite_of_extend (extend_two_subset_of_withBound_subset hsub) hp_F₂
+      hz hw
+  · -- F₁ trivial: handled uniformly for any tb.
+    exact RoundsFinite.nearest_of_trivial hF₁_triv hw.1
 
 end Mpfx
