@@ -29,5 +29,6 @@ import Mpfx.Rounding.Op.Nearest
 import Mpfx.Rounding.Op.ToOdd
 import Mpfx.Rounding.Parity
 import Mpfx.Rounding.Restrict
+import Mpfx.Rounding.Special
 import Mpfx.Rounding.Ulp
 import Mpfx.Utils

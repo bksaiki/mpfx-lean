@@ -61,8 +61,10 @@ double-rounding theorem carries an "overflows" disjunct.
 4. **Sign Bools are named `negative`** everywhere (`Special.inf`,
    `OverflowMap`), matching the IEEE sign bit.
 5. **Two lookup tables**, split by concern: `SpecialMap` (where special inputs
-   go; IEEE: mode-independent) and `OverflowMap` (where overflow goes;
-   mode-dependent: RTP sends `+ovf` to +Inf but `−ovf` to −MAX).
+   go) and `OverflowMap` (where overflow goes, keyed by sign). Both are
+   parameters of `rnd`, independent of the rounding mode; a table follows the
+   mode only when it is built to, as `OverflowMap.ieee rm` is (RTP sends
+   `+ovf` to +Inf but `−ovf` to −MAX).
 6. **`RoundResult` loses `finite`/`overflow`, keeps `undefined`.** Overflow
    survives as the predicate `Overflows`, because saturating tables make it
    unobservable from the output while double rounding conditions on it.
@@ -108,10 +110,10 @@ role.
 
 | Name | Meaning |
 | --- | --- |
-| `FiniteFormat.maxFinite` | largest member `≤ b` for finite `b` (the grid floor `withBoundFF` already computes) |
+| `FiniteFormat.maxFinite F hb` | largest member of a bounded `F` (`hb : F.b ≠ ⊤`) |
 | `SpecialMap.exact` | Inf ↦ Inf, NaN ↦ NaN; needs both in `F.specials` |
 | `SpecialMap.saturate`, `SpecialMap.toNaN` | Inf ↦ ±`maxFinite`; everything ↦ NaN |
-| `OverflowMap.ieee rm` | IEEE 754 §7.4: RNE/RNA/RAZ ±Inf; RTZ ±MAX; RTP +Inf/−MAX; RTN +MAX/−Inf |
+| `OverflowMap.ieee rm` | IEEE 754 §7.4: RNE/RNA ±Inf; RTZ ±MAX; RTP +Inf/−MAX; RTN +MAX/−Inf; RAZ/RTO ±Inf |
 | `OverflowMap.saturate`, `OverflowMap.toNaN` | ±`maxFinite`; NaN |
 | `OverflowMap.neg` | swaps the two entries; the sign-symmetry lemmas need it (RTP ↔ RTN) |
 
@@ -214,6 +216,23 @@ touching 1400 lines of double-rounding proofs at the same time.
 Build: `lake build Mpfx.Rounding.Defs Mpfx.DoubleRounding.Total`.
 
 ### Phase 4: lookup tables and `maxFinite`
+
+**Done.** Decisions taken here:
+
+- `FiniteFormat.maxFinite F hb` is the RTN rounding of `b` on `F`'s grid and
+  requires `hb : F.b ≠ ⊤` (no junk value: saturating an Inf input in an
+  unbounded format has no meaningful target). The tables built on it
+  (`SpecialMap.saturate`, `OverflowMap.saturate`, `OverflowMap.ieee`) take `hb`.
+  Lemmas `maxFinite_mem`, `maxFinite_nonneg`, `le_maxFinite`; `saturated F hb
+  negative = .finite ±maxFinite`.
+- `OverflowMap.ieee` covers all six modes: RAZ and RTO overflow to ±Inf like
+  the nearest modes (owner's call; neither is an IEEE mode).
+- `OverflowMap.neg` negates entries, so it needs `F.NegClosed` (specials
+  closed under `Special.neg`). `Special.neg`, `WithSpecial.neg` and
+  `Format.neg_mem_values` live in `Rounding/Special.lean` for now; Phase 5 may
+  move the negations next to the types.
+- `SpecialMap.exact` takes `∀ s, s ∈ F.specials`; `saturate`/`toNaN` need only
+  NaN.
 
 - New `Rounding/Special.lean`: `SpecialMap`, `OverflowMap`, `OverflowMap.neg`,
   `FiniteFormat.maxFinite`, and the instances `SpecialMap.exact`/`saturate`/
