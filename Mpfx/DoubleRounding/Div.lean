@@ -163,7 +163,7 @@ If `0 < v` is far enough below the underflow threshold `2^(emin₁−1)` (namely
 land in `[0, 2^(emin₁−1))`, so both round to `0` in `F₁` and double rounding is
 innocuous. Covers Flocq's `round_round_really_zero` regime and the non-sliver
 part of `round_round_zero`; the excluded sliver `[2^(emin₁−1) − ½ulp₂,
-2^(emin₁−1))` is where `round_round_div_aux0` shows a quotient cannot land. -/
+2^(emin₁−1))` is where `round_round_div_aux` shows a quotient cannot land. -/
 private theorem round_round_div_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
     {p₁ : ℕ} {emin₁ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hexp₁ : F₁.exp = (emin₁ : QExp))
@@ -370,10 +370,8 @@ minimum quantum). For `a, b ∈ F₁` (`exp = emin`) with `0 < a, b`, `p₂ ≥ 
 Roux's underflow
 bound `emin₂ ≤ emin₁ − p₁ − 2`, and the quotient in the **normal regime**
 (`hle : cexp₁ (a/b) ≤ mag (a/b)`), double rounding of `a/b` is innocuous. The
-reworked `round_round_div_aux` uses a `min`-scale, so its bounds `hA`/`hB` are now
-`omega`-provable here from `hquant`, `hle`, `log_div_bounds`, and the lower
-bounds `cexp₁ = max(…) ≥ mag − p₁` — dodging the subnormal-`cexp`-inflation that
-broke the `exp = ⊥`-style `hex_ge`. -/
+bounds `hA`/`hB` of `round_round_div_aux` follow by `omega` from `hquant`, `hle`,
+`log_div_bounds` and `cexp₁ ≥ mag − p₁`. -/
 private theorem rndDiv_pos_normal_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
@@ -425,9 +423,8 @@ private theorem rndDiv_pos_normal_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb
 * **normal** (`cexp₁ v ≤ mag v`): `rndDiv_pos_normal_expFinite`;
 * **underflow** (`cexp₁ v = emin₁ > mag v`, so `v < 2^(emin₁−1) = midp₁ v`): if `v`
   is far below the threshold (`< 2^(emin₁−1) − ½ulp₂`) it rounds to `0` in both
-  (`round_round_div_zero`); otherwise `v` is in the boundary sliver, which the
-  reworked `round_round_div_aux` shows is impossible (`hA`/`hB` hold there too, so
-  no separate `div_aux0` port is needed). -/
+  (`round_round_div_zero`); otherwise `v` is in the boundary sliver, which
+  `round_round_div_aux` shows is impossible (`hA`/`hB` hold there too). -/
 private theorem rndDiv_pos_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     {emin₁ emin₂ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))

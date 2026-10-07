@@ -19,8 +19,7 @@ interaction with an arbitrary `F₂ ⊇ F₁`, bundled as data: three consecutiv
 even, `hi` not odd), the `F₁`-adjacency facts, and — quantified over every
 `F₂` containing `F₁` — the local-step gap bounds around the anchors and the
 two midpoints. The counterexample cores are proven once against this
-interface; it is instantiated for the quantum target format `F₁_g = 𝒜(p, e, ⊤)`
-and for the floating target format `F₁f_g = 𝒜(q, ⊥, ⊤)`. -/
+interface; it is instantiated per target-format shape in `Instances.lean`. -/
 
 structure AnchorNeighborhood (F₁ : ParityFormat) where
   /-- Upper step exponent: `hi = lo + 2^t`. -/

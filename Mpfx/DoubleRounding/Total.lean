@@ -274,7 +274,8 @@ private theorem toOdd_toZero_noOverflow_chain {F₁ F₂ : FiniteFormat}
     abs_lt_next_of_toZero_inbound hF₁b hb₁_mem hy hby
   have hN_F₂u : N ∈ F₂.unbounded :=
     mem_unbounded_of_mem
-      (hsub N (mem_extend_one_withBound_of_mem_unbounded hN_mem (boundOK_boundAfterNext_next hF₁b hN_nn)))
+      (hsub N (mem_extend_one_withBound_of_mem_unbounded hN_mem
+        (boundOK_boundAfterNext_next hF₁b hN_nn)))
   have hz_abs : |(z : ℝ)| ≤ (N : ℝ) :=
     abs_faithful_le_of_le hN_F₂u hxN.le hz.2.1
   -- `b₁ < |w| ≤ |z| ≤ N`, and grid minimality pins `|w| = N`.
@@ -443,7 +444,7 @@ private theorem next_mem_extend_two_withBound {F₁ : FiniteFormat} {b₁ : NonN
   have hM_mem : (F₁.extend 1).toFormat.next b₁.val ∈ (F₁.extend 1).unbounded :=
     next_mem_unbounded' hb₁_memx hb₁_nn
   have hM_nn : 0 ≤ (((F₁.extend 1).toFormat.next b₁.val : Dyadic) : ℝ) :=
-    le_trans hb₁_nn (lt_next'' b₁.val hb₁_nn).le
+    Format.next_nonneg (F₁.extend 1).toFormat b₁.val hb₁_nn
   have hmono := Format.extend_mono F₁.toFormat.unbounded
     (by exact_mod_cast (by omega : (1 : ℕ) ≤ 2) : (1 : ℕ) ≤ 2)
   have h2 := hmono _ hM_mem
@@ -1401,7 +1402,7 @@ theorem roundsRTO_RN {F₁ F₂ : FiniteFormat}
           hsub _ (next_mem_extend_two_withBound hFb hb₁_mem)
         have hb₁_nn : 0 ≤ ((b₁.val : Dyadic) : ℝ) := nonneg_coe_real b₁
         have hM_nn : 0 ≤ (((F.extend 1).toFormat.next b₁.val : Dyadic) : ℝ) :=
-          le_trans hb₁_nn (lt_next'' b₁.val hb₁_nn).le
+          Format.next_nonneg (F.extend 1).toFormat b₁.val hb₁_nn
         have hz_abs : |(z : ℝ)| ≤ (((F.extend 1).toFormat.next b₁.val : Dyadic) : ℝ) :=
           abs_faithful_le_of_le (mem_unbounded_of_mem hM_F₂) hxM hz.2.1
         exact boundOK_of_abs_le (by rwa [abs_of_nonneg hM_nn]) hM_F₂.2.2

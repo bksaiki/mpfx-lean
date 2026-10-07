@@ -3,7 +3,10 @@ import Mpfx.Format.Defs
 /-!
 # Parity formats
 
-`ParityFormat` and the `IsOdd` / `IsEven` classification of its elements.
+`ParityFormat`, the `IsOdd` / `IsEven` classification of its elements,
+basic parity facts (negation, canonical-representation characterizations),
+and transport across formats with equal `toFormat` or `(p, exp)` (`congr`).
+Alternation between adjacent values is in `Format/Parity/Alternate.lean`.
 -/
 
 namespace Mpfx
@@ -16,8 +19,7 @@ structure ParityFormat extends FiniteFormat where
 
 namespace ParityFormat
 
-/-- Conjunction of `FiniteFormat.finite` and `ParityFormat.parity`,
-recovering the original `non-degenerate` invariant. -/
+/-- Conjunction of `FiniteFormat.finite` and `ParityFormat.parity`. -/
 theorem nondegenerate (F : ParityFormat) :
     (F.p ≠ ⊤ ∧ F.p ≠ 1) ∨ F.exp ≠ ⊥ := by
   rcases F.parity with hp1 | hexp

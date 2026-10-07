@@ -45,11 +45,6 @@ only what the paper depends on. References are Lean names under
 
 **Docs**
 
-- [x] The README's tables list the finite forms (`rndRTZ_RTZ`, …) and no
-  completeness theorem, while the paper's Appendix A table cites the
-  total forms (`roundsRTZ_RTZ`, …, `roundsRTO_RN`) and the
-  completeness theorem (`Format.subset_iff_contains`). Add them, with
-  their `#print axioms` output.
 - [ ] Renumber the README once the paper is final: containment is
   Figure 7, the double-rounding rules Figure 8, the format instances
   Table 1, and the lemmas are 5.1 completeness, 5.2 digit count,

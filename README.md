@@ -114,26 +114,28 @@ Every theorem listed above depends on exactly these three standard axioms.
 | File | Contents |
 | --- | --- |
 | `Mpfx/Utils.lean` | Project-agnostic `ℝ`/integer helpers. |
-| `Mpfx/Dyadic.lean` | `Dyadic` (subring of `ℚ`), `precisionAtMost`/`quantumAtLeast`, `IsRepresentableAtP`. |
+| `Mpfx/Dyadic.lean` | `Dyadic` (subring of `ℚ`), `precisionAtMost`/`quantumAtLeast` (and quantum alignment under `±`, `×`), `IsRepresentableAtP`. |
 | `Mpfx/Format/Defs.lean` | `Format`/`FiniteFormat`, membership, `canonicalExp`, `numDigits`. |
-| `Mpfx/Format/Parity.lean` | `ParityFormat`, `IsOdd`/`IsEven`. |
-| `Mpfx/Format/Containment.lean` | §5.1 containment and completeness; `extend`/`withBound`/`next`. |
-| `Mpfx/Format/Digits.lean` | Digit-shift and RTO-padding lemmas. |
+| `Mpfx/Format/Parity.lean` | `ParityFormat`, `IsOdd`/`IsEven`, transport across formats. |
+| `Mpfx/Format/Parity/Alternate.lean` | Parity alternation between adjacent canonical values. |
+| `Mpfx/Format/Containment.lean` | §5.1 containment and completeness; `extend`, `numDigits_extend`. |
+| `Mpfx/Format/Next.lean` | `withBound`, `next`, `boundAfterNext`; containment with a relaxed bound. |
+| `Mpfx/Format/Digits.lean` | Digit-count lemma; RTO-padding lemma (`IsOdd.transfer_of_subset`). |
 | `Mpfx/Format/Discrete.lean` | Canonical representation, F-adjacency, midpoint membership. |
-| `Mpfx/Format/CanonicalExp.lean` | Closed forms of the canonical exponent; quantum alignment under `±`, `×`. |
+| `Mpfx/Format/CanonicalExp.lean` | Closed forms of the canonical exponent. |
 | `Mpfx/Format/Inference.lean` | §6.1 inference. |
 | `Mpfx/Rounding/Defs.lean` | Rounding modes, the `Rounds`/`RoundsFinite` spec, `IsFaithfulRound`. |
-| `Mpfx/Rounding/Basic.lean` | Consequences of the spec: uniqueness, faithfulness, monotonicity. |
+| `Mpfx/Rounding/Basic.lean` | Consequences of the spec: sign symmetry, uniqueness, faithfulness, monotonicity. |
+| `Mpfx/Rounding/Restrict.lean` | Restrict/lift between bounded and unbounded rounding. |
 | `Mpfx/Rounding/Parity.lean` | Adjacent grid points alternate in parity. |
 | `Mpfx/Rounding/Op.lean`, `Op/` | The rounding function `rnd` and the bridge `rnd_iff_rounds`. |
 | `Mpfx/Rounding/Ulp.lean` | `ulp`, `rndDown`/`rndUp`/`midp`, `succ`/`pred`. |
-| `Mpfx/DoubleRounding/Basic.lean` | §5.2 positive rules (finite form), except RTO→RN. |
+| `Mpfx/DoubleRounding/Basic.lean` | §5.2 positive rules (finite form), except RTO→RN; `rndExact`. |
 | `Mpfx/DoubleRounding/Nearest.lean` | `rndRTO_RN`. |
-| `Mpfx/DoubleRounding/Restrict.lean` | Restrict/lift between bounded and unbounded rounding. |
 | `Mpfx/DoubleRounding/Total.lean` | §5.2 positive rules (total form). |
 | `Mpfx/DoubleRounding/Counterexample.lean`, `Counterexample/` | §5.2 counterexamples. |
 | `Mpfx/DoubleRounding/NearestMidpoint.lean` | Nearest double rounding below the midpoint (Roux Lemma 16). |
-| `Mpfx/DoubleRounding/{Mul,Add,Sqrt,Div}.lean` | Roux: `×` (with `rndExact`), `+`/`−`, `√`, `/`. |
+| `Mpfx/DoubleRounding/{Mul,Add,Sqrt,Div}.lean` | Roux: `×`, `+`/`−`, `√`, `/`. |
 
 Formalization design notes are in [`docs/DESIGN.md`](docs/DESIGN.md); status and
 remaining work in [`docs/agents/TODO.md`](docs/agents/TODO.md).

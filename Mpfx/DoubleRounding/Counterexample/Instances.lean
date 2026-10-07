@@ -3,8 +3,21 @@ import Mpfx.DoubleRounding.Counterexample.Neighborhood
 /-!
 # Double-rounding counterexamples: neighborhood instances
 
-One `AnchorNeighborhood` per target-format shape: integer grid (quantum and
-full precision), floating, and single precision.
+One `AnchorNeighborhood` per target-format shape:
+
+* `quantumNeighborhood` (`p₁` finite `≥ 2`, `exp₁ = e`): anchors
+  `2·2^e < 3·2^e < 4·2^e`;
+* `topNeighborhood` (`p₁ = ⊤`, so `exp₁ = e` by the format invariant):
+  the same anchors on the full integer grid of step `2^e`;
+* `floatingNeighborhood` (`p₁` finite `≥ 2`, `exp₁ = ⊥`): anchors
+  `s·2^t < (s+1)·2^t < (s+2)·2^t`, `s = 2^(p₁−1)`, inside the binade
+  `[2^(t+p₁−1), 2^(t+p₁))`;
+* `powerOfTwoNeighborhood` (`p₁ = 1`, `exp₁ = e`): the power-of-two
+  anchors `2^(e+1) < 2^(e+2) < 2^(e+3)`, where parity is read from the
+  exponent rather than the significand.
+
+The only `ParityFormat` left out is `𝒜(1, ⊥, ·)`, excluded by the
+`ParityFormat` invariant.
 -/
 
 namespace Mpfx
@@ -1107,10 +1120,10 @@ noncomputable def floatingNeighborhood (q : ℕ) (hq : 2 ≤ q) (t : ℤ) :
         ring
       refine ⟨f₂, by omega, ?_, ?_⟩
       · intro z hz hz_lt
-        have h := F₂_quantum_floor hexpc h_target_lo z hz (by linarith)
+        have h := quantum_floor_of_mem hexpc h_target_lo z hz (by linarith)
         linarith
       · intro z hz hz_gt
-        have h := F₂_quantum_ceil hexpc h_target_hi z hz (by linarith)
+        have h := quantum_ceil_of_mem hexpc h_target_hi z hz (by linarith)
         linarith
 
 /-! ## The single-precision target format `F₁p_g = 𝒜(1, e, ⊤)`

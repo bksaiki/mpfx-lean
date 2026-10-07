@@ -3,14 +3,13 @@ import Mpfx.Format.Parity
 /-!
 # Rounding spec (relational layer)
 
-The relational layer of the rounding architecture. Defines:
+Defines:
 
 * `RoundingMode`, `TieBreak`, `RoundResult` — the modes and the
   result ADT (`.finite`, `.overflow`, `.undefined`).
-* `Format.IsUndefined`, `Format.IsOverflow` — when each `RoundResult`
-  case fires.
+* `FiniteFormat.IsUndefined` — when `.undefined` fires.
 * `IsFaithfulRound` — RoundDown or RoundUp.
-* `Rounds : Format → RoundingMode → ℝ → RoundResult → Prop` — the
+* `Rounds : FiniteFormat → RoundingMode → ℝ → RoundResult → Prop` — the
   specification relation, all seven modes.
 
 The companion file **`Mpfx/Rounding/Op.lean`** adds the noncomputable
@@ -136,10 +135,6 @@ require their result to be faithful. -/
 def IsFaithfulRound (F : FiniteFormat) (x : ℝ) (y : Dyadic) : Prop :=
   (y ∈ F ∧ (y : ℝ) ≤ x ∧ ∀ z : Dyadic, z ∈ F → (z : ℝ) ≤ x → (z : ℝ) ≤ (y : ℝ)) ∨
   (y ∈ F ∧ x ≤ (y : ℝ) ∧ ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ))
-
--- `ParityFormat.IsOdd` and `ParityFormat.IsEven` live in
--- `Mpfx/Format/Parity.lean`, built on `Format.numDigits` (digit-count lemma) +
--- `Dyadic.IsRepresentableAtP`.
 
 /-- The finite-result rounding spec: when `r = .finite y`, this is the
 mode-specific condition `y` must satisfy. Lifted out of `Rounds` so the

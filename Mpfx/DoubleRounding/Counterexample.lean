@@ -11,46 +11,17 @@ Each takes an arbitrary **unbounded** inner format `F₁ = 𝒜(p₁, exp₁, �
 holds for **every** `F₂` satisfying the stated containment, so no side
 condition on `(p₁, exp₁, p₂, exp₂, b₂)` can validate these pairings.
 
-All ten are proven once against `AnchorNeighborhood F₁`: three
-consecutive `F₁`-elements `lo2 < lo < hi` (lower gap `2^s`, upper gap
-`2^t` — equal away from a binade boundary, but `s = t − 1` when an anchor
-is a power of two), with `lo2`, `hi` even, `hi` not odd, their
-`F₁`-adjacency facts, and `F₂`-side local-step gap bounds. `neighborhoodOf`
-dispatches on `F₁.p` then `F₁.exp`:
-
-* `quantumNeighborhood` (`p₁` finite `≥ 2`, `exp₁ = e`): anchors
-  `2·2^e < 3·2^e < 4·2^e`;
-* `topNeighborhood` (`p₁ = ⊤`, so `exp₁ = e` by the format invariant):
-  the same anchors on the full integer grid of step `2^e`;
-* `floatingNeighborhood` (`p₁` finite `≥ 2`, `exp₁ = ⊥`): anchors
-  `s·2^t < (s+1)·2^t < (s+2)·2^t`, `s = 2^(p₁−1)`, inside the binade
-  `[2^(t+p₁−1), 2^(t+p₁))`;
-* `powerOfTwoNeighborhood` (`p₁ = 1`, `exp₁ = e`): the power-of-two
-  anchors `2^(e+1) < 2^(e+2) < 2^(e+3)`, where parity is read from the
-  exponent rather than the significand.
-
-The only `ParityFormat` left out is `𝒜(1, ⊥, ·)` — excluded by the
-`ParityFormat` invariant itself (its even/odd classification is undefined).
-
-Every witness is `anchor ± δ` with `δ = 2^(K−2)` a quarter of `F₂`'s
-*local step* at the anchor: the global quantum `2^f₂` when `F₂.exp = f₂`
-is finite, and the binade step `2^(E−q₂+1)` when `F₂.exp = ⊥` (where the
-`FiniteFormat` invariant forces `F₂.p = q₂` finite). Only the ten
-counterexamples are public; everything else is `private`.
+Each theorem is the corresponding `AnchorNeighborhood` core
+(`Counterexample/Neighborhood.lean`) applied to `neighborhoodOf F₁`, which
+dispatches on `F₁.p`, `F₁.exp` to the builders in
+`Counterexample/Instances.lean`. In the doc comments, `lo2 < lo < hi` are
+the neighborhood anchors (`lo` odd, `lo2`/`hi` even) and `δ` is a quarter
+of `F₂`'s local step at the anchor.
 -/
 
 namespace Mpfx
 
 namespace Cex
-
-/-! ## The unified counterexamples
-
-One theorem per invalid pairing, over an arbitrary unbounded
-`F₁ : ParityFormat` (`b = ⊤`); the precision `p` and quantum `exp` are
-otherwise unconstrained (the sole excluded shape `𝒜(1, ⊥, ·)` is ruled
-out by the `ParityFormat` invariant). In the doc comments,
-`lo2 < lo < hi` are the neighborhood anchors (`lo` odd, `lo2`/`hi` even)
-and `δ` is a quarter of `F₂`'s local step at the anchor. -/
 
 /-- A `ParityFormat` is determined by its three data fields: with
 `p = p₁`, `exp = e`, `b = ⊤` it *is* the quantum target format. -/

@@ -164,22 +164,26 @@ theorem lt_next_of_bot (F : Format) (he : F.exp = ⊥) (b : Dyadic) :
       push_cast
       linarith
 
-/-- `F.next b ≥ 0` for `b ≥ 0`. Combines all four `(F.p, F.exp)` shapes:
-finite-finite via `lt_next_of_finite`; `F.p = ⊤` finite-exp via
-`lt_next_of_p_top`; `F.exp = ⊥` via `lt_next_of_bot`. -/
+/-- `b < F.next b` for `b ≥ 0`, any `(p, exp)` shape. -/
+theorem lt_next {F : Format} (b : Dyadic) (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
+    ((b : Dyadic) : ℝ) < ((F.next b : Dyadic) : ℝ) := by
+  cases he : F.exp using QExp.recBotCoe with
+  | bot => exact lt_next_of_bot F he b
+  | coe e =>
+    rcases hp : F.p with _ | p
+    · exact lt_next_of_p_top F he hp b
+    · exact lt_next_of_finite F he hp b hb
+
+/-- `b ≤ F.next b` for `b ≥ 0`. -/
+theorem self_le_next (F : Format) (b : Dyadic)
+    (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
+    ((b : Dyadic) : ℝ) ≤ ((F.next b : Dyadic) : ℝ) :=
+  (lt_next (F := F) b hb).le
+
+/-- `F.next b ≥ 0` for `b ≥ 0`. -/
 theorem next_nonneg (F : Format) (b : Dyadic) (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
-    0 ≤ ((F.next b : Dyadic) : ℝ) := by
-  rcases hF_exp : F.exp with _ | e
-  · -- F.exp = ⊥. Use lt_next_of_bot.
-    have hlt := lt_next_of_bot F hF_exp b
-    linarith
-  · rcases hF_p : F.p with _ | p
-    · -- F.p = ⊤, F.exp finite. Use lt_next_of_p_top.
-      have hlt := lt_next_of_p_top F hF_exp hF_p b
-      linarith
-    · -- Both finite. Use lt_next_of_finite.
-      have hlt := lt_next_of_finite F hF_exp hF_p b hb
-      linarith
+    0 ≤ ((F.next b : Dyadic) : ℝ) :=
+  hb.trans (self_le_next F b hb)
 
 /-- Computed form of `next` for `F.exp = (e : ℤ), F.p = p, b > 0`. -/
 theorem next_eq_finite_pos (F : Format) {e : ℤ} {p : ℕ}
@@ -201,21 +205,6 @@ theorem next_eq_p_top (F : Format) {e : ℤ}
     F.next b = b + Dyadic.ofIntZpow 1 e := by
   unfold next
   rw [he, hp]; rfl
-
-/-- `b ≤ F.next b` for `b ≥ 0`. Combines all four `(F.p, F.exp)` shapes via
-case-split: finite-finite via `lt_next_of_finite`; `F.p = ⊤` finite-exp via
-`lt_next_of_p_top`; `F.exp = ⊥` via `lt_next_of_bot`. -/
-theorem self_le_next (F : Format) (b : Dyadic)
-    (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
-    ((b : Dyadic) : ℝ) ≤ ((F.next b : Dyadic) : ℝ) := by
-  rcases hF_exp : F.exp with _ | e
-  · -- F.exp = ⊥. lt_next_of_bot.
-    have := lt_next_of_bot F hF_exp b; linarith
-  · rcases hF_p : F.p with _ | p
-    · -- F.p = ⊤, F.exp finite. lt_next_of_p_top.
-      have := lt_next_of_p_top F hF_exp hF_p b; linarith
-    · -- Both finite. lt_next_of_finite.
-      have := lt_next_of_finite F hF_exp hF_p b hb; linarith
 
 /-! ### `boundAfterNext`: the bound for the paper's `F⁺` containment
 
@@ -288,22 +277,6 @@ end FiniteFormat
 
 /-! ### Grid lemmas for `next`: closure, minimality, monotonicity,
 midpoints, and the paper containment formats -/
-
-/-- `b < F.next b` for finite `exp` (any `p`), `b ≥ 0`. -/
-private theorem lt_next' {F : Format} {e : ℤ} (he : F.exp = (e : QExp))
-    (b : Dyadic) (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
-    ((b : Dyadic) : ℝ) < ((F.next b : Dyadic) : ℝ) := by
-  rcases hp : F.p with _ | p
-  · exact Format.lt_next_of_p_top F he hp b
-  · exact Format.lt_next_of_finite F he hp b hb
-
-/-- `b < F.next b` for `b ≥ 0`, any `(p, exp)` shape. -/
-theorem lt_next'' {F : Format} (b : Dyadic)
-    (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
-    ((b : Dyadic) : ℝ) < ((F.next b : Dyadic) : ℝ) := by
-  cases he : F.exp using QExp.recBotCoe with
-  | bot => exact Format.lt_next_of_bot F he b
-  | coe e => exact lt_next' he b hb
 
 /-- **Step lemma** for grid closure of `next`: at a positive base
 `b = m·2^s` with `logB − p + 1 ≤ s` and `next b = b + 2^s`, the successor is
@@ -557,7 +530,7 @@ theorem next_facts {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
     F₁.toFormat.next b₁.val ∈ F₁.unbounded := by
   have hb₁_nn : 0 ≤ ((b₁.val : Dyadic) : ℝ) := nonneg_coe_real b₁
   have hN_lt : ((b₁.val : Dyadic) : ℝ) < ((F₁.toFormat.next b₁.val : Dyadic) : ℝ) :=
-    lt_next'' b₁.val hb₁_nn
+    Format.lt_next b₁.val hb₁_nn
   exact ⟨hb₁_nn, hN_lt, le_trans hb₁_nn hN_lt.le,
     next_mem_unbounded' (mem_unbounded_of_mem hb₁_mem) hb₁_nn⟩
 
@@ -1080,7 +1053,8 @@ theorem two_le_p_or_trivial_of_extend_one_withBound_subset {F₁ F₂ : FiniteFo
         linarith
 
 /-- A nonzero member of `F₁` refutes the trivial branch of
-`two_le_p_or_trivial_of_extend_one_withBound_subset`: the paper containment then forces `2 ≤ F₂.p`. -/
+`two_le_p_or_trivial_of_extend_one_withBound_subset`: the paper containment
+then forces `2 ≤ F₂.p`. -/
 theorem two_le_p_of_nontrivial {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     (hnt : F₁.toFormat.Nontrivial) : ((2 : ℕ) : Prec) ≤ F₂.p := by
@@ -1112,10 +1086,12 @@ theorem extend_two_subset_of_withBound_subset {F₁ F₂ : FiniteFormat}
   obtain ⟨hp, hq, hb⟩ := hy
   exact ⟨by rwa [he_p], by rwa [he_exp], hb⟩
 
-/-- RN analog (`k = 2` case) of `two_le_p_or_trivial_of_extend_one_withBound_subset`. From the paper-aligned RN
+/-- RN analog (`k = 2` case) of `two_le_p_or_trivial_of_extend_one_withBound_subset`.
+From the paper-aligned RN
 containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext) ⊆ F₂`, either
 `F₂.p ≥ 2` or `F₁` contains only `0`. Obtained from the generic
-`two_le_p_or_trivial_of_extend_one_withBound_subset` at base `F₁.extend 1`: the hypothesis is bridged from
+`two_le_p_or_trivial_of_extend_one_withBound_subset` at base `F₁.extend 1`: the hypothesis
+is bridged from
 `F₁.extend 2` to `(F₁.extend 1).extend 1` via `extend_one_extend_one_p_exp`, and
 `F₁.extend 1` trivial (the conclusion at that base) implies `F₁` trivial since
 `F₁ ⊆ F₁.extend 1`. -/

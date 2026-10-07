@@ -594,47 +594,6 @@ theorem pred_eq_predPos (F : FiniteFormat) {x : ℝ} (hx : 0 < x) :
     pred F x = predPos F x := by
   rw [pred, succ, if_neg (by linarith : ¬ (0:ℝ) ≤ -x)]; simp only [neg_neg]
 
-/-- A positive `F`-value is at least the format's quantum, so `F.exp ≤ ⌊log₂ z⌋`. -/
-theorem exp_le_log_of_mem (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp))
-    {z : Dyadic} (hz : z ∈ F.unbounded) (hz0 : 0 < ((z : Dyadic) : ℝ)) :
-    e ≤ Int.log 2 ((z : Dyadic) : ℝ) := by
-  obtain ⟨-, hq, -⟩ := hz
-  rw [FiniteFormat.unbounded_exp, hexp, Dyadic.quantumAtLeast_coe_real] at hq
-  obtain ⟨c, hc⟩ := hq
-  have h2e : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-  have hc1 : (1 : ℝ) ≤ (c : ℝ) := by
-    by_contra hcc
-    push Not at hcc
-    have h0 : (c : ℤ) ≤ 0 := by exact_mod_cast Int.lt_add_one_iff.mp (by exact_mod_cast hcc)
-    have : (c : ℝ) ≤ 0 := by exact_mod_cast h0
-    nlinarith
-  have hge : (2 : ℝ) ^ e ≤ ((z : Dyadic) : ℝ) := by nlinarith
-  exact (Int.zpow_le_iff_le_log (by norm_num) hz0).mp (by exact_mod_cast hge)
-
-/-- The spacing of the binade below a positive `F`-value is no coarser than that
-value's own binade. -/
-theorem canonicalExp_binade_below_le (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
-    {z : Dyadic} (hz : z ∈ F.unbounded) (hz0 : 0 < ((z : Dyadic) : ℝ)) :
-    F.canonicalExp ((2 : ℝ) ^ (Int.log 2 ((z : Dyadic) : ℝ) - 1))
-      ≤ Int.log 2 ((z : Dyadic) : ℝ) := by
-  have hpp : 0 < p := FiniteFormat.p_pos hp
-  set k := Int.log 2 ((z : Dyadic) : ℝ) with hk
-  have hpos : (0 : ℝ) < (2 : ℝ) ^ (k - 1) := zpow_pos (by norm_num) _
-  have hlog : Int.log 2 |((2 : ℝ) ^ (k - 1))| = k - 1 := by
-    rw [abs_of_pos hpos]; exact log_two_zpow (k - 1)
-  unfold FiniteFormat.canonicalExp
-  cases hexp : F.exp using QExp.recBotCoe with
-  | bot => simp only [hp, hlog, if_neg (ne_of_gt hpos)]; omega
-  | coe e =>
-    simp only [hp, hlog, if_neg (ne_of_gt hpos)]
-    exact max_le (by omega) (by rw [hk]; exact exp_le_log_of_mem F hexp hz hz0)
-
-/-- Every positive `F`-value is above `F`'s coarsest step. -/
-theorem isAboveQuantum_of_mem (F : FiniteFormat) {z : Dyadic} (hz : z ∈ F.unbounded)
-    (hz0 : 0 < ((z : Dyadic) : ℝ)) : F.IsAboveQuantum ((z : Dyadic) : ℝ) :=
-  FiniteFormat.isAboveQuantum_of_exp_le F (ne_of_gt hz0)
-    (fun _ hexp => by rw [abs_of_pos hz0]; exact exp_le_log_of_mem F hexp hz hz0)
-
 /-- The predecessor of a positive `F`-value is an `F`-value. Away from a binade
 floor it is one grid step down; at a floor the step is the finer one from the
 binade below, and `k - e' ≤ p` keeps the coefficient in range. -/
@@ -694,14 +653,6 @@ theorem pred_mem (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
       push_cast; linear_combination -hxeq
 
 /-! ## The `succ` / `pred` involutions -/
-
-/-- With a minimum quantum, `canonicalExp` at `0` is that quantum. -/
-theorem canonicalExp_zero (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp)) :
-    F.canonicalExp 0 = e := by
-  unfold FiniteFormat.canonicalExp
-  cases F.p using ENat.recTopCoe with
-  | top => simp only [hexp]; rfl
-  | coe p => simp [hexp]
 
 /-- Two integer multiples of `2 ^ e` that differ are a full step apart. -/
 private theorem step_le_of_lt_aligned {c₁ c₂ e : ℤ}

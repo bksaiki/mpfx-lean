@@ -2,25 +2,26 @@ import Mpfx.Format.Containment
 import Mpfx.Format.Parity
 
 /-!
-# Digit-count and parity-transfer lemmas (RTO-padding lemma)
+# Digit-count and parity-transfer lemmas
 
-The headline is the **RTO-padding lemma** — RTO digit-padding preserves representability —
-realized here as a parity-transfer chain across a subformat `F₁ ⊆ F₂`:
+Digit-count lemmas `numDigits_nonneg` and `mem_imp_precisionAtMost_numDigits`
+(every nonzero `y ∈ F` has a representation with `|c| < 2^numDigits F y`),
+then a parity-transfer chain across a subformat `F₁ ⊆ F₂`:
 
 * `FiniteFormat.numDigits_le_one_of_p_one`,
-  `ParityFormat.precisionAtMost_not_IsOdd` — the RTO-padding *corollary*: a
-  value with precision `≤ w` can't be `IsOdd` at an effective precision `> w`.
+  `ParityFormat.precisionAtMost_not_IsOdd` — a value with precision `≤ w`
+  can't be `IsOdd` at an effective precision `> w`.
 * `numDigits_eq_of_subset_of_isOdd` (+ its hard `≤` core
   `numDigits_eq_of_subset_of_isOdd_aux`) — for an `IsOdd F₂` value `y ∈ F₁`,
   the effective precisions in `F₁` and `F₂` agree.
 * `IsOdd.transfer_of_numDigits_eq` — transfers `IsOdd` across the subformat
   once the effective precisions are known equal.
-* **`IsOdd.transfer_of_subset`** — the capstone **RTO-padding lemma**: `F₁ ⊆ F₂`,
-  `2 ≤ F₂.p`, `y ∈ F₁`, `F₂.IsOdd y` ⟹ `F₁.IsOdd y`. This is the form the
-  RTO-composition double-rounding rules (`rndRTO_RTO`, …) consume.
+* `IsOdd.transfer_of_subset` — the RTO-padding lemma: `F₁ ⊆ F₂`,
+  `2 ≤ F₂.p`, `y ∈ F₁`, `F₂.IsOdd y` ⟹ `F₁.IsOdd y`. Consumed by the
+  RTO double-rounding rules (`rndRTO_RTO`, …).
 
-Proved over the `ℚ` substrate, with `ℝ` bridges only where `Int.log` /
-`numDigits` require them.
+Proved over `ℚ`, with `ℝ` bridges only where `Int.log` / `numDigits`
+require them.
 -/
 
 namespace Mpfx
@@ -81,10 +82,8 @@ theorem numDigits_nonneg (F : FiniteFormat) (y : Dyadic) (hy : y ∈ F.toFormat)
       have hpp : 1 ≤ (p : ℤ) := by exact_mod_cast F.p_pos hp
       exact le_min hpp (by omega)
 
-/-- The key existence lemma: for nonzero `y ∈ F`, there exist `(c, e)`
-representing `y` with `|c| < 2^numDigits F y`. Combined with the analogous
-lower-bound argument (`mem_imp_isRepresentableAtP_numDigits`, future), this
-pins down the canonical form. -/
+/-- For nonzero `y ∈ F`, some `(c, e)` represents `y` with
+`|c| < 2^numDigits F y`. -/
 theorem mem_imp_precisionAtMost_numDigits {F : FiniteFormat} {y : Dyadic}
     (hy : y ∈ F.toFormat) (hy_ne : (y : ℝ) ≠ 0) :
     ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧

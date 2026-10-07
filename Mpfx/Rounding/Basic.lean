@@ -246,9 +246,8 @@ theorem RoundsFinite.neg_toNegative_iff_toPositive (F : FiniteFormat) (x : ℝ)
 
 /-- **Sign-symmetry combinator for `Rounds`.** Given that undefinedness matches
 (`hu`) and that the finite spec is negation-symmetric (`hfin`), the whole
-`RoundResult`-level `Rounds` predicate is negation-symmetric too. The
-`undefined`/`overflow`/`finite` case scaffold — previously copy-pasted across
-every `Rounds.neg_*` theorem — lives here once. -/
+`RoundResult`-level `Rounds` predicate is negation-symmetric too. Shared by
+the `Rounds.neg_*` theorems. -/
 theorem Rounds.neg_congr {F : FiniteFormat} {rm rm' : RoundingMode} {x : ℝ}
     (hu : F.IsUndefined rm ↔ F.IsUndefined rm')
     (hfin : ∀ y : Dyadic,

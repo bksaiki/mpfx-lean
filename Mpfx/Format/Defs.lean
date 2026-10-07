@@ -20,8 +20,6 @@ namespace Mpfx
   constraint" (the format is unbounded floating-point).
 * `b : Bound` — non-negative magnitude bound. `NonNegDyadic` enforces
   `b ≥ 0`; `⊤` denotes "unbounded".
-
-Defined in §4.2.
 -/
 structure Format where
   p : Prec
@@ -96,7 +94,7 @@ def Nontrivial (F : Format) : Prop :=
   ∃ d : Dyadic, d ∈ F ∧ d ≠ 0
 
 /-- A nonzero value needs at least one digit, so a nontrivial format has
-positive precision. This is what `ℕ+` used to enforce at the type level. -/
+positive precision. -/
 theorem Nontrivial.p_ne_zero {F : Format} (h : F.Nontrivial) : F.p ≠ 0 := by
   obtain ⟨d, hd, hd_ne⟩ := h
   intro h0
@@ -155,11 +153,11 @@ invariant required by a downstream API:
   least one of `p`, `exp` is finite. This is the minimum needed for
   `rnd` to compute a canonical exponent for nonzero `x`, since
   dyadics are dense in `ℝ` but not closed under limits.
-* `ParityFormat` — adds the *parity-anchor* invariant: `p ≠ 1` whenever
-  `exp = ⊥`. Combined with `FiniteFormat`, this is `(p ≠ ⊤ ∧ p ≠ 1) ∨
-  exp = ⊥`. Required for `IsOdd` / `IsEven` (and hence `rnd .toOdd`,
-  `rnd (.nearest _)`) to be semantically meaningful — without it, the
-  exponent-parity fallback for `p = 1` has no anchor (since the
+* `ParityFormat` (`Mpfx/Format/Parity.lean`) — adds the *parity-anchor*
+  invariant: `p ≠ 1` whenever `exp = ⊥`. Combined with `FiniteFormat`, this
+  is `(p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥`. Required for `IsOdd` / `IsEven` (and hence
+  `rnd .toOdd`, `rnd (.nearest _)`) to be semantically meaningful — without
+  it, the exponent-parity fallback for `p = 1` has no anchor (since the
   format has no quantum to count indices from).
 
 State theorems on the *weakest* tier whose proof actually destructures
@@ -177,8 +175,7 @@ instance : Membership Dyadic FiniteFormat := ⟨fun F d => d ∈ F.toFormat⟩
 
 namespace FiniteFormat
 
-/-- `F.pos` at a finite precision: the witness `p` in `F.p = ↑p` is positive.
-Stands in for `ℕ+`'s old type-level positivity wherever a proof splits `F.p`. -/
+/-- `F.pos` at a finite precision: the witness `p` in `F.p = ↑p` is positive. -/
 theorem p_pos {F : FiniteFormat} {p : ℕ} (hp : F.p = (p : Prec)) : 0 < p := by
   rcases Nat.eq_zero_or_pos p with rfl | h
   · exact absurd hp F.pos
@@ -279,8 +276,8 @@ theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)
     | bot => simp only [hy, hz, if_false]; omega
     | coe e => simp only [hy, hz, if_false]; omega
 
-/-- `F` with the magnitude bound removed (`b := ⊤`). Used by the
-satisfies-spec to define the unbounded rounding. The `finite` invariant
+/-- `F` with the magnitude bound removed (`b := ⊤`). Used by
+`Rounds`/`RoundsFinite` to define the unbounded rounding. The `finite` invariant
 depends only on `(p, exp)`, so it's preserved. -/
 def unbounded (F : FiniteFormat) : FiniteFormat where
   toFormat := F.toFormat.unbounded
@@ -297,16 +294,14 @@ def unbounded (F : FiniteFormat) : FiniteFormat where
 @[simp] theorem unbounded_unbounded (F : FiniteFormat) :
     F.unbounded.unbounded = F.unbounded := rfl
 
-/-- **Digit-count lemma**: number of binary digits the format rounds `x` to.
-Case analysis on `(F.p, F.exp)`:
+/-- Number of binary digits the format rounds `x` to. Case analysis on `(F.p, F.exp)`:
 
 - `(⊤, e')`: fixed-point with quantum `2^e'`. Digits = `⌊log₂|x|⌋ − e' + 1`.
 - `(p, ⊥)`: floating-point with precision `p` and no quantum. Digits = `p`.
 - `(p, e')`: floating-point with precision `p` and min quantum `2^e'`.
   Digits = `min(p, ⌊log₂|x|⌋ − e' + 1)`.
 
-The `(⊤, ⊥)` case is ruled out by `FiniteFormat.finite`, so a total
-function on `FiniteFormat` is well-defined (no junk-valued branch).
+The `(⊤, ⊥)` branch is unreachable by `FiniteFormat.finite`.
 
 For `x = 0` returns `0` by convention. -/
 noncomputable def numDigits (F : FiniteFormat) (x : ℝ) : ℤ :=

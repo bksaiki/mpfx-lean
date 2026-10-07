@@ -9,7 +9,7 @@ tie-break) is correct double rounding.
 
 namespace Mpfx
 
-/-! ## Round-to-nearest helpers for `rndRTO_RN` (Stage A) -/
+/-! ## Round-to-nearest helpers for `rndRTO_RN` -/
 
 /-- Helper for tie-break: from `|x - w'| = |x - z'|` with `w' ≠ z'`, derive
 `x = (w' + z') / 2`. -/
