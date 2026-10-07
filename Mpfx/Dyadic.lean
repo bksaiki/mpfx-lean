@@ -6,6 +6,14 @@ import Mathlib.Data.Int.Log
 import Mathlib.Tactic
 import Mpfx.Utils
 
+/-!
+# Dyadic numbers and format parameters
+
+`Dyadic`, the subring of `ℚ` of numbers `c · 2^e`; the precision and quantum
+predicates `precisionAtMost` / `quantumAtLeast`; and the format parameter
+types `Prec`, `QExp`, `Bound`.
+-/
+
 namespace Mpfx
 
 /-- A precision bound: a finite number of binary digits, or `⊤` for

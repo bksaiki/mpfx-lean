@@ -13,7 +13,7 @@ The constructive-logic layer of the rounding architecture. Defines:
 * `Rounds : Format → RoundingMode → ℝ → RoundResult → Prop` — the
   specification relation, all seven modes.
 
-The companion file **`Mpfx/RoundOp.lean`** adds the noncomputable
+The companion file **`Mpfx/Rounding/Op.lean`** adds the noncomputable
 function `rnd` and the bridge `rnd_iff_rounds`.
 -/
 
@@ -138,7 +138,7 @@ def IsFaithfulRound (F : FiniteFormat) (x : ℝ) (y : Dyadic) : Prop :=
   (y ∈ F ∧ x ≤ (y : ℝ) ∧ ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ))
 
 -- `ParityFormat.IsOdd` and `ParityFormat.IsEven` live in
--- `Mpfx/Format.lean`, built on `Format.numDigits` (digit-count lemma) +
+-- `Mpfx/Format/Parity.lean`, built on `Format.numDigits` (digit-count lemma) +
 -- `Dyadic.IsRepresentableAtP`.
 
 /-- The finite-result rounding spec: when `r = .finite y`, this is the

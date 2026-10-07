@@ -10,7 +10,7 @@ step (`adjacent_canonical_form`). Together these are the structural prerequisite
 for `rndRTO_RN`, via the midpoint-membership results at the end.
 
 `canonicalExp` carries the spacing, so the two exponent regimes need no separate
-treatment. `Mpfx/Ulp.lean` restates adjacency through `succ`.
+treatment. `Mpfx/Rounding/Ulp.lean` restates adjacency through `succ`.
 -/
 
 namespace Mpfx

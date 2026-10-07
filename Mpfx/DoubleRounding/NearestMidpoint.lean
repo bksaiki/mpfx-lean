@@ -12,7 +12,7 @@ sits far enough below its `F₁`-midpoint, an intermediate round-to-nearest in a
 finer format `F₂` followed by a round-to-nearest in `F₁` agrees with rounding
 directly into `F₁`.
 
-`ulp`, `rndDown`, `rndUp` and `midp` are in `Mpfx/Ulp.lean`.
+`ulp`, `rndDown`, `rndUp` and `midp` are in `Mpfx/Rounding/Ulp.lean`.
 -/
 
 namespace Mpfx

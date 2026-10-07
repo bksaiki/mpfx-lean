@@ -70,7 +70,7 @@ private theorem midpoint_in_F₁_extend_one_of_F_adjacent {F₁ : FiniteFormat}
     exact midpoint_mem_extend_one_of_adjacent F₁ hp hy₁F hy₂F h_lt h_adj
 
 /-- F-adjacent midpoint membership in `F₂`. Gets `midpoint y₁ y₂ ∈ F₁.extend 1`
-from `Mpfx/Discrete.lean` (dispatching on `F₁`'s precision/exponent shape) and then
+from `Mpfx/Format/Discrete.lean` (dispatching on `F₁`'s precision/exponent shape) and then
 applies the subset hypothesis. -/
 private theorem midpoint_F₁_in_F₂_of_F_adjacent {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat)

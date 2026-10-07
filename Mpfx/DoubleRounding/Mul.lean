@@ -9,7 +9,7 @@ import Mpfx.Format.CanonicalExp
 Pierre Roux, *Innocuous Double Rounding of Basic Arithmetic Operations*
 (JFR 7(1), 2014), proves double rounding
 innocuous for the *results of specific operations* under precision
-relationships weaker than the generic §5.2 rules (`DoubleRounding.lean`).
+relationships weaker than the generic §5.2 rules (`Mpfx/DoubleRounding/Basic.lean`).
 Where the generic rules hold for every real `x`, these hold only for the
 outputs of `×`/`+`/… but let `F₂` be narrower relative to `F₁`.
 
@@ -17,7 +17,7 @@ This file transcribes the **multiplication** result (Roux Thm 10 /
 Flocq `round_round_mult`), radix 2, and the shared **exact-intermediate**
 combinator `rndExact` on which it — and the underflow/exact cases of the other
 operations — rests. Addition/subtraction, square root, and division live in
-`DoubleRoundingAdd`/`DoubleRoundingSqrt`/`DoubleRoundingDiv`.
+`DoubleRounding.Add`/`.Sqrt`/`.Div`.
 
 ## Technique: exact intermediate
 

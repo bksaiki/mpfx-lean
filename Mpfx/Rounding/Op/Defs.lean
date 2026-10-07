@@ -5,8 +5,8 @@ import Mpfx.Format.CanonicalExp
 # The rounding function
 
 `rnd` and the integer steps it dispatches to. The relational spec is
-`Mpfx/Rounding.lean`, its consequences `Mpfx/RoundPred.lean`; `rnd_iff_rounds`
-(in `Mpfx/RoundOp.lean`) connects the two.
+`Mpfx/Rounding/Defs.lean`, its consequences `Mpfx/Rounding/Basic.lean`; `rnd_iff_rounds`
+(in `Mpfx/Rounding/Op.lean`) connects the two.
 
 `rnd` is `noncomputable`: `Int.log : ℝ → ℤ`, and the branches decide real
 comparisons through `Classical.propDecidable`. That commitment is confined to

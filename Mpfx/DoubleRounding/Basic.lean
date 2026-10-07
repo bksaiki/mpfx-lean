@@ -159,7 +159,7 @@ theorem rndRAZ_RAZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
 
 -- `FiniteFormat.toParityFormatOfToOdd` (promotion of `F : FiniteFormat` to
 -- `ParityFormat` from a `¬ IsUndefined .toOdd` witness) is provided by
--- `Mpfx/RoundOp/Defs.lean`.
+-- `Mpfx/Rounding/Op/Defs.lean`.
 
 /-- If `F₁ ⊆ F₂`, `F₁.exp = ⊥`, and `F₁` contains a nonzero element `z`, then
 `F₂.exp = ⊥` as well: an `exp = ⊥` (unbounded-quantum) format embeds values of

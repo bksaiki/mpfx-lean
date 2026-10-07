@@ -15,7 +15,7 @@ structure Format where
   b   : Bound  -- magnitude bound ≥ 0, ⊤ = unbounded
 ```
 
-The three field types are abbreviations, defined in `Dyadic.lean`:
+The three field types are abbreviations, defined in `Mpfx/Dyadic.lean`:
 
 | abbrev  | unfolds to             | eliminator        |
 | ------- | ---------------------- | ----------------- |
@@ -90,8 +90,8 @@ Two complementary views of rounding:
   `Classical.choose`), bridged to the relation by
   `rnd_iff_rounds : rnd F rm x = r ↔ Rounds F rm x r`.
 
-The constructive/classical split is at the file level: `Rounding.lean` is
-constructive; `RoundOp.lean` makes the classical commitment (`rnd` is
+The constructive/classical split is at the file level: `Rounding/Defs.lean` is
+constructive; `Rounding/Op.lean` makes the classical commitment (`rnd` is
 `noncomputable` because real comparisons aren't computably decidable, and
 `Int.log : ℝ → ℤ`). The overflow **sign bit** is a decidable `ℚ` comparison.
 

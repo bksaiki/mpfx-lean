@@ -35,7 +35,7 @@ only what the paper depends on. References are Lean names under
   `rndSqrt_*`, `rndDiv_*`). The README lists them as beyond the
   paper.
 
-**Containment** (`Mpfx/Containment.lean`)
+**Containment** (`Mpfx/Format/Containment.lean`)
 
 - [ ] The completeness section's witnesses that `BoundRep` and
   `Nontrivial` are each needed (A(∞, 0, 3/2) = A(∞, 0, 1) and

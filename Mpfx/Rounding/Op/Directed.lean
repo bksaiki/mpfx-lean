@@ -5,7 +5,7 @@ import Mpfx.Rounding.Basic
 # Soundness of `rndUnbounded` for the directed modes
 
 `toZero`/`awayZero` transport from `toNegative`/`toPositive` through the
-sign-equivalences in `Mpfx/Rounding.lean` (Flocq `round_ZR_DN`/`round_AW_UP`).
+sign-equivalences in `Mpfx/Rounding/Defs.lean` (Flocq `round_ZR_DN`/`round_AW_UP`).
 -/
 
 namespace Mpfx

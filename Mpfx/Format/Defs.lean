@@ -1,6 +1,13 @@
 import Mpfx.Dyadic
 import Mathlib.Data.Int.Log
 
+/-!
+# Abstract number formats (§4.2)
+
+`Format` (`𝒜(p, exp, b)`) and its membership relation, the `FiniteFormat`
+subtype, its canonical exponent, and the digit count `numDigits`.
+-/
+
 namespace Mpfx
 
 /-- The abstract number format `𝒜(p, exp, b)`.
