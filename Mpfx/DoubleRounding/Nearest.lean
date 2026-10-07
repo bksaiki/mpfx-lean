@@ -498,8 +498,7 @@ private theorem rndRTO_nearest_facts {F₁ F₂ : FiniteFormat}
         intro v hvF₁ hxv
         exact hw_min v hvF₁ (hzRU.2.2 v (hsub' _ hvF₁) hxv)
   have hsub_double : ((F₁.extend 1).extend 1).toFormat ⊆ F₂.toFormat :=
-      Format.subset_of_mem hsub2.specials fun y hy =>
-    hsub2 y (Format.extend_one_extend_one_subset_extend_two F₁.toFormat y hy)
+    (Format.extend_one_extend_one_subset_extend_two _).trans hsub2
   have hz_not_F₁_ext1 : z ∉ F₁.extend 1 :=
     toOdd_notMem_of_extend_subset hsub_double hp_F₂ hz hxne
   have h_close := rndRTO_RN_close_transfer hsub_ext1 hsub' hF₁_sub_ext1
@@ -520,12 +519,8 @@ theorem roundsRTO_RN_finite_of_extend {F₁ F₂ : FiniteFormat}
     RoundsFinite F₁ (.nearest tb) x w' := by
   have h_ext1_sub_ext2 : (F₁.extend 1).toFormat ⊆ (F₁.extend 2).toFormat :=
     Format.extend_mono F₁.toFormat (by exact_mod_cast (by omega : (1 : ℕ) ≤ 2) : (1 : ℕ) ≤ 2)
-  have hsub_ext1 : (F₁.extend 1).toFormat ⊆ F₂.toFormat :=
-      Format.subset_of_mem hsub2.specials fun y hy =>
-    hsub2 _ (h_ext1_sub_ext2 _ hy)
-  have hsub' : F₁.toFormat ⊆ F₂.toFormat :=
-      Format.subset_of_mem hsub_ext1.specials fun y hy =>
-    hsub_ext1 _ (Format.self_subset_extend F₁.toFormat 1 _ hy)
+  have hsub_ext1 : (F₁.extend 1).toFormat ⊆ F₂.toFormat := h_ext1_sub_ext2.trans hsub2
+  have hsub' : F₁.toFormat ⊆ F₂.toFormat := (Format.self_subset_extend _ 1).trans hsub_ext1
   rcases eq_or_ne ((z : ℝ)) x with hzx | hzx
   · -- x = z: hw already has the right shape after rewriting.
     rw [hzx] at hw; exact hw

@@ -70,8 +70,7 @@ theorem saturated_eq_finite (F : FiniteFormat) (hb : F.b ≠ ⊤) {negative : Bo
     (habs : |(w : ℝ)| = (F.maxFinite hb : ℝ))
     (hsign : (w : ℝ) ≠ 0 → decide ((w : ℚ) < 0) = negative) :
     F.saturated hb negative = .finite w := by
-  have hq : ((w : ℚ) < 0) ↔ (w : ℝ) < 0 := by
-    rw [Dyadic.coe_real_eq_ratCast, Rat.cast_lt_zero]
+  have hq := (Dyadic.coe_real_lt_zero_iff w).symm
   unfold saturated
   congr 1
   apply (Dyadic.coe_real_inj _ _).mp
@@ -94,6 +93,9 @@ namespace SpecialMap
 /-- Specials are exact (IEEE): every special input maps to itself. -/
 def exact (F : Format) (h : ∀ s, s ∈ F.specials) : SpecialMap F :=
   ⟨.special, h⟩
+
+@[simp] theorem exact_map (F : Format) (h : ∀ s, s ∈ F.specials) (s : Special) :
+    (exact F h).map s = .special s := rfl
 
 /-- Infinities saturate to `±maxFinite`; NaN stays NaN. -/
 noncomputable def saturate (F : FiniteFormat) (hb : F.b ≠ ⊤)

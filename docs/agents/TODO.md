@@ -70,12 +70,13 @@ Mpfx/
 │   │   └── Alternate.lean per-regime canonical-rep parity iffs, saturation
 │   │                 facts, alternating_parity_* / alternating_isEven_*
 │   ├── Containment.lean §5.1: Format.Subset (numeric members and specials)
-│   │                 + HasSubset, subset_of_mem,
+│   │                 + HasSubset, subset_of_mem, Subset.trans,
+│   │                 FiniteFormat.subset_unbounded,
 │   │                 boundOK_mono, nnPow, containsPrec, containsSub,
 │   │                 subset_iff_contains (completeness),
 │   │                 Format.extend + self_subset_extend + extend_mono,
 │   │                 FiniteFormat.extend + numDigits_extend (digit-shift lemma)
-│   ├── Next.lean     withBound, next (+ next lemmas), boundAfterNext — §5.2
+│   ├── Next.lean     withBound (+ withBound_mono), next (+ next lemmas), boundAfterNext — §5.2
 │   │                 bound API; containment with a relaxed bound:
 │   │                 extend_{one,two}_subset_of_withBound_subset,
 │   │                 two_le_p_or_trivial_of_extend_{one,two}_withBound_subset
@@ -113,7 +114,10 @@ Mpfx/
 │   │                 mode and generic, isFaithfulRound, eq_zero_of_zero,
 │   │                 opposite_sides_of_ne, the grid bridges
 │   │                 toNegative_floor/toPositive_ceil (+ equation forms),
-│   │                 isOdd_alternate_of_bracketing, monotonicity per mode
+│   │                 isOdd_alternate_of_bracketing, sign and magnitude of a
+│   │                 faithful rounding (decide_lt_zero, mul_nonneg,
+│   │                 abs_faithful_le_of_le, le_abs_faithful_of_le),
+│   │                 ne_zero_of_not_boundOK, monotonicity per mode
 │   │                 and generic. Mentions no construction.
 │   ├── Restrict.lean per-mode restrict/lift between RoundsFinite F and F.unbounded
 │   ├── Parity.lean   neighbors_alternate: adjacent grid points alternate in
@@ -121,7 +125,7 @@ Mpfx/
 │   ├── Op.lean, Op/  function layer (noncomputable):
 │   │                 rndInt, rndParity, rndUnbounded, rnd, per-mode soundness,
 │   │                 rndUnbounded_satisfies/_unique, rnd_iff_rounds,
-│   │                 rnd_special, rnd_of_overflows_pos/_neg
+│   │                 rnd_special, rnd_of_overflows
 │   ├── Special.lean  maxFinite (+ abs_le_maxFinite, saturated_eq_finite), the
 │   │                 standard tables: SpecialMap.exact/saturate/toNaN,
 │   │                 OverflowMap.ieee/saturate/toNaN

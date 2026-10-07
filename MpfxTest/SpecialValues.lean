@@ -17,55 +17,55 @@ example (tb : TieBreak) (h : ¬ F.IsUndefined (.nearest tb))
     (hov : Overflows F (.nearest tb) x) (hx : 0 < x) :
     rnd F S (OverflowMap.ieee F (.nearest tb) hb hinf) (.nearest tb) (.finite x) =
       .value (.special (.inf false)) := by
-  rw [rnd_of_overflows_pos h hov hx.le]; rfl
+  rw [rnd_of_overflows h hov, decide_eq_false (lt_asymm hx)]; rfl
 
 example (h : ¬ F.IsUndefined (.nearest .toEven))
     (hov : Overflows F (.nearest .toEven) x) (hx : x < 0) :
     rnd F S (OverflowMap.ieee F (.nearest .toEven) hb hinf) (.nearest .toEven) (.finite x) =
       .value (.special (.inf true)) := by
-  rw [rnd_of_overflows_neg h hov hx.le]; rfl
+  rw [rnd_of_overflows h hov, decide_eq_true hx]; rfl
 
 example (hov : Overflows F .toZero x) (hx : 0 < x) :
     rnd F S (OverflowMap.ieee F .toZero hb hinf) .toZero (.finite x) =
       .value (.finite (F.maxFinite hb)) := by
-  rw [rnd_of_overflows_pos (not_isUndefined_toZero F) hov hx.le]; rfl
+  rw [rnd_of_overflows (not_isUndefined_toZero F) hov, decide_eq_false (lt_asymm hx)]; rfl
 
 example (hov : Overflows F .toZero x) (hx : x < 0) :
     rnd F S (OverflowMap.ieee F .toZero hb hinf) .toZero (.finite x) =
       .value (.finite (-F.maxFinite hb)) := by
-  rw [rnd_of_overflows_neg (not_isUndefined_toZero F) hov hx.le]; rfl
+  rw [rnd_of_overflows (not_isUndefined_toZero F) hov, decide_eq_true hx]; rfl
 
 example (hov : Overflows F .toPositive x) (hx : 0 < x) :
     rnd F S (OverflowMap.ieee F .toPositive hb hinf) .toPositive (.finite x) =
       .value (.special (.inf false)) := by
-  rw [rnd_of_overflows_pos (not_isUndefined_toPositive F) hov hx.le]; rfl
+  rw [rnd_of_overflows (not_isUndefined_toPositive F) hov, decide_eq_false (lt_asymm hx)]; rfl
 
 example (hov : Overflows F .toPositive x) (hx : x < 0) :
     rnd F S (OverflowMap.ieee F .toPositive hb hinf) .toPositive (.finite x) =
       .value (.finite (-F.maxFinite hb)) := by
-  rw [rnd_of_overflows_neg (not_isUndefined_toPositive F) hov hx.le]; rfl
+  rw [rnd_of_overflows (not_isUndefined_toPositive F) hov, decide_eq_true hx]; rfl
 
 example (hov : Overflows F .toNegative x) (hx : 0 < x) :
     rnd F S (OverflowMap.ieee F .toNegative hb hinf) .toNegative (.finite x) =
       .value (.finite (F.maxFinite hb)) := by
-  rw [rnd_of_overflows_pos (not_isUndefined_toNegative F) hov hx.le]; rfl
+  rw [rnd_of_overflows (not_isUndefined_toNegative F) hov, decide_eq_false (lt_asymm hx)]; rfl
 
 example (hov : Overflows F .toNegative x) (hx : x < 0) :
     rnd F S (OverflowMap.ieee F .toNegative hb hinf) .toNegative (.finite x) =
       .value (.special (.inf true)) := by
-  rw [rnd_of_overflows_neg (not_isUndefined_toNegative F) hov hx.le]; rfl
+  rw [rnd_of_overflows (not_isUndefined_toNegative F) hov, decide_eq_true hx]; rfl
 
 /-! ### Saturation and NaN -/
 
 example (rm : RoundingMode) (h : ¬ F.IsUndefined rm) (hov : Overflows F rm x)
     (hx : 0 < x) :
     rnd F S (OverflowMap.saturate F hb) rm (.finite x) = .value (.finite (F.maxFinite hb)) := by
-  rw [rnd_of_overflows_pos h hov hx.le]; rfl
+  rw [rnd_of_overflows h hov, decide_eq_false (lt_asymm hx)]; rfl
 
 example (hnan : Special.nan ∈ F.specials) (rm : RoundingMode) (h : ¬ F.IsUndefined rm)
     (hov : Overflows F rm x) (hx : x < 0) :
     rnd F S (OverflowMap.toNaN F.toFormat hnan) rm (.finite x) = .value (.special .nan) := by
-  rw [rnd_of_overflows_neg h hov hx.le]; rfl
+  rw [rnd_of_overflows h hov, decide_eq_true hx]; rfl
 
 /-! ### Special inputs -/
 

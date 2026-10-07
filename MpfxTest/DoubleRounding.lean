@@ -24,8 +24,7 @@ example (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.bou
       rnd F₁ (SpecialMap.exact _ h₁) (OverflowMap.ieee F₁ (.nearest tb) hb₁ fun _ => h₁ _)
         (.nearest tb) v :=
   rndRTO_RN_of_bound hsub hnt h₁u (SpecialMap.exact_composes h₂)
-    (OverflowMap.composes_of_inf (OverflowMap.ieee_map_toOdd _)
-      (fun _ => rfl) (OverflowMap.ieee_map_nearest _ _)) hu
+    (OverflowMap.composes_of_inf (fun _ => rfl) (fun _ => rfl) (fun _ => rfl)) hu
 
 /-- RTZ → RTZ with exact specials and IEEE (saturating) overflow, under the plain
 containment. -/
@@ -56,8 +55,7 @@ example (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat) (hp_F₂ : ((2 : ℕ
         .toZero u.toReal =
       rnd F₁ (SpecialMap.exact _ h₁) (OverflowMap.ieee F₁ .toZero hb₁ fun _ => h₁ _)
         .toZero v :=
-  have hsub₁ : F₁.toFormat ⊆ F₂.toFormat := Format.subset_of_mem hsub.specials fun y hy =>
-    hsub y (Format.self_subset_extend F₁.toFormat 1 y hy)
+  have hsub₁ : F₁.toFormat ⊆ F₂.toFormat := (Format.self_subset_extend _ 1).trans hsub
   rndRTO_RTZ hsub hp_F₂ (.of_saturate hsub₁ hb₁ hb₂ (not_isUndefined_toZero F₁))
     (SpecialMap.exact_composes h₂)
     (OverflowMap.saturate_composes hsub₁ hb₁ hb₂ (not_isUndefined_toZero F₁)) hu
@@ -86,7 +84,9 @@ example {tb : TieBreak} (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
   obtain ⟨z, hz, hbz⟩ := hov
   refine ⟨_, by rw [rnd_finite_of_roundsFinite (not_isUndefined_of_two_le_p hp_F₂) hz,
     if_neg hbz], ?_⟩
-  rw [rnd_finite_of_roundsFinite h₁u hy.1, if_pos hy.2, OverflowMap.ieee_map_toOdd,
+  rw [rnd_finite_of_roundsFinite h₁u hy.1, if_pos hy.2,
+    show ∀ s, (OverflowMap.ieee F₂ .toOdd hb₂ fun _ => h₂ _).map s = .special (.inf s) from
+      fun _ => rfl,
     WithSpecial.toReal_special, rnd_special, SpecialMap.exact_map]
   intro h
   cases RoundResult.value.inj h

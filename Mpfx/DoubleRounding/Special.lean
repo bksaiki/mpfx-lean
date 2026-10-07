@@ -55,23 +55,6 @@ theorem OverflowMap.composes_of_inf {F₂ F₁ : FiniteFormat} {O₂ : OverflowM
     (h₁ : ∀ s, O₁.map s = .special (.inf s)) : O₂.Composes S₁ O₁ rm₁ := fun s => by
   rw [h₂, WithSpecial.toReal_special, rnd_special, hS, h₁]
 
-@[simp] theorem SpecialMap.exact_map (F : Format) (h : ∀ s, s ∈ F.specials) (s : Special) :
-    (SpecialMap.exact F h).map s = .special s := rfl
-
-theorem OverflowMap.ieee_map_awayZero (F : FiniteFormat) {hb hinf} (s : Bool) :
-    (OverflowMap.ieee F .awayZero hb hinf).map s = .special (.inf s) := rfl
-
-theorem OverflowMap.ieee_map_toOdd (F : FiniteFormat) {hb hinf} (s : Bool) :
-    (OverflowMap.ieee F .toOdd hb hinf).map s = .special (.inf s) := rfl
-
-theorem OverflowMap.ieee_map_nearest (F : FiniteFormat) (tb : TieBreak) {hb hinf} (s : Bool) :
-    (OverflowMap.ieee F (.nearest tb) hb hinf).map s = .special (.inf s) := rfl
-
-/-- An out-of-bound value is nonzero. -/
-private theorem ne_zero_of_not_boundOK {F : FiniteFormat} {y : Dyadic}
-    (h : ¬ Format.boundOK F.b y) : (y : ℝ) ≠ 0 := fun h0 =>
-  h (by rw [eq_zero_of_coe_real_zero h0]; exact Format.boundOK_zero _)
-
 /-- A nonzero chained rounding carries the sign of `x`. -/
 private theorem decide_lt_zero_of_chain {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode}
     {x : ℝ} {z w : Dyadic} (hz : RoundsFinite F₂.unbounded rm₂ x z)
@@ -81,7 +64,7 @@ private theorem decide_lt_zero_of_chain {F₁ F₂ : FiniteFormat} {rm₁ rm₂ 
     rw [eq_zero_of_coe_real_zero h0, Dyadic.coe_real_zero] at hw
     rw [RoundsFinite.eq_zero_of_zero hw, Dyadic.coe_real_zero])
   rw [hw.isFaithfulRound.decide_lt_zero hw0, ← hz.isFaithfulRound.decide_lt_zero hz0]
-  exact decide_eq_decide.mpr (by rw [Dyadic.coe_real_eq_ratCast, Rat.cast_lt_zero])
+  exact decide_eq_decide.mpr (Dyadic.coe_real_lt_zero_iff z)
 
 /-- Where exactly one side of a double rounding overflows, `F₁`'s overflow
 table gives the other side's value. `s = decide (x < 0)` is the overflow sign. -/
@@ -167,23 +150,14 @@ theorem OverflowAgrees.of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F�
     OverflowAgrees F₁ S₁ O₁ rm₁ F₂ O₂ rm₂ where
   direct x z w hz hw hov := absurd hov (hC x z w hz hw)
   chain x z y hz hov hy := by
-    obtain ⟨w, hw, hbw⟩ := hov
-    rcases hP x with ⟨y', hy', hby'⟩ | ⟨z', w', hz', hw', -⟩
-    · exact absurd (RoundsFinite.unique h₁u hy.1 hy' ▸ hy.2) hby'
+    rcases hP x with hov' | ⟨z', w', hz', hw', -⟩
+    · exact ((overflows_iff_not_roundsInBound h₁u).mp hov' ⟨y, hy⟩).elim
     · obtain rfl := RoundsFinite.unique h₂u hz'.1 hz.1
-      exact absurd (RoundsFinite.unique h₁u hw'.1 hw ▸ hw'.2) hbw
+      exact ((overflows_iff_not_roundsInBound h₁u).mp hov ⟨w', hw'⟩).elim
   inner x y hov hy := by
-    obtain ⟨z, hz, hbz⟩ := hov
-    rcases hP x with ⟨y', hy', hby'⟩ | ⟨z', -, hz', -, -⟩
-    · exact absurd (RoundsFinite.unique h₁u hy.1 hy' ▸ hy.2) hby'
-    · exact absurd (RoundsFinite.unique h₂u hz'.1 hz ▸ hz'.2) hbz
-
-/-- The plain containment, from the relaxed containment. -/
-private theorem subset_of_withBound_boundAfterNext_subset {F₁ F₂ : FiniteFormat}
-    (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat) :
-    F₁.toFormat ⊆ F₂.toFormat :=
-  Format.subset_of_mem hsub.specials fun d hd =>
-    hsub d ⟨hd.1, hd.2.1, boundOK_boundAfterNext_of_boundOK hd.2.2⟩
+    rcases hP x with hov' | ⟨z', -, hz', -, -⟩
+    · exact ((overflows_iff_not_roundsInBound h₁u).mp hov' ⟨y, hy⟩).elim
+    · exact ((overflows_iff_not_roundsInBound h₂u).mp hov ⟨z', hz'⟩).elim
 
 /-! ### The rules -/
 
@@ -210,7 +184,7 @@ theorem rndRTZ_RTZ_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.t
     {v : WithSpecial ℝ} {u : WithSpecial Dyadic}
     (hu : rnd F₂ S₂ O₂ .toZero v = .value u) :
     rnd F₁ S₁ O₁ .toZero u.toReal = rnd F₁ S₁ O₁ .toZero v :=
-  rndRTZ_RTZ (subset_of_withBound_boundAfterNext_subset hsub)
+  rndRTZ_RTZ (F₁.subset_withBound_boundAfterNext.trans hsub)
     (.of_bound (not_isUndefined_toZero F₁) (not_isUndefined_toZero F₂)
       (roundsRTZ_RTZ_inBound hsub) fun _ _ _ hz hw => roundsRTZ_RTZ_noOverflow hsub hnt hz hw)
     hS hO hu
@@ -266,7 +240,7 @@ theorem rndRTO_RTO_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.t
     {v : WithSpecial ℝ} {u : WithSpecial Dyadic}
     (hu : rnd F₂ S₂ O₂ .toOdd v = .value u) :
     rnd F₁ S₁ O₁ .toOdd u.toReal = rnd F₁ S₁ O₁ .toOdd v :=
-  rndRTO_RTO (subset_of_withBound_boundAfterNext_subset hsub) hp_F₂ h₁u
+  rndRTO_RTO (F₁.subset_withBound_boundAfterNext.trans hsub) hp_F₂ h₁u
     (.of_bound h₁u (not_isUndefined_of_two_le_p hp_F₂) (roundsRTO_RTO_inBound hsub hp_F₂ h₁u)
       fun _ _ _ hz hw => roundsRTO_RTO_noOverflow hsub hp_F₂ h₁u hnt hz hw)
     hS hO hu
@@ -376,16 +350,22 @@ private theorem maxFinite_le_abs_of_overflows {F : FiniteFormat} (hb : F.b ≠ �
   rw [abs_of_nonneg (F.maxFinite_nonneg hb)]
   exact abs_faithful_le_of_le (mem_unbounded_of_mem hM) hlt.le hy.isFaithfulRound
 
+/-- An in-bound rounding of an input of magnitude at least `maxFinite` is
+`±maxFinite`. -/
+private theorem abs_eq_maxFinite {F : FiniteFormat} (hb : F.b ≠ ⊤) {rm : RoundingMode}
+    {x : ℝ} {y : Dyadic} (hx : (F.maxFinite hb : ℝ) ≤ |x|)
+    (hy : RoundsFinite F.unbounded rm x y) (hby : Format.boundOK F.b y) :
+    |(y : ℝ)| = F.maxFinite hb :=
+  le_antisymm (F.abs_le_maxFinite hb (mem_of_mem_unbounded_of_boundOK hy.1 hby))
+    (le_abs_faithful_of_le (mem_unbounded_of_mem (F.maxFinite_mem hb)) (F.maxFinite_nonneg hb)
+      hx hy.isFaithfulRound)
+
 /-- An in-bound rounding of an input of magnitude at least `maxFinite` is the
 saturated value of the input's sign. -/
 private theorem saturated_eq_of_roundsInBound {F : FiniteFormat} (hb : F.b ≠ ⊤)
     {rm : RoundingMode} {x : ℝ} {y : Dyadic} (hx : (F.maxFinite hb : ℝ) ≤ |x|)
     (hy : RoundsInBound F rm x y) : F.saturated hb (decide (x < 0)) = .finite y :=
-  F.saturated_eq_finite hb (le_antisymm
-    (F.abs_le_maxFinite hb (mem_of_mem_unbounded_of_boundOK hy.1.1 hy.2))
-    (le_abs_faithful_of_le (mem_unbounded_of_mem (F.maxFinite_mem hb))
-      (F.maxFinite_nonneg hb) hx hy.1.isFaithfulRound))
-    hy.1.isFaithfulRound.decide_lt_zero
+  F.saturated_eq_finite hb (abs_eq_maxFinite hb hx hy.1 hy.2) hy.1.isFaithfulRound.decide_lt_zero
 
 /-- With a saturating table, every `|x| ≥ maxFinite` rounds to `±maxFinite`
 with the sign of `x`, overflowing or not. -/
@@ -402,10 +382,7 @@ private theorem rnd_saturate {F : FiniteFormat} (hb : F.b ≠ ⊤) {rm : Roundin
     rw [hx0] at hr
     rw [RoundsFinite.eq_zero_of_zero hr, Dyadic.coe_real_zero]
   split_ifs with hbr
-  · rw [F.saturated_eq_finite hb (le_antisymm
-      (F.abs_le_maxFinite hb (mem_of_mem_unbounded_of_boundOK hr.1 hbr))
-      (le_abs_faithful_of_le (mem_unbounded_of_mem (F.maxFinite_mem hb)) (F.maxFinite_nonneg hb)
-        hx hr.isFaithfulRound)) hsign]
+  · rw [F.saturated_eq_finite hb (abs_eq_maxFinite hb hx hr hbr) hsign]
   · rw [hsign (ne_zero_of_not_boundOK hbr)]
     rfl
 
@@ -434,8 +411,9 @@ theorem OverflowMap.ieee_toZero_composes {F₁ F₂ : FiniteFormat}
     (hinf₁ : ∀ s, Special.inf s ∈ F₁.specials) (hinf₂ : ∀ s, Special.inf s ∈ F₂.specials)
     {S₁ : SpecialMap F₁.toFormat} :
     (OverflowMap.ieee F₂ .toZero hb₂ hinf₂).Composes S₁
-      (OverflowMap.ieee F₁ .toZero hb₁ hinf₁) .toZero :=
-  OverflowMap.saturate_composes hsub hb₁ hb₂ (not_isUndefined_toZero F₁)
+      (OverflowMap.ieee F₁ .toZero hb₁ hinf₁) .toZero := by
+  rw [OverflowMap.ieee_toZero, OverflowMap.ieee_toZero]
+  exact OverflowMap.saturate_composes hsub hb₁ hb₂ (not_isUndefined_toZero F₁)
 
 /-- Saturating tables agree under the plain containment, for any modes. -/
 theorem OverflowAgrees.of_saturate {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
@@ -447,10 +425,7 @@ theorem OverflowAgrees.of_saturate {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap
     have hM := F₁.maxFinite_mem hb₁
     have hzM := le_abs_faithful_of_le (mem_unbounded_of_mem (hsub _ hM))
       (F₁.maxFinite_nonneg hb₁) (maxFinite_le_abs_of_overflows hb₁ hov) hz.1.isFaithfulRound
-    exact F₁.saturated_eq_finite hb₁ (le_antisymm
-      (F₁.abs_le_maxFinite hb₁ (mem_of_mem_unbounded_of_boundOK hw.1.1 hw.2))
-      (le_abs_faithful_of_le (mem_unbounded_of_mem hM) (F₁.maxFinite_nonneg hb₁) hzM
-        hw.1.isFaithfulRound))
+    exact F₁.saturated_eq_finite hb₁ (abs_eq_maxFinite hb₁ hzM hw.1 hw.2)
       (decide_lt_zero_of_chain hz.1 hw.1)
   chain x z y hz hov hy := by
     -- `|x| < maxFinite₁` would pin the chain at or below `maxFinite₁`, in bound.

@@ -1,4 +1,4 @@
-import Mpfx.DoubleRounding.Nearest
+import Mpfx.DoubleRounding.Basic
 import Mpfx.Rounding.Restrict
 
 /-!
@@ -214,29 +214,6 @@ theorem toOdd_abs_le_of_awayZero {F₁ F₂ : FiniteFormat}
 /-! ## rnd-RTO-RTZ: no-overflow propagation -/
 
 
-/-- The faithful candidates of any rounding of `x` in `F₂.unbounded` are
-squeezed into `[-N, N]` once `|x| ≤ N` and `±N ∈ F₂.unbounded`. -/
-theorem abs_faithful_le_of_le {F₂ : FiniteFormat} {x : ℝ} {z N : Dyadic}
-    (hN_mem : N ∈ F₂.unbounded) (hxN : |x| ≤ (N : ℝ))
-    (hfaithful : IsFaithfulRound F₂.unbounded x z) :
-    |(z : ℝ)| ≤ (N : ℝ) := by
-  have hnN_mem : (-N) ∈ F₂.unbounded := FiniteFormat.neg_mem hN_mem
-  rcases hfaithful with ⟨-, hz_le, hz_max⟩ | ⟨-, hz_ge, hz_min⟩
-  · have h1 : ((-N : Dyadic) : ℝ) ≤ (z : ℝ) := by
-      apply hz_max (-N) hnN_mem
-      rw [Dyadic.coe_real_neg]
-      have := abs_le.mp hxN
-      linarith [this.1]
-    rw [Dyadic.coe_real_neg] at h1
-    have h2 := abs_le.mp hxN
-    exact abs_le.mpr ⟨by linarith, by linarith⟩
-  · have h1 : (z : ℝ) ≤ (N : ℝ) := by
-      apply hz_min N hN_mem
-      have := abs_le.mp hxN
-      linarith [this.2]
-    have h2 := abs_le.mp hxN
-    exact abs_le.mpr ⟨by linarith, by linarith⟩
-
 /-- Chain no-overflow for RTO-RTZ: an escaping chain would force
 `|w| = |z| = next(b₁)`, but `z` is `F₂`-odd, so off `F₁`'s grid (RTO padding). -/
 theorem toOdd_toZero_noOverflow_chain {F₁ F₂ : FiniteFormat}
@@ -291,8 +268,7 @@ theorem toOdd_toZero_noOverflow_chain {F₁ F₂ : FiniteFormat}
   set F₁wB : FiniteFormat := FiniteFormat.withBoundFF F₁ F₁.toFormat.boundAfterNext
     with hF₁wB_def
   have hsub' : ((F₁wB.extend 1)).toFormat ⊆ F₂.unbounded.toFormat :=
-      Format.subset_of_mem hsub.specials fun d hd =>
-    mem_unbounded_of_mem (F := F₂) (hsub d ⟨hd.1, hd.2.1, hd.2.2⟩)
+    hsub.trans F₂.subset_unbounded
   have h_notmem : z ∉ F₁wB :=
     toOdd_notMem_of_extend_subset hsub' hp_F₂ hz hxz
   have hN_wB : N ∈ F₁wB :=
@@ -392,8 +368,7 @@ theorem toOdd_toOdd_noOverflow_chain {F₁ F₂ : FiniteFormat}
   have hw_G : RoundsFinite G .toOdd (z : ℝ) w :=
     RoundsFinite.toOdd_restrict (F := G) hw hG_bnd_w
   have hsub_G : G.toFormat ⊆ F₂.unbounded.toFormat :=
-      Format.subset_of_mem hsub.specials fun d hd =>
-    mem_unbounded_of_mem (F := F₂) (hsub d hd)
+    hsub.trans F₂.subset_unbounded
   have hxw_G : RoundsFinite G .toOdd x w := roundsRTO_RTO_finite hsub_G hp_F₂ hz hw_G
   have hxw : RoundsFinite F₁.unbounded .toOdd x w :=
     RoundsFinite.toOdd_lift (F := G) hxw_G hy hG_bnd_y
@@ -662,10 +637,9 @@ private theorem abs_lt_mid_of_toOdd {F₁ F₂ : FiniteFormat}
   have h_notmem : z ∉ FiniteFormat.withBoundFF (F₁.extend 1)
       ((F₁.extend 1).toFormat.boundAfterNext) := by
     apply toOdd_notMem_of_extend_subset (F₂ := F₂.unbounded) ?_ hp_F₂ hz hxz
-    refine Format.subset_of_mem hsub.specials fun d hd => ?_
-    exact mem_unbounded_of_mem (F := F₂) (hsub d
-      (Format.extend_one_extend_one_subset_extend_two
-        (F₁.toFormat.withBound ((F₁.extend 1).toFormat.boundAfterNext)) d hd))
+    exact ((Format.extend_one_extend_one_subset_extend_two
+      (F₁.toFormat.withBound ((F₁.extend 1).toFormat.boundAfterNext))).trans hsub).trans
+      F₂.subset_unbounded
   have hM_G' : M ∈ FiniteFormat.withBoundFF (F₁.extend 1)
       ((F₁.extend 1).toFormat.boundAfterNext) := by
     have hb₁_memx : b₁.val ∈ (F₁.extend 1).unbounded := by
@@ -722,24 +696,6 @@ theorem toOdd_nearest_noOverflow_chain {F₁ F₂ : FiniteFormat}
 
 /-! ## Back to the direct rounding: an in-bound chain keeps it in bound -/
 
-/-- Dual of `abs_faithful_le_of_le`: a nonnegative grid point at most `|x|`
-bounds a faithful rounding of `x` from below in magnitude. -/
-theorem le_abs_faithful_of_le {F : FiniteFormat} {x : ℝ} {z N : Dyadic}
-    (hN_mem : N ∈ F.unbounded) (hN_nn : 0 ≤ (N : ℝ)) (hxN : (N : ℝ) ≤ |x|)
-    (hf : IsFaithfulRound F.unbounded x z) : (N : ℝ) ≤ |(z : ℝ)| := by
-  rcases le_or_gt 0 x with hx | hx
-  · rw [abs_of_nonneg hx] at hxN
-    rcases hf with ⟨-, -, hmax⟩ | ⟨-, hxz, -⟩
-    · exact (hmax N hN_mem hxN).trans (le_abs_self _)
-    · exact (hxN.trans hxz).trans (le_abs_self _)
-  · rw [abs_of_neg hx] at hxN
-    rcases hf with ⟨-, hzx, -⟩ | ⟨-, -, hmin⟩
-    · rw [abs_of_nonpos (by linarith)]; linarith
-    · have h := hmin (-N) (FiniteFormat.neg_mem hN_mem)
-        (by rw [Dyadic.coe_real_neg]; linarith)
-      rw [Dyadic.coe_real_neg] at h
-      rw [abs_of_nonpos (by linarith)]; linarith
-
 /-- An `F₁`-grid point strictly inside `±next(b₁)` is within `b₁`. -/
 private theorem boundOK_of_abs_lt_next {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
     (hF₁b : F₁.b = (b₁ : Bound)) (hb₁_mem : b₁.val ∈ F₁)
@@ -759,17 +715,6 @@ private theorem boundOK_of_abs_lt_next {F₁ : FiniteFormat} {b₁ : NonNegDyadi
       (by rwa [Dyadic.coe_real_neg])
     rw [Dyadic.coe_real_neg] at h'
     linarith
-
-/-- A faithful rounding has the sign of its input. -/
-theorem IsFaithfulRound.mul_nonneg {F : FiniteFormat} {x : ℝ} {z : Dyadic}
-    (hf : IsFaithfulRound F x z) : (z : ℝ) * x ≥ 0 := by
-  rcases le_or_gt 0 x with hx | hx
-  · rcases isFaithfulRound_iff_directed.mp hf with hd | hu
-    · exact _root_.mul_nonneg (RoundsFinite.toNegative_nonneg hx hd) hx
-    · exact _root_.mul_nonneg (hx.trans hu.2.1) hx
-  · rcases isFaithfulRound_iff_directed.mp hf with hd | hu
-    · exact mul_nonneg_of_nonpos_of_nonpos (hd.2.1.trans hx.le) hx.le
-    · exact mul_nonneg_of_nonpos_of_nonpos (RoundsFinite.toPositive_nonpos hx.le hu) hx.le
 
 /-- **RTZ outer mode.** An in-bound chained RTZ rounding of a faithful `z`
 keeps the direct RTZ rounding in bound, given `next(b₁) ∈ F₂`: the chain pins
@@ -842,8 +787,7 @@ theorem toOdd_awayZero_candidate {F₁ F₂ : FiniteFormat}
   have hxz : x ≠ (z : ℝ) := fun h => by rw [h] at hzx_lt; exact lt_irrefl _ hzx_lt
   -- `z ∉ F₁`, so `z` is off `F₁`'s grid and `|z| < |w|`.
   have hsub₁ : (F₁.extend 1).toFormat ⊆ F₂.unbounded.toFormat :=
-    Format.subset_of_mem hsub.specials fun d hd =>
-      mem_unbounded_of_mem (extend_one_subset_of_withBound_subset hsub d hd)
+    (extend_one_subset_of_withBound_subset hsub).trans F₂.subset_unbounded
   have hz_notF₁ := toOdd_notMem_of_extend_subset hsub₁ hp_F₂ hz hxz
   have hzw_lt : |(z : ℝ)| < |(w : ℝ)| := by
     refine lt_of_le_of_ne hzw fun heq => hz_notF₁ ?_
@@ -921,7 +865,7 @@ theorem toOdd_toOdd_noOverflow_direct {F₁ F₂ : FiniteFormat}
   have hbG : ∀ v : Dyadic, |(v : ℝ)| ≤ (N : ℝ) → Format.boundOK G.b v := fun v hv =>
     boundOK_of_abs_le (by rwa [abs_of_nonneg hN_nn]) (boundOK_boundAfterNext_next hF₁b hN_nn)
   have hsubG : G.toFormat ⊆ F₂.unbounded.toFormat :=
-    Format.subset_of_mem hsub.specials fun d hd => mem_unbounded_of_mem (hsub d hd)
+    hsub.trans F₂.subset_unbounded
   have hyN := abs_faithful_le_of_le hN_mem hxN.le hy.2.1
   have hwN := abs_faithful_le_of_le hN_mem
     (abs_faithful_le_of_le hN_F₂ hxN.le hz.2.1) hw.2.1

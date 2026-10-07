@@ -440,10 +440,7 @@ private theorem roundsRTO_RTZ_finite_pos {F₁ F₂ : FiniteFormat}
     {x : ℝ} (hx_pos : 0 < x) {z w' : Dyadic}
     (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .toZero (z : ℝ) w') :
     RoundsFinite F₁ .toZero x w' := by
-  -- `F₁ ⊆ F₁.extend 1 ⊆ F₂`.
-  have hsub' : F₁.toFormat ⊆ F₂.toFormat :=
-      Format.subset_of_mem hsub.specials fun y hy =>
-    hsub y (Format.self_subset_extend F₁.toFormat 1 y hy)
+  have hsub' : F₁.toFormat ⊆ F₂.toFormat := (Format.self_subset_extend _ 1).trans hsub
   have hz_nn : 0 ≤ (z : ℝ) := toOdd_nonneg_of_nn hx_pos.le hz
   obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
   obtain ⟨hw'F₁, hw'_bnd_z, hw'_sign_z, hw'_max⟩ := hw
@@ -555,10 +552,7 @@ private theorem roundsRTO_RAZ_finite_pos {F₁ F₂ : FiniteFormat}
     {x : ℝ} (hx_pos : 0 < x) {z w' : Dyadic}
     (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .awayZero (z : ℝ) w') :
     RoundsFinite F₁ .awayZero x w' := by
-  -- `F₁ ⊆ F₁.extend 1 ⊆ F₂`.
-  have hsub' : F₁.toFormat ⊆ F₂.toFormat :=
-      Format.subset_of_mem hsub.specials fun y hy =>
-    hsub y (Format.self_subset_extend F₁.toFormat 1 y hy)
+  have hsub' : F₁.toFormat ⊆ F₂.toFormat := (Format.self_subset_extend _ 1).trans hsub
   have hz_nn : 0 ≤ (z : ℝ) := toOdd_nonneg_of_nn hx_pos.le hz
   obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
   obtain ⟨hw'F₁, hw'_bnd_z, hw'_sign_z, hw'_min⟩ := hw

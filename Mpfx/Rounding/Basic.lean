@@ -24,10 +24,11 @@ private lemma abs_neg_sub_dyadic (x : ℝ) (z : Dyadic) :
   rw [Dyadic.coe_real_neg, show -x - (z : ℝ) = -(x - -(z : ℝ)) by ring, abs_neg]
 
 /-- Under `y ↦ -y` with `y ≠ 0`, the overflow sign flips. -/
-private lemma decide_neg_lt_zero {y : Dyadic} (hy : (y : ℚ) ≠ 0) :
+private lemma decide_neg_lt_zero {y : Dyadic} (hy : (y : ℝ) ≠ 0) :
     decide (((-y : Dyadic) : ℚ) < 0) = !decide ((y : ℚ) < 0) := by
+  have hy' : (y : ℚ) ≠ 0 := fun h0 => hy (by rw [Dyadic.coe_real_eq_ratCast, h0, Rat.cast_zero])
   rw [Subring.coe_neg]
-  rcases lt_or_gt_of_ne hy with h | h
+  rcases lt_or_gt_of_ne hy' with h | h
   · have h1 : ¬ (-(y : ℚ) < 0) := fun h' => by linarith
     simp [h, h1]
   · have h1 : -(y : ℚ) < 0 := by linarith
@@ -35,12 +36,9 @@ private lemma decide_neg_lt_zero {y : Dyadic} (hy : (y : ℚ) ≠ 0) :
     simp [h1, h2]
 
 /-- An out-of-bound value is nonzero. -/
-private lemma overflow_witness_ne_zero {F : FiniteFormat} {y : Dyadic}
-    (h : ¬ Format.boundOK F.b y) : (y : ℚ) ≠ 0 := by
-  intro h0
-  apply h
-  have hy0 : y = 0 := Subtype.ext h0
-  rw [hy0]; exact Format.boundOK_zero _
+theorem ne_zero_of_not_boundOK {F : FiniteFormat} {y : Dyadic}
+    (h : ¬ Format.boundOK F.b y) : (y : ℝ) ≠ 0 := fun h0 =>
+  h (by rw [eq_zero_of_coe_real_zero h0]; exact Format.boundOK_zero _)
 
 /-! ## Sign-symmetry helper: `IsFaithfulRound` -/
 
@@ -260,7 +258,7 @@ theorem Rounds.neg_congr {F : FiniteFormat} {S : SpecialMap F.toFormat}
     · rintro ⟨y, hrf, ⟨hb, rfl⟩ | ⟨hb, rfl⟩⟩
       · exact ⟨-y, (hfin y).mp hrf, Or.inl ⟨by rwa [Format.boundOK_neg_iff], rfl⟩⟩
       · refine ⟨-y, (hfin y).mp hrf, Or.inr ⟨by rwa [Format.boundOK_neg_iff], ?_⟩⟩
-        rw [OverflowMap.neg_map, decide_neg_lt_zero (overflow_witness_ne_zero hb),
+        rw [OverflowMap.neg_map, decide_neg_lt_zero (ne_zero_of_not_boundOK hb),
           Bool.not_not]
     · rintro ⟨y, hrf, h⟩
       have hiff := hfin (-y)
@@ -272,7 +270,7 @@ theorem Rounds.neg_congr {F : FiniteFormat} {S : SpecialMap F.toFormat}
       · refine Or.inr ⟨by rwa [Format.boundOK_neg_iff], ?_⟩
         have hv' := congrArg WithSpecial.neg hv
         rw [WithSpecial.neg_neg, OverflowMap.neg_map, WithSpecial.neg_neg] at hv'
-        rw [hv', decide_neg_lt_zero (overflow_witness_ne_zero hb)]
+        rw [hv', decide_neg_lt_zero (ne_zero_of_not_boundOK hb)]
 
 /-- `.toNegative` is RTP-symmetric under negation. -/
 theorem Rounds.neg_toNegative_iff_toPositive (F : FiniteFormat) (S : SpecialMap F.toFormat)
@@ -992,7 +990,58 @@ theorem IsFaithfulRound.decide_lt_zero {F : FiniteFormat} {x : ℝ} {y : Dyadic}
       linarith [RoundsFinite.toNegative_nonneg (not_lt.mp hx) hd]
     · refine ⟨fun hy0 => lt_of_le_of_lt hu.2.1 hy0, fun hx => ?_⟩
       exact lt_of_le_of_ne (RoundsFinite.toPositive_nonpos hx.le hu) hy
-  rw [decide_eq_decide, ← key, Dyadic.coe_real_eq_ratCast, Rat.cast_lt_zero]
+  rw [decide_eq_decide, ← key, Dyadic.coe_real_lt_zero_iff]
+
+/-- A faithful rounding has the sign of its input. -/
+theorem IsFaithfulRound.mul_nonneg {F : FiniteFormat} {x : ℝ} {z : Dyadic}
+    (hf : IsFaithfulRound F x z) : (z : ℝ) * x ≥ 0 := by
+  rcases le_or_gt 0 x with hx | hx
+  · rcases isFaithfulRound_iff_directed.mp hf with hd | hu
+    · exact _root_.mul_nonneg (RoundsFinite.toNegative_nonneg hx hd) hx
+    · exact _root_.mul_nonneg (hx.trans hu.2.1) hx
+  · rcases isFaithfulRound_iff_directed.mp hf with hd | hu
+    · exact mul_nonneg_of_nonpos_of_nonpos (hd.2.1.trans hx.le) hx.le
+    · exact mul_nonneg_of_nonpos_of_nonpos (RoundsFinite.toPositive_nonpos hx.le hu) hx.le
+
+/-- A faithful rounding of `x` lies in `[-N, N]` once `|x| ≤ N ∈ F`. -/
+theorem abs_faithful_le_of_le {F : FiniteFormat} {x : ℝ} {z N : Dyadic}
+    (hN_mem : N ∈ F) (hxN : |x| ≤ (N : ℝ))
+    (hfaithful : IsFaithfulRound F x z) :
+    |(z : ℝ)| ≤ (N : ℝ) := by
+  have hnN_mem : (-N) ∈ F := FiniteFormat.neg_mem hN_mem
+  rcases hfaithful with ⟨-, hz_le, hz_max⟩ | ⟨-, hz_ge, hz_min⟩
+  · have h1 : ((-N : Dyadic) : ℝ) ≤ (z : ℝ) := by
+      apply hz_max (-N) hnN_mem
+      rw [Dyadic.coe_real_neg]
+      have := abs_le.mp hxN
+      linarith [this.1]
+    rw [Dyadic.coe_real_neg] at h1
+    have h2 := abs_le.mp hxN
+    exact abs_le.mpr ⟨by linarith, by linarith⟩
+  · have h1 : (z : ℝ) ≤ (N : ℝ) := by
+      apply hz_min N hN_mem
+      have := abs_le.mp hxN
+      linarith [this.2]
+    have h2 := abs_le.mp hxN
+    exact abs_le.mpr ⟨by linarith, by linarith⟩
+
+/-- Dual of `abs_faithful_le_of_le`: a nonnegative `N ∈ F` with `N ≤ |x|`
+bounds a faithful rounding of `x` from below in magnitude. -/
+theorem le_abs_faithful_of_le {F : FiniteFormat} {x : ℝ} {z N : Dyadic}
+    (hN_mem : N ∈ F) (hN_nn : 0 ≤ (N : ℝ)) (hxN : (N : ℝ) ≤ |x|)
+    (hf : IsFaithfulRound F x z) : (N : ℝ) ≤ |(z : ℝ)| := by
+  rcases le_or_gt 0 x with hx | hx
+  · rw [abs_of_nonneg hx] at hxN
+    rcases hf with ⟨-, -, hmax⟩ | ⟨-, hxz, -⟩
+    · exact (hmax N hN_mem hxN).trans (le_abs_self _)
+    · exact (hxN.trans hxz).trans (le_abs_self _)
+  · rw [abs_of_neg hx] at hxN
+    rcases hf with ⟨-, hzx, -⟩ | ⟨-, -, hmin⟩
+    · rw [abs_of_nonpos (by linarith)]; linarith
+    · have h := hmin (-N) (FiniteFormat.neg_mem hN_mem)
+        (by rw [Dyadic.coe_real_neg]; linarith)
+      rw [Dyadic.coe_real_neg] at h
+      rw [abs_of_nonpos (by linarith)]; linarith
 
 /-- `a ≤ x ≤ y`, so `a` loses to the maximality of `y`'s round-down
 (Flocq `Rnd_DN_pt_monotone`). -/

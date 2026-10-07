@@ -37,6 +37,14 @@ instance {F₁ F₂ : Format} : CoeFun (F₁ ⊆ F₂) (fun _ => ∀ x : Dyadic,
 theorem subset_of_mem {F₁ F₂ : Format} (hs : F₁.specials ⊆ F₂.specials)
     (h : ∀ x : Dyadic, x ∈ F₁ → x ∈ F₂) : F₁ ⊆ F₂ := ⟨h, hs⟩
 
+theorem Subset.refl (F : Format) : F ⊆ F := ⟨fun _ h => h, subset_rfl⟩
+
+theorem Subset.trans {F₁ F₂ F₃ : Format} (h₁ : F₁ ⊆ F₂) (h₂ : F₂ ⊆ F₃) : F₁ ⊆ F₃ :=
+  ⟨fun x hx => h₂.mem x (h₁.mem x hx), h₁.specials.trans h₂.specials⟩
+
+instance : Std.Refl (α := Format) (· ⊆ ·) := ⟨Subset.refl⟩
+instance : IsTrans Format (· ⊆ ·) := ⟨fun _ _ _ => Subset.trans⟩
+
 /-- The magnitude-bound check is monotone in the bound. -/
 theorem boundOK_mono {b₁ b₂ : Bound} (h : b₁ ≤ b₂) {x : Dyadic} :
     boundOK b₁ x → boundOK b₂ x := by
@@ -477,6 +485,10 @@ theorem two_le_p_of_precision_two_witness {F : Format} {v : Dyadic}
 end Format
 
 namespace FiniteFormat
+
+/-- Dropping the bound enlarges the format. -/
+theorem subset_unbounded (F : FiniteFormat) : F.toFormat ⊆ F.unbounded.toFormat :=
+  Format.subset_of_mem subset_rfl fun _ => mem_unbounded_of_mem
 
 /-- Extend a `FiniteFormat` by `k` bits. The `finite` invariant is preserved:
 `extend` only grows `p` (a finite `p` stays finite) and only shrinks `exp`
