@@ -314,6 +314,56 @@ Build: `lake build Mpfx.Rounding.Special`.
 
 ### Phase 7: total double rounding as equalities
 
+**Split into 7a–7c.** Two findings while starting:
+
+- **The Phase 3 forms are not enough.** They give "direct overflows ∨ chain in
+  bound and agrees", which says nothing about the chain when the direct
+  rounding overflows but `F₂` does not. Each rule also needs its *converse*:
+  if the chain stays in bound, so does the direct rounding
+  (`roundsRTZ_RTZ_converse`, …). This is new per-rule mathematics, mirroring the
+  no-overflow propagation in `Total.lean`.
+- **`F₁` must be nontrivial.** For `F₁ = {0}` (`exp = ⊥`, `b₁ = 0`) and
+  `F₂ = 𝒜(p, 0, ∞)`, `x = 0.5` rounds RTZ to `0` through the chain but
+  overflows directly. The equalities take `F₁.toFormat.Nontrivial` (§4.2).
+
+**7a. Done.** Framework and RTZ → RTZ end to end:
+
+- `WithSpecial.toReal` (`Format/Defs`), `IsFaithfulRound.decide_lt_zero`
+  (`Rounding/Basic`: a nonzero faithful rounding has the sign of `x`),
+  `rnd_finite_of_roundsFinite` (`Rounding/Op`: `rnd` read off any witness).
+- `roundsRTZ_RTZ_converse` (`Total.lean`), with its regular-bound core next to
+  the RTZ propagation lemmas and the same grid-floor reduction.
+- New `DoubleRounding/Special.lean`: `SpecialMap.Composes`,
+  `OverflowMap.Composes`, the generic `rnd_double` (from a rule's total form,
+  its converse and compatible tables), and `rnd_double_RTZ_RTZ`.
+- `Total.lean` is now 1506 lines; 7b splits it (the grid-floor reduction is
+  the natural cut) before adding the other converses.
+
+**7b.** Converses for RAZ → RAZ, RTO → RTO, RTO → RTZ, RTO → RAZ, RTO → RN, and
+their `rnd_double_*` equalities.
+
+**7c.** Discharge `Composes` for the standard tables (`SpecialMap.exact`;
+`OverflowMap.ieee` where it holds, using `maxFinite₂ ≥ next(b₁)`), and the
+`MpfxTest` example showing RTO → RTZ is incompatible under the IEEE tables.
+
+
+Settled before starting:
+
+- The compatibility conditions are uniform: F₁'s rounding of F₂'s table entry
+  is F₁'s table entry, `rnd₁ (S₂.map t) = .value (S₁.map t)` and
+  `rnd₁ (O₂.map s) = .value (O₁.map s)`. Name them as predicates on the table
+  pairs.
+- Proof shape: if F₂ does not overflow, the finite-form rules on the unbounded
+  formats give agreement of the unbounded values, hence of overflow status and
+  sign; if F₂ overflows, F₁ overflows too (`b₂ ≥ next(b₁)` under the
+  relaxed-bound containment), and the overflow condition closes it.
+- **IEEE tables and RTO → RTZ are incompatible**, and that stays: RTO
+  overflows to ±Inf (`OverflowMap.ieee`), so the chain gives
+  `rnd_RTZ(+Inf) = +Inf` while direct RTZ gives `+maxFinite₁`. The RTO → RTZ
+  theorem carries the compatibility hypothesis like every rule; the IEEE
+  instances discharge it for the other rule pairs. Record the failure as a
+  test (`MpfxTest`) showing the condition is false for the IEEE tables.
+
 - `DoubleRounding/Total.lean`: for each rule, `rnd₁ (rnd₂ x) = rnd₁ x` for
   `x : WithSpecial ℝ`, under table-compatibility hypotheses, derived from the
   Phase 3 forms. Special inputs are a one-line case: `S₁ ∘ S₂` against `S₁`.

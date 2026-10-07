@@ -985,6 +985,19 @@ theorem RoundsFinite.toPositive_nonpos {F : FiniteFormat} {x : ℝ} (hx : x ≤ 
   obtain ⟨-, -, hmin⟩ := h
   simpa using hmin 0 F.zero_mem (by simpa using hx)
 
+/-- A nonzero faithful rounding has the sign of `x`. -/
+theorem IsFaithfulRound.decide_lt_zero {F : FiniteFormat} {x : ℝ} {y : Dyadic}
+    (h : IsFaithfulRound F x y) (hy : (y : ℝ) ≠ 0) :
+    decide ((y : ℚ) < 0) = decide (x < 0) := by
+  have key : (y : ℝ) < 0 ↔ x < 0 := by
+    rcases isFaithfulRound_iff_directed.mp h with hd | hu
+    · refine ⟨fun hy0 => ?_, fun hx => lt_of_le_of_lt hd.2.1 hx⟩
+      by_contra hx
+      linarith [RoundsFinite.toNegative_nonneg (not_lt.mp hx) hd]
+    · refine ⟨fun hy0 => lt_of_le_of_lt hu.2.1 hy0, fun hx => ?_⟩
+      exact lt_of_le_of_ne (RoundsFinite.toPositive_nonpos hx.le hu) hy
+  rw [decide_eq_decide, ← key, Dyadic.coe_real_eq_ratCast, Rat.cast_lt_zero]
+
 /-- `a ≤ x ≤ y`, so `a` loses to the maximality of `y`'s round-down
 (Flocq `Rnd_DN_pt_monotone`). -/
 theorem RoundsFinite.monotone_toNegative {F : FiniteFormat} {x y : ℝ} {a b : Dyadic}

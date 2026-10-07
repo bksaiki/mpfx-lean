@@ -88,6 +88,16 @@ theorem rnd_iff_rounds (F : FiniteFormat) (S : SpecialMap F.toFormat)
         · rw [if_pos hb]
         · rw [if_neg hb]
 
+/-- `rnd` on a real, read off any witness of the unbounded rounding. -/
+theorem rnd_finite_of_roundsFinite {F : FiniteFormat} {S : SpecialMap F.toFormat}
+    {O : OverflowMap F.toFormat} {rm : RoundingMode} {x : ℝ} {y : Dyadic}
+    (h : ¬ F.IsUndefined rm) (hy : RoundsFinite F.unbounded rm x y) :
+    rnd F S O rm (.finite x) =
+      if Format.boundOK F.b y then .value (.finite y)
+      else .value (O.map (decide ((y : ℚ) < 0))) := by
+  rw [rndUnbounded_unique F rm x h hy]
+  simp only [rnd, dif_neg h]
+
 /-! ### Special inputs and overflow through `rnd` -/
 
 @[simp] theorem rnd_special (F : FiniteFormat) (S : SpecialMap F.toFormat)

@@ -46,6 +46,17 @@ def WithSpecial.neg {α : Type} [Neg α] : WithSpecial α → WithSpecial α
     v.neg.neg = v := by
   cases v <;> simp
 
+/-- A dyadic value read as a real one. -/
+def WithSpecial.toReal : WithSpecial Dyadic → WithSpecial ℝ
+  | .finite d => .finite d
+  | .special s => .special s
+
+@[simp] theorem WithSpecial.toReal_finite (d : Dyadic) :
+    (WithSpecial.finite d).toReal = .finite (d : ℝ) := rfl
+
+@[simp] theorem WithSpecial.toReal_special (s : Special) :
+    (WithSpecial.special s : WithSpecial Dyadic).toReal = .special s := rfl
+
 /-- The abstract number format `𝒜(p, exp, b, S)`.
 
 * `p : Prec` — maximum precision (in binary digits). `p = 0` is the trivial

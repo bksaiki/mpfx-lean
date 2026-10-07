@@ -108,6 +108,53 @@ private theorem toZero_noOverflow_chain {F₁ F₂ : FiniteFormat} {x : ℝ}
   exact boundOK_of_abs_le hwy hby
 
 
+/-- Converse of the RTZ-RTZ propagation: if the chain stays in bound, so does
+the direct rounding. The in-bound chain pins `|z| < next(b₁)`; `next(b₁) ∈ F₂`
+then pins `|x| < next(b₁)`, and an `F₁`-grid point below `next(b₁)` is within
+`b₁`. -/
+private theorem toZero_converse {F₁ F₂ : FiniteFormat}
+    (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
+    (hreg : ∀ b : NonNegDyadic, F₁.b = (b : Bound) →
+      b.val ∈ F₁ ∧ (F₁.exp = ⊥ → 0 < ((b.val : Dyadic) : ℝ)))
+    {x : ℝ} {y z w : Dyadic}
+    (hz : RoundsFinite F₂.unbounded .toZero x z)
+    (hw : RoundsFinite F₁.unbounded .toZero (z : ℝ) w) (hbw : Format.boundOK F₁.b w)
+    (hy : RoundsFinite F₁.unbounded .toZero x y) :
+    Format.boundOK F₁.b y := by
+  rcases hF₁b : F₁.b with _ | b₁
+  · trivial
+  obtain ⟨hb₁_mem, hguard⟩ := hreg b₁ hF₁b
+  obtain ⟨hb₁_nn, hN_lt, hN_nn, hN_mem⟩ := next_facts hb₁_mem
+  set N := F₁.toFormat.next b₁.val with hN_def
+  have hN_F₂ : N ∈ F₂.unbounded := mem_unbounded_of_mem (hsub.mem _
+    ⟨hN_mem.1, hN_mem.2.1, boundOK_boundAfterNext_next hF₁b hN_nn⟩)
+  have hzN : |(z : ℝ)| < (N : ℝ) := abs_lt_next_of_toZero_inbound hF₁b hb₁_mem hw hbw
+  -- `|x| < N`: otherwise `±N` competes with `z`.
+  have hxN : |x| < (N : ℝ) := by
+    by_contra hxN; push Not at hxN
+    obtain ⟨-, -, -, hzmax⟩ := hz
+    rcases le_or_gt 0 x with hx | hx
+    · have h := hzmax N hN_F₂ (by rwa [abs_of_nonneg hN_nn]) (mul_nonneg hN_nn hx)
+      rw [abs_of_nonneg hN_nn] at h
+      linarith
+    · have h := hzmax (-N) (FiniteFormat.neg_mem hN_F₂)
+        (by rwa [Dyadic.coe_real_neg, abs_neg, abs_of_nonneg hN_nn])
+        (by rw [Dyadic.coe_real_neg]; nlinarith)
+      rw [Dyadic.coe_real_neg, abs_neg, abs_of_nonneg hN_nn] at h
+      linarith
+  -- `|y| ≤ |x| < N`, and grid points below `N` are within `b₁`.
+  have hyN : |(y : ℝ)| < (N : ℝ) := lt_of_le_of_lt hy.2.1 hxN
+  have hb_mem := mem_unbounded_of_mem hb₁_mem
+  refine boundOK_coe_of_abs_le (not_lt.mp fun hlt => ?_)
+  rcases le_or_gt 0 (y : ℝ) with hy0 | hy0
+  · rw [abs_of_nonneg hy0] at hlt hyN
+    exact absurd (next_min' hb_mem hy.1 hb₁_nn (hguard) hlt) (not_le.mpr hyN)
+  · rw [abs_of_neg hy0] at hlt hyN
+    have h := next_min' hb_mem (FiniteFormat.neg_mem hy.1) hb₁_nn hguard
+      (by rwa [Dyadic.coe_real_neg])
+    rw [Dyadic.coe_real_neg] at h
+    linarith
+
 /-! ## rnd-RAZ-RAZ: no-overflow propagation -/
 
 /-- No-overflow propagation for RAZ: if the unbounded RAZ rounding `y` of `x`
@@ -1095,6 +1142,32 @@ theorem roundsRTZ_RTZ {F₁ F₂ : FiniteFormat}
     exact ⟨z, w, hzR, hwR, ⟨RoundsFinite.toZero_lift hxw hy hbOK, hw_bnd⟩⟩
   · left
     exact ⟨_, hy, hbOK⟩
+
+/-- **rnd-RTZ-RTZ**, converse: if the chain stays in bound, so does the direct
+rounding. Needs `F₁` nontrivial: `F₁ = {0}` with `exp = ⊥` rounds every
+nonzero real out of bound while the chain may land on `0`. -/
+theorem roundsRTZ_RTZ_converse {F₁ F₂ : FiniteFormat}
+    (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
+    (hnt : F₁.toFormat.Nontrivial) {x : ℝ} {z w : Dyadic}
+    (hz : RoundsInBound F₂ .toZero x z) (hw : RoundsInBound F₁ .toZero (z : ℝ) w) :
+    ¬ Overflows F₁ .toZero x := by
+  rintro ⟨y, hy, hby⟩
+  rcases hF₁b : F₁.b with _ | b₁
+  · exact hby (by rw [hF₁b]; trivial)
+  rcases bound_floor_setup hF₁b with ⟨-, hb₁0⟩ | ⟨D, hreg_G, hD_le, hD_max, hmono, -⟩
+  · obtain ⟨d, hd, hd0⟩ := hnt
+    have h := abs_coe_real_le_of_boundOK (hF₁b ▸ hd.2.2)
+    rw [hb₁0] at h
+    exact hd0 (eq_zero_of_coe_real_zero (abs_nonpos_iff.mp h))
+  · have hsubG : ((FiniteFormat.withBoundFF F₁ (D : Bound)).toFormat.withBound
+        (FiniteFormat.withBoundFF F₁ (D : Bound)).toFormat.boundAfterNext) ⊆ F₂.toFormat :=
+      Format.subset_of_mem hsub.specials fun v hv => hsub v ⟨hv.1, hv.2.1,
+        boundOK_boundAfterNext_mono (G := FiniteFormat.withBoundFF F₁ (D : Bound))
+          hF₁b rfl rfl hmono hv.2.2⟩
+    obtain ⟨hw', hbw'⟩ := (roundsInBound_withBoundFF_floor_iff hD_le hD_max _ _ _).mp hw
+    obtain ⟨y', hy', hby'⟩ :=
+      (overflows_withBoundFF_floor_iff hD_le hD_max _ _).mp ⟨y, hy, hby⟩
+    exact hby' (toZero_converse hsubG hreg_G hz.1 hw' hbw' hy')
 
 /-- **rnd-RAZ-RAZ**, total form. Either rounding `x` directly in `F₁`
 overflows, or rounding `x` in `F₂` does not overflow (finite `z`), the
