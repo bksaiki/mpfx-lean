@@ -374,9 +374,25 @@ The old finite forms were `rndRTZ_RTZ`, …; the old total forms `roundsRTZ_RTZ`
 …; the table forms `rnd_double_RTZ_RTZ`, …. The generic `rnd_double` keeps its
 name.
 
-**7c.** Discharge `Composes` for the standard tables (`SpecialMap.exact`;
-`OverflowMap.ieee` where it holds, using `maxFinite₂ ≥ next(b₁)`), and the
-`MpfxTest` example showing RTO → RTZ is incompatible under the IEEE tables.
+**7c. Done.** The standard tables compose for every rule but RTO → RTZ
+(`DoubleRounding/Special.lean`):
+
+- `SpecialMap.exact_composes`: exact specials compose with any `F₁` table.
+- `OverflowMap.composes_of_inf` with `ieee_map_awayZero`/`_toOdd`/`_nearest`:
+  `±Inf` overflow tables compose when `F₁` keeps infinities exact (RAZ → RAZ,
+  RTO → RTO, RTO → RAZ, RTO → RN).
+- `OverflowMap.ieee_toZero_composes`: the IEEE RTZ tables compose under the
+  RTZ containment, by `overflows_of_maxFinite_le` (`Total.lean`): every
+  faithful rounding into `F₁` overflows at `±maxFinite₂`, since `F₂` holds the
+  successor of `F₁`'s floored bound.
+- `rnd_of_overflows_pos`/`_neg` now take `0 ≤ x` / `x ≤ 0`, so they apply at
+  `±maxFinite₂`.
+- Tests (`MpfxTest/DoubleRounding.lean`): full IEEE RTO → RN and RTZ → RTZ
+  double rounding with the hypotheses discharged, and the negation showing the
+  IEEE tables do not compose for RTO → RTZ.
+
+**7d.** Whether, with overflow handled by tables, the rules' bound conditions
+(`b₂ ≥ next(b₁)`, through the relaxed containment) can be weakened.
 
 
 Settled before starting:

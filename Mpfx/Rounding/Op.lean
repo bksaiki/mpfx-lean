@@ -107,13 +107,13 @@ theorem rnd_finite_of_roundsFinite {F : FiniteFormat} {S : SpecialMap F.toFormat
 /-- A positive overflow selects the table's positive entry. -/
 theorem rnd_of_overflows_pos {F : FiniteFormat} {S : SpecialMap F.toFormat}
     {O : OverflowMap F.toFormat} {rm : RoundingMode} {x : ℝ}
-    (h : ¬ F.IsUndefined rm) (hov : Overflows F rm x) (hx : 0 < x) :
+    (h : ¬ F.IsUndefined rm) (hov : Overflows F rm x) (hx : 0 ≤ x) :
     rnd F S O rm (.finite x) = .value (O.map false) := by
   obtain ⟨y, hy, hnb⟩ := hov
   have hy0 : (0 : ℝ) ≤ (y : ℝ) := by
     rcases isFaithfulRound_iff_directed.mp hy.isFaithfulRound with hd | hu
-    · exact RoundsFinite.toNegative_nonneg hx.le hd
-    · exact hx.le.trans hu.2.1
+    · exact RoundsFinite.toNegative_nonneg hx hd
+    · exact hx.trans hu.2.1
   have hneg : decide ((y : ℚ) < 0) = false := by
     rw [decide_eq_false_iff_not, not_lt]
     rw [Dyadic.coe_real_eq_ratCast] at hy0
@@ -124,13 +124,13 @@ theorem rnd_of_overflows_pos {F : FiniteFormat} {S : SpecialMap F.toFormat}
 /-- A negative overflow selects the table's negative entry. -/
 theorem rnd_of_overflows_neg {F : FiniteFormat} {S : SpecialMap F.toFormat}
     {O : OverflowMap F.toFormat} {rm : RoundingMode} {x : ℝ}
-    (h : ¬ F.IsUndefined rm) (hov : Overflows F rm x) (hx : x < 0) :
+    (h : ¬ F.IsUndefined rm) (hov : Overflows F rm x) (hx : x ≤ 0) :
     rnd F S O rm (.finite x) = .value (O.map true) := by
   obtain ⟨y, hy, hnb⟩ := hov
   have hy0 : (y : ℝ) ≤ 0 := by
     rcases isFaithfulRound_iff_directed.mp hy.isFaithfulRound with hd | hu
-    · exact hd.2.1.trans hx.le
-    · exact RoundsFinite.toPositive_nonpos hx.le hu
+    · exact hd.2.1.trans hx
+    · exact RoundsFinite.toPositive_nonpos hx hu
   have hne : (y : ℝ) ≠ 0 := by
     intro h0
     apply hnb

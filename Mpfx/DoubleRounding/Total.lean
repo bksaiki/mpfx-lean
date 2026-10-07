@@ -1,4 +1,5 @@
 import Mpfx.DoubleRounding.Propagation
+import Mpfx.Rounding.Special
 
 /-!
 # Total double rounding (overflow-aware, self-contained)
@@ -855,5 +856,39 @@ theorem roundsRTO_RN_noOverflow {F₁ F₂ : FiniteFormat}
           hF₁b rfl rfl hmono_ext hv.2.2⟩
     exact toOdd_nearest_noOverflow_direct hsubG hreg_G (two_le_p_of_nontrivial_extend_two hsub hnt)
       h₁u hz.1 hw.1 hbw hy
+
+/-! ## Overflow at `F₂`'s largest value -/
+
+/-- Under the RTZ containment, every faithful rounding into `F₁` overflows at
+`±maxFinite₂`: `F₂` holds the `F₁`-successor of `F₁`'s (floored) bound, so its
+largest value is beyond `F₁`'s range. -/
+theorem overflows_of_maxFinite_le {F₁ F₂ : FiniteFormat}
+    (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
+    (hnt : F₁.toFormat.Nontrivial) (hb₂ : F₂.b ≠ ⊤) {rm : RoundingMode}
+    (h₁u : ¬ F₁.IsUndefined rm) {x : ℝ} (hx : ((F₂.maxFinite hb₂ : Dyadic) : ℝ) ≤ |x|) :
+    Overflows F₁ rm x := by
+  rcases hF₁b : F₁.b with _ | b₁
+  · exact absurd (b_eq_top_of_withBound_subset hsub hF₁b) hb₂
+  rcases bound_floor_setup hF₁b with ⟨-, hb₁0⟩ | ⟨D, hreg_G, hD_le, hD_max, hmono, -⟩
+  · obtain ⟨d, hd, hd0⟩ := hnt
+    have h := abs_coe_real_le_of_boundOK (hF₁b ▸ hd.2.2)
+    rw [hb₁0] at h
+    exact absurd (eq_zero_of_coe_real_zero (abs_nonpos_iff.mp h)) hd0
+  refine (overflows_withBoundFF_floor_iff hD_le hD_max _ _).mpr ?_
+  set G := FiniteFormat.withBoundFF F₁ (D : Bound)
+  have hsubG : (G.toFormat.withBound G.toFormat.boundAfterNext) ⊆ F₂.toFormat :=
+    Format.subset_of_mem hsub.specials fun v hv => hsub v ⟨hv.1, hv.2.1,
+      boundOK_boundAfterNext_mono (G := G) hF₁b rfl rfl hmono hv.2.2⟩
+  have hGb : G.b = (D : Bound) := rfl
+  obtain ⟨hD_mem, -⟩ := hreg_G D hGb
+  obtain ⟨-, hN_lt, hN_nn, hN_mem⟩ := next_facts hD_mem
+  have hN_F₂ : G.toFormat.next D.val ∈ F₂ :=
+    hsubG.mem _ ⟨hN_mem.1, hN_mem.2.1, boundOK_boundAfterNext_next hGb hN_nn⟩
+  have hy := rndUnbounded_satisfies G rm x h₁u
+  refine ⟨_, hy, fun hby => ?_⟩
+  have hyN := le_abs_faithful_of_le hN_mem hN_nn
+    ((F₂.le_maxFinite hb₂ hN_F₂).trans hx) hy.isFaithfulRound
+  have := abs_coe_real_le_of_boundOK (hGb ▸ hby)
+  linarith
 
 end Mpfx

@@ -737,7 +737,7 @@ theorem toOdd_nearest_noOverflow_chain {F₁ F₂ : FiniteFormat}
 
 /-- Dual of `abs_faithful_le_of_le`: a nonnegative grid point at most `|x|`
 bounds a faithful rounding of `x` from below in magnitude. -/
-private theorem le_abs_faithful_of_le {F : FiniteFormat} {x : ℝ} {z N : Dyadic}
+theorem le_abs_faithful_of_le {F : FiniteFormat} {x : ℝ} {z N : Dyadic}
     (hN_mem : N ∈ F.unbounded) (hN_nn : 0 ≤ (N : ℝ)) (hxN : (N : ℝ) ≤ |x|)
     (hf : IsFaithfulRound F.unbounded x z) : (N : ℝ) ≤ |(z : ℝ)| := by
   rcases le_or_gt 0 x with hx | hx

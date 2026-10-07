@@ -9,7 +9,10 @@ input, special or real, overflowing or not.
 
 The tables must agree across the formats (`SpecialMap.Composes`,
 `OverflowMap.Composes`): `F₁`'s rounding of an `F₂` table entry is the
-matching `F₁` entry. `rnd_double` reduces each rule to its total form
+matching `F₁` entry. The standard tables compose for every rule but RTO → RTZ:
+exact specials always (`SpecialMap.exact_composes`), `±Inf` overflow tables
+pairwise (`OverflowMap.composes_of_inf`), and the IEEE RTZ tables under the RTZ
+containment (`OverflowMap.ieee_toZero_composes`). `rnd_double` reduces each rule to its total form
 (`roundsRTZ_RTZ_inBound`, …) and its no-overflow form (`roundsRTZ_RTZ_noOverflow`, …).
 -/
 
@@ -26,6 +29,57 @@ def OverflowMap.Composes {F₂ : FiniteFormat} (O₂ : OverflowMap F₂.toFormat
     {F₁ : FiniteFormat} (S₁ : SpecialMap F₁.toFormat) (O₁ : OverflowMap F₁.toFormat)
     (rm₁ : RoundingMode) : Prop :=
   ∀ negative, rnd F₁ S₁ O₁ rm₁ (O₂.map negative).toReal = .value (O₁.map negative)
+
+/-! ### Composing the standard tables -/
+
+/-- Exact specials compose with any `F₁` table: `F₁` rounds a special by its
+own table. -/
+theorem SpecialMap.exact_composes {F₂ : FiniteFormat} (h₂ : ∀ s, s ∈ F₂.specials)
+    {F₁ : FiniteFormat} (S₁ : SpecialMap F₁.toFormat) (O₁ : OverflowMap F₁.toFormat)
+    (rm₁ : RoundingMode) : (SpecialMap.exact F₂.toFormat h₂).Composes S₁ O₁ rm₁ :=
+  fun _ => rnd_special _ _ _ _ _
+
+/-- Overflow tables that both send overflow to `±Inf` compose when `F₁` keeps
+infinities exact. -/
+theorem OverflowMap.composes_of_inf {F₂ F₁ : FiniteFormat} {O₂ : OverflowMap F₂.toFormat}
+    {S₁ : SpecialMap F₁.toFormat} {O₁ : OverflowMap F₁.toFormat} {rm₁ : RoundingMode}
+    (h₂ : ∀ s, O₂.map s = .special (.inf s)) (hS : ∀ s, S₁.map (.inf s) = .special (.inf s))
+    (h₁ : ∀ s, O₁.map s = .special (.inf s)) : O₂.Composes S₁ O₁ rm₁ := fun s => by
+  rw [h₂, WithSpecial.toReal_special, rnd_special, hS, h₁]
+
+@[simp] theorem SpecialMap.exact_map (F : Format) (h : ∀ s, s ∈ F.specials) (s : Special) :
+    (SpecialMap.exact F h).map s = .special s := rfl
+
+theorem OverflowMap.ieee_map_awayZero (F : FiniteFormat) (hb hinf) (s : Bool) :
+    (OverflowMap.ieee F .awayZero hb hinf).map s = .special (.inf s) := rfl
+
+theorem OverflowMap.ieee_map_toOdd (F : FiniteFormat) (hb hinf) (s : Bool) :
+    (OverflowMap.ieee F .toOdd hb hinf).map s = .special (.inf s) := rfl
+
+theorem OverflowMap.ieee_map_nearest (F : FiniteFormat) (tb : TieBreak) (hb hinf) (s : Bool) :
+    (OverflowMap.ieee F (.nearest tb) hb hinf).map s = .special (.inf s) := rfl
+
+/-- The IEEE RTZ tables compose under the RTZ containment: `F₂` saturates to
+`±maxFinite₂`, on which `F₁` overflows to its own `±maxFinite₁`. -/
+theorem OverflowMap.ieee_toZero_composes {F₁ F₂ : FiniteFormat}
+    (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
+    (hnt : F₁.toFormat.Nontrivial) (hb₁ : F₁.b ≠ ⊤) (hb₂ : F₂.b ≠ ⊤)
+    (hinf₁ : ∀ s, Special.inf s ∈ F₁.specials) (hinf₂ : ∀ s, Special.inf s ∈ F₂.specials)
+    (S₁ : SpecialMap F₁.toFormat) :
+    (OverflowMap.ieee F₂ .toZero hb₂ hinf₂).Composes S₁
+      (OverflowMap.ieee F₁ .toZero hb₁ hinf₁) .toZero := by
+  have hM := F₂.maxFinite_nonneg hb₂
+  have hov : ∀ {x : ℝ}, ((F₂.maxFinite hb₂ : Dyadic) : ℝ) ≤ |x| → Overflows F₁ .toZero x :=
+    overflows_of_maxFinite_le hsub hnt hb₂ (not_isUndefined_toZero F₁)
+  intro s
+  cases s
+  · change rnd F₁ S₁ _ .toZero (.finite ((F₂.maxFinite hb₂ : Dyadic) : ℝ)) = _
+    exact rnd_of_overflows_pos (not_isUndefined_toZero F₁)
+      (hov (by rw [abs_of_nonneg hM])) hM
+  · change rnd F₁ S₁ _ .toZero (.finite ((-F₂.maxFinite hb₂ : Dyadic) : ℝ)) = _
+    refine rnd_of_overflows_neg (not_isUndefined_toZero F₁) (hov ?_) ?_
+    · rw [Dyadic.coe_real_neg, abs_neg, abs_of_nonneg hM]
+    · rw [Dyadic.coe_real_neg]; linarith
 
 /-- An out-of-bound value is nonzero. -/
 private theorem ne_zero_of_not_boundOK {F : FiniteFormat} {y : Dyadic}
