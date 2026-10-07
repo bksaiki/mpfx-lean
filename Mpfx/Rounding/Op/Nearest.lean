@@ -1,6 +1,6 @@
-import Mpfx.RoundOp.Defs
-import Mpfx.Parity
-import Mpfx.RoundPred
+import Mpfx.Rounding.Op.Defs
+import Mpfx.Rounding.Parity
+import Mpfx.Rounding.Basic
 
 /-!
 # Soundness of `rndUnbounded` for the `nearest tb` modes

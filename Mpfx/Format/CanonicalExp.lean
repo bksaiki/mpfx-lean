@@ -1,4 +1,4 @@
-import Mpfx.Discrete
+import Mpfx.Format.Discrete
 
 /-!
 # Canonical exponent: closed forms and grid representation
@@ -6,11 +6,12 @@ import Mpfx.Discrete
 Format-generic facts about `FiniteFormat.canonicalExp` (Flocq `cexp`), shared by
 the operation-specific double-rounding proofs (addition, square root, …):
 
-* `exists_canonical_rep` — a positive member as `c · 2^cexp` with `|c| < 2^p`;
 * `canonicalExp_closed` / `canonicalExp_expBot` / `canonicalExp_expFinite` — the
   closed forms of `cexp` in the normal range, with no minimum quantum
   (`exp = ⊥`), and with one (`exp = emin` finite);
-* `exp_le_canonicalExp_coe` — `F.exp ≤ cexp` uniformly over `exp = ⊥`/finite.
+* `exp_le_canonicalExp_coe` — `F.exp ≤ cexp` uniformly over `exp = ⊥`/finite;
+* `exp_le_log_of_mem` / `isAboveQuantum_of_mem` — a positive member lies above
+  the quantum; `canonicalExp_binade_below_le`, `canonicalExp_zero`.
 -/
 
 namespace Mpfx
@@ -67,88 +68,6 @@ theorem canonicalExp_subnormal {F : FiniteFormat} {p : ℕ} {emin : ℤ}
     (hp : F.p = (p : Prec)) (hexp : F.exp = (emin : QExp)) {v : ℝ} (hv : v ≠ 0)
     (h : Int.log 2 |v| + 1 - (p : ℤ) ≤ emin) : F.canonicalExp v = emin := by
   rw [canonicalExp_expFinite hp hexp hv]; exact max_eq_right h
-
-/-- The precision exponent lower-bounds `canonicalExp`: `log₂|v| + 1 − p ≤ canonicalExp v`
-(equality for `exp = ⊥`; `≤` via `le_max_left` for finite `exp`). -/
-theorem log_sub_prec_le_canonicalExp {F : FiniteFormat} {p : ℕ}
-    (hp : F.p = (p : Prec)) {v : ℝ} (hv : v ≠ 0) :
-    Int.log 2 |v| + 1 - (p : ℤ) ≤ F.canonicalExp v := by
-  cases hexp : F.exp using QExp.recBotCoe with
-  | bot => rw [canonicalExp_expBot hp hexp hv]
-  | coe e => rw [canonicalExp_expFinite hp hexp hv]; exact le_max_left _ _
-
-/-! ### Powers of two: predecessor identities
-
-Shared replacements for the `2^a = 2·2^(a-1)` etc. identities re-proved inline
-throughout the operation-specific proofs (`⌊·⌋`-based `set` variables make
-`rw [show a = (a-1)+1 …]` self-referential, so these avoid rewriting the
-exponent variable). -/
-
-/-- `2^a = 2^(a-1) · 2`. -/
-theorem two_zpow_pred (a : ℤ) : (2 : ℝ) ^ a = (2 : ℝ) ^ (a - 1) * 2 := by
-  have h : (2 : ℝ) ^ ((a - 1) + 1) = (2 : ℝ) ^ (a - 1) * (2 : ℝ) ^ (1 : ℤ) :=
-    zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0) (a - 1) 1
-  rw [zpow_one, show (a - 1) + 1 = a from by ring] at h; exact h
-
-/-- `2^a / 2 = 2^(a-1)`. -/
-theorem two_zpow_half (a : ℤ) : (2 : ℝ) ^ a / 2 = (2 : ℝ) ^ (a - 1) := by
-  rw [two_zpow_pred a]; ring
-
-/-- `2^a = 2 · 2^(a-1)`. -/
-theorem two_zpow_dbl (a : ℤ) : (2 : ℝ) ^ a = 2 * (2 : ℝ) ^ (a - 1) := by
-  rw [two_zpow_pred a]; ring
-
-/-! ### Quantum alignment under arithmetic
-
-A value's *quantum* (`Dyadic.quantumAtLeast e`) is preserved/combined under
-negation, `±`, and `×`. Shared by the addition and multiplication proofs. -/
-
-/-- Negation preserves quantum alignment. -/
-theorem quantumAtLeast_neg {e : QExp} {a : Dyadic}
-    (ha : Dyadic.quantumAtLeast e a) : Dyadic.quantumAtLeast e (-a) := by
-  cases e using QExp.recBotCoe with
-  | bot => trivial
-  | coe e =>
-    obtain ⟨ca, hca⟩ := (Dyadic.quantumAtLeast_coe_real e a).mp ha
-    refine (Dyadic.quantumAtLeast_coe_real e (-a)).mpr ⟨-ca, ?_⟩
-    rw [show ((-a : Dyadic) : ℝ) = -(a : ℝ) from by push_cast; ring, hca]; push_cast; ring
-
-/-- A sum of two quantum-aligned dyadics stays quantum-aligned. -/
-theorem quantumAtLeast_add {e : QExp} {a b : Dyadic}
-    (ha : Dyadic.quantumAtLeast e a) (hb : Dyadic.quantumAtLeast e b) :
-    Dyadic.quantumAtLeast e (a + b) := by
-  cases e using QExp.recBotCoe with
-  | bot => trivial
-  | coe e =>
-    obtain ⟨ca, hca⟩ := (Dyadic.quantumAtLeast_coe_real e a).mp ha
-    obtain ⟨cb, hcb⟩ := (Dyadic.quantumAtLeast_coe_real e b).mp hb
-    refine (Dyadic.quantumAtLeast_coe_real e (a + b)).mpr ⟨ca + cb, ?_⟩
-    rw [show ((a + b : Dyadic) : ℝ) = (a : ℝ) + (b : ℝ) from by push_cast; ring, hca, hcb]
-    push_cast; ring
-
-/-- A difference of two quantum-aligned dyadics stays quantum-aligned. -/
-theorem quantumAtLeast_sub {e : QExp} {a b : Dyadic}
-    (ha : Dyadic.quantumAtLeast e a) (hb : Dyadic.quantumAtLeast e b) :
-    Dyadic.quantumAtLeast e (a - b) := by
-  rw [sub_eq_add_neg]; exact quantumAtLeast_add ha (quantumAtLeast_neg hb)
-
-/-- A product is quantum-aligned at the *sum* of the operands' quanta. -/
-theorem quantumAtLeast_mul {e₁ e₂ : QExp} {x y : Dyadic}
-    (hx : Dyadic.quantumAtLeast e₁ x) (hy : Dyadic.quantumAtLeast e₂ y) :
-    Dyadic.quantumAtLeast (e₁ + e₂) (x * y) := by
-  cases e₁ using QExp.recBotCoe with
-  | bot => rw [show (⊥ + e₂ : QExp) = ⊥ from by simp]; trivial
-  | coe a =>
-    cases e₂ using QExp.recBotCoe with
-    | bot => rw [show ((a : QExp) + ⊥) = ⊥ from by simp]; trivial
-    | coe b =>
-      obtain ⟨cx, hcx⟩ := (Dyadic.quantumAtLeast_coe_real a x).mp hx
-      obtain ⟨cy, hcy⟩ := (Dyadic.quantumAtLeast_coe_real b y).mp hy
-      rw [← WithBot.coe_add]
-      refine (Dyadic.quantumAtLeast_coe_real (a + b) (x * y)).mpr ⟨cx * cy, ?_⟩
-      rw [show ((x * y : Dyadic) : ℝ) = (x : ℝ) * (y : ℝ) from by push_cast; ring, hcx, hcy,
-          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; push_cast; ring
-
 
 /-! ### Format-dependent scaled-mantissa facts
 
@@ -416,5 +335,54 @@ theorem canonicalExp_neg (F : FiniteFormat) (x : ℝ) :
     F.canonicalExp (-x) = F.canonicalExp x := by
   unfold FiniteFormat.canonicalExp
   cases F.p <;> cases F.exp <;> simp only [abs_neg, neg_eq_zero]
+
+/-- A positive `F`-value is at least the format's quantum, so `F.exp ≤ ⌊log₂ z⌋`. -/
+theorem exp_le_log_of_mem (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp))
+    {z : Dyadic} (hz : z ∈ F.unbounded) (hz0 : 0 < ((z : Dyadic) : ℝ)) :
+    e ≤ Int.log 2 ((z : Dyadic) : ℝ) := by
+  obtain ⟨-, hq, -⟩ := hz
+  rw [FiniteFormat.unbounded_exp, hexp, Dyadic.quantumAtLeast_coe_real] at hq
+  obtain ⟨c, hc⟩ := hq
+  have h2e : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
+  have hc1 : (1 : ℝ) ≤ (c : ℝ) := by
+    by_contra hcc
+    push Not at hcc
+    have h0 : (c : ℤ) ≤ 0 := by exact_mod_cast Int.lt_add_one_iff.mp (by exact_mod_cast hcc)
+    have : (c : ℝ) ≤ 0 := by exact_mod_cast h0
+    nlinarith
+  have hge : (2 : ℝ) ^ e ≤ ((z : Dyadic) : ℝ) := by nlinarith
+  exact (Int.zpow_le_iff_le_log (by norm_num) hz0).mp (by exact_mod_cast hge)
+
+/-- The spacing of the binade below a positive `F`-value is no coarser than that
+value's own binade. -/
+theorem canonicalExp_binade_below_le (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
+    {z : Dyadic} (hz : z ∈ F.unbounded) (hz0 : 0 < ((z : Dyadic) : ℝ)) :
+    F.canonicalExp ((2 : ℝ) ^ (Int.log 2 ((z : Dyadic) : ℝ) - 1))
+      ≤ Int.log 2 ((z : Dyadic) : ℝ) := by
+  have hpp : 0 < p := FiniteFormat.p_pos hp
+  set k := Int.log 2 ((z : Dyadic) : ℝ) with hk
+  have hpos : (0 : ℝ) < (2 : ℝ) ^ (k - 1) := zpow_pos (by norm_num) _
+  have hlog : Int.log 2 |((2 : ℝ) ^ (k - 1))| = k - 1 := by
+    rw [abs_of_pos hpos]; exact log_two_zpow (k - 1)
+  unfold FiniteFormat.canonicalExp
+  cases hexp : F.exp using QExp.recBotCoe with
+  | bot => simp only [hp, hlog, if_neg (ne_of_gt hpos)]; omega
+  | coe e =>
+    simp only [hp, hlog, if_neg (ne_of_gt hpos)]
+    exact max_le (by omega) (by rw [hk]; exact exp_le_log_of_mem F hexp hz hz0)
+
+/-- Every positive `F`-value is above `F`'s coarsest step. -/
+theorem isAboveQuantum_of_mem (F : FiniteFormat) {z : Dyadic} (hz : z ∈ F.unbounded)
+    (hz0 : 0 < ((z : Dyadic) : ℝ)) : F.IsAboveQuantum ((z : Dyadic) : ℝ) :=
+  FiniteFormat.isAboveQuantum_of_exp_le F (ne_of_gt hz0)
+    (fun _ hexp => by rw [abs_of_pos hz0]; exact exp_le_log_of_mem F hexp hz hz0)
+
+/-- With a minimum quantum, `canonicalExp` at `0` is that quantum. -/
+theorem canonicalExp_zero (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp)) :
+    F.canonicalExp 0 = e := by
+  unfold FiniteFormat.canonicalExp
+  cases F.p using ENat.recTopCoe with
+  | top => simp only [hexp]; rfl
+  | coe p => simp [hexp]
 
 end Mpfx

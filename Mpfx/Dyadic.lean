@@ -6,6 +6,14 @@ import Mathlib.Data.Int.Log
 import Mathlib.Tactic
 import Mpfx.Utils
 
+/-!
+# Dyadic numbers and format parameters
+
+`Dyadic`, the subring of `ℚ` of numbers `c · 2^e`; the precision and quantum
+predicates `precisionAtMost` / `quantumAtLeast`; and the format parameter
+types `Prec`, `QExp`, `Bound`.
+-/
+
 namespace Mpfx
 
 /-- A precision bound: a finite number of binary digits, or `⊤` for
@@ -129,6 +137,32 @@ theorem coe_real_injective : Function.Injective (fun d : Dyadic => ((d : Dyadic)
 @[simp, norm_cast] theorem coe_real_mul (d₁ d₂ : Dyadic) :
     ((d₁ * d₂ : Dyadic) : ℝ) = ((d₁ : Dyadic) : ℝ) * ((d₂ : Dyadic) : ℝ) := by
   push_cast; ring
+
+/-- Absolute value of a dyadic, as a dyadic.  Equal to `x` if `0 ≤ x`,
+otherwise `-x`.  Lives in `Dyadic` because the underlying subring is closed
+under negation.  Computable since `ℚ` comparison is decidable. -/
+def abs (x : Dyadic) : Dyadic :=
+  if 0 ≤ (x : ℚ) then x else -x
+
+@[simp] theorem coe_abs (x : Dyadic) : (Dyadic.abs x : ℝ) = |(x : ℝ)| := by
+  unfold Dyadic.abs
+  by_cases h : 0 ≤ (x : ℚ)
+  · rw [if_pos h]
+    rw [coe_real_eq_ratCast]
+    have : (0 : ℝ) ≤ ((x : ℚ) : ℝ) := by exact_mod_cast h
+    rw [_root_.abs_of_nonneg this]
+  · rw [if_neg h]
+    rw [coe_real_neg, coe_real_eq_ratCast]
+    have : ((x : ℚ) : ℝ) < 0 := by
+      have : (x : ℚ) < 0 := lt_of_not_ge h
+      exact_mod_cast this
+    rw [_root_.abs_of_neg this]
+
+@[simp] theorem coe_rat_abs (x : Dyadic) : ((Dyadic.abs x : Dyadic) : ℚ) = |(x : ℚ)| := by
+  unfold Dyadic.abs
+  by_cases h : 0 ≤ (x : ℚ)
+  · rw [if_pos h, _root_.abs_of_nonneg h]
+  · rw [if_neg h, Subring.coe_neg, _root_.abs_of_neg (lt_of_not_ge h)]
 
 /-- Build a dyadic from `(c, e) : ℤ × ℤ`: the value `c · 2^e`. -/
 def ofIntZpow (c e : ℤ) : Dyadic :=
@@ -289,6 +323,46 @@ theorem quantumAtLeast_neg {e : QExp} {x : Dyadic} (h : quantumAtLeast e x) :
     quantumAtLeast e (-x) ↔ quantumAtLeast e x :=
   ⟨fun h => by simpa using quantumAtLeast_neg h, quantumAtLeast_neg⟩
 
+/-! ### Quantum alignment under arithmetic
+
+A value's quantum is preserved under `±` and combined under `×`. -/
+
+/-- A sum of two quantum-aligned dyadics stays quantum-aligned. -/
+theorem quantumAtLeast_add {e : QExp} {a b : Dyadic}
+    (ha : Dyadic.quantumAtLeast e a) (hb : Dyadic.quantumAtLeast e b) :
+    Dyadic.quantumAtLeast e (a + b) := by
+  cases e using QExp.recBotCoe with
+  | bot => trivial
+  | coe e =>
+    obtain ⟨ca, hca⟩ := (Dyadic.quantumAtLeast_coe_real e a).mp ha
+    obtain ⟨cb, hcb⟩ := (Dyadic.quantumAtLeast_coe_real e b).mp hb
+    refine (Dyadic.quantumAtLeast_coe_real e (a + b)).mpr ⟨ca + cb, ?_⟩
+    rw [show ((a + b : Dyadic) : ℝ) = (a : ℝ) + (b : ℝ) from by push_cast; ring, hca, hcb]
+    push_cast; ring
+
+/-- A difference of two quantum-aligned dyadics stays quantum-aligned. -/
+theorem quantumAtLeast_sub {e : QExp} {a b : Dyadic}
+    (ha : Dyadic.quantumAtLeast e a) (hb : Dyadic.quantumAtLeast e b) :
+    Dyadic.quantumAtLeast e (a - b) := by
+  rw [sub_eq_add_neg]; exact quantumAtLeast_add ha (Dyadic.quantumAtLeast_neg hb)
+
+/-- A product is quantum-aligned at the *sum* of the operands' quanta. -/
+theorem quantumAtLeast_mul {e₁ e₂ : QExp} {x y : Dyadic}
+    (hx : Dyadic.quantumAtLeast e₁ x) (hy : Dyadic.quantumAtLeast e₂ y) :
+    Dyadic.quantumAtLeast (e₁ + e₂) (x * y) := by
+  cases e₁ using QExp.recBotCoe with
+  | bot => rw [show (⊥ + e₂ : QExp) = ⊥ from by simp]; trivial
+  | coe a =>
+    cases e₂ using QExp.recBotCoe with
+    | bot => rw [show ((a : QExp) + ⊥) = ⊥ from by simp]; trivial
+    | coe b =>
+      obtain ⟨cx, hcx⟩ := (Dyadic.quantumAtLeast_coe_real a x).mp hx
+      obtain ⟨cy, hcy⟩ := (Dyadic.quantumAtLeast_coe_real b y).mp hy
+      rw [← WithBot.coe_add]
+      refine (Dyadic.quantumAtLeast_coe_real (a + b) (x * y)).mpr ⟨cx * cy, ?_⟩
+      rw [show ((x * y : Dyadic) : ℝ) = (x : ℝ) * (y : ℝ) from by push_cast; ring, hcx, hcy,
+          zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; push_cast; ring
+
 /-- The dyadic value `3 · 2^k` has precision at most 2 (significand `3` fits
 in `|c| < 2^2 = 4`). Used as a precision-2 witness in `hp_F₂`-derivation. -/
 theorem precisionAtMost_two_three_zpow (k : ℤ) :
@@ -383,12 +457,6 @@ theorem isRepresentableAtP_of_bounds {p : ℕ} {c e : ℤ} {y : Dyadic}
     (hc_lo : (2 : ℤ) ^ (p - 1) ≤ |c|) (hc_hi : |c| < (2 : ℤ) ^ p) :
     IsRepresentableAtP p c e y := ⟨hyeq, hc_lo, hc_hi⟩
 
-/-- For `p ≥ 1`, `2^p = 2 · 2^(p-1)`. -/
-theorem two_pow_succ_pred {p : ℕ} (hp : 1 ≤ p) :
-    (2 : ℤ) ^ p = 2 * (2 : ℤ) ^ (p - 1) := by
-  obtain ⟨k, rfl⟩ : ∃ k, p = k + 1 := ⟨p - 1, by omega⟩
-  rw [pow_succ, Nat.add_sub_cancel]; ring
-
 /-- Renormalization: if `|c| = 2^p` (boundary case), then
 `y = c · 2^e = (c/2) · 2^(e+1)` and `(c/2, e+1)` is the canonical
 IsRepresentableAtP form at `p` bits (with `|c/2| = 2^(p-1)`). -/
@@ -401,8 +469,8 @@ theorem isRepresentableAtP_of_saturation {p : ℕ} (hp : 1 ≤ p)
   -- c is even: c = ±2^p, both divisible by 2 (since p ≥ 1).
   have hc_even : 2 ∣ c := by
     rcases (abs_eq h2p_nonneg).mp hc_eq with hc | hc
-    · rw [hc, two_pow_succ_pred hp]; exact ⟨_, rfl⟩
-    · rw [hc, two_pow_succ_pred hp]; exact ⟨-(2 ^ (p - 1)), by ring⟩
+    · rw [hc, Int.two_pow_succ_pred hp]; exact ⟨_, rfl⟩
+    · rw [hc, Int.two_pow_succ_pred hp]; exact ⟨-(2 ^ (p - 1)), by ring⟩
   have h_div_eq : 2 * (c / 2) = c := Int.mul_ediv_cancel' hc_even
   -- |c/2| = 2^(p-1).
   have h_div_abs : |c / 2| = (2 : ℤ) ^ (p - 1) := by
@@ -411,7 +479,7 @@ theorem isRepresentableAtP_of_saturation {p : ℕ} (hp : 1 ≤ p)
           = |2 * (c / 2)| := by rw [abs_mul]; simp
         _ = |c| := by rw [h_div_eq]
         _ = (2 : ℤ) ^ p := hc_eq
-    have h2 : (2 : ℤ) ^ p = 2 * (2 : ℤ) ^ (p - 1) := two_pow_succ_pred hp
+    have h2 : (2 : ℤ) ^ p = 2 * (2 : ℤ) ^ (p - 1) := Int.two_pow_succ_pred hp
     linarith
   -- y = (c/2) · 2^(e+1).
   have h_y_real : (y : ℚ) = ((c / 2 : ℤ) : ℚ) * (2 : ℚ) ^ (e + 1) := by
@@ -426,7 +494,7 @@ theorem isRepresentableAtP_of_saturation {p : ℕ} (hp : 1 ≤ p)
     ring
   refine ⟨h_y_real, ?_, ?_⟩
   · rw [h_div_abs]
-  · rw [h_div_abs, two_pow_succ_pred hp]
+  · rw [h_div_abs, Int.two_pow_succ_pred hp]
     have : (0 : ℤ) < (2 : ℤ) ^ (p - 1) := by positivity
     linarith
 
@@ -700,7 +768,7 @@ namespace Dyadic
 
 /-- Odd-significand representations are unique: `quantum_le_of_odd_rep` in both
 directions pins the exponent, and cancellation the significand. -/
-theorem odd_rep_unique {x : Dyadic} {c q c' q' : ℤ} (hc : Odd c) (hc' : Odd c')
+private theorem odd_rep_unique {x : Dyadic} {c q c' q' : ℤ} (hc : Odd c) (hc' : Odd c')
     (h : (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ q) (h' : (x : ℝ) = (c' : ℝ) * (2 : ℝ) ^ q') :
     c = c' ∧ q = q' := by
   have hq : quantumAtLeast (q : QExp) x := (quantumAtLeast_coe_real q x).mpr ⟨c, h⟩

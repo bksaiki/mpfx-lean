@@ -1,5 +1,6 @@
-import Mpfx.Rounding
-import Mpfx.CanonicalExp
+import Mpfx.Rounding.Defs
+import Mpfx.Format.Parity.Alternate
+import Mpfx.Format.CanonicalExp
 
 /-!
 # Parity of adjacent grid points
@@ -177,7 +178,7 @@ private theorem alternate_subnormal_pne1 {F : FiniteFormat} (h : ¬ F.IsUndefine
     · -- `|lo+1| = 2^p` saturated (dhi even/¬odd), `lo` odd (dlo odd).
       have h_even2p : Even ((2 : ℤ) ^ p) := by
         refine ⟨(2 : ℤ) ^ (p - 1), ?_⟩
-        have := Dyadic.two_pow_succ_pred (F.p_pos hp_F)
+        have := Int.two_pow_succ_pred (F.p_pos hp_F)
         linarith
       have h_lo_ne : lo ≠ 0 := by
         intro h_zero
@@ -238,7 +239,7 @@ private theorem alternate_subnormal_pne1 {F : FiniteFormat} (h : ¬ F.IsUndefine
   · -- `|lo| = 2^p` saturated (dlo even/¬odd), `lo+1` odd (dhi odd).
     have h_even2p : Even ((2 : ℤ) ^ p) := by
       refine ⟨(2 : ℤ) ^ (p - 1), ?_⟩
-      have := Dyadic.two_pow_succ_pred (F.p_pos hp_F)
+      have := Int.two_pow_succ_pred (F.p_pos hp_F)
       linarith
     have h_lo_neg : lo = -((2 : ℤ) ^ p) := by
       rcases (abs_eq h2p_nn).mp h_lo_sat with hpos | hneg

@@ -1,743 +1,16 @@
-import Mpfx.Dyadic
-import Mathlib.Data.Int.Log
+import Mpfx.Format.Parity
+
+/-!
+# Parity alternation
+
+Per-regime characterizations of `IsOdd` / `IsEven` at canonical
+representations, and the alternation of parity between adjacent canonical
+values that `Mpfx.Rounding.Parity` builds on.
+-/
 
 namespace Mpfx
 
-/-- The abstract number format `𝒜(p, exp, b)`.
-
-* `p : Prec` — maximum precision (in binary digits). `p = 0` is the trivial
-  format `{0}`; `⊤` denotes "no precision constraint" (the format is
-  fixed-point). `FiniteFormat` rules out `p = 0`, since rounding into `{0}`
-  has no canonical representation.
-* `exp : QExp` — exponent of the minimum quantum. `⊥` denotes "no quantum
-  constraint" (the format is unbounded floating-point).
-* `b : Bound` — non-negative magnitude bound. `NonNegDyadic` enforces
-  `b ≥ 0`; `⊤` denotes "unbounded".
-
-Defined in §4.2.
--/
-structure Format where
-  p : Prec
-  exp : QExp
-  b : Bound
-
-namespace Format
-
-/-- `|d|` satisfies the magnitude bound `b`. `⊤` (unbounded) accepts anything;
-a finite `b` is interpreted as `|d.val| ≤ b.val`. -/
-def boundOK : Bound → Dyadic → Prop
-  | ⊤, _ => True
-  | (b : NonNegDyadic), d => |(d : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-
-/-- Membership of `d : Dyadic` in `F : Format`: `d` satisfies all three
-constraints (precision, quantum, bound). -/
-def Mem (F : Format) (d : Dyadic) : Prop :=
-  Dyadic.precisionAtMost F.p d ∧
-  Dyadic.quantumAtLeast F.exp d ∧
-  boundOK F.b d
-
-/-- `F` with the magnitude bound removed (`b := ⊤`). Used by the
-rounding spec to express "round without the bound, then check the
-bound separately" — the IEEE-style overflow semantics. -/
-def unbounded (F : Format) : Format := { F with b := ⊤ }
-
-@[simp] theorem unbounded_p (F : Format) : F.unbounded.p = F.p := rfl
-@[simp] theorem unbounded_exp (F : Format) : F.unbounded.exp = F.exp := rfl
-@[simp] theorem unbounded_b (F : Format) : F.unbounded.b = ⊤ := rfl
-@[simp] theorem unbounded_unbounded (F : Format) :
-    F.unbounded.unbounded = F.unbounded := rfl
-
-end Format
-
-instance : Membership Dyadic Format := ⟨Format.Mem⟩
-
-namespace Format
-
-/-- Zero satisfies any magnitude bound. -/
-@[simp] theorem boundOK_zero (b : Bound) :
-    boundOK b (0 : Dyadic) := by
-  cases b using Bound.recTopCoe with
-  | top => trivial
-  | coe b =>
-    change |((0 : Dyadic) : ℚ)| ≤ _
-    simpa using b.property
-
-/-- The bound `|·| ≤ b` is symmetric under negation. -/
-theorem boundOK_neg {b : Bound} {d : Dyadic} (h : boundOK b d) :
-    boundOK b (-d) := by
-  cases b using Bound.recTopCoe with
-  | top => trivial
-  | coe b =>
-    change |((-d : Dyadic) : ℚ)| ≤ _
-    rw [Subring.coe_neg, abs_neg]
-    exact h
-
-@[simp] theorem boundOK_neg_iff (b : Bound) (d : Dyadic) :
-    boundOK b (-d) ↔ boundOK b d :=
-  ⟨fun h => by simpa using boundOK_neg h, boundOK_neg⟩
-
-/-- Format membership is closed under negation. -/
-theorem neg_mem {F : Format} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F := by
-  obtain ⟨hp, he, hb⟩ := h
-  exact ⟨Dyadic.precisionAtMost_neg hp, Dyadic.quantumAtLeast_neg he, boundOK_neg hb⟩
-
-theorem mem_neg_iff (F : Format) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
-  ⟨fun h => by simpa using neg_mem h, neg_mem⟩
-
-/-- `F` contains at least one nonzero value. §4.2's non-triviality restriction. -/
-def Nontrivial (F : Format) : Prop :=
-  ∃ d : Dyadic, d ∈ F ∧ d ≠ 0
-
-/-- A nonzero value needs at least one digit, so a nontrivial format has
-positive precision. This is what `ℕ+` used to enforce at the type level. -/
-theorem Nontrivial.p_ne_zero {F : Format} (h : F.Nontrivial) : F.p ≠ 0 := by
-  obtain ⟨d, hd, hd_ne⟩ := h
-  intro h0
-  have hp := hd.1
-  rw [h0] at hp
-  exact hd_ne (Dyadic.precisionAtMost_zero_iff_eq_zero.mp hp)
-
-/-- §4.2's restriction on the magnitude bound: `b ∈ 𝒜(p, exp, ∞) ∪ {∞}`, i.e. a
-finite bound is itself representable. -/
-def BoundRep (F : Format) : Prop :=
-  ∀ bv : NonNegDyadic, F.b = (bv : Bound) →
-    bv.val ∈ F.unbounded
-
-/-- `c · 2^k` lies in `F` once the three constraints are checked. -/
-theorem ofIntZpow_mem {F : Format} {c k : ℤ}
-    (hp : Dyadic.precisionAtMost F.p (Dyadic.ofIntZpow c k))
-    (he : F.exp ≤ (k : QExp)) (hb : boundOK F.b (Dyadic.ofIntZpow c k)) :
-    Dyadic.ofIntZpow c k ∈ F :=
-  ⟨hp, Dyadic.quantumAtLeast_anti he ⟨c, by rw [Dyadic.coe_rat_ofIntZpow]⟩, hb⟩
-
-/-- A `BoundRep` format's finite bound is one of its values. -/
-theorem bound_mem {F : Format} (hb : BoundRep F) {bv : NonNegDyadic}
-    (hF : F.b = (bv : Bound)) : bv.val ∈ F := by
-  obtain ⟨hp, hq, -⟩ := hb bv hF
-  refine ⟨hp, hq, ?_⟩
-  rw [hF]
-  change |((bv.val : Dyadic) : ℚ)| ≤ ((bv.val : Dyadic) : ℚ)
-  rw [abs_of_nonneg bv.property]
-
-/-- Zero is in every format. -/
-theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
-  refine ⟨?_, ?_, ?_⟩
-  · change Dyadic.precisionAtMost F.p (0 : Dyadic)
-    cases F.p using ENat.recTopCoe with
-    | top => trivial
-    | coe p => exact ⟨0, 0, by simp, by simp⟩
-  · change Dyadic.quantumAtLeast F.exp (0 : Dyadic)
-    cases F.exp using QExp.recBotCoe with
-    | bot => trivial
-    | coe e => exact ⟨0, by simp⟩
-  · change boundOK F.b (0 : Dyadic)
-    cases F.b using Bound.recTopCoe with
-    | top => trivial
-    | coe b =>
-      change |((0 : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-      simpa using b.property
-
-end Format
-
-/-! ### Subtype hierarchy
-
-Two stronger tiers stack on top of `Format`, each adding exactly one
-invariant required by a downstream API:
-
-* `FiniteFormat` — rules out the *doubly-unbounded* case `(⊤, ⊥)`. At
-  least one of `p`, `exp` is finite. This is the minimum needed for
-  `rnd` to compute a canonical exponent for nonzero `x`, since
-  dyadics are dense in `ℝ` but not closed under limits.
-* `ParityFormat` — adds the *parity-anchor* invariant: `p ≠ 1` whenever
-  `exp = ⊥`. Combined with `FiniteFormat`, this is `(p ≠ ⊤ ∧ p ≠ 1) ∨
-  exp = ⊥`. Required for `IsOdd` / `IsEven` (and hence `rnd .toOdd`,
-  `rnd (.nearest _)`) to be semantically meaningful — without it, the
-  exponent-parity fallback for `p = 1` has no anchor (since the
-  format has no quantum to count indices from).
-
-State theorems on the *weakest* tier whose proof actually destructures
-the invariant. Promote only when needed. -/
-
-/-- A `Format` where `rnd` is well-defined for directed modes: at least
-one of `p`, `exp` is finite (equivalently `¬ (p = ⊤ ∧ exp = ⊥)`), and the
-precision is nonzero — `p = 0` admits only `0`, which has no canonical
-`(c, e)` representation to round to. -/
-structure FiniteFormat extends Format where
-  finite : toFormat.p ≠ ⊤ ∨ toFormat.exp ≠ ⊥
-  pos : toFormat.p ≠ 0
-
-instance : Membership Dyadic FiniteFormat := ⟨fun F d => d ∈ F.toFormat⟩
-
-namespace FiniteFormat
-
-/-- `F.pos` at a finite precision: the witness `p` in `F.p = ↑p` is positive.
-Stands in for `ℕ+`'s old type-level positivity wherever a proof splits `F.p`. -/
-theorem p_pos {F : FiniteFormat} {p : ℕ} (hp : F.p = (p : Prec)) : 0 < p := by
-  rcases Nat.eq_zero_or_pos p with rfl | h
-  · exact absurd hp F.pos
-  · exact h
-
-/-- Zero is in every (finite) format. -/
-theorem zero_mem (F : FiniteFormat) : (0 : Dyadic) ∈ F := Format.zero_mem F.toFormat
-
-/-- (Finite-)format membership is closed under negation. -/
-theorem neg_mem {F : FiniteFormat} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F :=
-  Format.neg_mem (F := F.toFormat) h
-
-theorem mem_neg_iff (F : FiniteFormat) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
-  Format.mem_neg_iff F.toFormat d
-
-/-- Canonical exponent for representing `x` in `F`. The `(⊤, ⊥)` branch is
-unreachable by `F.finite`; we list it to make the `match` total. -/
-noncomputable def canonicalExp (F : FiniteFormat) (x : ℝ) : ℤ :=
-  match F.p, F.exp with
-  | ⊤, ⊥ => 0  -- unreachable by `F.finite`
-  | ⊤, (e : ℤ) => e
-  | (p : ℕ), ⊥ =>
-      if x = 0 then 0 else Int.log 2 |x| + 1 - (p : ℤ)
-  | (p : ℕ), (e : ℤ) =>
-      if x = 0 then e
-      else max (Int.log 2 |x| + 1 - (p : ℤ)) e
-
-/-- The canonical exponent dominates `F.exp` whenever `F.exp` is finite.
-Needed to discharge `quantumAtLeast F.exp` for the rounded value. -/
-theorem exp_le_canonicalExp (F : FiniteFormat) (x : ℝ)
-    {e' : ℤ} (hexp : F.exp = (e' : QExp)) :
-    e' ≤ F.canonicalExp x := by
-  unfold canonicalExp
-  cases hp : F.p using ENat.recTopCoe with
-  | top => rw [hexp]; exact le_refl _
-  | coe p =>
-    simp only [hexp]
-    split_ifs
-    · exact le_refl _
-    · exact le_max_right _ _
-
-/-- The canonical exponent dominates `Int.log 2 |x| + 1 - p` whenever
-`F.p` is finite and `x ≠ 0`. Needed to bound `|⌊x · 2^(-e)⌋| ≤ 2^p`. -/
-theorem log_sub_p_le_canonicalExp (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
-    {p : ℕ} (hp : F.p = (p : Prec)) :
-    Int.log 2 |x| + 1 - (p : ℤ) ≤ F.canonicalExp x := by
-  unfold canonicalExp
-  cases F.exp using QExp.recBotCoe with
-  | bot => simp [hp, hx]
-  | coe e' => simp [hp, hx]
-
-/-- **`x` is above `F`'s coarsest step** (Flocq's `Exp_not_FTZ`, localized at
-`x`): the canonical exponent does not exceed `x`'s binade. Equivalently, for
-`x ≠ 0`, `F.exp ≤ ⌊log₂ |x|⌋` — the precision term `⌊log₂ |x|⌋ + 1 − p` is never
-the binding one — and equivalently again, `x` does not round down to `0`
-(`rndDown_pos_iff`). Reducible, so arithmetic tactics see through it. -/
-abbrev IsAboveQuantum (F : FiniteFormat) (x : ℝ) : Prop :=
-  F.canonicalExp x ≤ Int.log 2 |x|
-
-/-- On the positive side the absolute value drops out. -/
-theorem IsAboveQuantum.le_log {F : FiniteFormat} {x : ℝ} (h : F.IsAboveQuantum x)
-    (hx : 0 < x) : F.canonicalExp x ≤ Int.log 2 x := by
-  have h' : F.canonicalExp x ≤ Int.log 2 |x| := h
-  rwa [abs_of_pos hx] at h'
-
-theorem isAboveQuantum_of_le_log {F : FiniteFormat} {x : ℝ} (hx : 0 < x)
-    (h : F.canonicalExp x ≤ Int.log 2 x) : F.IsAboveQuantum x := by
-  have : Int.log 2 |x| = Int.log 2 x := by rw [abs_of_pos hx]
-  omega
-
-/-- `F.exp ≤ ⌊log₂ |x|⌋` is the whole content of `IsAboveQuantum`. -/
-theorem isAboveQuantum_of_exp_le (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
-    (hexp : ∀ e : ℤ, F.exp = (e : QExp) → e ≤ Int.log 2 |x|) : F.IsAboveQuantum x := by
-  unfold IsAboveQuantum canonicalExp
-  cases hp : F.p using ENat.recTopCoe with
-  | top =>
-    cases hexp' : F.exp using QExp.recBotCoe with
-    | bot => exact (F.finite.elim (fun h => h hp) (fun h => h hexp')).elim
-    | coe e => exact hexp e hexp'
-  | coe p =>
-    have hpp : 0 < p := F.p_pos hp
-    cases hexp' : F.exp using QExp.recBotCoe with
-    | bot => simp only [if_neg hx]; omega
-    | coe e => simp only [if_neg hx]; exact max_le (by omega) (hexp e hexp')
-
-/-- `canonicalExp` is monotone in magnitude. -/
-theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)
-    (hyz : |y| ≤ |z|) : F.canonicalExp y ≤ F.canonicalExp z := by
-  have hy_pos : 0 < |y| := abs_pos.mpr hy
-  have hz : z ≠ 0 := by
-    rintro rfl; rw [abs_zero] at hyz; exact absurd hyz (not_le.mpr hy_pos)
-  have hlog : Int.log 2 |y| ≤ Int.log 2 |z| := Int.log_mono_right hy_pos hyz
-  unfold FiniteFormat.canonicalExp
-  cases F.p using ENat.recTopCoe with
-  | top => cases F.exp using QExp.recBotCoe <;> simp <;> rfl
-  | coe p =>
-    cases F.exp using QExp.recBotCoe with
-    | bot => simp only [hy, hz, if_false]; omega
-    | coe e => simp only [hy, hz, if_false]; omega
-
-/-- `F` with the magnitude bound removed (`b := ⊤`). Used by the
-satisfies-spec to define the unbounded rounding. The `finite` invariant
-depends only on `(p, exp)`, so it's preserved. -/
-def unbounded (F : FiniteFormat) : FiniteFormat where
-  toFormat := F.toFormat.unbounded
-  finite := F.finite
-  pos := F.pos
-
-@[simp] theorem unbounded_toFormat (F : FiniteFormat) :
-    F.unbounded.toFormat = F.toFormat.unbounded := rfl
-@[simp] theorem unbounded_p (F : FiniteFormat) : F.unbounded.p = F.p := rfl
-@[simp] theorem unbounded_canonicalExp (F : FiniteFormat) (x : ℝ) :
-    F.unbounded.canonicalExp x = F.canonicalExp x := rfl
-@[simp] theorem unbounded_exp (F : FiniteFormat) : F.unbounded.exp = F.exp := rfl
-@[simp] theorem unbounded_b (F : FiniteFormat) : F.unbounded.b = ⊤ := rfl
-@[simp] theorem unbounded_unbounded (F : FiniteFormat) :
-    F.unbounded.unbounded = F.unbounded := rfl
-
-/-- **Lemma 5.1**: number of binary digits the format rounds `x` to.
-Case analysis on `(F.p, F.exp)`:
-
-- `(⊤, e')`: fixed-point with quantum `2^e'`. Digits = `⌊log₂|x|⌋ − e' + 1`.
-- `(p, ⊥)`: floating-point with precision `p` and no quantum. Digits = `p`.
-- `(p, e')`: floating-point with precision `p` and min quantum `2^e'`.
-  Digits = `min(p, ⌊log₂|x|⌋ − e' + 1)`.
-
-The `(⊤, ⊥)` case is ruled out by `FiniteFormat.finite`, so a total
-function on `FiniteFormat` is well-defined (no junk-valued branch).
-
-For `x = 0` returns `0` by convention. -/
-noncomputable def numDigits (F : FiniteFormat) (x : ℝ) : ℤ :=
-  if x = 0 then 0
-  else
-    let e : ℤ := Int.log 2 |x|
-    match F.p, F.exp with
-    | ⊤, ⊥ => 0  -- unreachable by `F.finite`, but pattern-match must be total
-    | ⊤, (e' : ℤ) => e - e' + 1
-    | (p : ℕ), ⊥ => (p : ℤ)
-    | (p : ℕ), (e' : ℤ) => min (p : ℤ) (e - e' + 1)
-
-@[simp] theorem numDigits_zero (F : FiniteFormat) : F.numDigits 0 = 0 := by
-  unfold numDigits; simp
-
-theorem numDigits_neg (F : FiniteFormat) (x : ℝ) :
-    F.numDigits (-x) = F.numDigits x := by
-  unfold numDigits
-  by_cases hx : x = 0
-  · subst hx; simp
-  · have hxne' : -x ≠ 0 := neg_ne_zero.mpr hx
-    have habs : |(-x)| = |x| := abs_neg x
-    simp only [hx, hxne', ↓reduceIte, habs]
-
-/-- `numDigits` evaluator: `F.p = ⊤`, `F.exp = (e' : ℤ)`, `x ≠ 0`. -/
-theorem numDigits_top_coe (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {e' : ℤ}
-    (hexp : F.exp = (e' : QExp)) (hp : F.p = ⊤) :
-    F.numDigits x = Int.log 2 |x| - e' + 1 := by
-  unfold numDigits
-  simp only [hx, ↓reduceIte, hp, hexp]
-  rfl
-
-/-- `numDigits` evaluator: `F.p = p`, `F.exp = ⊥`, `x ≠ 0`. -/
-theorem numDigits_coe_bot (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {p : ℕ}
-    (hp : F.p = (p : Prec)) (hexp : F.exp = ⊥) :
-    F.numDigits x = (p : ℤ) := by
-  unfold numDigits
-  simp only [hx, ↓reduceIte, hp, hexp]
-
-/-- `numDigits` evaluator: `F.p = p`, `F.exp = (e' : ℤ)`, `x ≠ 0`. -/
-theorem numDigits_coe_coe (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {p : ℕ} {e' : ℤ}
-    (hp : F.p = (p : Prec))
-    (hexp : F.exp = (e' : QExp)) :
-    F.numDigits x = min (p : ℤ) (Int.log 2 |x| - e' + 1) := by
-  unfold numDigits
-  simp only [hx, ↓reduceIte, hp, hexp]
-
-/-- Extract `y = c · 2^e'` from `quantumAtLeast (e' : ℤ)`, handling both
-the `(e' : QExp)` and `some e'` displayed forms. -/
-private theorem quantumAtLeast_extract {y : Dyadic} {e' : ℤ}
-    (hQ : Dyadic.quantumAtLeast (e' : QExp) y) :
-    ∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e' := by
-  obtain ⟨c, hc⟩ := hQ
-  refine ⟨c, ?_⟩
-  rw [Dyadic.coe_real_eq_ratCast, hc]; push_cast; ring
-
-/-- Extract precisionAtMost witness from `(p : Prec)` form. The
-substrate predicate is stated over `ℚ`; this casts the witness equation
-to `ℝ` for the downstream `Int.log`-based reasoning. -/
-private theorem precisionAtMost_extract {y : Dyadic} {p : ℕ}
-    (hP : Dyadic.precisionAtMost (p : Prec) y) :
-    ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧ |c| < (2 : ℤ) ^ p := by
-  obtain ⟨c, e, hc, hbound⟩ := hP
-  exact ⟨c, e, by rw [Dyadic.coe_real_eq_ratCast, hc]; push_cast; ring, hbound⟩
-
-/-- For nonzero `y ≠ 0` with `y = c · 2^e'` and `c ≠ 0`, we have `e' ≤ log|y|`. -/
-private theorem quantum_exp_le_log {y : Dyadic} {e' : ℤ} {c : ℤ}
-    (hy_ne : (y : ℝ) ≠ 0) (hyeq : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') :
-    e' ≤ Int.log 2 |(y : ℝ)| := by
-  have hc_ne : c ≠ 0 := by
-    intro hc0; rw [hc0] at hyeq; push_cast at hyeq
-    rw [zero_mul] at hyeq; exact hy_ne hyeq
-  have hc_abs_ge : (1 : ℤ) ≤ |c| := Int.one_le_abs hc_ne
-  have habs_lo : (2 : ℝ) ^ e' ≤ |(y : ℝ)| := by
-    rw [hyeq, abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-    calc (2 : ℝ) ^ e'
-        = 1 * (2 : ℝ) ^ e' := (one_mul _).symm
-      _ ≤ |(c : ℝ)| * (2 : ℝ) ^ e' := by
-          apply mul_le_mul_of_nonneg_right _ (zpow_pos (by norm_num) _).le
-          exact_mod_cast hc_abs_ge
-  have he_y_hi : |(y : ℝ)| < (2 : ℝ) ^ (Int.log 2 |(y : ℝ)| + 1) :=
-    Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
-  by_contra h_lt
-  push Not at h_lt
-  have h_log : Int.log 2 |(y : ℝ)| + 1 ≤ e' := by omega
-  have h_pow_le : (2 : ℝ) ^ (Int.log 2 |(y : ℝ)| + 1) ≤ (2 : ℝ) ^ e' :=
-    zpow_le_zpow_right₀ (by norm_num) h_log
-  linarith
-
-/-- `numDigits` is non-negative for nonzero `y ∈ F`. -/
-theorem numDigits_nonneg (F : FiniteFormat) (y : Dyadic) (hy : y ∈ F.toFormat)
-    (hy_ne : (y : ℝ) ≠ 0) : 1 ≤ F.numDigits (y : ℝ) := by
-  obtain ⟨hP, hQ, _⟩ := hy
-  cases hp : F.p using ENat.recTopCoe with
-  | top =>
-    cases hexp : F.exp using QExp.recBotCoe with
-    | bot =>
-      exfalso; rcases F.finite with h_p_ne | h_exp_ne
-      · exact h_p_ne hp
-      · exact h_exp_ne hexp
-    | coe e' =>
-      rw [numDigits_top_coe F hy_ne hexp hp]
-      rw [hexp] at hQ
-      obtain ⟨c, hyeq⟩ := quantumAtLeast_extract hQ
-      have h_log_ge := quantum_exp_le_log hy_ne hyeq
-      omega
-  | coe p =>
-    cases hexp : F.exp using QExp.recBotCoe with
-    | bot =>
-      rw [numDigits_coe_bot F hy_ne hp hexp]
-      exact_mod_cast F.p_pos hp
-    | coe e' =>
-      rw [numDigits_coe_coe F hy_ne hp hexp]
-      rw [hexp] at hQ
-      obtain ⟨c, hyeq⟩ := quantumAtLeast_extract hQ
-      have h_log_ge := quantum_exp_le_log hy_ne hyeq
-      have hpp : 1 ≤ (p : ℤ) := by exact_mod_cast F.p_pos hp
-      exact le_min hpp (by omega)
-
-/-- The key existence lemma: for nonzero `y ∈ F`, there exist `(c, e)`
-representing `y` with `|c| < 2^numDigits F y`. Combined with the analogous
-lower-bound argument (`mem_imp_isRepresentableAtP_numDigits`, future), this
-pins down the canonical form. -/
-theorem mem_imp_precisionAtMost_numDigits {F : FiniteFormat} {y : Dyadic}
-    (hy : y ∈ F.toFormat) (hy_ne : (y : ℝ) ≠ 0) :
-    ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧
-                |c| < (2 : ℤ) ^ (F.numDigits (y : ℝ)).toNat := by
-  obtain ⟨hP, hQ, _⟩ := hy
-  change Dyadic.precisionAtMost F.p y at hP
-  change Dyadic.quantumAtLeast F.exp y at hQ
-  set e_y : ℤ := Int.log 2 |(y : ℝ)| with he_y_def
-  have habs_pos : 0 < |(y : ℝ)| := abs_pos.mpr hy_ne
-  have he_y_hi : |(y : ℝ)| < (2 : ℝ) ^ (e_y + 1) :=
-    Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
-  -- "Quantum case": from y = c·2^e' (with e' ≤ e_y), derive |c| < 2^(e_y - e' + 1).
-  have quantum_case : ∀ e' : ℤ,
-      (∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') →
-      e' ≤ e_y →
-      ∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e' ∧
-                |c| < (2 : ℤ) ^ (e_y - e' + 1).toNat := by
-    intro e' ⟨c, hyeq⟩ he_y_ge
-    refine ⟨c, hyeq, ?_⟩
-    have h_real : (|c| : ℝ) < (2 : ℝ) ^ (e_y - e' + 1) := by
-      have h_y_eq : |(y : ℝ)| = |(c : ℝ)| * (2 : ℝ) ^ e' := by
-        rw [hyeq, abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-      have hsplit : (2 : ℝ) ^ (e_y + 1) =
-          (2 : ℝ) ^ (e_y - e' + 1) * (2 : ℝ) ^ e' := by
-        rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-        congr 1; ring
-      have key : |(c : ℝ)| * (2 : ℝ) ^ e' < (2 : ℝ) ^ (e_y - e' + 1) * (2 : ℝ) ^ e' := by
-        rw [← hsplit, ← h_y_eq]; exact he_y_hi
-      exact lt_of_mul_lt_mul_right key (le_of_lt (zpow_pos (by norm_num) _))
-    have h_nat : ((e_y - e' + 1).toNat : ℤ) = e_y - e' + 1 :=
-      Int.toNat_of_nonneg (by omega)
-    have h_cast : ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) =
-        (2 : ℝ) ^ (e_y - e' + 1) := by
-      rw [show ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) =
-          (2 : ℝ) ^ ((e_y - e' + 1).toNat : ℤ) from by push_cast; rfl, h_nat]
-    have : (|c| : ℝ) < ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) := by
-      rw [h_cast]; exact h_real
-    exact_mod_cast this
-  -- For any e' with y = c·2^e' (c ≠ 0), we have e' ≤ e_y.
-  have e'_le_e_y : ∀ e' : ℤ,
-      (∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') → e' ≤ e_y := by
-    intro e' ⟨c, hyeq⟩
-    have hc_ne : c ≠ 0 := by
-      intro hc0; rw [hc0] at hyeq; push_cast at hyeq
-      rw [zero_mul] at hyeq; exact hy_ne hyeq
-    have hc_abs_ge : (1 : ℤ) ≤ |c| := Int.one_le_abs hc_ne
-    have habs_lo : (2 : ℝ) ^ e' ≤ |(y : ℝ)| := by
-      rw [hyeq, abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-      calc (2 : ℝ) ^ e'
-          = 1 * (2 : ℝ) ^ e' := (one_mul _).symm
-        _ ≤ |(c : ℝ)| * (2 : ℝ) ^ e' := by
-            apply mul_le_mul_of_nonneg_right _ (zpow_pos (by norm_num) _).le
-            exact_mod_cast hc_abs_ge
-    by_contra h_lt
-    push Not at h_lt
-    have h_log : e_y + 1 ≤ e' := by omega
-    have h_pow_le : (2 : ℝ) ^ (e_y + 1) ≤ (2 : ℝ) ^ e' :=
-      zpow_le_zpow_right₀ (by norm_num) h_log
-    linarith [habs_lo, he_y_hi]
-  -- Case analysis on (F.p, F.exp).
-  cases hp : F.p using ENat.recTopCoe with
-  | top =>
-    cases hexp : F.exp using QExp.recBotCoe with
-    | bot =>
-      exfalso; rcases F.finite with h_p_ne | h_exp_ne
-      · exact h_p_ne hp
-      · exact h_exp_ne hexp
-    | coe e' =>
-      rw [numDigits_top_coe F hy_ne hexp hp]
-      rw [hexp] at hQ
-      obtain ⟨c, hyeq, hc_lt⟩ :=
-        quantum_case e' (quantumAtLeast_extract hQ)
-          (e'_le_e_y e' (quantumAtLeast_extract hQ))
-      exact ⟨c, e', hyeq, hc_lt⟩
-  | coe p =>
-    cases hexp : F.exp using QExp.recBotCoe with
-    | bot =>
-      rw [numDigits_coe_bot F hy_ne hp hexp]
-      rw [hp] at hP
-      obtain ⟨c, e, hyeq, hc_lt⟩ := precisionAtMost_extract hP
-      refine ⟨c, e, hyeq, ?_⟩
-      have h_toNat : (p : ℤ).toNat = p := by simp
-      rw [h_toNat]
-      exact hc_lt
-    | coe e' =>
-      rw [numDigits_coe_coe F hy_ne hp hexp]
-      rw [hp] at hP
-      rw [hexp] at hQ
-      rcases le_or_gt (p : ℤ) (e_y - e' + 1) with hcase | hcase
-      · rw [show min (p : ℤ) (e_y - e' + 1) = (p : ℤ) from
-              min_eq_left hcase]
-        have h_toNat : (p : ℤ).toNat = p := by simp
-        rw [h_toNat]
-        exact precisionAtMost_extract hP
-      · rw [show min (p : ℤ) (e_y - e' + 1)
-              = e_y - e' + 1 from min_eq_right (le_of_lt hcase)]
-        obtain ⟨c, hyeq, hc_lt⟩ :=
-          quantum_case e' (quantumAtLeast_extract hQ)
-            (e'_le_e_y e' (quantumAtLeast_extract hQ))
-        exact ⟨c, e', hyeq, hc_lt⟩
-
-end FiniteFormat
-
-/-- A `FiniteFormat` where parity is well-defined: `p ≠ 1` whenever
-`exp = ⊥`. Combined with `FiniteFormat.finite`, this is
-`(p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥`. Required for `IsOdd` / `IsEven`. -/
-structure ParityFormat extends FiniteFormat where
-  parity : toFormat.p ≠ 1 ∨ toFormat.exp ≠ ⊥
-
 namespace ParityFormat
-
-/-- Conjunction of `FiniteFormat.finite` and `ParityFormat.parity`,
-recovering the original `non-degenerate` invariant. -/
-theorem nondegenerate (F : ParityFormat) :
-    (F.p ≠ ⊤ ∧ F.p ≠ 1) ∨ F.exp ≠ ⊥ := by
-  rcases F.parity with hp1 | hexp
-  · rcases F.finite with hpT | hexp
-    · exact Or.inl ⟨hpT, hp1⟩
-    · exact Or.inr hexp
-  · exact Or.inr hexp
-
-/-- A nonzero `y` is *odd* in `F` if its canonical `(c, e)` representation
-at the format's rounding precision has odd significand `c`. When `F.p = 1`
-the significand is constant (`±1`), and parity is read off the *exponent*
-`e` instead. `ParityFormat`'s `parity` invariant ensures the exponent has
-an anchor (either via a finite quantum, or via `p > 1` making the
-significand case the relevant one). -/
-def IsOdd (F : ParityFormat) (y : Dyadic) : Prop :=
-  ∃ c e : ℤ,
-    Dyadic.IsRepresentableAtP (F.toFiniteFormat.numDigits (y : ℝ)).toNat c e y ∧
-    (if F.p = ((1 : ℕ) : Prec) then
-        Odd (e - WithBot.unbotD 0 F.exp + 1)
-      else
-        Odd c)
-
-/-- Even-parity dual of `IsOdd`. Convention: `0` is even in every format. -/
-def IsEven (F : ParityFormat) (y : Dyadic) : Prop :=
-  y = 0 ∨ ∃ c e : ℤ,
-    Dyadic.IsRepresentableAtP (F.toFiniteFormat.numDigits (y : ℝ)).toNat c e y ∧
-    (if F.p = ((1 : ℕ) : Prec) then
-        Even (e - WithBot.unbotD 0 F.exp + 1)
-      else
-        Even c)
-
-@[simp] theorem isEven_zero (F : ParityFormat) : IsEven F 0 := Or.inl rfl
-
-/-- `IsOdd` is invariant under negation. -/
-theorem IsOdd.neg {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
-    IsOdd F (-y) := by
-  obtain ⟨c, e, ⟨hyeq, hlow, hhigh⟩, hp⟩ := h
-  have h_nd : F.toFiniteFormat.numDigits ((-y : Dyadic) : ℝ) =
-      F.toFiniteFormat.numDigits (y : ℝ) := by
-    rw [Dyadic.coe_real_neg]
-    exact F.toFiniteFormat.numDigits_neg (y : ℝ)
-  refine ⟨-c, e, ⟨?_, ?_, ?_⟩, ?_⟩
-  · rw [Subring.coe_neg, hyeq]; push_cast; ring
-  · rw [h_nd]; simpa using hlow
-  · rw [h_nd]; simpa using hhigh
-  · by_cases hp1 : F.p = ((1 : ℕ) : Prec)
-    · rw [if_pos hp1]; rw [if_pos hp1] at hp; exact hp
-    · rw [if_neg hp1]; rw [if_neg hp1] at hp; exact Odd.neg hp
-
-/-- Iff form of `IsOdd.neg`. -/
-@[simp] theorem IsOdd.neg_iff {F : ParityFormat} (y : Dyadic) :
-    IsOdd F (-y) ↔ IsOdd F y :=
-  ⟨fun h => by simpa using h.neg, IsOdd.neg⟩
-
-/-- `IsEven` is invariant under negation. -/
-theorem IsEven.neg {F : ParityFormat} {y : Dyadic} (h : IsEven F y) :
-    IsEven F (-y) := by
-  rcases h with hy0 | ⟨c, e, ⟨hyeq, hlow, hhigh⟩, hp⟩
-  · left; rw [hy0]; simp
-  · right
-    have h_nd : F.toFiniteFormat.numDigits ((-y : Dyadic) : ℝ) =
-        F.toFiniteFormat.numDigits (y : ℝ) := by
-      rw [Dyadic.coe_real_neg]
-      exact F.toFiniteFormat.numDigits_neg (y : ℝ)
-    refine ⟨-c, e, ⟨?_, ?_, ?_⟩, ?_⟩
-    · rw [Subring.coe_neg, hyeq]; push_cast; ring
-    · rw [h_nd]; simpa using hlow
-    · rw [h_nd]; simpa using hhigh
-    · by_cases hp1 : F.p = ((1 : ℕ) : Prec)
-      · rw [if_pos hp1]; rw [if_pos hp1] at hp; exact hp
-      · rw [if_neg hp1]; rw [if_neg hp1] at hp; exact Even.neg hp
-
-/-- Iff form of `IsEven.neg`. -/
-@[simp] theorem IsEven.neg_iff {F : ParityFormat} (y : Dyadic) :
-    IsEven F (-y) ↔ IsEven F y :=
-  ⟨fun h => by simpa using h.neg, IsEven.neg⟩
-
-/-- `IsOdd F y` implies `numDigits ≥ 1`. -/
-theorem IsOdd.numDigits_pos {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
-    0 < F.toFiniteFormat.numDigits (y : ℝ) := by
-  obtain ⟨c, _, ⟨_, hlow, hhigh⟩, _⟩ := h
-  by_contra h_le
-  push Not at h_le
-  have h_toNat : (F.toFiniteFormat.numDigits ((y : Dyadic) : ℝ)).toNat = 0 :=
-    Int.toNat_of_nonpos h_le
-  rw [h_toNat] at hlow hhigh
-  have h1 : (1 : ℤ) ≤ |c| := by simpa using hlow
-  have h2 : |c| < (1 : ℤ) := by simpa using hhigh
-  omega
-
-/-- An `IsOdd` value is nonzero. -/
-theorem IsOdd.ne_zero {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
-    y ≠ 0 := by
-  intro hy0
-  obtain ⟨c, e, ⟨hyeq, hlow, _⟩, _⟩ := h
-  rw [hy0] at hyeq
-  have h2e_pos : (0 : ℚ) < (2 : ℚ) ^ e := zpow_pos (by norm_num) _
-  have hc_zero : (c : ℚ) = 0 := by
-    push_cast at hyeq
-    rcases mul_eq_zero.mp hyeq.symm with h | h
-    · exact h
-    · linarith
-  have hc_zero_int : c = 0 := by exact_mod_cast hc_zero
-  rw [hc_zero_int, abs_zero] at hlow
-  have : (1 : ℤ) ≤ (2 : ℤ) ^ ((F.toFiniteFormat.numDigits ((y : Dyadic) : ℝ)).toNat - 1) :=
-    one_le_pow₀ (by norm_num)
-  linarith
-
-/-- If `(c, e)` is a canonical-form representation at `F`'s `numDigits y`
-precision and `F.p ≠ 1`, then `F.IsOdd y ↔ Odd c`. The forward direction
-uses `IsRepresentableAtP.unique` to pin the canonical form, then reads off
-the parity. -/
-theorem isOdd_iff_odd_of_canonical {F : ParityFormat} {y : Dyadic}
-    {c e : ℤ}
-    (h_rep : Dyadic.IsRepresentableAtP (F.toFiniteFormat.numDigits (y : ℝ)).toNat
-      c e y)
-    (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec)) :
-    F.IsOdd y ↔ Odd c := by
-  constructor
-  · rintro ⟨c', e', h_rep', h_odd⟩
-    rw [if_neg hp_ne_1] at h_odd
-    obtain ⟨h_c, _⟩ := h_rep'.unique h_rep
-    rw [← h_c]; exact h_odd
-  · intro h_odd
-    exact ⟨c, e, h_rep, by rw [if_neg hp_ne_1]; exact h_odd⟩
-
-/-- Dual of `isOdd_iff_odd_of_canonical` for `IsEven`. -/
-theorem isEven_iff_even_of_canonical {F : ParityFormat} {y : Dyadic}
-    {c e : ℤ}
-    (h_rep : Dyadic.IsRepresentableAtP (F.toFiniteFormat.numDigits (y : ℝ)).toNat
-      c e y)
-    (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec)) :
-    F.IsEven y ↔ Even c := by
-  constructor
-  · rintro (rfl | ⟨c', e', h_rep', h_even⟩)
-    · -- y = 0: IsRepresentableAtP at any precision forces |c| ≥ 1,
-      -- but y = 0 forces c = 0. Contradiction.
-      obtain ⟨hyeq, h_lo, _⟩ := h_rep
-      have h_2e_pos : (0 : ℚ) < (2 : ℚ) ^ e := zpow_pos (by norm_num) _
-      have hc_zero : (c : ℚ) = 0 := by
-        push_cast at hyeq
-        rcases mul_eq_zero.mp hyeq.symm with h | h
-        · exact h
-        · linarith
-      have hc_zero_int : c = 0 := by exact_mod_cast hc_zero
-      rw [hc_zero_int]
-      exact Even.zero
-    · rw [if_neg hp_ne_1] at h_even
-      obtain ⟨h_c, _⟩ := h_rep'.unique h_rep
-      rw [← h_c]; exact h_even
-  · intro h_even
-    right; exact ⟨c, e, h_rep, by rw [if_neg hp_ne_1]; exact h_even⟩
-
-/-- IsEven and IsOdd are mutually exclusive: no `y` is both. -/
-theorem not_isEven_and_isOdd {F : ParityFormat} {y : Dyadic}
-    (h_even : F.IsEven y) (h_odd : F.IsOdd y) : False := by
-  have hy_ne : y ≠ 0 := IsOdd.ne_zero h_odd
-  rcases h_even with h_y0 | ⟨c_e, e_e, h_rep_e, h_par_e⟩
-  · exact hy_ne h_y0
-  obtain ⟨c_o, e_o, h_rep_o, h_par_o⟩ := h_odd
-  by_cases hp1 : F.p = ((1 : ℕ) : Prec)
-  · rw [if_pos hp1] at h_par_e h_par_o
-    obtain ⟨_, h_e_eq⟩ := h_rep_e.unique h_rep_o
-    rw [← h_e_eq] at h_par_o
-    exact (Int.not_odd_iff_even.mpr h_par_e) h_par_o
-  · rw [if_neg hp1] at h_par_e h_par_o
-    obtain ⟨h_c_eq, _⟩ := h_rep_e.unique h_rep_o
-    rw [← h_c_eq] at h_par_o
-    exact (Int.not_odd_iff_even.mpr h_par_e) h_par_o
-
-/-- Parity dichotomy: for `y` with a canonical representation,
-`IsEven y ↔ ¬ IsOdd y`. Combines the two characterizations through integer
-parity, handling both `p = 1` (exponent parity) and `p ≠ 1` (significand
-parity). -/
-theorem isEven_iff_not_isOdd_of_canonical {F : ParityFormat} {y : Dyadic}
-    {c e : ℤ}
-    (h_rep : Dyadic.IsRepresentableAtP (F.toFiniteFormat.numDigits (y : ℝ)).toNat
-      c e y) :
-    F.IsEven y ↔ ¬ F.IsOdd y := by
-  have hy_ne : (y : ℚ) ≠ 0 := h_rep.ne_zero
-  by_cases hp1 : F.p = ((1 : ℕ) : Prec)
-  · constructor
-    · rintro (h_y0 | ⟨c', e', h_rep', h_par⟩) ⟨c'', e'', h_rep'', h_par_odd⟩
-      · exact hy_ne (by rw [h_y0]; push_cast; rfl)
-      · rw [if_pos hp1] at h_par h_par_odd
-        obtain ⟨_, h_e_eq⟩ := h_rep'.unique h_rep''
-        rw [← h_e_eq] at h_par_odd
-        exact (Int.not_odd_iff_even.mpr h_par) h_par_odd
-    · intro h_not_odd
-      right
-      refine ⟨c, e, h_rep, ?_⟩
-      rw [if_pos hp1]
-      by_contra h_not_even
-      apply h_not_odd
-      refine ⟨c, e, h_rep, ?_⟩
-      rw [if_pos hp1]
-      exact Int.not_even_iff_odd.mp h_not_even
-  · rw [isEven_iff_even_of_canonical h_rep hp1]
-    rw [isOdd_iff_odd_of_canonical h_rep hp1]
-    constructor
-    · exact Int.not_odd_iff_even.mpr
-    · exact Int.not_odd_iff_even.mp
 
 /-! ### Generic consequences of the alternating-parity iff
 
@@ -747,14 +20,9 @@ both *no-overlap* (`¬ (IsOdd dlo ∧ IsOdd dhi)`) and *alternation in IsEven*
 alternation requires canonical representations (or zero) on both sides
 to invoke the dichotomy. -/
 
-/-- From an alternating-parity iff, the two values can't both be `IsOdd`. -/
-theorem not_both_isOdd_of_alternating_iff {F : ParityFormat} {dlo dhi : Dyadic}
-    (h : F.IsOdd dhi ↔ ¬ F.IsOdd dlo) :
-    ¬ (F.IsOdd dlo ∧ F.IsOdd dhi) := fun ⟨h1, h2⟩ => h.mp h2 h1
-
 /-- From an alternating-parity iff plus canonical representations (or
 zero) on both sides, `IsEven` alternates as well: `¬ IsEven dlo → IsEven dhi`. -/
-theorem alternating_isEven_of_alternating_iff
+private theorem alternating_isEven_of_alternating_iff
     {F : ParityFormat} {dlo dhi : Dyadic} {c_lo e_lo c_hi e_hi : ℤ}
     (h_iff : F.IsOdd dhi ↔ ¬ F.IsOdd dlo)
     (h_rep_lo_or_zero : dlo = 0 ∨ Dyadic.IsRepresentableAtP
@@ -935,7 +203,7 @@ private theorem canonical_rep_mixed_p1 {F : ParityFormat}
 /-- Floating-point characterization (non-saturation): when `F.p = (p:ℕ)`,
 `F.p ≠ 1`, `F.exp = ⊥`, and `|k| ∈ [2^(p-1), 2^p)`, then
 `F.IsOdd (Dyadic.ofIntZpow k e) ↔ Odd k`. -/
-theorem isOdd_iff_odd_at_canonical_floating {F : ParityFormat}
+private theorem isOdd_iff_odd_at_canonical_floating {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
     (hexp_bot : F.exp = ⊥) {k e : ℤ}
@@ -1027,7 +295,7 @@ private theorem not_odd_k_div_2_at_sat {p : ℕ} (hp_ge_2 : 2 ≤ p)
 
 /-- Floating-point saturation case: `|k| = 2^p` forces `F.IsOdd (k·2^e) = False`
 (via renormalization, the canonical significand is `±2^(p-1)`, which is even). -/
-theorem not_isOdd_at_saturation {F : ParityFormat}
+private theorem not_isOdd_at_saturation {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
     (hexp_bot : F.exp = ⊥) {k e : ℤ}
@@ -1040,7 +308,7 @@ theorem not_isOdd_at_saturation {F : ParityFormat}
 /-- Mixed normal regime characterization. `numDigits y = p` when
 `log|y| - e' + 1 ≥ p` (the precision branch of min wins). Then IsOdd ↔ Odd k
 via canonical IsRepresentableAtP at p bits. -/
-theorem isOdd_iff_odd_at_canonical_mixed_normal {F : ParityFormat}
+private theorem isOdd_iff_odd_at_canonical_mixed_normal {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
     {e' : ℤ} (hexp : F.exp = (e' : QExp))
@@ -1067,7 +335,7 @@ theorem isOdd_iff_odd_at_canonical_mixed_subnormal {F : ParityFormat}
     (canonical_rep_mixed_subnormal_pne1 hp_eq hexp hk_ne h_log_k_lt_p) hp_ne_1
 
 /-- IsEven dual of `isOdd_iff_odd_at_canonical_mixed_subnormal`. -/
-theorem isEven_iff_even_at_canonical_mixed_subnormal {F : ParityFormat}
+private theorem isEven_iff_even_at_canonical_mixed_subnormal {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
     {e' : ℤ} (hexp : F.exp = (e' : QExp))
@@ -1114,7 +382,7 @@ theorem isEven_at_saturation_mixed_normal {F : ParityFormat}
 /-- Mixed case characterization at `p = 1`. Given `y = k · 2^e_c` with
 `|k| = 1` (so the 1-bit canonical form is `(k, e_c)`) and `e_c ≥ e'`,
 `F.IsOdd y ↔ Odd (e_c - e' + 1)`. -/
-theorem isOdd_p1_iff_at_canonical_mixed {F : ParityFormat}
+private theorem isOdd_p1_iff_at_canonical_mixed {F : ParityFormat}
     (hp_eq : F.p = ((1 : ℕ) : Prec))
     {e' : ℤ} (hexp : F.exp = (e' : QExp))
     {k e_c : ℤ} (hk_eq : |k| = 1) (h_ec_ge : e' ≤ e_c) :
@@ -1132,7 +400,7 @@ theorem isOdd_p1_iff_at_canonical_mixed {F : ParityFormat}
     rw [if_pos hp_eq, h_unbot]; exact h_odd
 
 /-- IsEven dual of `isOdd_p1_iff_at_canonical_mixed`. -/
-theorem isEven_p1_iff_at_canonical_mixed {F : ParityFormat}
+private theorem isEven_p1_iff_at_canonical_mixed {F : ParityFormat}
     (hp_eq : F.p = ((1 : ℕ) : Prec))
     {e' : ℤ} (hexp : F.exp = (e' : QExp))
     {k e_c : ℤ} (hk_eq : |k| = 1) (h_ec_ge : e' ≤ e_c) :
@@ -1260,7 +528,7 @@ theorem alternating_parity_mixed_normal_pne1_iff {F : ParityFormat}
   have h2p_nn : (0 : ℤ) ≤ (2 : ℤ) ^ p := by positivity
   have h_2p_even : Even ((2 : ℤ) ^ p) := by
     refine ⟨(2 : ℤ) ^ (p - 1), ?_⟩
-    have := Dyadic.two_pow_succ_pred (F.p_pos hp_eq); linarith
+    have := Int.two_pow_succ_pred (F.p_pos hp_eq); linarith
   rcases lt_or_eq_of_le hlo_hi with hlo_lt | hlo_sat
   · rw [isOdd_iff_odd_at_canonical_mixed_normal hp_eq hp_ne_1 hexp h_y_lo_ne
         h_log_lo h_y_lo_eq hlo_lo hlo_lt]
@@ -1549,7 +817,7 @@ theorem alternating_isEven_mixed_normal_p1 {F : ParityFormat}
 
 /-- Saturation in floating-point implies `IsEven`. Derived from
 `not_isOdd_at_saturation` via the dichotomy. -/
-theorem isEven_at_saturation_floating {F : ParityFormat}
+private theorem isEven_at_saturation_floating {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
     (hexp_bot : F.exp = ⊥) {k e : ℤ}
@@ -1592,30 +860,10 @@ private theorem canonical_rep_fixedpoint {F : ParityFormat}
   rw [h_nd_toNat]
   exact Dyadic.isRepresentableAtP_of_log hk_ne h_y_rat
 
-/-- `IsOdd` depends only on `toFormat`: two `ParityFormat`s with equal `toFormat`
-agree on `IsOdd`. Uses Lean's proof irrelevance for the `finite`/`parity`
-Prop fields. -/
-theorem IsOdd_iff_of_toFormat_eq {F1 F2 : ParityFormat}
-    (h : F1.toFormat = F2.toFormat) (y : Dyadic) :
-    F1.IsOdd y ↔ F2.IsOdd y := by
-  rcases F1 with ⟨⟨FF1, fin1⟩, par1⟩
-  rcases F2 with ⟨⟨FF2, fin2⟩, par2⟩
-  cases h
-  rfl
-
-/-- Dual of `IsOdd_iff_of_toFormat_eq` for `IsEven`. -/
-theorem IsEven_iff_of_toFormat_eq {F1 F2 : ParityFormat}
-    (h : F1.toFormat = F2.toFormat) (y : Dyadic) :
-    F1.IsEven y ↔ F2.IsEven y := by
-  rcases F1 with ⟨⟨FF1, fin1⟩, par1⟩
-  rcases F2 with ⟨⟨FF2, fin2⟩, par2⟩
-  cases h
-  rfl
-
 /-- Fixed-point characterization (`F.p = ⊤, F.exp = (e' : ℤ)`):
 `F.IsOdd (Dyadic.ofIntZpow k e') ↔ Odd k`, for `k ≠ 0`. No saturation
 since `numDigits` adapts to `log|k| + 1`. -/
-theorem isOdd_iff_odd_at_canonical_fixedpoint {F : ParityFormat}
+private theorem isOdd_iff_odd_at_canonical_fixedpoint {F : ParityFormat}
     (hp_top : F.p = ⊤) {e' : ℤ}
     (hexp : F.exp = (e' : QExp)) {k : ℤ} (hk_ne : k ≠ 0) :
     F.IsOdd (Dyadic.ofIntZpow k e') ↔ Odd k := by
@@ -1696,7 +944,7 @@ theorem alternating_parity_floating_iff {F : ParityFormat}
   have h2p_nn : (0 : ℤ) ≤ (2 : ℤ) ^ p := by positivity
   have h_2p_even : Even ((2 : ℤ) ^ p) := by
     refine ⟨(2 : ℤ) ^ (p - 1), ?_⟩
-    have := Dyadic.two_pow_succ_pred (F.p_pos hp_eq); linarith
+    have := Int.two_pow_succ_pred (F.p_pos hp_eq); linarith
   rcases lt_or_eq_of_le hlo_hi with hlo_lt | hlo_sat
   · rw [isOdd_iff_odd_at_canonical_floating hp_eq hp_ne_1 hexp_bot hlo_lo hlo_lt]
     rcases lt_or_eq_of_le hlop1_hi with hlop1_lt | hlop1_sat
@@ -1765,128 +1013,5 @@ theorem alternating_isEven_floating {F : ParityFormat}
     exact isEven_at_saturation_floating hp_eq hp_ne_1 hexp_bot hlo_sat
 
 end ParityFormat
-
-
-/-! ### Bound checks, `unbounded` membership, and parity transport -/
-
-/-- If `|g| ≤ |h|` (over ℝ) and `h` is in-bound, so is `g`. -/
-theorem boundOK_of_abs_le {b : Bound} {g h : Dyadic}
-    (hle : |(g : ℝ)| ≤ |(h : ℝ)|) (hb : Format.boundOK b h) :
-    Format.boundOK b g := by
-  cases b using Bound.recTopCoe with
-  | top => trivial
-  | coe b =>
-    have hle' : |(g : ℚ)| ≤ |(h : ℚ)| := by
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast,
-        ← Rat.cast_abs, ← Rat.cast_abs] at hle
-      exact_mod_cast hle
-    have hb' : |(h : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb
-    change |(g : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-    linarith
-
-/-- A bound check against a finite bound, transferred to an absolute-value
-bound over `ℝ`. -/
-theorem abs_coe_real_le_of_boundOK {b₁ : NonNegDyadic} {y : Dyadic}
-    (h : Format.boundOK ((b₁ : Bound)) y) :
-    |(y : ℝ)| ≤ ((b₁.val : Dyadic) : ℝ) := by
-  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
-  exact_mod_cast h
-
-/-- Converse of `abs_coe_real_le_of_boundOK`. -/
-theorem boundOK_coe_of_abs_le {b : NonNegDyadic} {y : Dyadic}
-    (h : |(y : ℝ)| ≤ ((b.val : Dyadic) : ℝ)) :
-    Format.boundOK ((b : Bound)) y := by
-  change |(y : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs] at h
-  exact_mod_cast h
-
-/-- A failed bound check, transferred to a strict absolute-value bound
-over `ℝ`. -/
-theorem lt_abs_coe_real_of_not_boundOK {b₁ : NonNegDyadic} {y : Dyadic}
-    (h : ¬ Format.boundOK ((b₁ : Bound)) y) :
-    ((b₁.val : Dyadic) : ℝ) < |(y : ℝ)| := by
-  have h1 : ¬ |(y : ℚ)| ≤ ((b₁.val : Dyadic) : ℚ) := h
-  push Not at h1
-  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
-  exact_mod_cast h1
-
-/-- A dyadic between two in-bound dyadics is in-bound. -/
-theorem boundOK_of_between {b : Bound} {lo hi g : Dyadic}
-    (hblo : Format.boundOK b lo) (hbhi : Format.boundOK b hi)
-    (h1 : (lo : ℝ) ≤ (g : ℝ)) (h2 : (g : ℝ) ≤ (hi : ℝ)) :
-    Format.boundOK b g := by
-  cases b using Bound.recTopCoe with
-  | top => trivial
-  | coe b =>
-    have h1' : (lo : ℚ) ≤ (g : ℚ) := by
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h1
-      exact_mod_cast h1
-    have h2' : (g : ℚ) ≤ (hi : ℚ) := by
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h2
-      exact_mod_cast h2
-    change |(g : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-    exact abs_le.mpr ⟨by linarith [(abs_le.mp hblo).1], by linarith [(abs_le.mp hbhi).2]⟩
-
-/-- Bounded membership weakens to unbounded membership (drop the bound check). -/
-theorem mem_unbounded_of_mem {F : FiniteFormat} {d : Dyadic}
-    (h : d ∈ F) : d ∈ F.unbounded :=
-  ⟨h.1, h.2.1, trivial⟩
-
-/-- Unbounded membership plus an explicit bound check gives bounded membership. -/
-theorem mem_of_mem_unbounded_of_boundOK {F : FiniteFormat} {d : Dyadic}
-    (h : d ∈ F.unbounded) (hb : Format.boundOK F.b d) : d ∈ F :=
-  ⟨h.1, h.2.1, hb⟩
-
-/-- A `FiniteFormat` with `exp = ⊥` has finite precision. -/
-theorem exists_p_coe_of_exp_bot {F : FiniteFormat} (he : F.exp = ⊥) :
-    ∃ p : ℕ, F.p = (p : Prec) := by
-  cases hc : F.p using ENat.recTopCoe with
-  | top => exact absurd F.finite (by push Not; exact ⟨hc, he⟩)
-  | coe p => exact ⟨p, rfl⟩
-
-/-- `numDigits` only reads `(p, exp)`. -/
-theorem numDigits_congr {F G : FiniteFormat} (hp : F.p = G.p)
-    (he : F.exp = G.exp) (x : ℝ) : F.numDigits x = G.numDigits x := by
-  unfold FiniteFormat.numDigits
-  rw [hp, he]
-
-/-- Transport a parity witness (`∃ F', F'.toFormat = _ ∧ F'.IsOdd y`) between
-formats agreeing on `(p, exp)`. -/
-theorem parity_witness_congr {F G : FiniteFormat} (hp : F.p = G.p)
-    (he : F.exp = G.exp) {y : Dyadic}
-    (h : ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsOdd y) :
-    ∃ F'' : ParityFormat, F''.toFormat = G.toFormat ∧ F''.IsOdd y := by
-  obtain ⟨F', hFeq, hodd⟩ := h
-  have hp' : F'.p = G.p := by rw [congrArg Format.p hFeq]; exact hp
-  have he' : F'.exp = G.exp := by rw [congrArg Format.exp hFeq]; exact he
-  refine ⟨⟨G, by rw [← hp', ← he']; exact F'.parity⟩, rfl, ?_⟩
-  obtain ⟨c, e, hrep, hpar⟩ := hodd
-  refine ⟨c, e, ?_, ?_⟩
-  · change Dyadic.IsRepresentableAtP (G.numDigits (y : ℝ)).toNat c e y
-    rwa [numDigits_congr (F := G) (G := F'.toFiniteFormat) hp'.symm he'.symm (y : ℝ)]
-  · change if G.p = ((1 : ℕ) : Prec) then
-        Odd (e - WithBot.unbotD 0 G.exp + 1) else Odd c
-    rw [← hp', ← he']
-    exact hpar
-
-/-- Transport an even-parity witness (`∃ F', F'.toFormat = _ ∧ F'.IsEven y`)
-between formats agreeing on `(p, exp)`. -/
-theorem parity_witness_even_congr {F G : FiniteFormat} (hp : F.p = G.p)
-    (he : F.exp = G.exp) {y : Dyadic}
-    (h : ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsEven y) :
-    ∃ F'' : ParityFormat, F''.toFormat = G.toFormat ∧ F''.IsEven y := by
-  obtain ⟨F', hFeq, heven⟩ := h
-  have hp' : F'.p = G.p := by rw [congrArg Format.p hFeq]; exact hp
-  have he' : F'.exp = G.exp := by rw [congrArg Format.exp hFeq]; exact he
-  refine ⟨⟨G, by rw [← hp', ← he']; exact F'.parity⟩, rfl, ?_⟩
-  rcases heven with h0 | ⟨c, e, hrep, hpar⟩
-  · exact Or.inl h0
-  refine Or.inr ⟨c, e, ?_, ?_⟩
-  · change Dyadic.IsRepresentableAtP (G.numDigits (y : ℝ)).toNat c e y
-    rwa [numDigits_congr (F := G) (G := F'.toFiniteFormat) hp'.symm he'.symm (y : ℝ)]
-  · change if G.p = ((1 : ℕ) : Prec) then
-        Even (e - WithBot.unbotD 0 G.exp + 1) else Even c
-    rw [← hp', ← he']
-    exact hpar
 
 end Mpfx

@@ -1,4 +1,4 @@
-import Mpfx.Format
+import Mpfx.Format.Defs
 import Mathlib.Algebra.Group.Pointwise.Set.Basic
 import Mathlib.Data.Nat.Log
 
@@ -29,36 +29,6 @@ matching the actual integer bound on `|c|`.  The `max 1 …` keeps `p ≥ 1`.
 -/
 
 namespace Mpfx
-
-namespace Dyadic
-
-/-- Absolute value of a dyadic, as a dyadic.  Equal to `x` if `0 ≤ x`,
-otherwise `-x`.  Lives in `Dyadic` because the underlying subring is closed
-under negation.  Computable since `ℚ` comparison is decidable. -/
-def abs (x : Dyadic) : Dyadic :=
-  if 0 ≤ (x : ℚ) then x else -x
-
-@[simp] theorem coe_abs (x : Dyadic) : (Dyadic.abs x : ℝ) = |(x : ℝ)| := by
-  unfold Dyadic.abs
-  by_cases h : 0 ≤ (x : ℚ)
-  · rw [if_pos h]
-    rw [coe_real_eq_ratCast]
-    have : (0 : ℝ) ≤ ((x : ℚ) : ℝ) := by exact_mod_cast h
-    rw [_root_.abs_of_nonneg this]
-  · rw [if_neg h]
-    rw [coe_real_neg, coe_real_eq_ratCast]
-    have : ((x : ℚ) : ℝ) < 0 := by
-      have : (x : ℚ) < 0 := lt_of_not_ge h
-      exact_mod_cast this
-    rw [_root_.abs_of_neg this]
-
-@[simp] theorem coe_rat_abs (x : Dyadic) : ((Dyadic.abs x : Dyadic) : ℚ) = |(x : ℚ)| := by
-  unfold Dyadic.abs
-  by_cases h : 0 ≤ (x : ℚ)
-  · rw [if_pos h, _root_.abs_of_nonneg h]
-  · rw [if_neg h, Subring.coe_neg, _root_.abs_of_neg (lt_of_not_ge h)]
-
-end Dyadic
 
 namespace Format
 

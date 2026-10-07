@@ -1,7 +1,7 @@
-import Mpfx.RoundOp.Defs
-import Mpfx.RoundOp.Directed
-import Mpfx.RoundOp.ToOdd
-import Mpfx.RoundOp.Nearest
+import Mpfx.Rounding.Op.Defs
+import Mpfx.Rounding.Op.Directed
+import Mpfx.Rounding.Op.ToOdd
+import Mpfx.Rounding.Op.Nearest
 
 /-!
 # The rounding function, assembled

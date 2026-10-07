@@ -1,7 +1,6 @@
-import Mpfx.FormatInference
-import Mpfx.Containment
-import Mpfx.Rounding
-import Mpfx.CanonicalExp
+import Mpfx.Format.Inference
+import Mpfx.DoubleRounding.Basic
+import Mpfx.Format.CanonicalExp
 
 /-!
 # Operation-specific double rounding: multiplication (Roux 2014)
@@ -9,16 +8,13 @@ import Mpfx.CanonicalExp
 Pierre Roux, *Innocuous Double Rounding of Basic Arithmetic Operations*
 (JFR 7(1), 2014), proves double rounding
 innocuous for the *results of specific operations* under precision
-relationships weaker than the generic §5.2 rules (`DoubleRounding.lean`).
+relationships weaker than the generic §5.2 rules (`Mpfx/DoubleRounding/Basic.lean`).
 Where the generic rules hold for every real `x`, these hold only for the
 outputs of `×`/`+`/… but let `F₂` be narrower relative to `F₁`.
 
 This file transcribes the **multiplication** result (Roux Thm 10 /
-Flocq `round_round_mult`), radix 2, and the shared **exact-intermediate**
-combinator `rndExact` on which it — and the underflow/exact cases of the other
-operations — rests. Addition/subtraction, square root, and division live in
-`DoubleRoundingAdd`/`DoubleRoundingSqrt`/`DoubleRoundingDiv`; see
-`docs/agents/DOUBLE_ROUNDING_OPS_PLAN.md`.
+Flocq `round_round_mult`), radix 2. Addition/subtraction, square root, and
+division live in `DoubleRounding.Add`/`.Sqrt`/`.Div`.
 
 ## Technique: exact intermediate
 
@@ -29,25 +25,12 @@ holds for **any** rounding modes, not just round-to-nearest.
 
 `rndMul_expBot`/`rndMul_expFinite` establish `x · y ∈ F₂.unbounded` from the explicit
 bounds `p₂ ≥ 2p₁` (mantissas multiply, `mul_precisionAtMost`) and `exp₂ ≤ 2·exp₁`
-(quanta add, `quantumAtLeast_mul`), then apply `rndExact`. Stated relationally
+(quanta add, `Dyadic.quantumAtLeast_mul`), then apply `rndExact`. Stated relationally
 over `RoundsFinite`: given `z` the `F₂`-rounding of the input and `w` the
 `F₁`-rounding of `z`, conclude `w` is the direct `F₁`-rounding of the input.
 -/
 
 namespace Mpfx
-
-/-- **Exact-intermediate collapse.** If the input `v` is already representable
-in the wide format `F₂`, double rounding is trivially correct for *any* modes:
-the intermediate rounding fixes `v` (`z = v` by `RoundsFinite.eq_of_mem`), so
-the chained rounding of `v` is the direct one. This is the spec-relational
-form of Flocq's `round_generic`-based collapse and the shared core of every
-"exact intermediate" operation rule. -/
-theorem rndExact {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode}
-    {v : Dyadic} (hv : v ∈ F₂) {z w : Dyadic}
-    (hz : RoundsFinite F₂ rm₂ (v : ℝ) z) (hw : RoundsFinite F₁ rm₁ (z : ℝ) w) :
-    RoundsFinite F₁ rm₁ (v : ℝ) w := by
-  rw [RoundsFinite.eq_of_mem hv hz] at hw
-  exact hw
 
 /-- A product of two `p₁`-bit dyadics fits in `p₂` bits when `2p₁ ≤ p₂`
 (mantissas multiply, `|cx·cy| < 2^(2p₁) ≤ 2^p₂`). -/
@@ -79,7 +62,7 @@ private theorem mul_mem_F₂_unbounded {F₁ F₂ : FiniteFormat} {p₁ p₂ : �
   Format.mem_unbounded_of_le (p := ((2 * p₁ : ℕ) : Prec))
     (by rw [hp₂]; exact_mod_cast hpp) he
     (mul_precisionAtMost (p₂ := 2 * p₁) (le_refl _) (hp₁ ▸ hx.1) (hp₁ ▸ hy.1))
-    (quantumAtLeast_mul hx.2.1 hy.2.1)
+    (Dyadic.quantumAtLeast_mul hx.2.1 hy.2.1)
 
 /-- **rnd-mult, no minimum quantum** (Roux Thm 10 / Figueroa, radix 2). With
 `exp = ⊥` formats

@@ -13,13 +13,12 @@ development:
    `FiniteFormat extends Format` rules out `(p = ⊤, exp = ⊥)` and `p = 0`;
    `ParityFormat extends FiniteFormat` additionally
    rules out `(p = 1, exp = ⊥)` so `IsOdd` / `IsEven` are anchored.
-2. **Constructive rounding.** Alongside the spec relation
+2. **Explicit rounding.** Alongside the spec relation
    `Rounds F rm x r : Prop`, a function `rnd F rm x : RoundResult`
    computes the rounded value via `Int.log` + `Int.floor`/`Int.ceil`
-   (FLoPS-style). No `Classical.choose`. The function is
-   `noncomputable` only because real comparisons aren't computably
-   decidable. The constructive / classical boundary is at the file
-   level: `Rounding.lean` is constructive, `RoundOp.lean` is classical.
+   (FLoPS-style). No `Classical.choose` in the definition; it is
+   `noncomputable` because real comparisons aren't computably
+   decidable. Proofs are classical throughout (see `docs/DESIGN.md`).
 3. **ℚ substrate.** `Dyadic` is a subring of `ℚ` (not `ℝ`), giving
    `DecidableEq` and a decidable `LinearOrder` for free from `ℚ`, while
    keeping the full Mathlib algebra/tactic suite. `ℝ` is confined to
@@ -46,83 +45,103 @@ and `docs/DESIGN.md` for how it is put together.
 
 ```
 Mpfx/
-├── Utils.lean      project-agnostic helpers (two_zpow_pos, etc.) and the
-│                   format-free scaled-mantissa arithmetic
-├── Dyadic.lean     IsDyadic (ℚ), Dyadic := subring of ℚ, ofIntZpow (computable),
-│                   coe_real_* / coe_rat_ofIntZpow / ext_real bridge lemmas,
-│                   DecidableEq instance,
-│                   precisionAtMost, quantumAtLeast (both ℚ-valued) + mono/anti,
-│                   precisionAtMost_coe_real / quantumAtLeast_coe_real (ℝ bridges),
-│                   IsRepresentableAtP (ℚ) + unique + ne_zero,
-│                   precisionAtMost_of_abs_le (saturation renormalization),
-│                   isRepresentableAtP_of_saturation, two_pow_succ_pred
-├── Format.lean     Format / FiniteFormat / ParityFormat hierarchy,
-│                   Mem, boundOK, Format.unbounded,
-│                   FiniteFormat.unbounded, FiniteFormat.zero_mem,
-│                   FiniteFormat.canonicalExp,
-│                   numDigits (Lemma 5.1) + evaluators,
-│                   IsOdd, IsEven, parity dichotomy + alternating
-│                   + not_both lemmas across all 6 format cases
-├── Rounding.lean   relational layer (constructive):
-│                   TieBreak, RoundingMode,
-│                   RoundResult (with signed overflow), RoundResult.neg,
-│                   FiniteFormat.IsUndefined,
-│                   IsFaithfulRound, RoundsFinite, Rounds,
-│                   FiniteFormat.toParityFormatOf{ToOdd,NearestEven}.
-│                   Sign-symmetry block: IsFaithfulRound.neg_iff,
-│                   per-mode RoundsFinite.neg_*, Rounds.neg_*.
-│                   Mode-vs-sign block: RTP/RTN ↔ RTZ/RAZ by sign of x.
-├── RoundPred.lean  relational consequences of the spec: uniqueness per mode
-│                   and generic, isFaithfulRound, eq_zero_of_zero,
-│                   opposite_sides_of_ne, the grid bridges
-│                   toNegative_floor/toPositive_ceil (+ equation forms),
-│                   isOdd_alternate_of_bracketing, monotonicity per mode
-│                   and generic. Mentions no construction.
-├── Parity.lean     neighbors_alternate: adjacent grid points alternate in
-│                   parity; the toOdd and nearest .toEven forms
-├── RoundOp.lean    function layer (noncomputable, classical):
-│                   rndInt, rndParity, rndUnbounded, rnd, per-mode soundness,
-│                   rndUnbounded_satisfies/_unique, rnd_iff_rounds
-├── Containment.lean §5.1 / Fig. 8: Format.Subset + HasSubset,
-│                   boundOK_mono, nnPow, containsPrec, containsSub,
-│                   Format.extend + self_subset_extend + extend_mono,
-│                   FiniteFormat.extend + numDigits_extend (Lemma 5.2),
-│                   withBound + next (+ next lemmas) — §5.2 bound API
-├── Ulp.lean        ulp/rndDown/rndUp/midp, the nearest error bound and the
-│                   below/above-midpoint characterisations, succ/pred/predPos
-│                   and their membership + adjacency lemmas
-├── Discrete.lean   canonical representation / adjacency / midpoint-membership
-│                   (prereq for rndRTO_RN): log_le_of_canonical_rep,
-│                   exists_canonical_rep(_of_parts), canonical_rep_pos,
-│                   not_mem_between_adjacent, adjacent_canonical_form,
-│                   midpoint_mem_extend_one_of_adjacent(_pos/_of_p_top),
-│                   half_mem_extend_one. Built over the ℚ substrate.
-├── Digits.lean     §5.1-supporting digit/parity-transfer lemmas (Lemma 5.3):
-│                   numDigits_le_one_of_p_one, precisionAtMost_not_IsOdd
-│                   (corollary), numDigits_eq_of_subset_of_isOdd(_aux),
-│                   odd_index_of_p_one_corner, IsOdd.transfer_of_numDigits_eq,
-│                   IsOdd.transfer_of_subset (capstone Lemma 5.3)
-├── DoubleRounding.lean §5.2 / Fig. 9 rules (spec-relational over
-                    RoundsFinite): rndRTZ_RTZ, rndRAZ_RAZ(_pos), rndRTO_RTO,
-                    rndRTO_RTZ, rndRTO_RAZ, rndRTO_RN — ALL paper-exact.
-                    RTO helper chain (toOdd_notMem_of_extend_subset, …),
-                    paper-containment helpers (hp_F₂_or_F₁_trivial(_RN),
-                    extend_{one,two}_subset_of_paper_subset, *_of_trivial),
-                    RN web (rndRTO_RN_close_transfer, rndRTO_no_tie_contradiction,
-                    rndRTO_nearest_facts) + bridges. Also rndRTP_RTP/rndRTN_RTN.
-└── FormatInference.lean §6.1: ⊗/⊕ format inference. Dyadic.abs, Format.toSet,
-                    opMul/opAdd/opAddPrec, mul_subset/add_subset (the inferred
-                    format contains every product/sum), neg_subset/abs_subset.
+├── Utils.lean        project-agnostic helpers: two_zpow_* power-of-two lemmas,
+│                     Int.two_pow_succ_pred, sign helpers, format-free
+│                     scaled-mantissa arithmetic
+├── Dyadic.lean       IsDyadic (ℚ), Dyadic := subring of ℚ, ofIntZpow (computable),
+│                     coe_real_* / coe_rat_ofIntZpow / ext_real bridge lemmas,
+│                     DecidableEq instance,
+│                     precisionAtMost, quantumAtLeast (both ℚ-valued) + mono/anti,
+│                     precisionAtMost_coe_real / quantumAtLeast_coe_real (ℝ bridges),
+│                     quantumAtLeast_neg/add/sub/mul, Dyadic.abs,
+│                     IsRepresentableAtP (ℚ) + unique + ne_zero,
+│                     precisionAtMost_of_abs_le (saturation renormalization),
+│                     isRepresentableAtP_of_saturation
+├── Format/
+│   ├── Defs.lean     Format / FiniteFormat, Mem, boundOK, Format.unbounded,
+│   │                 FiniteFormat.unbounded, FiniteFormat.zero_mem,
+│   │                 FiniteFormat.canonicalExp, numDigits + evaluators
+│   ├── Parity.lean   ParityFormat, IsOdd, IsEven, negation, canonical-rep
+│   │                 characterizations, transport (IsOdd/IsEven.congr,
+│   │                 *_iff_of_toFormat_eq, parity_witness_congr)
+│   ├── Parity/
+│   │   └── Alternate.lean per-regime canonical-rep parity iffs, saturation
+│   │                 facts, alternating_parity_* / alternating_isEven_*
+│   ├── Containment.lean §5.1: Format.Subset + HasSubset,
+│   │                 boundOK_mono, nnPow, containsPrec, containsSub,
+│   │                 subset_iff_contains (completeness),
+│   │                 Format.extend + self_subset_extend + extend_mono,
+│   │                 FiniteFormat.extend + numDigits_extend (digit-shift lemma)
+│   ├── Next.lean     withBound, next (+ next lemmas), boundAfterNext — §5.2
+│   │                 bound API; containment with a relaxed bound:
+│   │                 extend_{one,two}_subset_of_withBound_subset,
+│   │                 two_le_p_or_trivial_of_extend_{one,two}_withBound_subset
+│   ├── Digits.lean   digit-count lemma (numDigits_nonneg,
+│   │                 mem_imp_precisionAtMost_numDigits); parity transfer:
+│   │                 numDigits_le_one_of_p_one, precisionAtMost_not_IsOdd,
+│   │                 numDigits_eq_of_subset_of_isOdd(_aux),
+│   │                 odd_index_of_p_one_corner, IsOdd.transfer_of_numDigits_eq,
+│   │                 IsOdd.transfer_of_subset (RTO-padding lemma)
+│   ├── Discrete.lean canonical representation / adjacency / midpoint-membership
+│   │                 (prereq for rndRTO_RN): log_le_of_canonical_rep,
+│   │                 exists_canonical_rep(_of_parts), canonical_rep_pos,
+│   │                 not_mem_between_adjacent, adjacent_canonical_form,
+│   │                 midpoint_mem_extend_one_of_adjacent(_pos/_of_p_top),
+│   │                 half_mem_extend_one, midpoint_in_F₁_extend_one_of_F_adjacent.
+│   │                 grid facts (quantum_floor/ceil_of_mem, binade_quantum).
+│   │                 Built over the ℚ substrate.
+│   ├── CanonicalExp.lean canonicalExp closed forms, format-dependent
+│   │                 scaled-mantissa facts
+│   └── Inference.lean §6.1: ⊗/⊕ format inference. Format.toSet,
+│                     opMul/opAdd/opAddPrec, mul_subset/add_subset (the inferred
+│                     format contains every product/sum), neg_subset/abs_subset.
+├── Rounding/
+│   ├── Defs.lean     relational layer:
+│   │                 TieBreak, RoundingMode,
+│   │                 RoundResult (with signed overflow), RoundResult.neg,
+│   │                 FiniteFormat.IsUndefined,
+│   │                 IsFaithfulRound, RoundsFinite, Rounds,
+│   │                 FiniteFormat.toParityFormatOf{ToOdd,NearestEven}
+│   ├── Basic.lean    relational consequences of the spec. Sign symmetry:
+│   │                 IsFaithfulRound.neg_iff, per-mode RoundsFinite.neg_*,
+│   │                 Rounds.neg_*. Mode-vs-sign: RTP/RTN ↔ RTZ/RAZ by sign of x.
+│   │                 RoundsFinite.{toZero,awayZero,toOdd}_self, uniqueness per
+│   │                 mode and generic, isFaithfulRound, eq_zero_of_zero,
+│   │                 opposite_sides_of_ne, the grid bridges
+│   │                 toNegative_floor/toPositive_ceil (+ equation forms),
+│   │                 isOdd_alternate_of_bracketing, monotonicity per mode
+│   │                 and generic. Mentions no construction.
+│   ├── Restrict.lean per-mode restrict/lift between RoundsFinite F and F.unbounded
+│   ├── Parity.lean   neighbors_alternate: adjacent grid points alternate in
+│   │                 parity; the toOdd and nearest .toEven forms
+│   ├── Op.lean, Op/  function layer (noncomputable):
+│   │                 rndInt, rndParity, rndUnbounded, rnd, per-mode soundness,
+│   │                 rndUnbounded_satisfies/_unique, rnd_iff_rounds
+│   └── Ulp.lean      ulp/rndDown/rndUp/midp, the nearest error bound and the
+│                     below/above-midpoint characterisations, succ/pred/predPos
+│                     and their membership + adjacency lemmas
+└── DoubleRounding/
+    ├── Basic.lean    §5.2 rules, spec-relational over RoundsFinite:
+    │                 rndRTZ_RTZ, rndRAZ_RAZ(_pos), rndRTO_RTO, rndRTO_RTZ,
+    │                 rndRTO_RAZ, rndRTP_RTP, rndRTN_RTN, rndExact. RTO helper
+    │                 chain (toOdd_notMem_of_extend_subset, …), *_of_trivial
+    ├── Nearest.lean  rndRTO_RN and its RN web (rndRTO_RN_close_transfer,
+    │                 rndRTO_no_tie_contradiction, rndRTO_nearest_facts)
+    ├── Total.lean    roundsRTZ_RTZ, …, roundsRTO_RN: overflow-aware total forms
+    ├── Counterexample.lean the ten Cex.no_rnd* theorems
+    ├── Counterexample/ Basic (anchors, gap lemmas), Neighborhood
+    │                 (AnchorNeighborhood + generic cores), Instances (the four
+    │                 neighborhood shapes)
+    ├── NearestMidpoint.lean Roux Lemma 16: rnd_lt_mid(')
+    ├── Mul.lean      Roux ×: rndMul_expBot/_expFinite
+    ├── Add.lean      Roux +/−: rndAdd
+    ├── Sqrt.lean     Roux √: rndSqrt_expBot/_expFinite
+    └── Div.lean      Roux /: rndDiv_expBot/_expFinite
 ```
 
 ## Open: Rounding API extensions
 
-- [x] **Generalise `gap_around_m_mem` / `gap_around_mid3_mem`**
-      (`DoubleRoundingCex.lean`, −118 lines). Both are now `simpa` wrappers over
-      `gap_around_odd_mem`, stated for odd `c` with `2^j < c < 2^(j+1)`; `j`
-      fixes the binade, so the bracketing powers stop being constants.
-
-- [ ] **Move `nearest_neighbors_setup` out of `RoundOp/`.** It is
+- [ ] **Move `nearest_neighbors_setup` out of `Rounding/Op/`.** It is
       construction-free and now slim, but still sits under the function layer.
       Its only consumer is `rndUnbounded_satisfies_nearest`, so inlining may
       beat relocating.
@@ -132,7 +151,7 @@ Mpfx/
 
 ## Open: New features
 
-- [ ] **Fig. 7 format instances**: `binary64`, `binary32`, `E5M2`,
+- [ ] **Paper format instances**: `binary64`, `binary32`, `E5M2`,
       `E4M3`, `int8`, `fixed<-4, 8>`. Concrete `FiniteFormat` or
       `ParityFormat` values; useful as smoke tests.
 - [ ] **Smoke tests** (`Mpfx/Tests.lean`): concrete
@@ -158,14 +177,10 @@ Mpfx/
       only if that noise becomes overwhelming.
 - [ ] **Per-file module docstrings** + paper-reference cross-links (`README`
       is done; individual file headers could still gain `§`-references).
-- (Considered, not done: merging the Grid `_exp_bot`/`_of_p_top` twin lemmas
-  under a unified `k` form — the twin structure with the dispatcher in
-  `midpoint_F₁_in_F₂_of_F_adjacent` is clearer; deferred.)
-- (Considered, not done: de-`change`-ing `RoundOp.lean` — its ~60 `change`s
+- (Considered, not done: de-`change`-ing `Rounding/Op/` — its ~60 `change`s
   are legitimate definitional unfolds of `canonicalExp`/`rndInt`/arithmetic,
   not the `.toFormat` pattern; removing them needs per-def unfold lemmas with
-  no real payoff. Splitting `RoundOp.lean` (~4000 lines) is a mechanical reorg
-  with no correctness benefit — deferred unless it causes friction.)
+  no real payoff.)
 
 ## Open: substrate ergonomics (low-priority)
 

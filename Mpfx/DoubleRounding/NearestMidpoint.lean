@@ -1,6 +1,6 @@
-import Mpfx.Ulp
-import Mpfx.Discrete
-import Mpfx.Containment
+import Mpfx.Rounding.Ulp
+import Mpfx.Format.Discrete
+import Mpfx.Format.Containment
 
 /-!
 # Round-to-nearest midpoint theory (Roux Lemma 16)
@@ -12,7 +12,7 @@ sits far enough below its `F₁`-midpoint, an intermediate round-to-nearest in a
 finer format `F₂` followed by a round-to-nearest in `F₁` agrees with rounding
 directly into `F₁`.
 
-`ulp`, `rndDown`, `rndUp` and `midp` are in `Mpfx/Ulp.lean`.
+`ulp`, `rndDown`, `rndUp` and `midp` are in `Mpfx/Rounding/Ulp.lean`.
 -/
 
 namespace Mpfx
@@ -136,7 +136,7 @@ theorem rnd_lt_mid {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
 intermediate nearest rounding `z` below the top of `x`'s binade
 (`z < 2^(mag x + 1)`) and `F₂` finer than `F₁` at `x` (`h21`, `hle`), `z` stays
 in `x`'s `F₁`-binade: `F₁.canonicalExp z = F₁.canonicalExp x`. -/
-theorem canonicalExp_eq_of_binade_top {F₁ F₂ : FiniteFormat} {tb₂ : TieBreak} {x : ℝ}
+private theorem canonicalExp_eq_of_binade_top {F₁ F₂ : FiniteFormat} {tb₂ : TieBreak} {x : ℝ}
     (hx : 0 < x)
     (h21 : F₂.canonicalExp x < F₁.canonicalExp x)
     (hle : F₁.canonicalExp x ≤ Int.log 2 x + 1)
@@ -172,7 +172,7 @@ below its `F₁`-midpoint (`hmid`) and inside its binade (`hle`), the intermedia
 `z` stays below the binade top (`z < midp F₁ x < 2^(mag x + 1)`), so
 `canonicalExp_eq_of_binade_top` applies. Discharges `rnd_lt_mid`'s `hcexp`. The
 bound `midp F₁ x < 2^(k+1)` comes from a floor bound on `rndDown F₁ x`. -/
-theorem canonicalExp_eq_of_lt_mid {F₁ F₂ : FiniteFormat} {tb₂ : TieBreak} {x : ℝ}
+private theorem canonicalExp_eq_of_lt_mid {F₁ F₂ : FiniteFormat} {tb₂ : TieBreak} {x : ℝ}
     (hx : 0 < x)
     (h21 : F₂.canonicalExp x < F₁.canonicalExp x)
     (hle : F₁.canonicalExp x ≤ Int.log 2 x + 1)
@@ -237,13 +237,6 @@ theorem rnd_lt_mid' {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ
 `canonicalExp`/`ulp`/`rndDown` reflect under negation, and `rnd_lt_mid` needs no
 positivity, so the "above the midpoint ⟹ rounds up" double-rounding theorem
 `rnd_gt_mid` follows by applying `rnd_lt_mid` to `−x`. -/
-
-/-- Nearest rounding is invariant under joint negation (both tie-breaks). -/
-theorem RoundsFinite.neg_nearest (F : FiniteFormat) (tb : TieBreak) (a : ℝ) (v : Dyadic) :
-    RoundsFinite F (.nearest tb) a v ↔ RoundsFinite F (.nearest tb) (-a) (-v) := by
-  cases tb with
-  | toEven => exact RoundsFinite.neg_nearest_toEven F a v
-  | awayZero => exact RoundsFinite.neg_nearest_awayZero F a v
 
 /-- **Double-rounding negation transport.** Both roundings being to-nearest,
 double rounding commutes with negation: to double-round `v` it suffices to

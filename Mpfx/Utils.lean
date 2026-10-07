@@ -25,7 +25,7 @@ lemma two_zpow_split_toNat {e₁ e₂ : ℤ} (h : e₂ ≤ e₁) :
   congr 1; ring
 
 /-- `(2:ℝ)^(e - f) = ((2:ℤ)^(e - f).toNat : ℝ)` when `f ≤ e`. -/
-lemma two_zpow_diff_eq (e f : ℤ) (h : f ≤ e) :
+private lemma two_zpow_diff_eq (e f : ℤ) (h : f ≤ e) :
     (2 : ℝ) ^ (e - f) = ((2 : ℤ) ^ (e - f).toNat : ℝ) := by
   have hn_eq : ((e - f).toNat : ℤ) = e - f := Int.toNat_of_nonneg (by omega)
   rw [show (2 : ℝ) ^ (e - f) = (2 : ℝ) ^ (((e - f).toNat : ℤ) : ℤ) by rw [hn_eq],
@@ -48,12 +48,31 @@ theorem log_eq_of_zpow_bounds {x : ℝ} {k : ℤ} (hx : 0 < x)
     (Int.lt_zpow_iff_log_lt (b := 2) (by norm_num) hx).mp (by exact_mod_cast hhi)
   omega
 
+/-! ### Powers of two
+
+Stated per exponent shape, so callers can rewrite without touching an exponent
+bound by `set`. -/
+
+/-- `2^(t+1) = 2 · 2^t`. -/
+theorem two_zpow_succ (t : ℤ) : (2 : ℝ) ^ (t + 1) = 2 * (2 : ℝ) ^ t := by
+  rw [zpow_add_one₀ (by norm_num)]; ring
+
+/-- `2^(t+2) = 4 · 2^t`. -/
+theorem two_zpow_add_two (t : ℤ) : (2 : ℝ) ^ (t + 2) = 4 * (2 : ℝ) ^ t := by
+  rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), show (2 : ℝ) ^ (2 : ℤ) = 4 by norm_num]; ring
+
+/-- `2^a = 2 · 2^(a-1)`. -/
+theorem two_zpow_dbl (a : ℤ) : (2 : ℝ) ^ a = 2 * (2 : ℝ) ^ (a - 1) := by
+  rw [← two_zpow_succ, sub_add_cancel]
+
+/-- `2^a / 2 = 2^(a-1)`. -/
+theorem two_zpow_half (a : ℤ) : (2 : ℝ) ^ a / 2 = (2 : ℝ) ^ (a - 1) := by
+  rw [two_zpow_dbl a]; ring
+
 /-- `2^f = 4 · 2^(f − 2)`. -/
 lemma two_zpow_split_minus_two (f : ℤ) :
     (2 : ℝ) ^ f = 4 * (2 : ℝ) ^ (f - 2) := by
-  have h_eq : (2 : ℝ) ^ f = (2 : ℝ) ^ (f - 2) * (2 : ℝ) ^ (2 : ℤ) := by
-    rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
-  rw [h_eq, show (2 : ℝ) ^ (2 : ℤ) = 4 by norm_num]; ring
+  rw [← two_zpow_add_two, sub_add_cancel]
 
 /-- Re-base a canonical rep to a coarser exponent (ℝ): shift `(c:ℝ)·2^e` down to
 quantum `k ≤ e`, folding the extra powers of two into an integer coefficient. -/
@@ -100,15 +119,6 @@ lemma Int.two_pow_succ_pred {k : ℕ} (hk : 1 ≤ k) :
   conv_lhs => rw [show k = (k - 1) + 1 from by omega]
   rw [pow_succ]; ring
 
-/-- The absolute value of an odd integer is odd. -/
-lemma Odd.abs {c : ℤ} (hodd : Odd c) : Odd |c| := by
-  rcases hodd with ⟨k, hk⟩
-  rcases lt_trichotomy c 0 with h | h | h
-  · rw [abs_of_neg h]; exact ⟨-k - 1, by linarith⟩
-  · simp [h] at hk; omega
-  · rw [abs_of_pos h]; exact ⟨k, hk⟩
-
-
 /-! ### Sign and power helpers (used by the double-rounding development) -/
 
 /-- `|1| < 2^p` for any positive precision. -/
@@ -127,11 +137,10 @@ theorem mul_nonneg_of_common_sign {x : ℝ} {y z : ℝ}
   · have hx2 : 0 < x ^ 2 := by positivity
     nlinarith [mul_nonneg hyx hzx]
 
-
 /-! ### Scaled-mantissa arithmetic
 
 Floor/ceiling and `Int.log` facts about `x · 2^(-e)`. The format-dependent
-companions are in `Mpfx/CanonicalExp.lean`. -/
+companions are in `Mpfx/Format/CanonicalExp.lean`. -/
 
 /-- For `r` with `|r| < N`, the floor `⌊r⌋` has `|⌊r⌋| ≤ N`. The
 asymmetry: negative floors can saturate (e.g. `⌊-1.5⌋ = -2` with
@@ -171,7 +180,7 @@ theorem abs_ceil_le_of_abs_lt {r : ℝ} {N : ℤ} (h : |r| < (N : ℝ)) :
 `|a| < 2^p`, `e_a < e`, and `e = log|x|+1-p` (so `e` came from the precision
 side of `canonicalExp`), then `|z| < 2^(log|x|)`. Combined with `|x| ≥
 2^(log|x|)` this strictly bounds `|z|` below `|x|`. -/
-theorem abs_lt_two_pow_log_of_precision {p : ℕ} {x : ℝ}
+private theorem abs_lt_two_pow_log_of_precision {p : ℕ} {x : ℝ}
     {a e e_a : ℤ} (ha_bound : |a| < (2 : ℤ) ^ p)
     (h_ea_lt : e_a < e) (h_e_eq_log : e = Int.log 2 |x| + 1 - (p : ℤ)) :
     |(a : ℝ) * (2 : ℝ) ^ e_a| < (2 : ℝ) ^ (Int.log 2 |x|) := by
@@ -313,12 +322,12 @@ theorem log_two_zpow (k : ℤ) : Int.log 2 ((2 : ℝ) ^ k) = k := by
   simpa using Int.log_zpow (R := ℝ) (b := 2) (by norm_num) k
 
 /-- `Int.log 2 ((2 : ℝ) ^ n) = n` for natural `n`. -/
-theorem log_two_pow_nat (n : ℕ) : Int.log 2 ((2 : ℝ) ^ n) = (n : ℤ) := by
+private theorem log_two_pow_nat (n : ℕ) : Int.log 2 ((2 : ℝ) ^ n) = (n : ℤ) := by
   rw [show ((2 : ℝ) ^ n) = ((2 : ℝ) ^ (n : ℤ)) from (zpow_natCast (2 : ℝ) n).symm]
   exact Int.log_zpow (by norm_num : 1 < 2) (n : ℤ)
 
 /-- Cast `((2 : ℤ) ^ (p - 1) : ℝ) = (2 : ℝ) ^ (p - 1 : ℤ)`. -/
-theorem cast_two_pow_pred {p : ℕ} (hp : 0 < p) :
+private theorem cast_two_pow_pred {p : ℕ} (hp : 0 < p) :
     ((2 : ℤ) ^ (p - 1) : ℝ) = (2 : ℝ) ^ ((p : ℤ) - 1) := by
   rw [show ((p : ℤ) - 1 : ℤ) = ((p - 1 : ℕ) : ℤ) by omega, zpow_natCast]
   push_cast; rfl
@@ -394,7 +403,6 @@ theorem abs_floor_add_one_ge_two_pow_pred {p : ℕ} {r : ℝ}
       have : (0 : ℤ) < (2 : ℤ) ^ (p - 1) := by positivity
       omega
     rw [abs_of_neg h_neg]; omega
-
 
 /-- For `x ≠ 0` and `e = log₂|x| + 1 - p`, we have `2^(p-1) ≤ |x · 2^(-e)|`. -/
 theorem two_pow_pred_le_scaled {p : ℕ} (hp : 0 < p) {x : ℝ} (hx : x ≠ 0) {e : ℤ}

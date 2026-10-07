@@ -1,4 +1,4 @@
-import Mpfx.Containment
+import Mpfx.Format.Containment
 
 /-!
 # Discreteness: canonical representation and adjacency
@@ -7,10 +7,12 @@ A positive `y ∈ F` is `c · 2^(canonicalExp y)` with `|c| < 2^p`
 (`exists_canonical_rep`); nothing of `F` lies strictly between two adjacent such
 values (`not_mem_between_adjacent`); and adjacent values differ by exactly one
 step (`adjacent_canonical_form`). Together these are the structural prerequisite
-for `rndRTO_RN`, via the midpoint-membership results at the end.
+for `rndRTO_RN`, via the midpoint-membership results. The closing grid facts
+place members on the quantum grid (`quantum_floor_of_mem`/`quantum_ceil_of_mem`)
+and on the local binade step (`binade_quantum`).
 
 `canonicalExp` carries the spacing, so the two exponent regimes need no separate
-treatment. `Mpfx/Ulp.lean` restates adjacency through `succ`.
+treatment. `Mpfx/Rounding/Ulp.lean` restates adjacency through `succ`.
 -/
 
 namespace Mpfx
@@ -73,7 +75,7 @@ private theorem canonical_rep_reconstruct {p : ℕ} {y : Dyadic}
   · rw [hy_eq]; exact two_zpow_shift_real c_can h_k_le_e_can
 
 /-- From `y = c · 2^e` with `|c| < 2^p` and `y > 0`: `⌊log₂ y⌋ ≤ e + p − 1`. -/
-theorem log_le_of_canonical_rep {p : ℕ} {y : Dyadic} {c_can e_can : ℤ}
+private theorem log_le_of_canonical_rep {p : ℕ} {y : Dyadic} {c_can e_can : ℤ}
     (hy_pos : 0 < ((y : Dyadic) : ℝ))
     (hy_eq : ((y : Dyadic) : ℝ) = (c_can : ℝ) * (2 : ℝ) ^ e_can)
     (hc_can_lt : |c_can| < (2 : ℤ) ^ p) :
@@ -173,7 +175,7 @@ theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ}
   exists_canonical_rep_of_parts F hp hprec hquant hpos
 
 /-- For a representation `y = c·2^k` with `y > 0`, the integer `c > 0`. -/
-theorem canonical_rep_pos {y : Dyadic} (hy_pos : 0 < ((y : Dyadic) : ℝ))
+private theorem canonical_rep_pos {y : Dyadic} (hy_pos : 0 < ((y : Dyadic) : ℝ))
     {k c : ℤ}
     (h : ((y : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ k) :
     0 < c := by
@@ -446,7 +448,7 @@ theorem midpoint_mem_extend_one_of_adjacent_pos (F : FiniteFormat) {p : ℕ}
 
 /-- For `y ∈ F` (any F shape), `midpoint(0, y) = y/2 ∈ F.extend 1`.
 Handles both `F.exp = ⊥` and `F.exp = (e : ℤ)` cases. -/
-theorem half_mem_extend_one (F : FiniteFormat) {p : ℕ}
+private theorem half_mem_extend_one (F : FiniteFormat) {p : ℕ}
     (hp : F.p = (p : Prec))
     {y : Dyadic} (hyF : y ∈ F) :
     (Dyadic.midpoint 0 y : Dyadic) ∈ F.extend 1 := by
@@ -492,7 +494,7 @@ theorem half_mem_extend_one (F : FiniteFormat) {p : ℕ}
 
 /-- Midpoint of F-adjacent values (general — both signs handled), for finite
 precision and either exponent regime. -/
-theorem midpoint_mem_extend_one_of_adjacent (F : FiniteFormat) {p : ℕ}
+private theorem midpoint_mem_extend_one_of_adjacent (F : FiniteFormat) {p : ℕ}
     (hp : F.p = (p : Prec))
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F)
     (h_lt : ((y₁ : Dyadic) : ℝ) < ((y₂ : Dyadic) : ℝ))
@@ -588,5 +590,114 @@ theorem midpoint_mem_extend_one_of_p_top (F : FiniteFormat) {exp : ℤ}
     push_cast; field_simp
   · -- bound: |midpoint| ≤ b, over ℚ.
     exact boundOK_midpoint hb_y₁ hb_y₂
+
+/-- F-adjacent midpoint membership in `F₁.extend 1`. Dispatches on `F₁`'s
+precision/exponent shape, routing to the appropriate discreteness lemma. -/
+theorem midpoint_in_F₁_extend_one_of_F_adjacent {F₁ : FiniteFormat}
+    {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F₁) (hy₂F : y₂ ∈ F₁)
+    (h_lt : (y₁ : ℝ) < (y₂ : ℝ))
+    (h_adj : ∀ y : Dyadic, y ∈ F₁ → (y₁ : ℝ) < (y : ℝ) → (y₂ : ℝ) ≤ (y : ℝ)) :
+    Dyadic.midpoint y₁ y₂ ∈ F₁.extend 1 := by
+  cases hp : F₁.p using ENat.recTopCoe with
+  | top =>
+    cases he : F₁.exp using QExp.recBotCoe with
+    | bot =>
+        exact absurd F₁.finite (by push Not; exact ⟨hp, he⟩)
+    | coe e' => exact midpoint_mem_extend_one_of_p_top F₁ hp he hy₁F hy₂F
+  | coe p' =>
+    exact midpoint_mem_extend_one_of_adjacent F₁ hp hy₁F hy₂F h_lt h_adj
+
+/-! ### Grid facts
+
+Members of `F` are integer multiples of the quantum `2^exp` and, within a
+binade, of the local step. -/
+
+/-- **Grid floor.** Given `target = c_target · 2^f₂` on F₂'s grid, any
+`z ∈ F₂` strictly below `target + 2^f₂` is at most `target`. -/
+theorem quantum_floor_of_mem
+    {F₂ : Format} {f₂ : ℤ} (hF₂_exp : F₂.exp = (f₂ : QExp))
+    {target : ℝ} {c_target : ℤ}
+    (h_target_eq : target = (c_target : ℝ) * (2 : ℝ) ^ f₂) :
+    ∀ z ∈ F₂, ((z : Dyadic) : ℝ) < target + (2 : ℝ)^f₂ →
+      ((z : Dyadic) : ℝ) ≤ target := by
+  intro z hz hz_lt
+  obtain ⟨_, hq, _⟩ := hz
+  rw [hF₂_exp, Dyadic.quantumAtLeast_coe_real] at hq
+  obtain ⟨c, hc⟩ := hq
+  rw [hc] at hz_lt ⊢
+  have h_2f_pos : (0 : ℝ) < (2 : ℝ)^f₂ := zpow_pos (by norm_num) _
+  rw [h_target_eq, show (c_target : ℝ) * (2 : ℝ)^f₂ + (2 : ℝ)^f₂
+        = ((c_target + 1 : ℤ) : ℝ) * (2 : ℝ)^f₂ from by push_cast; ring] at hz_lt
+  have hc_lt : (c : ℝ) < ((c_target + 1 : ℤ) : ℝ) :=
+    lt_of_mul_lt_mul_right hz_lt h_2f_pos.le
+  have hc_int_lt : c < c_target + 1 := by exact_mod_cast hc_lt
+  have hc_int_le : c ≤ c_target := by omega
+  have hc_real_le : (c : ℝ) ≤ (c_target : ℝ) := by exact_mod_cast hc_int_le
+  have h_mul : (c : ℝ) * (2 : ℝ)^f₂ ≤ (c_target : ℝ) * (2 : ℝ)^f₂ :=
+    mul_le_mul_of_nonneg_right hc_real_le h_2f_pos.le
+  rw [h_target_eq]; exact h_mul
+
+/-- **Grid ceiling** (dual of `quantum_floor_of_mem`). Given
+`target = c_target · 2^f₂` on F₂'s grid, any `z ∈ F₂` strictly above
+`target − 2^f₂` is at least `target`. -/
+theorem quantum_ceil_of_mem
+    {F₂ : Format} {f₂ : ℤ} (hF₂_exp : F₂.exp = (f₂ : QExp))
+    {target : ℝ} {c_target : ℤ}
+    (h_target_eq : target = (c_target : ℝ) * (2 : ℝ) ^ f₂) :
+    ∀ z ∈ F₂, target - (2 : ℝ)^f₂ < ((z : Dyadic) : ℝ) →
+      target ≤ ((z : Dyadic) : ℝ) := by
+  intro z hz hz_gt
+  obtain ⟨_, hq, _⟩ := hz
+  rw [hF₂_exp, Dyadic.quantumAtLeast_coe_real] at hq
+  obtain ⟨c, hc⟩ := hq
+  rw [hc] at hz_gt ⊢
+  have h_2f_pos : (0 : ℝ) < (2 : ℝ)^f₂ := zpow_pos (by norm_num) _
+  rw [h_target_eq, show (c_target : ℝ) * (2 : ℝ)^f₂ - (2 : ℝ)^f₂
+        = ((c_target - 1 : ℤ) : ℝ) * (2 : ℝ)^f₂ from by push_cast; ring] at hz_gt
+  have hc_gt : ((c_target - 1 : ℤ) : ℝ) < (c : ℝ) :=
+    lt_of_mul_lt_mul_right hz_gt h_2f_pos.le
+  have hc_int_gt : c_target - 1 < c := by exact_mod_cast hc_gt
+  have hc_int_ge : c_target ≤ c := by omega
+  have hc_real_ge : (c_target : ℝ) ≤ (c : ℝ) := by exact_mod_cast hc_int_ge
+  rw [h_target_eq]
+  exact mul_le_mul_of_nonneg_right hc_real_ge h_2f_pos.le
+
+/-- **Binade quantization.** In a format with finite precision `q₂`, every
+element of the binade `[2^E, 2^(E+1))` is an integer multiple of the local
+step `2^(E − q₂ + 1)`. -/
+theorem binade_quantum {F₂ : FiniteFormat} {q₂ : ℕ}
+    (hp : F₂.p = (q₂ : Prec)) {E : ℤ} {y : Dyadic}
+    (hy : y ∈ F₂.toFormat)
+    (h_lo : (2 : ℝ) ^ E ≤ ((y : Dyadic) : ℝ))
+    (_h_hi : ((y : Dyadic) : ℝ) < (2 : ℝ) ^ (E + 1)) :
+    ∃ c : ℤ, ((y : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ)^(E - q₂ + 1) := by
+  have hprec : Dyadic.precisionAtMost F₂.p y := hy.1
+  rw [hp, Dyadic.precisionAtMost_coe_real] at hprec
+  obtain ⟨c, k, hck, hc_lt⟩ := hprec
+  have h2E_pos : (0 : ℝ) < (2 : ℝ)^E := zpow_pos (by norm_num) _
+  have h2k_pos : (0 : ℝ) < (2 : ℝ)^k := zpow_pos (by norm_num) _
+  have hc_real_lt : (c : ℝ) < (2 : ℝ)^(q₂ : ℤ) := by
+    have h1 : (c : ℝ) ≤ ((|c| : ℤ) : ℝ) := by
+      rw [Int.cast_abs]; exact le_abs_self _
+    have h2 : ((|c| : ℤ) : ℝ) < (((2 : ℤ)^q₂ : ℤ) : ℝ) := by
+      exact_mod_cast hc_lt
+    have h3 : (((2 : ℤ)^q₂ : ℤ) : ℝ) = (2 : ℝ)^(q₂ : ℤ) := by
+      push_cast
+      rw [← zpow_natCast (2 : ℝ) q₂]
+    linarith
+  have hk_ge : E - q₂ + 1 ≤ k := by
+    by_contra h
+    push Not at h
+    have h_y_lt : ((y : Dyadic) : ℝ) < (2 : ℝ)^E := by
+      rw [hck]
+      calc (c : ℝ) * (2 : ℝ)^k
+          < (2 : ℝ)^(q₂ : ℤ) * (2 : ℝ)^k := by nlinarith
+        _ = (2 : ℝ)^((q₂ : ℤ) + k) := by
+            rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+        _ ≤ (2 : ℝ)^E := zpow_le_zpow_right₀ (by norm_num) (by omega)
+    linarith
+  refine ⟨c * 2^((k - (E - q₂ + 1)).toNat), ?_⟩
+  rw [hck, two_zpow_split k (E - q₂ + 1) hk_ge]
+  push_cast; ring
 
 end Mpfx
