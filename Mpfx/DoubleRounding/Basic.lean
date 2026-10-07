@@ -105,7 +105,7 @@ theorem rndRTZ_RTZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
 
 /-- **rnd-RAZ-RAZ**, case `0 < x`. The general theorem follows by
 sign-symmetry and the `x = 0` case. -/
-theorem rndRAZ_RAZ_pos {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+private theorem rndRAZ_RAZ_pos {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
     {x : ℝ} (hx : 0 < x) {z w : Dyadic}
     (hz : RoundsFinite F₂ .awayZero x z) (hw : RoundsFinite F₁ .awayZero (z : ℝ) w) :
     RoundsFinite F₁ .awayZero x w := by

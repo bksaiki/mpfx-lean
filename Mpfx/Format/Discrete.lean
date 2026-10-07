@@ -75,7 +75,7 @@ private theorem canonical_rep_reconstruct {p : ℕ} {y : Dyadic}
   · rw [hy_eq]; exact two_zpow_shift_real c_can h_k_le_e_can
 
 /-- From `y = c · 2^e` with `|c| < 2^p` and `y > 0`: `⌊log₂ y⌋ ≤ e + p − 1`. -/
-theorem log_le_of_canonical_rep {p : ℕ} {y : Dyadic} {c_can e_can : ℤ}
+private theorem log_le_of_canonical_rep {p : ℕ} {y : Dyadic} {c_can e_can : ℤ}
     (hy_pos : 0 < ((y : Dyadic) : ℝ))
     (hy_eq : ((y : Dyadic) : ℝ) = (c_can : ℝ) * (2 : ℝ) ^ e_can)
     (hc_can_lt : |c_can| < (2 : ℤ) ^ p) :
@@ -175,7 +175,7 @@ theorem exists_canonical_rep (F : FiniteFormat) {p : ℕ}
   exists_canonical_rep_of_parts F hp hprec hquant hpos
 
 /-- For a representation `y = c·2^k` with `y > 0`, the integer `c > 0`. -/
-theorem canonical_rep_pos {y : Dyadic} (hy_pos : 0 < ((y : Dyadic) : ℝ))
+private theorem canonical_rep_pos {y : Dyadic} (hy_pos : 0 < ((y : Dyadic) : ℝ))
     {k c : ℤ}
     (h : ((y : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ k) :
     0 < c := by
@@ -448,7 +448,7 @@ theorem midpoint_mem_extend_one_of_adjacent_pos (F : FiniteFormat) {p : ℕ}
 
 /-- For `y ∈ F` (any F shape), `midpoint(0, y) = y/2 ∈ F.extend 1`.
 Handles both `F.exp = ⊥` and `F.exp = (e : ℤ)` cases. -/
-theorem half_mem_extend_one (F : FiniteFormat) {p : ℕ}
+private theorem half_mem_extend_one (F : FiniteFormat) {p : ℕ}
     (hp : F.p = (p : Prec))
     {y : Dyadic} (hyF : y ∈ F) :
     (Dyadic.midpoint 0 y : Dyadic) ∈ F.extend 1 := by
@@ -494,7 +494,7 @@ theorem half_mem_extend_one (F : FiniteFormat) {p : ℕ}
 
 /-- Midpoint of F-adjacent values (general — both signs handled), for finite
 precision and either exponent regime. -/
-theorem midpoint_mem_extend_one_of_adjacent (F : FiniteFormat) {p : ℕ}
+private theorem midpoint_mem_extend_one_of_adjacent (F : FiniteFormat) {p : ℕ}
     (hp : F.p = (p : Prec))
     {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F) (hy₂F : y₂ ∈ F)
     (h_lt : ((y₁ : Dyadic) : ℝ) < ((y₂ : Dyadic) : ℝ))

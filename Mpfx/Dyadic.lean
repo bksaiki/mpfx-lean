@@ -768,7 +768,7 @@ namespace Dyadic
 
 /-- Odd-significand representations are unique: `quantum_le_of_odd_rep` in both
 directions pins the exponent, and cancellation the significand. -/
-theorem odd_rep_unique {x : Dyadic} {c q c' q' : ℤ} (hc : Odd c) (hc' : Odd c')
+private theorem odd_rep_unique {x : Dyadic} {c q c' q' : ℤ} (hc : Odd c) (hc' : Odd c')
     (h : (x : ℝ) = (c : ℝ) * (2 : ℝ) ^ q) (h' : (x : ℝ) = (c' : ℝ) * (2 : ℝ) ^ q') :
     c = c' ∧ q = q' := by
   have hq : quantumAtLeast (q : QExp) x := (quantumAtLeast_coe_real q x).mpr ⟨c, h⟩

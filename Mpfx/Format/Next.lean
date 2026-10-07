@@ -69,7 +69,7 @@ noncomputable def next (F : Format) (b : Dyadic) : Dyadic :=
   | ⊥, ⊤ => b + 1
 
 /-- `F.next b > b` for finite `(F.p, F.exp)` and `b ≥ 0`. -/
-theorem lt_next_of_finite (F : Format) {e : ℤ} {p : ℕ}
+private theorem lt_next_of_finite (F : Format) {e : ℤ} {p : ℕ}
     (he : F.exp = (e : QExp)) (hp : F.p = (p : Prec)) (b : Dyadic)
     (hb : 0 ≤ ((b : Dyadic) : ℝ)) :
     (b : ℝ) < (F.next b : ℝ) := by
@@ -95,7 +95,7 @@ theorem lt_next_of_finite (F : Format) {e : ℤ} {p : ℕ}
     linarith
 
 /-- `F.next b > b` for `F.p = ⊤` and `F.exp = (e : ℤ)`. -/
-theorem lt_next_of_p_top (F : Format) {e : ℤ}
+private theorem lt_next_of_p_top (F : Format) {e : ℤ}
     (he : F.exp = (e : QExp)) (hp : F.p = ⊤) (b : Dyadic) :
     (b : ℝ) < (F.next b : ℝ) := by
   have h_ulp_pos : (0 : ℝ) < ((Dyadic.ofIntZpow 1 e : Dyadic) : ℝ) := by
@@ -111,14 +111,14 @@ theorem lt_next_of_p_top (F : Format) {e : ℤ}
 
 /-- Computed form of `next` for `F.exp = ⊥, F.p = ⊤` (junk arm: excluded by
 `FiniteFormat`). -/
-theorem next_eq_bot_p_top' (F : Format) (he : F.exp = ⊥) (hp : F.p = ⊤)
+private theorem next_eq_bot_p_top' (F : Format) (he : F.exp = ⊥) (hp : F.p = ⊤)
     (b : Dyadic) : F.next b = b + 1 := by
   unfold next
   rw [he, hp]; rfl
 
 /-- Computed form of `next` for `F.exp = ⊥, b ≤ 0` (junk arm: no grid
 successor exists). -/
-theorem next_eq_bot_nonpos (F : Format) (he : F.exp = ⊥) {b : Dyadic}
+private theorem next_eq_bot_nonpos (F : Format) (he : F.exp = ⊥) {b : Dyadic}
     (hb : ((b : Dyadic) : ℝ) ≤ 0) : F.next b = b + 1 := by
   cases hp : F.p using ENat.recTopCoe with
   | top => exact next_eq_bot_p_top' F he hp b
@@ -132,7 +132,7 @@ theorem next_eq_bot_nonpos (F : Format) (he : F.exp = ⊥) {b : Dyadic}
 
 /-- Computed form of `next` for `F.exp = ⊥, F.p = p, b > 0`: the
 step is purely binade-dependent. -/
-theorem next_eq_bot_pos (F : Format) {p : ℕ} (he : F.exp = ⊥)
+private theorem next_eq_bot_pos (F : Format) {p : ℕ} (he : F.exp = ⊥)
     (hp : F.p = (p : Prec)) {b : Dyadic}
     (hb_pos : 0 < ((b : Dyadic) : ℝ)) :
     F.next b
@@ -145,7 +145,7 @@ theorem next_eq_bot_pos (F : Format) {p : ℕ} (he : F.exp = ⊥)
   rw [h_eq, if_neg (not_le.mpr hb_pos)]
 
 /-- `F.next b > b` for `F.exp = ⊥` (all `F.p` shapes, any `b`). -/
-theorem lt_next_of_bot (F : Format) (he : F.exp = ⊥) (b : Dyadic) :
+private theorem lt_next_of_bot (F : Format) (he : F.exp = ⊥) (b : Dyadic) :
     ((b : Dyadic) : ℝ) < ((F.next b : Dyadic) : ℝ) := by
   cases hp : F.p using ENat.recTopCoe with
   | top =>
@@ -186,7 +186,7 @@ theorem next_nonneg (F : Format) (b : Dyadic) (hb : 0 ≤ ((b : Dyadic) : ℝ)) 
   hb.trans (self_le_next F b hb)
 
 /-- Computed form of `next` for `F.exp = (e : ℤ), F.p = p, b > 0`. -/
-theorem next_eq_finite_pos (F : Format) {e : ℤ} {p : ℕ}
+private theorem next_eq_finite_pos (F : Format) {e : ℤ} {p : ℕ}
     (he : F.exp = (e : QExp)) (hp : F.p = (p : Prec))
     {b : Dyadic} (hb_pos : 0 < ((b : Dyadic) : ℝ)) :
     F.next b =
@@ -200,7 +200,7 @@ theorem next_eq_finite_pos (F : Format) {e : ℤ} {p : ℕ}
   rw [h_eq, if_neg (not_le.mpr hb_pos)]
 
 /-- Computed form of `next` for `F.exp = (e : ℤ), F.p = ⊤`. -/
-theorem next_eq_p_top (F : Format) {e : ℤ}
+private theorem next_eq_p_top (F : Format) {e : ℤ}
     (he : F.exp = (e : QExp)) (hp : F.p = ⊤) (b : Dyadic) :
     F.next b = b + Dyadic.ofIntZpow 1 e := by
   unfold next
@@ -231,7 +231,7 @@ noncomputable def boundAfterNext (F : Format) : Bound :=
     F.boundAfterNext = ⊤ := by unfold boundAfterNext; rw [hF]
 
 /-- `boundAfterNext` evaluator: coe case. The underlying dyadic is `F.next b`. -/
-theorem boundAfterNext_coe {F : Format} {b : NonNegDyadic} (hF : F.b = (b : Bound)) :
+private theorem boundAfterNext_coe {F : Format} {b : NonNegDyadic} (hF : F.b = (b : Bound)) :
     ∃ h, F.boundAfterNext = ((⟨F.next b.val, h⟩ : NonNegDyadic) : Bound) := by
   unfold boundAfterNext; rw [hF]; exact ⟨_, rfl⟩
 
@@ -248,7 +248,7 @@ noncomputable def next (F : FiniteFormat) (b : Dyadic) : Dyadic :=
   if ((b : Dyadic) : ℝ) = 0 ∧ F.exp = ⊥ then b
   else b + Dyadic.ofIntZpow 1 (F.canonicalExp ((b : Dyadic) : ℝ))
 
-theorem next_of_ne (F : FiniteFormat) {b : Dyadic}
+private theorem next_of_ne (F : FiniteFormat) {b : Dyadic}
     (h : ¬(((b : Dyadic) : ℝ) = 0 ∧ F.exp = ⊥)) :
     F.next b = b + Dyadic.ofIntZpow 1 (F.canonicalExp ((b : Dyadic) : ℝ)) := if_neg h
 
@@ -619,7 +619,7 @@ theorem exp_bot_of_extend_bot {F₁ : FiniteFormat} {k : ℕ}
 /-- Extending by one bit halves the step: `cexp` drops by exactly one, in both
 exponent regimes (`p ↦ p+1` and `exp ↦ exp−1` each contribute `−1` to the
 `max`). -/
-theorem extend_one_canonicalExp (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) :
+private theorem extend_one_canonicalExp (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) :
     (F.extend 1).canonicalExp x = F.canonicalExp x - 1 := by
   unfold FiniteFormat.canonicalExp
   cases hpF : F.p using ENat.recTopCoe with
@@ -831,7 +831,7 @@ The §5.2 rules take a single containment hypothesis
 (`(n+1)+1 = n+2`, `(e-1)-1 = e-2`); their bounds are both `F.b`. Used to bridge
 the RN lemmas (stated over `F₁.extend 2`) to the generic ones (stated over an
 arbitrary base extended once). -/
-theorem extend_one_extend_one_p_exp (F : FiniteFormat) :
+private theorem extend_one_extend_one_p_exp (F : FiniteFormat) :
     ((F.extend 1).extend 1).p = (F.extend 2).p ∧
     ((F.extend 1).extend 1).exp = (F.extend 2).exp := by
   refine ⟨?_, ?_⟩

@@ -22,7 +22,7 @@ to invoke the dichotomy. -/
 
 /-- From an alternating-parity iff plus canonical representations (or
 zero) on both sides, `IsEven` alternates as well: `¬ IsEven dlo → IsEven dhi`. -/
-theorem alternating_isEven_of_alternating_iff
+private theorem alternating_isEven_of_alternating_iff
     {F : ParityFormat} {dlo dhi : Dyadic} {c_lo e_lo c_hi e_hi : ℤ}
     (h_iff : F.IsOdd dhi ↔ ¬ F.IsOdd dlo)
     (h_rep_lo_or_zero : dlo = 0 ∨ Dyadic.IsRepresentableAtP
@@ -203,7 +203,7 @@ private theorem canonical_rep_mixed_p1 {F : ParityFormat}
 /-- Floating-point characterization (non-saturation): when `F.p = (p:ℕ)`,
 `F.p ≠ 1`, `F.exp = ⊥`, and `|k| ∈ [2^(p-1), 2^p)`, then
 `F.IsOdd (Dyadic.ofIntZpow k e) ↔ Odd k`. -/
-theorem isOdd_iff_odd_at_canonical_floating {F : ParityFormat}
+private theorem isOdd_iff_odd_at_canonical_floating {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
     (hexp_bot : F.exp = ⊥) {k e : ℤ}
@@ -295,7 +295,7 @@ private theorem not_odd_k_div_2_at_sat {p : ℕ} (hp_ge_2 : 2 ≤ p)
 
 /-- Floating-point saturation case: `|k| = 2^p` forces `F.IsOdd (k·2^e) = False`
 (via renormalization, the canonical significand is `±2^(p-1)`, which is even). -/
-theorem not_isOdd_at_saturation {F : ParityFormat}
+private theorem not_isOdd_at_saturation {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
     (hexp_bot : F.exp = ⊥) {k e : ℤ}
@@ -308,7 +308,7 @@ theorem not_isOdd_at_saturation {F : ParityFormat}
 /-- Mixed normal regime characterization. `numDigits y = p` when
 `log|y| - e' + 1 ≥ p` (the precision branch of min wins). Then IsOdd ↔ Odd k
 via canonical IsRepresentableAtP at p bits. -/
-theorem isOdd_iff_odd_at_canonical_mixed_normal {F : ParityFormat}
+private theorem isOdd_iff_odd_at_canonical_mixed_normal {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
     {e' : ℤ} (hexp : F.exp = (e' : QExp))
@@ -335,7 +335,7 @@ theorem isOdd_iff_odd_at_canonical_mixed_subnormal {F : ParityFormat}
     (canonical_rep_mixed_subnormal_pne1 hp_eq hexp hk_ne h_log_k_lt_p) hp_ne_1
 
 /-- IsEven dual of `isOdd_iff_odd_at_canonical_mixed_subnormal`. -/
-theorem isEven_iff_even_at_canonical_mixed_subnormal {F : ParityFormat}
+private theorem isEven_iff_even_at_canonical_mixed_subnormal {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
     {e' : ℤ} (hexp : F.exp = (e' : QExp))
@@ -382,7 +382,7 @@ theorem isEven_at_saturation_mixed_normal {F : ParityFormat}
 /-- Mixed case characterization at `p = 1`. Given `y = k · 2^e_c` with
 `|k| = 1` (so the 1-bit canonical form is `(k, e_c)`) and `e_c ≥ e'`,
 `F.IsOdd y ↔ Odd (e_c - e' + 1)`. -/
-theorem isOdd_p1_iff_at_canonical_mixed {F : ParityFormat}
+private theorem isOdd_p1_iff_at_canonical_mixed {F : ParityFormat}
     (hp_eq : F.p = ((1 : ℕ) : Prec))
     {e' : ℤ} (hexp : F.exp = (e' : QExp))
     {k e_c : ℤ} (hk_eq : |k| = 1) (h_ec_ge : e' ≤ e_c) :
@@ -400,7 +400,7 @@ theorem isOdd_p1_iff_at_canonical_mixed {F : ParityFormat}
     rw [if_pos hp_eq, h_unbot]; exact h_odd
 
 /-- IsEven dual of `isOdd_p1_iff_at_canonical_mixed`. -/
-theorem isEven_p1_iff_at_canonical_mixed {F : ParityFormat}
+private theorem isEven_p1_iff_at_canonical_mixed {F : ParityFormat}
     (hp_eq : F.p = ((1 : ℕ) : Prec))
     {e' : ℤ} (hexp : F.exp = (e' : QExp))
     {k e_c : ℤ} (hk_eq : |k| = 1) (h_ec_ge : e' ≤ e_c) :
@@ -817,7 +817,7 @@ theorem alternating_isEven_mixed_normal_p1 {F : ParityFormat}
 
 /-- Saturation in floating-point implies `IsEven`. Derived from
 `not_isOdd_at_saturation` via the dichotomy. -/
-theorem isEven_at_saturation_floating {F : ParityFormat}
+private theorem isEven_at_saturation_floating {F : ParityFormat}
     {p : ℕ} (hp_eq : F.p = (p : Prec))
     (hp_ne_1 : F.p ≠ ((1 : ℕ) : Prec))
     (hexp_bot : F.exp = ⊥) {k e : ℤ}
@@ -863,7 +863,7 @@ private theorem canonical_rep_fixedpoint {F : ParityFormat}
 /-- Fixed-point characterization (`F.p = ⊤, F.exp = (e' : ℤ)`):
 `F.IsOdd (Dyadic.ofIntZpow k e') ↔ Odd k`, for `k ≠ 0`. No saturation
 since `numDigits` adapts to `log|k| + 1`. -/
-theorem isOdd_iff_odd_at_canonical_fixedpoint {F : ParityFormat}
+private theorem isOdd_iff_odd_at_canonical_fixedpoint {F : ParityFormat}
     (hp_top : F.p = ⊤) {e' : ℤ}
     (hexp : F.exp = (e' : QExp)) {k : ℤ} (hk_ne : k ≠ 0) :
     F.IsOdd (Dyadic.ofIntZpow k e') ↔ Odd k := by

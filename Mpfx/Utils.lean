@@ -25,7 +25,7 @@ lemma two_zpow_split_toNat {e₁ e₂ : ℤ} (h : e₂ ≤ e₁) :
   congr 1; ring
 
 /-- `(2:ℝ)^(e - f) = ((2:ℤ)^(e - f).toNat : ℝ)` when `f ≤ e`. -/
-lemma two_zpow_diff_eq (e f : ℤ) (h : f ≤ e) :
+private lemma two_zpow_diff_eq (e f : ℤ) (h : f ≤ e) :
     (2 : ℝ) ^ (e - f) = ((2 : ℤ) ^ (e - f).toNat : ℝ) := by
   have hn_eq : ((e - f).toNat : ℤ) = e - f := Int.toNat_of_nonneg (by omega)
   rw [show (2 : ℝ) ^ (e - f) = (2 : ℝ) ^ (((e - f).toNat : ℤ) : ℤ) by rw [hn_eq],
@@ -180,7 +180,7 @@ theorem abs_ceil_le_of_abs_lt {r : ℝ} {N : ℤ} (h : |r| < (N : ℝ)) :
 `|a| < 2^p`, `e_a < e`, and `e = log|x|+1-p` (so `e` came from the precision
 side of `canonicalExp`), then `|z| < 2^(log|x|)`. Combined with `|x| ≥
 2^(log|x|)` this strictly bounds `|z|` below `|x|`. -/
-theorem abs_lt_two_pow_log_of_precision {p : ℕ} {x : ℝ}
+private theorem abs_lt_two_pow_log_of_precision {p : ℕ} {x : ℝ}
     {a e e_a : ℤ} (ha_bound : |a| < (2 : ℤ) ^ p)
     (h_ea_lt : e_a < e) (h_e_eq_log : e = Int.log 2 |x| + 1 - (p : ℤ)) :
     |(a : ℝ) * (2 : ℝ) ^ e_a| < (2 : ℝ) ^ (Int.log 2 |x|) := by
@@ -322,12 +322,12 @@ theorem log_two_zpow (k : ℤ) : Int.log 2 ((2 : ℝ) ^ k) = k := by
   simpa using Int.log_zpow (R := ℝ) (b := 2) (by norm_num) k
 
 /-- `Int.log 2 ((2 : ℝ) ^ n) = n` for natural `n`. -/
-theorem log_two_pow_nat (n : ℕ) : Int.log 2 ((2 : ℝ) ^ n) = (n : ℤ) := by
+private theorem log_two_pow_nat (n : ℕ) : Int.log 2 ((2 : ℝ) ^ n) = (n : ℤ) := by
   rw [show ((2 : ℝ) ^ n) = ((2 : ℝ) ^ (n : ℤ)) from (zpow_natCast (2 : ℝ) n).symm]
   exact Int.log_zpow (by norm_num : 1 < 2) (n : ℤ)
 
 /-- Cast `((2 : ℤ) ^ (p - 1) : ℝ) = (2 : ℝ) ^ (p - 1 : ℤ)`. -/
-theorem cast_two_pow_pred {p : ℕ} (hp : 0 < p) :
+private theorem cast_two_pow_pred {p : ℕ} (hp : 0 < p) :
     ((2 : ℤ) ^ (p - 1) : ℝ) = (2 : ℝ) ^ ((p : ℤ) - 1) := by
   rw [show ((p : ℤ) - 1 : ℤ) = ((p - 1 : ℕ) : ℤ) by omega, zpow_natCast]
   push_cast; rfl

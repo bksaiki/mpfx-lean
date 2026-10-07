@@ -139,7 +139,7 @@ on `exp₂ ≤ exp₁`.
 Each necessity proof exhibits one value of `F₁` that `F₂` cannot represent. -/
 
 /-- Above any real there is a power of two, at an exponent above `e`. -/
-theorem exists_zpow_gt (r : ℝ) (e : QExp) :
+private theorem exists_zpow_gt (r : ℝ) (e : QExp) :
     ∃ k : ℤ, e ≤ (k : QExp) ∧ r < (2 : ℝ) ^ k := by
   refine ⟨max (e.unbotD 0) (Int.log 2 r + 1), ?_, lt_of_lt_of_le
     (Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) r)
@@ -150,7 +150,7 @@ theorem exists_zpow_gt (r : ℝ) (e : QExp) :
 
 /-- Below any positive real there is a scaled power of two `C · 2^k`, at an
 exponent below `e`. -/
-theorem exists_mul_zpow_le {C r : ℝ} (hC : 0 < C) (hr : 0 < r) (e : ℤ) :
+private theorem exists_mul_zpow_le {C r : ℝ} (hC : 0 < C) (hr : 0 < r) (e : ℤ) :
     ∃ k : ℤ, k ≤ e ∧ C * (2 : ℝ) ^ k ≤ r := by
   refine ⟨min e (Int.log 2 (r / C)), min_le_left _ _, ?_⟩
   have h1 : (2 : ℝ) ^ (min e (Int.log 2 (r / C))) ≤ (2 : ℝ) ^ (Int.log 2 (r / C)) :=
@@ -162,7 +162,7 @@ theorem exists_mul_zpow_le {C r : ℝ} (hC : 0 < C) (hr : 0 < r) (e : ℤ) :
 
 /-- **Necessity of `b₁ ≤ b₂`.** A finite `b₁` is a value of `F₁`, so it must be
 a value of `F₂`; an infinite `b₁` gives `F₁` arbitrarily large powers of two. -/
-theorem b_le_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial)
+private theorem b_le_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial)
     (h : F₁ ⊆ F₂) : F₁.b ≤ F₂.b := by
   cases hb2 : F₂.b using Bound.recTopCoe with
   | top => exact le_top
@@ -237,23 +237,23 @@ wider than `p₂` digits. -/
 /-- `2^p + 1`: odd, exactly `p+1` digits wide. -/
 def wit (p : ℕ) : ℤ := 2 ^ p + 1
 
-theorem one_lt_two_pow {p : ℕ} (hp : 0 < p) : (1 : ℤ) < 2 ^ p := by
+private theorem one_lt_two_pow {p : ℕ} (hp : 0 < p) : (1 : ℤ) < 2 ^ p := by
   calc (1 : ℤ) = 2 ^ 0 := by norm_num
     _ < 2 ^ p := pow_lt_pow_right₀ (by norm_num) hp
 
-theorem wit_pos (p : ℕ) : 0 < wit p := by unfold wit; positivity
+private theorem wit_pos (p : ℕ) : 0 < wit p := by unfold wit; positivity
 
-theorem odd_wit {p : ℕ} (hp : 0 < p) : Odd (wit p) :=
+private theorem odd_wit {p : ℕ} (hp : 0 < p) : Odd (wit p) :=
   (by rw [Int.even_pow]; exact ⟨even_two, hp.ne'⟩ : Even ((2 : ℤ) ^ p)).add_one
 
 /-- `wit p₂` is too wide for `p₂` digits ... -/
-theorem not_precisionAtMost_wit {p₂ : ℕ} (hp : 0 < p₂) (k : ℤ) :
+private theorem not_precisionAtMost_wit {p₂ : ℕ} (hp : 0 < p₂) (k : ℤ) :
     ¬ Dyadic.precisionAtMost (p₂ : Prec) (Dyadic.ofIntZpow (wit p₂) k) :=
   Dyadic.not_precisionAtMost_of_odd (odd_wit hp) (by rw [Dyadic.coe_ofIntZpow])
     (by rw [abs_of_pos (wit_pos p₂)]; unfold wit; omega)
 
 /-- ... but fits in any strictly larger precision bound. -/
-theorem precisionAtMost_wit {p₁ : Prec} {p₂ : ℕ} (hp : 0 < p₂)
+private theorem precisionAtMost_wit {p₁ : Prec} {p₂ : ℕ} (hp : 0 < p₂)
     (hlt : (p₂ : Prec) < p₁) (k : ℤ) :
     Dyadic.precisionAtMost p₁ (Dyadic.ofIntZpow (wit p₂) k) := by
   cases hp' : p₁ using ENat.recTopCoe with
@@ -270,7 +270,7 @@ theorem precisionAtMost_wit {p₁ : Prec} {p₂ : ℕ} (hp : 0 < p₂)
       _ ≤ 2 ^ q := pow_le_pow_right₀ (by norm_num) hq
 
 /-- `wit p₂ · 2^k`, as a positive real. -/
-theorem abs_coe_wit (p₂ : ℕ) (k : ℤ) :
+private theorem abs_coe_wit (p₂ : ℕ) (k : ℤ) :
     |((Dyadic.ofIntZpow (wit p₂) k : Dyadic) : ℝ)| = ((wit p₂ : ℤ) : ℝ) * (2 : ℝ) ^ k := by
   have hw : (0 : ℝ) < ((wit p₂ : ℤ) : ℝ) := by exact_mod_cast wit_pos p₂
   rw [Dyadic.coe_ofIntZpow, abs_of_pos (mul_pos hw (zpow_pos (by norm_num) k))]
@@ -278,7 +278,7 @@ theorem abs_coe_wit (p₂ : ℕ) (k : ℤ) :
 /-- **Necessity of the `𝒜-Contains-Sub` premises.** If `F₁ ⊆ F₂` yet `p₁ > p₂`,
 then `exp₁` is finite and `b₁ ≤ 2^(exp₁ + p₂)`; otherwise `wit p₂ · 2^exp₁` is a
 value of `F₁` that `F₂` cannot represent. -/
-theorem sub_test_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial)
+private theorem sub_test_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial)
     (h : F₁ ⊆ F₂) (hp : ¬ F₁.p ≤ F₂.p) :
     ∃ (e₁ : ℤ) (p₂ : ℕ), F₁.exp = (e₁ : QExp) ∧ 0 < p₂ ∧ F₂.p = (p₂ : Prec) ∧
       F₁.b ≤ ((nnPow (e₁ + (p₂ : ℤ)) : NonNegDyadic) : Bound) := by
