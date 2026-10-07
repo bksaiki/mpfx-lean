@@ -849,8 +849,8 @@ private theorem extend_one_extend_one_p_exp (F : FiniteFormat) :
 theorem extend_one_subset_of_withBound_subset {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat) :
     (F₁.extend 1).toFormat ⊆ F₂.toFormat := by
-  intro y hy
-  apply hsub
+  refine Format.subset_of_mem hsub.specials fun y hy => ?_
+  apply hsub.mem
   obtain ⟨hp_y, hq_y, hb_y⟩ := hy
   refine ⟨hp_y, hq_y, ?_⟩
   -- goal: boundOK F₁.boundAfterNext y (withBound replaces only the bound).
@@ -1077,13 +1077,13 @@ theorem extend_two_subset_of_withBound_subset {F₁ F₂ : FiniteFormat}
   obtain ⟨he_p, he_exp⟩ := extend_one_extend_one_p_exp F₁
   have hsub' : (((F₁.extend 1).extend 1).toFormat.withBound
       (F₁.extend 1).toFormat.boundAfterNext) ⊆ F₂.toFormat := by
-    intro y hy
+    refine Format.subset_of_mem hsub.specials fun y hy => ?_
     obtain ⟨hp, hq, hb⟩ := hy
-    apply hsub
+    apply hsub.mem
     refine ⟨?_, ?_, hb⟩
     · rw [Format.withBound_p] at hp ⊢; rwa [he_p] at hp
     · rw [Format.withBound_exp] at hq ⊢; rwa [he_exp] at hq
-  intro y hy
+  refine Format.subset_of_mem hsub.specials fun y hy => ?_
   refine extend_one_subset_of_withBound_subset hsub' y ?_
   obtain ⟨hp, hq, hb⟩ := hy
   exact ⟨by rwa [he_p], by rwa [he_exp], hb⟩
@@ -1104,9 +1104,9 @@ theorem two_le_p_or_trivial_of_extend_two_withBound_subset {F₁ F₂ : FiniteFo
   obtain ⟨he_p, he_exp⟩ := extend_one_extend_one_p_exp F₁
   have hsub' : (((F₁.extend 1).extend 1).toFormat.withBound
       (F₁.extend 1).toFormat.boundAfterNext) ⊆ F₂.toFormat := by
-    intro y hy
+    refine Format.subset_of_mem hsub.specials fun y hy => ?_
     obtain ⟨hp, hq, hb⟩ := hy
-    apply hsub
+    apply hsub.mem
     refine ⟨?_, ?_, hb⟩
     · rw [Format.withBound_p] at hp ⊢; rwa [he_p] at hp
     · rw [Format.withBound_exp] at hq ⊢; rwa [he_exp] at hq

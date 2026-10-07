@@ -79,7 +79,7 @@ private theorem toZero_noOverflow_F₂ {F₁ F₂ : FiniteFormat}
       abs_lt_next_of_toZero_inbound hF₁b hb₁_mem hy hby
     -- `|z| ≤ |x| < N` and `N ∈ F₂`, so `z` is in-bound.
     have hN_F₂ : N ∈ F₂ := by
-      apply hsub
+      apply hsub.mem
       exact ⟨hN_mem.1, hN_mem.2.1, boundOK_boundAfterNext_next hF₁b hN_nn⟩
     have hzN : |(z : ℝ)| ≤ |(N : ℝ)| := by
       rw [abs_of_nonneg hN_nn]
@@ -301,7 +301,8 @@ private theorem toOdd_toZero_noOverflow_chain {F₁ F₂ : FiniteFormat}
   -- bound — but `±N` does.
   set F₁wB : FiniteFormat := FiniteFormat.withBoundFF F₁ F₁.toFormat.boundAfterNext
     with hF₁wB_def
-  have hsub' : ((F₁wB.extend 1)).toFormat ⊆ F₂.unbounded.toFormat := fun d hd =>
+  have hsub' : ((F₁wB.extend 1)).toFormat ⊆ F₂.unbounded.toFormat :=
+      Format.subset_of_mem hsub.specials fun d hd =>
     mem_unbounded_of_mem (F := F₂) (hsub d ⟨hd.1, hd.2.1, hd.2.2⟩)
   have h_notmem : z ∉ F₁wB :=
     toOdd_notMem_of_extend_subset hsub' hp_F₂ hz hxz
@@ -405,7 +406,8 @@ private theorem toOdd_toOdd_noOverflow_chain {F₁ F₂ : FiniteFormat}
   -- and lift back: `w` is the unbounded RTO rounding of `x` in `F₁`.
   have hw_G : RoundsFinite G .toOdd (z : ℝ) w :=
     RoundsFinite.toOdd_restrict (F := G) hw hG_bnd_w
-  have hsub_G : G.toFormat ⊆ F₂.unbounded.toFormat := fun d hd =>
+  have hsub_G : G.toFormat ⊆ F₂.unbounded.toFormat :=
+      Format.subset_of_mem hsub.specials fun d hd =>
     mem_unbounded_of_mem (F := F₂) (hsub d hd)
   have hxw_G : RoundsFinite G .toOdd x w := rndRTO_RTO hsub_G hp_F₂ hz hw_G
   have hxw : RoundsFinite F₁.unbounded .toOdd x w :=
@@ -590,7 +592,7 @@ private theorem toOdd_nearest_noOverflow_chain {F₁ F₂ : FiniteFormat}
   have h_notmem : z ∉ FiniteFormat.withBoundFF (F₁.extend 1)
       ((F₁.extend 1).toFormat.boundAfterNext) := by
     apply toOdd_notMem_of_extend_subset (F₂ := F₂.unbounded) ?_ hp_F₂ hz hxz
-    intro d hd
+    refine Format.subset_of_mem hsub.specials fun d hd => ?_
     exact mem_unbounded_of_mem (F := F₂) (hsub d
       (Format.extend_one_extend_one_subset_extend_two
         (F₁.toFormat.withBound ((F₁.extend 1).toFormat.boundAfterNext)) d hd))
@@ -1061,7 +1063,7 @@ theorem roundsRTZ_RTZ {F₁ F₂ : FiniteFormat}
             exact abs_nonpos_iff.mp h)
           hF₁b hb₁0 x
       · exact rounds_floor_lift hD_le hD_max (key _
-          (fun v hv => hsub v ⟨hv.1, hv.2.1,
+          (Format.subset_of_mem hsub.specials fun v hv => hsub v ⟨hv.1, hv.2.1,
             boundOK_boundAfterNext_mono
               (G := FiniteFormat.withBoundFF F₁ (D : Bound))
               hF₁b rfl rfl hmono hv.2.2⟩) hreg_G)
@@ -1069,7 +1071,8 @@ theorem roundsRTZ_RTZ {F₁ F₂ : FiniteFormat}
   have h₁u := not_isUndefined_toZero F
   have h₂u := not_isUndefined_toZero F₂
   -- Plain containment, recovered from the paper form.
-  have hsub' : F.toFormat ⊆ F₂.toFormat := fun d hd =>
+  have hsub' : F.toFormat ⊆ F₂.toFormat :=
+      Format.subset_of_mem hsub.specials fun d hd =>
     hsub d ⟨hd.1, hd.2.1, boundOK_boundAfterNext_of_boundOK hd.2.2⟩
   have hy := rndUnbounded_satisfies F .toZero x h₁u
   set y := rndUnbounded F .toZero x h₁u with hy_def
@@ -1087,7 +1090,8 @@ theorem roundsRTZ_RTZ {F₁ F₂ : FiniteFormat}
     have hwR : Rounds F .toZero (z : ℝ) (.finite w) := ⟨h₁u, hw, hw_bnd⟩
     -- Double rounding holds: restrict the chain, compose spec-relationally,
     -- and lift back along the in-bound direct rounding.
-    have hsub_u : F.toFormat ⊆ F₂.unbounded.toFormat := fun d hd =>
+    have hsub_u : F.toFormat ⊆ F₂.unbounded.toFormat :=
+      Format.subset_of_mem hsub.specials fun d hd =>
       mem_unbounded_of_mem (F := F₂) (hsub' d hd)
     have hw_bdd : RoundsFinite F .toZero (z : ℝ) w :=
       RoundsFinite.toZero_restrict hw hw_bnd
@@ -1124,7 +1128,8 @@ theorem roundsRAZ_RAZ {F₁ F₂ : FiniteFormat}
     have hwR : Rounds F₁ .awayZero (z : ℝ) (.finite w) := ⟨h₁u, hw, hw_bnd⟩
     -- Double rounding holds: restrict the chain, compose spec-relationally,
     -- and lift back along the in-bound direct rounding.
-    have hsub_u : F₁.toFormat ⊆ F₂.unbounded.toFormat := fun d hd =>
+    have hsub_u : F₁.toFormat ⊆ F₂.unbounded.toFormat :=
+      Format.subset_of_mem hsub.specials fun d hd =>
       mem_unbounded_of_mem (F := F₂) (hsub d hd)
     have hw_bdd : RoundsFinite F₁ .awayZero (z : ℝ) w :=
       RoundsFinite.awayZero_restrict hw hw_bnd
@@ -1165,7 +1170,7 @@ theorem roundsRTO_RTO {F₁ F₂ : FiniteFormat}
           (fun hz => by rw [RoundsFinite.eq_zero_of_zero hz, Dyadic.coe_real_zero])
           hF₁b hb₁0 x
       · exact rounds_floor_lift hD_le hD_max (key _
-          (fun v hv => hsub v ⟨hv.1, hv.2.1,
+          (Format.subset_of_mem hsub.specials fun v hv => hsub v ⟨hv.1, hv.2.1,
             boundOK_boundAfterNext_mono
               (G := FiniteFormat.withBoundFF F₁ (D : Bound))
               hF₁b rfl rfl hmono hv.2.2⟩) hreg_G h₁u)
@@ -1200,7 +1205,8 @@ theorem roundsRTO_RTO {F₁ F₂ : FiniteFormat}
     have hwR : Rounds F .toOdd (z : ℝ) (.finite w) := ⟨h₁u, hw, hw_bnd⟩
     -- Double rounding holds: restrict the chain, compose spec-relationally,
     -- and lift back along the in-bound direct rounding.
-    have hsub_u : F.toFormat ⊆ F₂.unbounded.toFormat := fun d hd =>
+    have hsub_u : F.toFormat ⊆ F₂.unbounded.toFormat :=
+      Format.subset_of_mem hsub.specials fun d hd =>
       mem_unbounded_of_mem (F := F₂)
         (hsub d ⟨hd.1, hd.2.1, boundOK_boundAfterNext_of_boundOK hd.2.2⟩)
     have hw_bdd : RoundsFinite F .toOdd (z : ℝ) w :=
@@ -1242,7 +1248,7 @@ theorem roundsRTO_RTZ {F₁ F₂ : FiniteFormat}
           (fun hz => by rw [RoundsFinite.eq_zero_of_zero hz, Dyadic.coe_real_zero])
           hF₁b hb₁0 x
       · exact rounds_floor_lift hD_le hD_max (key _
-          (fun v hv => hsub v ⟨hv.1, hv.2.1,
+          (Format.subset_of_mem hsub.specials fun v hv => hsub v ⟨hv.1, hv.2.1,
             boundOK_boundAfterNext_mono
               (G := FiniteFormat.withBoundFF F₁ (D : Bound))
               hF₁b rfl rfl hmono hv.2.2⟩) hreg_G)
@@ -1283,7 +1289,8 @@ theorem roundsRTO_RTZ {F₁ F₂ : FiniteFormat}
     -- Double rounding holds: restrict the chain, compose spec-relationally,
     -- and lift back along the in-bound direct rounding.
     have hsub_u : ((F.extend 1).toFormat.withBound F.toFormat.boundAfterNext)
-        ⊆ F₂.unbounded.toFormat := fun d hd =>
+        ⊆ F₂.unbounded.toFormat :=
+      Format.subset_of_mem hsub.specials fun d hd =>
       mem_unbounded_of_mem (F := F₂) (hsub d hd)
     have hw_bdd : RoundsFinite F .toZero (z : ℝ) w :=
       RoundsFinite.toZero_restrict hw hw_bnd
@@ -1329,7 +1336,8 @@ theorem roundsRTO_RAZ {F₁ F₂ : FiniteFormat}
     -- Double rounding holds: restrict the chain, compose spec-relationally,
     -- and lift back along the in-bound direct rounding.
     have hsub_u : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext)
-        ⊆ F₂.unbounded.toFormat := fun d hd =>
+        ⊆ F₂.unbounded.toFormat :=
+      Format.subset_of_mem hsub.specials fun d hd =>
       mem_unbounded_of_mem (F := F₂) (hsub d hd)
     have hw_bdd : RoundsFinite F₁ .awayZero (z : ℝ) w :=
       RoundsFinite.awayZero_restrict hw hw_bnd
@@ -1374,7 +1382,7 @@ theorem roundsRTO_RN {F₁ F₂ : FiniteFormat}
           (fun hz => by rw [RoundsFinite.eq_zero_of_zero hz, Dyadic.coe_real_zero])
           hF₁b hb₁0 x
       · exact rounds_floor_lift hD_le hD_max (key _
-          (fun v hv => hsub v ⟨hv.1, hv.2.1,
+          (Format.subset_of_mem hsub.specials fun v hv => hsub v ⟨hv.1, hv.2.1,
             boundOK_boundAfterNext_mono (F := F₁.extend 1)
               (G := (FiniteFormat.withBoundFF F₁ (D : Bound)).extend 1)
               hF₁b rfl rfl hmono_ext hv.2.2⟩) hreg_G h₁u)
@@ -1416,7 +1424,8 @@ theorem roundsRTO_RN {F₁ F₂ : FiniteFormat}
     -- Double rounding holds: restrict the chain, compose spec-relationally,
     -- and lift back along the in-bound direct rounding.
     have hsub_u : ((F.extend 2).toFormat.withBound (F.extend 1).toFormat.boundAfterNext)
-        ⊆ F₂.unbounded.toFormat := fun d hd =>
+        ⊆ F₂.unbounded.toFormat :=
+      Format.subset_of_mem hsub.specials fun d hd =>
       mem_unbounded_of_mem (F := F₂) (hsub d hd)
     have hw_bdd : RoundsFinite F (.nearest tb) (z : ℝ) w :=
       RoundsFinite.nearest_restrict hw hw_bnd

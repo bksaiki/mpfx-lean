@@ -151,6 +151,20 @@ and now hold for any `F₁.specials`.
 
 ### Phase 2: containment includes specials
 
+**Done.** Diverged from the plan:
+
+- **No mass `hsub.mem` rewrite.** A `CoeFun (F₁ ⊆ F₂)` instance applies a
+  subset proof to a numeric member, so the ~150 `hsub y hy` sites compile
+  unchanged; only tactic `apply hsub` became `apply hsub.mem` (4 sites).
+- Subset proofs are built with the new `Format.subset_of_mem hs fun y hy => …`
+  (specials first, so tactic proofs keep their shape). About 20 sites in
+  `Format/Next`, `DoubleRounding/{Basic,Nearest,Total}`; their specials come
+  from the hypothesis they already use (`hsub.specials`), definitionally equal
+  through `extend`/`withBound`/`unbounded`.
+- `subset_unbounded_of_le` gained a specials hypothesis;
+  `AnchorNeighborhood.transport` gained `hs : G.specials ⊆ F.specials`
+  (`Set.empty_subset _` at its four uses).
+
 - `Format/Containment.lean`: `Subset` becomes a structure,
   `mem : ∀ x : Dyadic, x ∈ F₁ → x ∈ F₂` plus `specials : F₁.specials ⊆ F₂.specials`.
   `ContainsPrec`/`ContainsSub` gain the conjunct; `containsPrec`,

@@ -441,7 +441,8 @@ private theorem rndRTO_RTZ_pos {F₁ F₂ : FiniteFormat}
     (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .toZero (z : ℝ) w') :
     RoundsFinite F₁ .toZero x w' := by
   -- `F₁ ⊆ F₁.extend 1 ⊆ F₂`.
-  have hsub' : F₁.toFormat ⊆ F₂.toFormat := fun y hy =>
+  have hsub' : F₁.toFormat ⊆ F₂.toFormat :=
+      Format.subset_of_mem hsub.specials fun y hy =>
     hsub y (Format.self_subset_extend F₁.toFormat 1 y hy)
   have hz_nn : 0 ≤ (z : ℝ) := toOdd_nonneg_of_nn hx_pos.le hz
   obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
@@ -550,7 +551,8 @@ private theorem rndRTO_RAZ_pos {F₁ F₂ : FiniteFormat}
     (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .awayZero (z : ℝ) w') :
     RoundsFinite F₁ .awayZero x w' := by
   -- `F₁ ⊆ F₁.extend 1 ⊆ F₂`.
-  have hsub' : F₁.toFormat ⊆ F₂.toFormat := fun y hy =>
+  have hsub' : F₁.toFormat ⊆ F₂.toFormat :=
+      Format.subset_of_mem hsub.specials fun y hy =>
     hsub y (Format.self_subset_extend F₁.toFormat 1 y hy)
   have hz_nn : 0 ≤ (z : ℝ) := toOdd_nonneg_of_nn hx_pos.le hz
   obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz

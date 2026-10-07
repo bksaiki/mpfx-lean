@@ -104,11 +104,12 @@ namespace AnchorNeighborhood
 /-- Transport along formats that agree on `p`, `exp` and `b`: the
 neighborhood only uses numeric membership and parity. -/
 def transport {F G : ParityFormat} (hp : G.p = F.p) (he : G.exp = F.exp)
-    (hb : G.b = F.b) (P : AnchorNeighborhood G) : AnchorNeighborhood F :=
+    (hb : G.b = F.b) (hs : G.specials ⊆ F.specials) (P : AnchorNeighborhood G) :
+    AnchorNeighborhood F :=
   have hmem : ∀ {d : Dyadic}, d ∈ G.toFormat ↔ d ∈ F.toFormat :=
     Format.mem_congr hp he hb
   have hsub : ∀ F₂ : FiniteFormat, F.toFormat ⊆ F₂.toFormat → G.toFormat ⊆ F₂.toFormat :=
-    fun _ h d hd => h d (hmem.mp hd)
+    fun _ h => Format.subset_of_mem (hs.trans h.specials) fun d hd => h d (hmem.mp hd)
   { t := P.t, s := P.s, lo2 := P.lo2, lo := P.lo, hi := P.hi, mid := P.mid
     lo2_pos := P.lo2_pos, coe_lo := P.coe_lo, coe_hi := P.coe_hi, coe_mid := P.coe_mid
     mem_lo2 := hmem.mp P.mem_lo2
