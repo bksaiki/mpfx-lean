@@ -30,6 +30,8 @@ def withBound (F : Format) (b' : Bound) : Format := { F with b := b' }
 
 @[simp] theorem withBound_b (F : Format) (b' : Bound) :
     (F.withBound b').b = b' := rfl
+@[simp] theorem withBound_specials (F : Format) (b' : Bound) :
+    (F.withBound b').specials = F.specials := rfl
 
 /-- The paper's `next_{F.p, F.exp}(b)` from §5.2: the smallest Dyadic
 in the grid `A(F.p, F.exp, ∞)` strictly above `b`.

@@ -101,6 +101,37 @@ structure AnchorNeighborhood (F₁ : ParityFormat) where
 
 namespace AnchorNeighborhood
 
+/-- Transport along formats that agree on `p`, `exp` and `b`: the
+neighborhood only uses numeric membership and parity. -/
+def transport {F G : ParityFormat} (hp : G.p = F.p) (he : G.exp = F.exp)
+    (hb : G.b = F.b) (P : AnchorNeighborhood G) : AnchorNeighborhood F :=
+  have hmem : ∀ {d : Dyadic}, d ∈ G.toFormat ↔ d ∈ F.toFormat :=
+    Format.mem_congr hp he hb
+  have hsub : ∀ F₂ : FiniteFormat, F.toFormat ⊆ F₂.toFormat → G.toFormat ⊆ F₂.toFormat :=
+    fun _ h d hd => h d (hmem.mp hd)
+  { t := P.t, s := P.s, lo2 := P.lo2, lo := P.lo, hi := P.hi, mid := P.mid
+    lo2_pos := P.lo2_pos, coe_lo := P.coe_lo, coe_hi := P.coe_hi, coe_mid := P.coe_mid
+    mem_lo2 := hmem.mp P.mem_lo2
+    mem_lo := hmem.mp P.mem_lo
+    mem_hi := hmem.mp P.mem_hi
+    even_lo2 := P.even_lo2.congr hp he
+    even_hi := P.even_hi.congr hp he
+    not_odd_hi := fun h => P.not_odd_hi (h.congr hp.symm he.symm)
+    f1_floor_lo := fun v hv => P.f1_floor_lo v (hmem.mpr hv)
+    f1_ceil_lo2 := fun v hv => P.f1_ceil_lo2 v (hmem.mpr hv)
+    f1_floor_hi := fun v hv => P.f1_floor_hi v (hmem.mpr hv)
+    f1_ceil_hi := fun v hv => P.f1_ceil_hi v (hmem.mpr hv)
+    mid_mem_ext1 := (Format.mem_congr (F := (G.toFiniteFormat.extend 1).toFormat)
+      (G := (F.toFiniteFormat.extend 1).toFormat)
+      (congrArg (· + ((1 : ℕ) : Prec)) hp)
+      (congrArg (WithBot.map (· - ((1 : ℕ) : ℤ))) he) hb).mp P.mid_mem_ext1
+    f2_below_hi := fun F₂ h => P.f2_below_hi F₂ (hsub F₂ h)
+    f2_above_hi := fun F₂ h => P.f2_above_hi F₂ (hsub F₂ h)
+    f2_mid_lo := fun F₂ h => P.f2_mid_lo F₂ (hsub F₂ h)
+    f2_mid_hi := fun F₂ h => P.f2_mid_hi F₂ (hsub F₂ h)
+    f2_mem_mid := P.f2_mem_mid }
+
+
 variable {F₁ : ParityFormat} (P : AnchorNeighborhood F₁)
 
 /-- `F₁`-faithful values of any `s ∈ [lo2, lo2 + 2^(s−1)]` enumerate to

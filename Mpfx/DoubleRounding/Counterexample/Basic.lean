@@ -21,7 +21,7 @@ unbounded magnitude. Built as a `ParityFormat`: both the `finite` and
 `parity` invariants hold because `exp = (e : ℤ) ≠ ⊥`. -/
 def F₁_g (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) : ParityFormat where
   toFiniteFormat :=
-    { toFormat := { p := (p : Prec), exp := (e : QExp), b := ⊤ }
+    { toFormat := { p := (p : Prec), exp := (e : QExp), b := ⊤, specials := ∅ }
       finite := Or.inr WithBot.coe_ne_bot
       pos := by simp; omega }
   parity := Or.inr WithBot.coe_ne_bot

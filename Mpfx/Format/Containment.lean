@@ -69,7 +69,8 @@ theorem mem_unbounded_of_le {F : Format} {p : Prec} {e : QExp}
     {v : Dyadic} (hp : p ≤ F.p) (he : F.exp ≤ e)
     (hvp : Dyadic.precisionAtMost p v) (hvq : Dyadic.quantumAtLeast e v) :
     v ∈ F.unbounded :=
-  subset_unbounded_of_le (G := { p := p, exp := e, b := ⊤ }) hp he v ⟨hvp, hvq, trivial⟩
+  subset_unbounded_of_le (G := { p := p, exp := e, b := ⊤, specials := ∅ }) hp he v
+    ⟨hvp, hvq, trivial⟩
 
 /-- The non-negative dyadic `2 ^ e = 1 · 2^e`. -/
 def nnPow (e : ℤ) : NonNegDyadic :=
@@ -382,13 +383,15 @@ theorem subset_iff_contains {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F�
 `k` (bound unchanged). Used by §5.2 to phrase the double-rounding rules'
 intermediate formats `A(p₁ + k, exp₁ − k, b₁)`. -/
 
-/-- Extend `F` by `k` bits: `p ↦ p + k`, `exp ↦ exp − k`, `b` unchanged. -/
+/-- Extend `F` by `k` bits: `p ↦ p + k`, `exp ↦ exp − k`, `b` and specials unchanged. -/
 def extend (F : Format) (k : ℕ) : Format where
   p := F.p + k
   exp := F.exp.map (· - (k : ℤ))
   b := F.b
+  specials := F.specials
 
 @[simp] theorem extend_b (F : Format) k : (F.extend k).b = F.b := rfl
+@[simp] theorem extend_specials (F : Format) k : (F.extend k).specials = F.specials := rfl
 
 /-- `F ⊆ F.extend k`: extending only relaxes the precision and quantum
 constraints. -/

@@ -4,13 +4,26 @@ import Mathlib.Data.Int.Log
 /-!
 # Abstract number formats (§4.2)
 
-`Format` (`𝒜(p, exp, b)`) and its membership relation, the `FiniteFormat`
-subtype, its canonical exponent, and the digit count `numDigits`.
+`Format` (`𝒜(p, exp, b, S)`) and its membership relation, the special values
+`Special` / `WithSpecial`, the `FiniteFormat` subtype, its canonical exponent,
+and the digit count `numDigits`.
 -/
 
 namespace Mpfx
 
-/-- The abstract number format `𝒜(p, exp, b)`.
+/-- A non-numeric value: an infinity or NaN. -/
+inductive Special where
+  | inf (negative : Bool)
+  | nan
+deriving DecidableEq, Repr
+
+/-- `α` extended with the special values. -/
+inductive WithSpecial (α : Type) where
+  | finite (a : α)
+  | special (s : Special)
+deriving DecidableEq, Repr
+
+/-- The abstract number format `𝒜(p, exp, b, S)`.
 
 * `p : Prec` — maximum precision (in binary digits). `p = 0` is the trivial
   format `{0}`; `⊤` denotes "no precision constraint" (the format is
@@ -20,11 +33,13 @@ namespace Mpfx
   constraint" (the format is unbounded floating-point).
 * `b : Bound` — non-negative magnitude bound. `NonNegDyadic` enforces
   `b ≥ 0`; `⊤` denotes "unbounded".
+* `specials : Set Special` — the special values the format represents.
 -/
 structure Format where
   p : Prec
   exp : QExp
   b : Bound
+  specials : Set Special
 
 namespace Format
 
@@ -49,12 +64,25 @@ def unbounded (F : Format) : Format := { F with b := ⊤ }
 @[simp] theorem unbounded_p (F : Format) : F.unbounded.p = F.p := rfl
 @[simp] theorem unbounded_exp (F : Format) : F.unbounded.exp = F.exp := rfl
 @[simp] theorem unbounded_b (F : Format) : F.unbounded.b = ⊤ := rfl
+@[simp] theorem unbounded_specials (F : Format) : F.unbounded.specials = F.specials := rfl
 @[simp] theorem unbounded_unbounded (F : Format) :
     F.unbounded.unbounded = F.unbounded := rfl
 
 end Format
 
 instance : Membership Dyadic Format := ⟨Format.Mem⟩
+
+/-- The values of `F`, numeric and special. Not a `Membership` instance: a second
+instance on `Format` would clash with `Membership Dyadic Format`. -/
+def Format.values (F : Format) : Set (WithSpecial Dyadic)
+  | .finite d => d ∈ F
+  | .special s => s ∈ F.specials
+
+@[simp] theorem Format.finite_mem_values {F : Format} {d : Dyadic} :
+    WithSpecial.finite d ∈ F.values ↔ d ∈ F := Iff.rfl
+
+@[simp] theorem Format.special_mem_values {F : Format} {s : Special} :
+    WithSpecial.special s ∈ F.values ↔ s ∈ F.specials := Iff.rfl
 
 namespace Format
 
@@ -123,6 +151,12 @@ theorem bound_mem {F : Format} (hb : BoundRep F) {bv : NonNegDyadic}
   rw [hF]
   change |((bv.val : Dyadic) : ℚ)| ≤ ((bv.val : Dyadic) : ℚ)
   rw [abs_of_nonneg bv.property]
+
+/-- Numeric membership depends only on `p`, `exp` and `b`. -/
+theorem mem_congr {F G : Format} (hp : F.p = G.p) (he : F.exp = G.exp) (hb : F.b = G.b)
+    {d : Dyadic} : d ∈ F ↔ d ∈ G := by
+  change Mem F d ↔ Mem G d
+  unfold Mem; rw [hp, he, hb]
 
 /-- Zero is in every format. -/
 theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by

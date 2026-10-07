@@ -56,7 +56,7 @@ def toSet (F : Format) : Set Dyadic := {x | x ∈ F}
 /-- Paper's `⊗`: multiplicative format inference.  Returns
 `𝒜(p₁ + p₂, exp₁ + exp₂, b₁ × b₂)`.  The bound is constructed by `match`:
 when both operand bounds are finite the result is their product (non-negative
-by `mul_nonneg`); otherwise `⊤`. -/
+by `mul_nonneg`); otherwise `⊤`. No specials. -/
 def opMul (F₁ F₂ : Format) : Format where
   p := F₁.p + F₂.p
   exp := F₁.exp + F₂.exp
@@ -67,6 +67,7 @@ def opMul (F₁ F₂ : Format) : Format where
             push_cast at this ⊢
             exact this⟩ : NonNegDyadic) : Bound)
     | _, _ => ⊤
+  specials := ∅
 
 /-- Tight precision bound for `⊕`:
 `p = ⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉`, or `⊤` when either operand bound
@@ -80,7 +81,8 @@ noncomputable def opAddPrec (F₁ F₂ : Format) : Prec :=
 
 /-- Paper's `⊕`: additive format inference.  Returns the inferred `Format`
 `𝒜(opAddPrec, min(exp₁, exp₂), b₁ + b₂)`.  The bound is constructed by `match`
-on both operand bounds (their sum, non-negative by `add_nonneg`), else `⊤`. -/
+on both operand bounds (their sum, non-negative by `add_nonneg`), else `⊤`.
+No specials. -/
 noncomputable def opAdd (F₁ F₂ : Format) : Format where
   p := opAddPrec F₁ F₂
   exp := min F₁.exp F₂.exp
@@ -91,6 +93,7 @@ noncomputable def opAdd (F₁ F₂ : Format) : Format where
             push_cast at this ⊢
             exact this⟩ : NonNegDyadic) : Bound)
     | _, _ => ⊤
+  specials := ∅
 
 /-! ## Predicate-level helpers (private) -/
 
