@@ -13,13 +13,12 @@ development:
    `FiniteFormat extends Format` rules out `(p = ⊤, exp = ⊥)` and `p = 0`;
    `ParityFormat extends FiniteFormat` additionally
    rules out `(p = 1, exp = ⊥)` so `IsOdd` / `IsEven` are anchored.
-2. **Constructive rounding.** Alongside the spec relation
+2. **Explicit rounding.** Alongside the spec relation
    `Rounds F rm x r : Prop`, a function `rnd F rm x : RoundResult`
    computes the rounded value via `Int.log` + `Int.floor`/`Int.ceil`
-   (FLoPS-style). No `Classical.choose`. The function is
-   `noncomputable` only because real comparisons aren't computably
-   decidable. The constructive / classical boundary is at the file
-   level: `Rounding/Defs.lean` is constructive, `Rounding/Op.lean` is classical.
+   (FLoPS-style). No `Classical.choose` in the definition; it is
+   `noncomputable` because real comparisons aren't computably
+   decidable. Proofs are classical throughout (see `docs/DESIGN.md`).
 3. **ℚ substrate.** `Dyadic` is a subring of `ℚ` (not `ℝ`), giving
    `DecidableEq` and a decidable `LinearOrder` for free from `ℚ`, while
    keeping the full Mathlib algebra/tactic suite. `ℝ` is confined to
@@ -86,7 +85,7 @@ Mpfx/
 │                     opMul/opAdd/opAddPrec, mul_subset/add_subset (the inferred
 │                     format contains every product/sum), neg_subset/abs_subset.
 ├── Rounding/
-│   ├── Defs.lean     relational layer (constructive):
+│   ├── Defs.lean     relational layer:
 │   │                 TieBreak, RoundingMode,
 │   │                 RoundResult (with signed overflow), RoundResult.neg,
 │   │                 FiniteFormat.IsUndefined,
@@ -103,7 +102,7 @@ Mpfx/
 │   │                 and generic. Mentions no construction.
 │   ├── Parity.lean   neighbors_alternate: adjacent grid points alternate in
 │   │                 parity; the toOdd and nearest .toEven forms
-│   ├── Op.lean, Op/  function layer (noncomputable, classical):
+│   ├── Op.lean, Op/  function layer (noncomputable):
 │   │                 rndInt, rndParity, rndUnbounded, rnd, per-mode soundness,
 │   │                 rndUnbounded_satisfies/_unique, rnd_iff_rounds
 │   └── Ulp.lean      ulp/rndDown/rndUp/midp, the nearest error bound and the
@@ -114,8 +113,8 @@ Mpfx/
     │                 rndRTZ_RTZ, rndRAZ_RAZ(_pos), rndRTO_RTO, rndRTO_RTZ,
     │                 rndRTO_RAZ, rndRTP_RTP, rndRTN_RTN. RTO helper chain
     │                 (toOdd_notMem_of_extend_subset, …), paper-containment
-    │                 helpers (hp_F₂_or_F₁_trivial(_RN),
-    │                 extend_{one,two}_subset_of_paper_subset, *_of_trivial)
+    │                 helpers (two_le_p_or_trivial_of_extend_one_withBound_subset(_RN),
+    │                 extend_{one,two}_subset_of_withBound_subset, *_of_trivial)
     ├── Nearest.lean  rndRTO_RN and its RN web (rndRTO_RN_close_transfer,
     │                 rndRTO_no_tie_contradiction, rndRTO_nearest_facts)
     ├── Restrict.lean per-mode restrict/lift between RoundsFinite F and F.unbounded

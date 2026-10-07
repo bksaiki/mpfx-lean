@@ -589,4 +589,20 @@ theorem midpoint_mem_extend_one_of_p_top (F : FiniteFormat) {exp : ℤ}
   · -- bound: |midpoint| ≤ b, over ℚ.
     exact boundOK_midpoint hb_y₁ hb_y₂
 
+/-- F-adjacent midpoint membership in `F₁.extend 1`. Dispatches on `F₁`'s
+precision/exponent shape, routing to the appropriate discreteness lemma. -/
+theorem midpoint_in_F₁_extend_one_of_F_adjacent {F₁ : FiniteFormat}
+    {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F₁) (hy₂F : y₂ ∈ F₁)
+    (h_lt : (y₁ : ℝ) < (y₂ : ℝ))
+    (h_adj : ∀ y : Dyadic, y ∈ F₁ → (y₁ : ℝ) < (y : ℝ) → (y₂ : ℝ) ≤ (y : ℝ)) :
+    Dyadic.midpoint y₁ y₂ ∈ F₁.extend 1 := by
+  cases hp : F₁.p using ENat.recTopCoe with
+  | top =>
+    cases he : F₁.exp using QExp.recBotCoe with
+    | bot =>
+        exact absurd F₁.finite (by push Not; exact ⟨hp, he⟩)
+    | coe e' => exact midpoint_mem_extend_one_of_p_top F₁ hp he hy₁F hy₂F
+  | coe p' =>
+    exact midpoint_mem_extend_one_of_adjacent F₁ hp hy₁F hy₂F h_lt h_adj
+
 end Mpfx

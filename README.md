@@ -98,7 +98,7 @@ lake exe cache get   # prebuilt Mathlib oleans
 lake build           # checks the whole development; exit 0 = all proofs check
 ```
 
-`lake build` compiles every file (including the constructive `rnd` layer).
+`lake build` compiles every file (including the `rnd` function layer).
 To confirm a result rests on no unexpected axioms, e.g.:
 
 ```lean
@@ -125,7 +125,7 @@ Every theorem listed above depends on exactly these three standard axioms.
 | `Mpfx/Rounding/Defs.lean` | Rounding modes, the `Rounds`/`RoundsFinite` spec, `IsFaithfulRound`. |
 | `Mpfx/Rounding/Basic.lean` | Consequences of the spec: uniqueness, faithfulness, monotonicity. |
 | `Mpfx/Rounding/Parity.lean` | Adjacent grid points alternate in parity. |
-| `Mpfx/Rounding/Op.lean`, `Op/` | The constructive `rnd` and the bridge `rnd_iff_rounds`. |
+| `Mpfx/Rounding/Op.lean`, `Op/` | The rounding function `rnd` and the bridge `rnd_iff_rounds`. |
 | `Mpfx/Rounding/Ulp.lean` | `ulp`, `rndDown`/`rndUp`/`midp`, `succ`/`pred`. |
 | `Mpfx/DoubleRounding/Basic.lean` | §5.2 positive rules (finite form), except RTO→RN. |
 | `Mpfx/DoubleRounding/Nearest.lean` | `rndRTO_RN`. |

@@ -227,16 +227,6 @@ namespace AnchorNeighborhood
 
 variable {F₁ : ParityFormat} (P : AnchorNeighborhood F₁)
 
-/-- RTZ in `F₁` fixes any representable value. -/
-private theorem rounds_RTZ_self {y : Dyadic} (hy : y ∈ F₁.toFormat) :
-    RoundsFinite F₁.toFiniteFormat .toZero ((y : Dyadic) : ℝ) y :=
-  ⟨hy, le_refl _, mul_self_nonneg _, fun _ _ hv_bnd _ => hv_bnd⟩
-
-/-- RAZ in `F₁` fixes any representable value. -/
-private theorem rounds_RAZ_self {y : Dyadic} (hy : y ∈ F₁.toFormat) :
-    RoundsFinite F₁.toFiniteFormat .awayZero ((y : Dyadic) : ℝ) y :=
-  ⟨hy, le_refl _, mul_self_nonneg _, fun _ _ hv_bnd _ => hv_bnd⟩
-
 include P
 
 private theorem hi_pos : (0 : ℝ) < ((P.hi : Dyadic) : ℝ) := by
@@ -270,7 +260,7 @@ private theorem not_rounds_RTO_hi {x : ℝ}
   intro hr
   obtain ⟨_, _, h_parity⟩ := hr
   obtain ⟨F', hF'_eq, hF'_odd⟩ := h_parity hx_ne
-  exact P.not_odd_hi (isOdd_transfer_toFormat hF'_eq hF'_odd)
+  exact P.not_odd_hi ((ParityFormat.IsOdd_iff_of_toFormat_eq hF'_eq _).mp hF'_odd)
 
 /-- Positivity of `x = hi − 2^(K−2)` for `K ≤ t`. -/
 private theorem x_below_pos {K : ℤ} (hK_le : K ≤ P.t) :
@@ -449,7 +439,7 @@ theorem no_rndRNE_RTZ (F₂ : FiniteFormat)
   have h_2K2_pos : (0 : ℝ) < (2 : ℝ) ^ (K - 2) := zpow_pos (by norm_num) _
   exact ⟨((P.hi : Dyadic) : ℝ) - (2 : ℝ) ^ (K - 2), P.hi, P.hi,
     P.f₂_RNE_up F₂ (hsub _ P.mem_hi) h_below,
-    rounds_RTZ_self P.mem_hi,
+    RoundsFinite.toZero_self P.mem_hi,
     P.not_rounds_RTZ_hi (P.x_below_pos hK_le) (by linarith)⟩
 
 /-- **RAZ → RTZ.** -/
@@ -463,7 +453,7 @@ theorem no_rndRAZ_RTZ (F₂ : FiniteFormat)
   have h_2K2_pos : (0 : ℝ) < (2 : ℝ) ^ (K - 2) := zpow_pos (by norm_num) _
   exact ⟨((P.hi : Dyadic) : ℝ) - (2 : ℝ) ^ (K - 2), P.hi, P.hi,
     P.f₂_RAZ_up F₂ hK_le (hsub _ P.mem_hi) h_below,
-    rounds_RTZ_self P.mem_hi,
+    RoundsFinite.toZero_self P.mem_hi,
     P.not_rounds_RTZ_hi (P.x_below_pos hK_le) (by linarith)⟩
 
 /-- **RTZ → RAZ.** -/
@@ -477,7 +467,7 @@ theorem no_rndRTZ_RAZ (F₂ : FiniteFormat)
   have h_2K2_pos : (0 : ℝ) < (2 : ℝ) ^ (K - 2) := zpow_pos (by norm_num) _
   exact ⟨((P.hi : Dyadic) : ℝ) + (2 : ℝ) ^ (K - 2), P.hi, P.hi,
     P.f₂_RTZ_down F₂ (hsub _ P.mem_hi) h_above,
-    rounds_RAZ_self P.mem_hi,
+    RoundsFinite.awayZero_self P.mem_hi,
     P.not_rounds_RAZ_hi (by linarith)⟩
 
 /-- **RNE → RAZ.** -/
@@ -491,7 +481,7 @@ theorem no_rndRNE_RAZ (F₂ : FiniteFormat)
   have h_2K2_pos : (0 : ℝ) < (2 : ℝ) ^ (K - 2) := zpow_pos (by norm_num) _
   exact ⟨((P.hi : Dyadic) : ℝ) + (2 : ℝ) ^ (K - 2), P.hi, P.hi,
     P.f₂_RNE_down F₂ (hsub _ P.mem_hi) h_above,
-    rounds_RAZ_self P.mem_hi,
+    RoundsFinite.awayZero_self P.mem_hi,
     P.not_rounds_RAZ_hi (by linarith)⟩
 
 /-- **RAZ → RTO.** -/
@@ -505,7 +495,7 @@ theorem no_rndRAZ_RTO (F₂ : FiniteFormat)
   have h_2K2_pos : (0 : ℝ) < (2 : ℝ) ^ (K - 2) := zpow_pos (by norm_num) _
   exact ⟨((P.hi : Dyadic) : ℝ) - (2 : ℝ) ^ (K - 2), P.hi, P.hi,
     P.f₂_RAZ_up F₂ hK_le (hsub _ P.mem_hi) h_below,
-    rounds_RTO_self P.mem_hi,
+    RoundsFinite.toOdd_self P.mem_hi,
     P.not_rounds_RTO_hi (by intro h; nlinarith)⟩
 
 /-- **RNE → RTO.** -/
@@ -519,7 +509,7 @@ theorem no_rndRNE_RTO (F₂ : FiniteFormat)
   have h_2K2_pos : (0 : ℝ) < (2 : ℝ) ^ (K - 2) := zpow_pos (by norm_num) _
   exact ⟨((P.hi : Dyadic) : ℝ) - (2 : ℝ) ^ (K - 2), P.hi, P.hi,
     P.f₂_RNE_up F₂ (hsub _ P.mem_hi) h_below,
-    rounds_RTO_self P.mem_hi,
+    RoundsFinite.toOdd_self P.mem_hi,
     P.not_rounds_RTO_hi (by intro h; nlinarith)⟩
 
 /-- **RTZ → RTO.** -/
@@ -533,7 +523,7 @@ theorem no_rndRTZ_RTO (F₂ : FiniteFormat)
   have h_2K2_pos : (0 : ℝ) < (2 : ℝ) ^ (K - 2) := zpow_pos (by norm_num) _
   exact ⟨((P.hi : Dyadic) : ℝ) + (2 : ℝ) ^ (K - 2), P.hi, P.hi,
     P.f₂_RTZ_down F₂ (hsub _ P.mem_hi) h_above,
-    rounds_RTO_self P.mem_hi,
+    RoundsFinite.toOdd_self P.mem_hi,
     P.not_rounds_RTO_hi (by intro h; nlinarith)⟩
 
 /-- **RTZ → RNE.** `x = (lo2 + 2^(t−1)) + δ`, just above the lower midpoint:
@@ -575,7 +565,7 @@ theorem no_rndRTZ_RNE (F₂ : FiniteFormat)
       (boundOK_of_abs_le ?_ (hsub _ P.mem_lo).2.2)
     rw [abs_of_nonneg h_z_nn, abs_of_pos h_lo_pos]; linarith
   have hz_rounds : RoundsFinite F₂ .toZero x_val z :=
-    roundsFinite_toZero_of_unbounded hz_unb h_z_mem
+    RoundsFinite.toZero_restrict hz_unb h_z_mem.2.2
   obtain ⟨hz_mem, hz_abs, hz_sign, hz_max⟩ := hz_rounds
   have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := nonneg_of_mul_nonneg_pos hz_sign h_x_pos
   have h_z_le_x : ((z : Dyadic) : ℝ) ≤ x_val := by
@@ -669,7 +659,7 @@ theorem no_rndRAZ_RNE (F₂ : FiniteFormat)
       (boundOK_of_abs_le ?_ h_hi_in_F₂.2.2)
     rw [abs_of_nonneg h_z_nn, abs_of_pos P.hi_pos]; exact h_z_le_hi
   have hz_rounds : RoundsFinite F₂ .awayZero x_val z :=
-    roundsFinite_awayZero_of_unbounded hz_unb h_z_mem
+    RoundsFinite.awayZero_restrict hz_unb h_z_mem.2.2
   obtain ⟨hz_mem, hz_abs, hz_sign, hz_min⟩ := hz_rounds
   have h_z_nn : 0 ≤ ((z : Dyadic) : ℝ) := nonneg_of_mul_nonneg_pos hz_sign h_x_pos
   have h_z_ge_x : x_val ≤ ((z : Dyadic) : ℝ) := by

@@ -53,22 +53,6 @@ private theorem F_adjacent_of_RN_round_pair {F₁ : FiniteFormat}
     · obtain ⟨_, _, hz_min⟩ := hzRU
       exact hz_min y hyF₁ (le_of_lt h_y_le_x)
 
-/-- F-adjacent midpoint membership in `F₁.extend 1`. Dispatches on `F₁`'s
-precision/exponent shape, routing to the appropriate discreteness lemma. -/
-private theorem midpoint_in_F₁_extend_one_of_F_adjacent {F₁ : FiniteFormat}
-    {y₁ y₂ : Dyadic} (hy₁F : y₁ ∈ F₁) (hy₂F : y₂ ∈ F₁)
-    (h_lt : (y₁ : ℝ) < (y₂ : ℝ))
-    (h_adj : ∀ y : Dyadic, y ∈ F₁ → (y₁ : ℝ) < (y : ℝ) → (y₂ : ℝ) ≤ (y : ℝ)) :
-    Dyadic.midpoint y₁ y₂ ∈ F₁.extend 1 := by
-  cases hp : F₁.p using ENat.recTopCoe with
-  | top =>
-    cases he : F₁.exp using QExp.recBotCoe with
-    | bot =>
-        exact absurd F₁.finite (by push Not; exact ⟨hp, he⟩)
-    | coe e' => exact midpoint_mem_extend_one_of_p_top F₁ hp he hy₁F hy₂F
-  | coe p' =>
-    exact midpoint_mem_extend_one_of_adjacent F₁ hp hy₁F hy₂F h_lt h_adj
-
 /-- F-adjacent midpoint membership in `F₂`. Gets `midpoint y₁ y₂ ∈ F₁.extend 1`
 from `Mpfx/Format/Discrete.lean` (dispatching on `F₁`'s precision/exponent shape) and then
 applies the subset hypothesis. -/
@@ -79,63 +63,6 @@ private theorem midpoint_F₁_in_F₂_of_F_adjacent {F₁ F₂ : FiniteFormat}
     (h_adj : ∀ y : Dyadic, y ∈ F₁ → (y₁ : ℝ) < (y : ℝ) → (y₂ : ℝ) ≤ (y : ℝ)) :
     Dyadic.midpoint y₁ y₂ ∈ F₂ :=
   hsub _ (midpoint_in_F₁_extend_one_of_F_adjacent hy₁F hy₂F h_lt h_adj)
-
-/-- RN analog (`k = 2` case) of `extend_one_subset_of_paper_subset`: from the
-paper-aligned containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext)
-⊆ F₂`, derive the weaker `F₁.extend 2 ⊆ F₂` form. Obtained from the generic
-`extend_subset_of_paper_subset` at base `F₁.extend 1`, bridging the
-`(F₁.extend 1).extend 1` / `F₁.extend 2` mismatch via `extend_one_extend_one_p_exp`. -/
-private theorem extend_two_subset_of_paper_RN_subset {F₁ F₂ : FiniteFormat}
-    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
-              ⊆ F₂.toFormat) :
-    (F₁.extend 2).toFormat ⊆ F₂.toFormat := by
-  obtain ⟨he_p, he_exp⟩ := extend_one_extend_one_p_exp F₁
-  have hsub' : (((F₁.extend 1).extend 1).toFormat.withBound
-      (F₁.extend 1).toFormat.boundAfterNext) ⊆ F₂.toFormat := by
-    intro y hy
-    obtain ⟨hp, hq, hb⟩ := hy
-    apply hsub
-    refine ⟨?_, ?_, hb⟩
-    · rw [Format.withBound_p] at hp ⊢; rwa [he_p] at hp
-    · rw [Format.withBound_exp] at hq ⊢; rwa [he_exp] at hq
-  intro y hy
-  refine extend_subset_of_paper_subset hsub' y ?_
-  obtain ⟨hp, hq, hb⟩ := hy
-  exact ⟨by rwa [he_p], by rwa [he_exp], hb⟩
-
-/-- RN analog (`k = 2` case) of `hp_F₂_or_F₁_trivial`. From the paper-aligned RN
-containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext) ⊆ F₂`, either
-`F₂.p ≥ 2` or `F₁` contains only `0`. Obtained from the generic
-`hp_F₂_or_F₁_trivial_extend` at base `F₁.extend 1`: the hypothesis is bridged from
-`F₁.extend 2` to `(F₁.extend 1).extend 1` via `extend_one_extend_one_p_exp`, and
-`F₁.extend 1` trivial (the conclusion at that base) implies `F₁` trivial since
-`F₁ ⊆ F₁.extend 1`. -/
-private theorem hp_F₂_or_F₁_trivial_RN {F₁ F₂ : FiniteFormat}
-    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
-              ⊆ F₂.toFormat) :
-    ((2 : ℕ) : Prec) ≤ F₂.p ∨ ∀ d : Dyadic, d ∈ F₁ → (d : ℝ) = 0 := by
-  obtain ⟨he_p, he_exp⟩ := extend_one_extend_one_p_exp F₁
-  have hsub' : (((F₁.extend 1).extend 1).toFormat.withBound
-      (F₁.extend 1).toFormat.boundAfterNext) ⊆ F₂.toFormat := by
-    intro y hy
-    obtain ⟨hp, hq, hb⟩ := hy
-    apply hsub
-    refine ⟨?_, ?_, hb⟩
-    · rw [Format.withBound_p] at hp ⊢; rwa [he_p] at hp
-    · rw [Format.withBound_exp] at hq ⊢; rwa [he_exp] at hq
-  rcases hp_F₂_or_F₁_trivial_extend hsub' with h | htriv
-  · exact Or.inl h
-  · exact Or.inr fun d hd => htriv d (Format.self_subset_extend F₁.toFormat 1 d hd)
-
-/-- RN variant of `two_le_p_of_nontrivial`. -/
-theorem two_le_p_of_nontrivial_RN {F₁ F₂ : FiniteFormat}
-    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
-      ⊆ F₂.toFormat)
-    (hnt : F₁.toFormat.Nontrivial) : ((2 : ℕ) : Prec) ≤ F₂.p := by
-  rcases hp_F₂_or_F₁_trivial_RN hsub with h | htriv
-  · exact h
-  · obtain ⟨d, hd, hne⟩ := hnt
-    exact absurd (eq_zero_of_coe_real_zero (htriv d hd)) hne
 
 /-- If `F₁` is trivial (contains only `0`) then `RoundsFinite F₁ (.nearest tb) x w'`
 holds for any real `x` and tie-break `tb`, whenever `w' ∈ F₁` (so `w' = 0`).
@@ -594,13 +521,13 @@ theorem rndRTO_RN {F₁ F₂ : FiniteFormat}
     (hz : RoundsFinite F₂ .toOdd x z)
     (hw : RoundsFinite F₁ (.nearest tb) (z : ℝ) w') :
     RoundsFinite F₁ (.nearest tb) x w' := by
-  rcases hp_F₂_or_F₁_trivial_RN hsub with hp_F₂ | hF₁_triv
+  rcases two_le_p_or_trivial_of_extend_two_withBound_subset hsub with hp_F₂ | hF₁_triv
   swap
   · -- F₁ trivial: handled uniformly for any tb.
     exact RoundsFinite.nearest_of_trivial hF₁_triv hw.1
   -- main case: 2 ≤ F₂.p. Derive the weaker subset chain.
   have hsub2 : (F₁.extend 2).toFormat ⊆ F₂.toFormat :=
-    extend_two_subset_of_paper_RN_subset hsub
+    extend_two_subset_of_withBound_subset hsub
   have h_ext1_sub_ext2 : (F₁.extend 1).toFormat ⊆ (F₁.extend 2).toFormat :=
     Format.extend_mono F₁.toFormat (by exact_mod_cast (by omega : (1 : ℕ) ≤ 2) : (1 : ℕ) ≤ 2)
   have hsub_ext1 : (F₁.extend 1).toFormat ⊆ F₂.toFormat := fun y hy =>

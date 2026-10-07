@@ -78,7 +78,7 @@ dyadics against a real). The composite coercion `Dyadic → ℝ` factors as
 `precisionAtMost` / `quantumAtLeast` and `IsRepresentableAtP` are all
 `ℚ`-valued; only `numDigits` (which needs `Int.log`) is real-valued.
 
-## Constructive rounding alongside the spec relation
+## An explicit rounding function alongside the spec relation
 
 Two complementary views of rounding:
 
@@ -90,10 +90,12 @@ Two complementary views of rounding:
   `Classical.choose`), bridged to the relation by
   `rnd_iff_rounds : rnd F rm x = r ↔ Rounds F rm x r`.
 
-The constructive/classical split is at the file level: `Rounding/Defs.lean` is
-constructive; `Rounding/Op.lean` makes the classical commitment (`rnd` is
-`noncomputable` because real comparisons aren't computably decidable, and
-`Int.log : ℝ → ℤ`). The overflow **sign bit** is a decidable `ℚ` comparison.
+"Explicit" means `rnd` is defined by a formula, not chosen from the spec;
+it does not mean constructive logic. `rnd` is `noncomputable` (real
+comparisons aren't computably decidable, and `Int.log : ℝ → ℤ`), and the
+proofs are classical throughout: every theorem depends on `propext`,
+`Classical.choice` and `Quot.sound`, as is usual for Mathlib's `ℝ` (FLoPS
+too). The overflow **sign bit** is a decidable `ℚ` comparison.
 
 ## RoundingMode coverage
 

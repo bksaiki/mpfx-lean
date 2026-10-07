@@ -1,7 +1,7 @@
 import Mpfx.Rounding.Defs
 import Mpfx.Format.Discrete
 import Mpfx.Format.Digits
-import Mpfx.Rounding.Op
+import Mpfx.Rounding.Restrict
 
 /-!
 # Double-rounding counterexamples: shared lemmas
@@ -178,24 +178,6 @@ theorem f₂_le_e_of_two_e_mem {e : ℤ} {F₂ : Format}
   have hc_int_lt : c < 1 := by exact_mod_cast h_lt_1
   omega
 
-/-- An unbounded `.toZero` rounding whose result is in fact within `F`'s
-bound is a `.toZero` rounding against `F` itself: the bound only ever
-excludes candidates, so the maximality clause survives restriction. -/
-theorem roundsFinite_toZero_of_unbounded {F : FiniteFormat} {x : ℝ}
-    {z : Dyadic} (h : RoundsFinite F.unbounded .toZero x z) (hz : z ∈ F.toFormat) :
-    RoundsFinite F .toZero x z := by
-  obtain ⟨_, h_abs, h_sign, h_max⟩ := h
-  exact ⟨hz, h_abs, h_sign,
-    fun v hv h1 h2 => h_max v (mem_unbounded_of_mem hv) h1 h2⟩
-
-/-- The `.awayZero` companion of `roundsFinite_toZero_of_unbounded`. -/
-theorem roundsFinite_awayZero_of_unbounded {F : FiniteFormat} {x : ℝ}
-    {z : Dyadic} (h : RoundsFinite F.unbounded .awayZero x z) (hz : z ∈ F.toFormat) :
-    RoundsFinite F .awayZero x z := by
-  obtain ⟨_, h_abs, h_sign, h_min⟩ := h
-  exact ⟨hz, h_abs, h_sign,
-    fun v hv h1 h2 => h_min v (mem_unbounded_of_mem hv) h1 h2⟩
-
 /-- If an F₂-element `y` equals `odd_c · 2^(e−1)` with `odd_c` odd, then
 `F₂`'s quantum exponent `f₂` satisfies `f₂ ≤ e − 1`. -/
 theorem f₂_le_e_sub_one_of_odd_in_F₂
@@ -289,16 +271,6 @@ step `2^K`: the global quantum `2^f₂` when `F₂.exp = f₂` is finite, and
 the binade step `2^(E−q₂+1)` when `F₂.exp = ⊥` (`binade_quantum`). The
 dispatch lemmas below package the resulting gap bounds uniformly, so the
 counterexamples never case-split on `F₂`'s shape. -/
-
-theorem two_zpow_succ (t : ℤ) : (2 : ℝ)^(t + 1) = 2 * (2 : ℝ)^t := by
-  rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0),
-      show (2 : ℝ)^(1 : ℤ) = 2 from by norm_num]
-  ring
-
-theorem two_zpow_add_two (t : ℤ) : (2 : ℝ)^(t + 2) = 4 * (2 : ℝ)^t := by
-  rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0),
-      show (2 : ℝ)^(2 : ℤ) = 4 from by norm_num]
-  ring
 
 private theorem two_zpow_add_three (t : ℤ) : (2 : ℝ)^(t + 3) = 8 * (2 : ℝ)^t := by
   rw [zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0),
@@ -899,16 +871,6 @@ theorem gap_around_mid3_mem (F₂ : FiniteFormat) {E : ℤ}
         (3 : ℝ) * (2 : ℝ)^(E - 1) + (2 : ℝ)^K ≤ ((z : Dyadic) : ℝ)) := by
   simpa using gap_around_odd_mem F₂ (c := 3) (j := 1) (by decide) (by norm_num) (by norm_num) hm
 
-/-- RTO at an F-exact value is the identity (vacuous parity clause since
-`x = y`). -/
-theorem rounds_RTO_self {F : FiniteFormat} {y : Dyadic} (h : y ∈ F) :
-    RoundsFinite F .toOdd ((y : Dyadic) : ℝ) y := by
-  refine ⟨h, ?_, ?_⟩
-  · left
-    refine ⟨h, le_refl _, ?_⟩
-    intro z _ hz_le; exact hz_le
-  · intro h_ne; exfalso; exact h_ne rfl
-
 /-! ## Parity lemmas -/
 
 /-- `numDigits` of an anchor `x = 2^N` in the quantum grid `F₁_g` is
@@ -1020,17 +982,6 @@ theorem isEven_F₁_g_y_lo_low (p : ℕ) (hp_ge_2 : 2 ≤ p) (e : ℤ) :
   · rw [h_nd_toNat]; decide
   · rw [h_nd_toNat]; decide
   · rw [if_neg h_p_ne_1]; decide
-
-/-- `IsOdd` depends only on `toFormat`: transfer along `F'.toFormat = F.toFormat`. -/
-theorem isOdd_transfer_toFormat {F F' : ParityFormat} {y : Dyadic}
-    (hF'_eq : F'.toFormat = F.toFormat) (h : F'.IsOdd y) : F.IsOdd y := by
-  have h_nd : F.toFiniteFormat.numDigits ((y : Dyadic) : ℝ)
-      = F'.toFiniteFormat.numDigits ((y : Dyadic) : ℝ) := by
-    unfold FiniteFormat.numDigits; rw [hF'_eq]
-  obtain ⟨c, e', hrep, hpar⟩ := h
-  refine ⟨c, e', ?_, ?_⟩
-  · rw [h_nd]; exact hrep
-  · rw [show F.toFormat = F'.toFormat from hF'_eq.symm]; exact hpar
 
 end Cex
 

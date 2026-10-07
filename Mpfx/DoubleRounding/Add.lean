@@ -1,6 +1,6 @@
 import Mpfx.Format.CanonicalExp
 import Mpfx.DoubleRounding.NearestMidpoint
-import Mpfx.DoubleRounding.Mul
+import Mpfx.DoubleRounding.Basic
 
 /-!
 # Operation-specific double rounding: addition (Roux 2014, §3)
@@ -253,7 +253,6 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
   have hrpos : 0 < ((x - y : Dyadic) : ℝ) := by rw [hr_real]; linarith
   have hr_ne : ((x - y : Dyadic) : ℝ) ≠ 0 := ne_of_gt hrpos
   -- power helpers (shared `two_zpow_*` from `CanonicalExp`)
-  have pow_pred := two_zpow_pred
   have pow_half := two_zpow_half
   have pow_dbl := two_zpow_dbl
   set ex := F₁.canonicalExp (x : ℝ) with hex
@@ -324,7 +323,7 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
       (Dyadic.quantumAtLeast_coe_real ex x).mpr ⟨cx, hxeq⟩
     have hquant_x_ex1 : Dyadic.quantumAtLeast ((ex - 1 : ℤ) : QExp) x :=
       (Dyadic.quantumAtLeast_coe_real (ex - 1) x).mpr ⟨2 * cx, by
-        rw [hxeq, pow_pred ex]; push_cast; ring⟩
+        rw [hxeq, pow_dbl ex]; push_cast; ring⟩
     have hu₁ : ¬ (F₁.unbounded).IsUndefined (.nearest tb₁) := by
       rw [FiniteFormat.unbounded_isUndefined]; exact hundef₁
     by_cases hbot : (x : ℝ) = (2 : ℝ) ^ k
@@ -578,7 +577,7 @@ private theorem rndSub_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) ((x - y : Dyadic) : ℝ) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) ((x - y : Dyadic) : ℝ) w := by
-  have hquant_r : Dyadic.quantumAtLeast F₁.exp (x - y) := quantumAtLeast_sub hx.2.1 hy.2.1
+  have hquant_r : Dyadic.quantumAtLeast F₁.exp (x - y) := Dyadic.quantumAtLeast_sub hx.2.1 hy.2.1
   by_cases hgap : F₁.canonicalExp (x : ℝ) - F₁.canonicalExp (y : ℝ) ≤ (p₁ : ℤ) + 1
   · -- small gap ⟹ `x − y` fits `2p₁+1` bits, exactly `F₂`-representable
     obtain ⟨hprec, _⟩ := diff_precisionAtMost hp₁ hx hy hxpos hypos (le_of_lt hyx) hgap
@@ -757,7 +756,7 @@ private theorem rndAdd_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) ((x + y : Dyadic) : ℝ) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) ((x + y : Dyadic) : ℝ) w := by
-  have hquant_r : Dyadic.quantumAtLeast F₁.exp (x + y) := quantumAtLeast_add hx.2.1 hy.2.1
+  have hquant_r : Dyadic.quantumAtLeast F₁.exp (x + y) := Dyadic.quantumAtLeast_add hx.2.1 hy.2.1
   by_cases hgap : F₁.canonicalExp (x : ℝ) - F₁.canonicalExp (y : ℝ) ≤ (p₁ : ℤ) + 1
   · -- small gap ⟹ `x + y` fits `2p₁+1` bits, exactly `F₂`-representable
     obtain ⟨hprec, _⟩ := sum_precisionAtMost hp₁ hx hy hxpos hypos hyx hgap

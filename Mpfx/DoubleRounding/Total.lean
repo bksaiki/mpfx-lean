@@ -1,5 +1,5 @@
 import Mpfx.DoubleRounding.Nearest
-import Mpfx.DoubleRounding.Restrict
+import Mpfx.Rounding.Restrict
 
 /-!
 # Total double rounding (overflow-aware, self-contained)
@@ -70,7 +70,7 @@ private theorem toZero_noOverflow_F₂ {F₁ F₂ : FiniteFormat}
     Format.boundOK F₂.b z := by
   rcases hF₁b : F₁.b with _ | b₁
   · -- `b₁ = ⊤` forces `b₂ = ⊤`.
-    rw [bound_top_of_paper_subset hsub hF₁b]
+    rw [b_eq_top_of_withBound_subset hsub hF₁b]
     trivial
   · obtain ⟨hb₁_mem, -⟩ := hreg b₁ hF₁b
     obtain ⟨hb₁_nn, hN_lt, hN_nn, hN_mem⟩ := next_facts hb₁_mem
@@ -170,7 +170,7 @@ private theorem toOdd_abs_le_of_awayZero {F₁ F₂ : FiniteFormat}
     |(z : ℝ)| ≤ |(y : ℝ)| ∧ ((y : ℝ)) * ((z : ℝ)) ≥ 0 := by
   obtain ⟨hymem, hyabs, hysign, hymin⟩ := hy
   have hyF₂ : y ∈ F₂ :=
-    hsub y (mem_paper_of_mem (mem_of_mem_unbounded_of_boundOK hymem hby))
+    hsub y (mem_extend_one_withBound_of_mem (mem_of_mem_unbounded_of_boundOK hymem hby))
   have hyF₂u : y ∈ F₂.unbounded := mem_unbounded_of_mem hyF₂
   rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
   · -- `x < 0`: `y ≤ x < 0`, both faithful candidates of `z` lie in `[y, 0]`.
@@ -274,7 +274,7 @@ private theorem toOdd_toZero_noOverflow_chain {F₁ F₂ : FiniteFormat}
     abs_lt_next_of_toZero_inbound hF₁b hb₁_mem hy hby
   have hN_F₂u : N ∈ F₂.unbounded :=
     mem_unbounded_of_mem
-      (hsub N (mem_paper_of_mem_unbounded hN_mem (boundOK_boundAfterNext_next hF₁b hN_nn)))
+      (hsub N (mem_extend_one_withBound_of_mem_unbounded hN_mem (boundOK_boundAfterNext_next hF₁b hN_nn)))
   have hz_abs : |(z : ℝ)| ≤ (N : ℝ) :=
     abs_faithful_le_of_le hN_F₂u hxN.le hz.2.1
   -- `b₁ < |w| ≤ |z| ≤ N`, and grid minimality pins `|w| = N`.
@@ -431,7 +431,7 @@ private theorem nearest_components {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
 
 /-- The midpoint `M = nextᵉ(b₁)` lies in the paper RN containment format
 `(F₁.extend 2).withBound (F₁.extend 1).boundAfterNext`. -/
-private theorem mid_mem_paperRN {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
+private theorem next_mem_extend_two_withBound {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
     (hF₁b : F₁.b = (b₁ : Bound)) (hb₁_mem : b₁.val ∈ F₁) :
     (F₁.extend 1).toFormat.next b₁.val
       ∈ ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext) := by
@@ -572,7 +572,7 @@ private theorem toOdd_nearest_noOverflow_chain {F₁ F₂ : FiniteFormat}
   -- `|x| ≤ M`, hence `|z| ≤ M`.
   have hxM : |x| ≤ (M : ℝ) :=
     abs_le_mid_of_nearest_inbound hF₁b hb₁_mem hguard hyfaithful hyclose hby
-  have hM_F₂ : M ∈ F₂ := hsub M (mid_mem_paperRN hF₁b hb₁_mem)
+  have hM_F₂ : M ∈ F₂ := hsub M (next_mem_extend_two_withBound hF₁b hb₁_mem)
   have hzM : |(z : ℝ)| ≤ (M : ℝ) :=
     abs_faithful_le_of_le (mem_unbounded_of_mem hM_F₂) hxM hz.2.1
   -- If `|z| ≤ b₁`, the chained rounding is squeezed in-bound directly.
@@ -1179,7 +1179,7 @@ theorem roundsRTO_RTO {F₁ F₂ : FiniteFormat}
     -- F₂ does not overflow.
     have hz_bnd : Format.boundOK F₂.b z := by
       rcases hFb : F.b with _ | b₁
-      · rw [bound_top_of_paper_subset hsub hFb]
+      · rw [b_eq_top_of_withBound_subset hsub hFb]
         trivial
       · obtain ⟨hb₁_mem, hguard⟩ := hreg b₁ hFb
         obtain ⟨hb₁_nn, hN_lt, hN_nn, hN_mem⟩ := next_facts hb₁_mem
@@ -1265,7 +1265,7 @@ theorem roundsRTO_RTZ {F₁ F₂ : FiniteFormat}
       · obtain ⟨hb₁_mem, hguard⟩ := hreg b₁ hFb
         obtain ⟨hb₁_nn, hN_lt, hN_nn, hN_mem⟩ := next_facts hb₁_mem
         have hN_F₂ : F.toFormat.next b₁.val ∈ F₂ :=
-          hsub _ (mem_paper_of_mem_unbounded hN_mem
+          hsub _ (mem_extend_one_withBound_of_mem_unbounded hN_mem
             (boundOK_boundAfterNext_next hFb hN_nn))
         have hxN : |x| < ((F.toFormat.next b₁.val : Dyadic) : ℝ) :=
           abs_lt_next_of_toZero_inbound hFb hb₁_mem hy hbOK
@@ -1315,7 +1315,7 @@ theorem roundsRTO_RAZ {F₁ F₂ : FiniteFormat}
     set z := rndUnbounded F₂ .toOdd x h₂u with hz_def
     obtain ⟨hzy_abs, hzy_sign⟩ := toOdd_abs_le_of_awayZero hsub hy hbOK hz
     have hyF₂ : y ∈ F₂ :=
-      hsub y (mem_paper_of_mem (mem_of_mem_unbounded_of_boundOK hy.1 hbOK))
+      hsub y (mem_extend_one_withBound_of_mem (mem_of_mem_unbounded_of_boundOK hy.1 hbOK))
     have hz_bnd : Format.boundOK F₂.b z := boundOK_of_abs_le hzy_abs hyF₂.2.2
     have hzR : Rounds F₂ .toOdd x (.finite z) := ⟨h₂u, hz, hz_bnd⟩
     -- The chain does not overflow: `y` competes for `w` at the point `z`.
@@ -1351,7 +1351,7 @@ theorem roundsRTO_RN {F₁ F₂ : FiniteFormat}
     (∃ z w : Dyadic, Rounds F₂ .toOdd x (.finite z) ∧
       Rounds F₁ (.nearest tb) (z : ℝ) (.finite w) ∧
       Rounds F₁ (.nearest tb) x (.finite w)) := by
-  have hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p := two_le_p_of_nontrivial_RN hsub hnt
+  have hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p := two_le_p_of_nontrivial_extend_two hsub hnt
   -- Reduce to a bound that is on the grid (and positive when `exp = ⊥`)
   -- by replacing it with its grid floor.
   suffices key : ∀ F : FiniteFormat,
@@ -1398,7 +1398,7 @@ theorem roundsRTO_RN {F₁ F₂ : FiniteFormat}
         have hxM : |x| ≤ (((F.extend 1).toFormat.next b₁.val : Dyadic) : ℝ) :=
           abs_le_mid_of_nearest_inbound hFb hb₁_mem hguard hyfaithful hyclose hbOK
         have hM_F₂ : (F.extend 1).toFormat.next b₁.val ∈ F₂ :=
-          hsub _ (mid_mem_paperRN hFb hb₁_mem)
+          hsub _ (next_mem_extend_two_withBound hFb hb₁_mem)
         have hb₁_nn : 0 ≤ ((b₁.val : Dyadic) : ℝ) := nonneg_coe_real b₁
         have hM_nn : 0 ≤ (((F.extend 1).toFormat.next b₁.val : Dyadic) : ℝ) :=
           le_trans hb₁_nn (lt_next'' b₁.val hb₁_nn).le

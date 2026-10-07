@@ -238,13 +238,6 @@ theorem rnd_lt_mid' {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ
 positivity, so the "above the midpoint ⟹ rounds up" double-rounding theorem
 `rnd_gt_mid` follows by applying `rnd_lt_mid` to `−x`. -/
 
-/-- Nearest rounding is invariant under joint negation (both tie-breaks). -/
-theorem RoundsFinite.neg_nearest (F : FiniteFormat) (tb : TieBreak) (a : ℝ) (v : Dyadic) :
-    RoundsFinite F (.nearest tb) a v ↔ RoundsFinite F (.nearest tb) (-a) (-v) := by
-  cases tb with
-  | toEven => exact RoundsFinite.neg_nearest_toEven F a v
-  | awayZero => exact RoundsFinite.neg_nearest_awayZero F a v
-
 /-- **Double-rounding negation transport.** Both roundings being to-nearest,
 double rounding commutes with negation: to double-round `v` it suffices to
 double-round `-v` — feed the negated intermediate/result data `(-z, -w)` to

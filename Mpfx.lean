@@ -8,7 +8,6 @@ import Mpfx.DoubleRounding.Div
 import Mpfx.DoubleRounding.Mul
 import Mpfx.DoubleRounding.Nearest
 import Mpfx.DoubleRounding.NearestMidpoint
-import Mpfx.DoubleRounding.Restrict
 import Mpfx.DoubleRounding.Sqrt
 import Mpfx.DoubleRounding.Total
 import Mpfx.Dyadic
@@ -18,7 +17,9 @@ import Mpfx.Format.Defs
 import Mpfx.Format.Digits
 import Mpfx.Format.Discrete
 import Mpfx.Format.Inference
+import Mpfx.Format.Next
 import Mpfx.Format.Parity
+import Mpfx.Format.Parity.Alternate
 import Mpfx.Rounding.Basic
 import Mpfx.Rounding.Defs
 import Mpfx.Rounding.Op
@@ -27,5 +28,6 @@ import Mpfx.Rounding.Op.Directed
 import Mpfx.Rounding.Op.Nearest
 import Mpfx.Rounding.Op.ToOdd
 import Mpfx.Rounding.Parity
+import Mpfx.Rounding.Restrict
 import Mpfx.Rounding.Ulp
 import Mpfx.Utils

@@ -1,7 +1,6 @@
 import Mpfx.Format.CanonicalExp
 import Mpfx.DoubleRounding.NearestMidpoint
-import Mpfx.DoubleRounding.Mul
-import Mpfx.DoubleRounding.Add
+import Mpfx.DoubleRounding.Basic
 
 /-!
 # Operation-specific double rounding: division (Roux 2014, Theorem 29)
@@ -112,7 +111,7 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ}
   -- `|C| < 2^p₂` from `|v| < 2^(mag v) ≤ 2^(e₂ + p₂)`
   have h2e2 : (0 : ℝ) < (2 : ℝ) ^ e₂ := zpow_pos (by norm_num) _
   have hbound : Int.log 2 v + 1 ≤ e₂ + (p₂ : ℤ) := by
-    have := log_sub_prec_le_canonicalExp hp₂ (ne_of_gt hv)
+    have := FiniteFormat.log_sub_p_le_canonicalExp _ (ne_of_gt hv) hp₂
     rw [abs_of_pos hv, ← he₂] at this; omega
   have hvlt : |v| < (2 : ℝ) ^ (e₂ + (p₂ : ℤ)) := by
     rw [abs_of_pos hv]

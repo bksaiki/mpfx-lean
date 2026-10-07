@@ -25,6 +25,169 @@ Proved over the `ℚ` substrate, with `ℝ` bridges only where `Int.log` /
 
 namespace Mpfx
 
+namespace FiniteFormat
+
+/-- For nonzero `y ≠ 0` with `y = c · 2^e'` and `c ≠ 0`, we have `e' ≤ log|y|`. -/
+private theorem quantum_exp_le_log {y : Dyadic} {e' : ℤ} {c : ℤ}
+    (hy_ne : (y : ℝ) ≠ 0) (hyeq : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') :
+    e' ≤ Int.log 2 |(y : ℝ)| := by
+  have hc_ne : c ≠ 0 := by
+    intro hc0; rw [hc0] at hyeq; push_cast at hyeq
+    rw [zero_mul] at hyeq; exact hy_ne hyeq
+  have hc_abs_ge : (1 : ℤ) ≤ |c| := Int.one_le_abs hc_ne
+  have habs_lo : (2 : ℝ) ^ e' ≤ |(y : ℝ)| := by
+    rw [hyeq, abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
+    calc (2 : ℝ) ^ e'
+        = 1 * (2 : ℝ) ^ e' := (one_mul _).symm
+      _ ≤ |(c : ℝ)| * (2 : ℝ) ^ e' := by
+          apply mul_le_mul_of_nonneg_right _ (zpow_pos (by norm_num) _).le
+          exact_mod_cast hc_abs_ge
+  have he_y_hi : |(y : ℝ)| < (2 : ℝ) ^ (Int.log 2 |(y : ℝ)| + 1) :=
+    Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
+  by_contra h_lt
+  push Not at h_lt
+  have h_log : Int.log 2 |(y : ℝ)| + 1 ≤ e' := by omega
+  have h_pow_le : (2 : ℝ) ^ (Int.log 2 |(y : ℝ)| + 1) ≤ (2 : ℝ) ^ e' :=
+    zpow_le_zpow_right₀ (by norm_num) h_log
+  linarith
+
+/-- `numDigits` is non-negative for nonzero `y ∈ F`. -/
+theorem numDigits_nonneg (F : FiniteFormat) (y : Dyadic) (hy : y ∈ F.toFormat)
+    (hy_ne : (y : ℝ) ≠ 0) : 1 ≤ F.numDigits (y : ℝ) := by
+  obtain ⟨hP, hQ, _⟩ := hy
+  cases hp : F.p using ENat.recTopCoe with
+  | top =>
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot =>
+      exfalso; rcases F.finite with h_p_ne | h_exp_ne
+      · exact h_p_ne hp
+      · exact h_exp_ne hexp
+    | coe e' =>
+      rw [numDigits_top_coe F hy_ne hexp hp]
+      rw [hexp] at hQ
+      obtain ⟨c, hyeq⟩ := (Dyadic.quantumAtLeast_coe_real _ _).mp hQ
+      have h_log_ge := quantum_exp_le_log hy_ne hyeq
+      omega
+  | coe p =>
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot =>
+      rw [numDigits_coe_bot F hy_ne hp hexp]
+      exact_mod_cast F.p_pos hp
+    | coe e' =>
+      rw [numDigits_coe_coe F hy_ne hp hexp]
+      rw [hexp] at hQ
+      obtain ⟨c, hyeq⟩ := (Dyadic.quantumAtLeast_coe_real _ _).mp hQ
+      have h_log_ge := quantum_exp_le_log hy_ne hyeq
+      have hpp : 1 ≤ (p : ℤ) := by exact_mod_cast F.p_pos hp
+      exact le_min hpp (by omega)
+
+/-- The key existence lemma: for nonzero `y ∈ F`, there exist `(c, e)`
+representing `y` with `|c| < 2^numDigits F y`. Combined with the analogous
+lower-bound argument (`mem_imp_isRepresentableAtP_numDigits`, future), this
+pins down the canonical form. -/
+theorem mem_imp_precisionAtMost_numDigits {F : FiniteFormat} {y : Dyadic}
+    (hy : y ∈ F.toFormat) (hy_ne : (y : ℝ) ≠ 0) :
+    ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧
+                |c| < (2 : ℤ) ^ (F.numDigits (y : ℝ)).toNat := by
+  obtain ⟨hP, hQ, _⟩ := hy
+  change Dyadic.precisionAtMost F.p y at hP
+  change Dyadic.quantumAtLeast F.exp y at hQ
+  set e_y : ℤ := Int.log 2 |(y : ℝ)| with he_y_def
+  have habs_pos : 0 < |(y : ℝ)| := abs_pos.mpr hy_ne
+  have he_y_hi : |(y : ℝ)| < (2 : ℝ) ^ (e_y + 1) :=
+    Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
+  -- "Quantum case": from y = c·2^e' (with e' ≤ e_y), derive |c| < 2^(e_y - e' + 1).
+  have quantum_case : ∀ e' : ℤ,
+      (∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') →
+      e' ≤ e_y →
+      ∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e' ∧
+                |c| < (2 : ℤ) ^ (e_y - e' + 1).toNat := by
+    intro e' ⟨c, hyeq⟩ he_y_ge
+    refine ⟨c, hyeq, ?_⟩
+    have h_real : (|c| : ℝ) < (2 : ℝ) ^ (e_y - e' + 1) := by
+      have h_y_eq : |(y : ℝ)| = |(c : ℝ)| * (2 : ℝ) ^ e' := by
+        rw [hyeq, abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
+      have hsplit : (2 : ℝ) ^ (e_y + 1) =
+          (2 : ℝ) ^ (e_y - e' + 1) * (2 : ℝ) ^ e' := by
+        rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
+        congr 1; ring
+      have key : |(c : ℝ)| * (2 : ℝ) ^ e' < (2 : ℝ) ^ (e_y - e' + 1) * (2 : ℝ) ^ e' := by
+        rw [← hsplit, ← h_y_eq]; exact he_y_hi
+      exact lt_of_mul_lt_mul_right key (le_of_lt (zpow_pos (by norm_num) _))
+    have h_nat : ((e_y - e' + 1).toNat : ℤ) = e_y - e' + 1 :=
+      Int.toNat_of_nonneg (by omega)
+    have h_cast : ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) =
+        (2 : ℝ) ^ (e_y - e' + 1) := by
+      rw [show ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) =
+          (2 : ℝ) ^ ((e_y - e' + 1).toNat : ℤ) from by push_cast; rfl, h_nat]
+    have : (|c| : ℝ) < ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) := by
+      rw [h_cast]; exact h_real
+    exact_mod_cast this
+  -- For any e' with y = c·2^e' (c ≠ 0), we have e' ≤ e_y.
+  have e'_le_e_y : ∀ e' : ℤ,
+      (∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') → e' ≤ e_y := by
+    intro e' ⟨c, hyeq⟩
+    have hc_ne : c ≠ 0 := by
+      intro hc0; rw [hc0] at hyeq; push_cast at hyeq
+      rw [zero_mul] at hyeq; exact hy_ne hyeq
+    have hc_abs_ge : (1 : ℤ) ≤ |c| := Int.one_le_abs hc_ne
+    have habs_lo : (2 : ℝ) ^ e' ≤ |(y : ℝ)| := by
+      rw [hyeq, abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
+      calc (2 : ℝ) ^ e'
+          = 1 * (2 : ℝ) ^ e' := (one_mul _).symm
+        _ ≤ |(c : ℝ)| * (2 : ℝ) ^ e' := by
+            apply mul_le_mul_of_nonneg_right _ (zpow_pos (by norm_num) _).le
+            exact_mod_cast hc_abs_ge
+    by_contra h_lt
+    push Not at h_lt
+    have h_log : e_y + 1 ≤ e' := by omega
+    have h_pow_le : (2 : ℝ) ^ (e_y + 1) ≤ (2 : ℝ) ^ e' :=
+      zpow_le_zpow_right₀ (by norm_num) h_log
+    linarith [habs_lo, he_y_hi]
+  -- Case analysis on (F.p, F.exp).
+  cases hp : F.p using ENat.recTopCoe with
+  | top =>
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot =>
+      exfalso; rcases F.finite with h_p_ne | h_exp_ne
+      · exact h_p_ne hp
+      · exact h_exp_ne hexp
+    | coe e' =>
+      rw [numDigits_top_coe F hy_ne hexp hp]
+      rw [hexp] at hQ
+      obtain ⟨c, hyeq, hc_lt⟩ :=
+        quantum_case e' ((Dyadic.quantumAtLeast_coe_real _ _).mp hQ)
+          (e'_le_e_y e' ((Dyadic.quantumAtLeast_coe_real _ _).mp hQ))
+      exact ⟨c, e', hyeq, hc_lt⟩
+  | coe p =>
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot =>
+      rw [numDigits_coe_bot F hy_ne hp hexp]
+      rw [hp] at hP
+      obtain ⟨c, e, hyeq, hc_lt⟩ := (Dyadic.precisionAtMost_coe_real _ _).mp hP
+      refine ⟨c, e, hyeq, ?_⟩
+      have h_toNat : (p : ℤ).toNat = p := by simp
+      rw [h_toNat]
+      exact hc_lt
+    | coe e' =>
+      rw [numDigits_coe_coe F hy_ne hp hexp]
+      rw [hp] at hP
+      rw [hexp] at hQ
+      rcases le_or_gt (p : ℤ) (e_y - e' + 1) with hcase | hcase
+      · rw [show min (p : ℤ) (e_y - e' + 1) = (p : ℤ) from
+              min_eq_left hcase]
+        have h_toNat : (p : ℤ).toNat = p := by simp
+        rw [h_toNat]
+        exact (Dyadic.precisionAtMost_coe_real _ _).mp hP
+      · rw [show min (p : ℤ) (e_y - e' + 1)
+              = e_y - e' + 1 from min_eq_right (le_of_lt hcase)]
+        obtain ⟨c, hyeq, hc_lt⟩ :=
+          quantum_case e' ((Dyadic.quantumAtLeast_coe_real _ _).mp hQ)
+            (e'_le_e_y e' ((Dyadic.quantumAtLeast_coe_real _ _).mp hQ))
+        exact ⟨c, e', hyeq, hc_lt⟩
+
+end FiniteFormat
+
 /-- `F.numDigits x ≤ 1` whenever `F.p = 1`. When the precision is a single
 binary digit, the format rounds every value to `±2^e`, so its effective
 digit count never exceeds one. -/
@@ -301,7 +464,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
     have h_even : Even ((2 : ℤ) ^ (p₂ - 1)) := by
       refine ⟨(2 : ℤ) ^ (p₂ - 2), ?_⟩
       rw [show (p₂ - 1 : ℕ) = (p₂ - 2) + 1 from by omega, pow_succ]; ring
-    have h_abs_odd : Odd |c| := Odd.abs hp_check
+    have h_abs_odd : Odd |c| := odd_abs.mpr hp_check
     by_contra h_le
     push Not at h_le
     have h_eq : |c| = (2 : ℤ) ^ (p₂ - 1) := by linarith
