@@ -75,18 +75,19 @@ noncomputable def rndUnbounded (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
   else
     Dyadic.ofIntZpow (rndInt rm x (F.canonicalExp x)) (F.canonicalExp x)
 
-/-- The rounded value of `x` in `F` under mode `rm`, as a `RoundResult`.
-Dispatches to `rndUnbounded` for the round-without-bound value, then
-checks the format's magnitude bound: if the rounded result fits, return
-`.finite y`; otherwise `.overflow b` where `b` records the sign of the
-would-be result (`true` for positive). -/
-noncomputable def rnd (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) : RoundResult :=
-  if h_undef : F.IsUndefined rm then
-    .undefined
-  else
-    let y := rndUnbounded F rm x h_undef
-    if Format.boundOK F.b y then .finite y
-    else .overflow (if (0 : ℚ) < (y : ℚ) then true else false)
+/-- Rounding into `F` under mode `rm`, with special inputs sent through `S`.
+A real input goes to `rndUnbounded`, then the bound is checked: the rounded
+value if it fits, otherwise the overflow table `O` at the value's sign. -/
+noncomputable def rnd (F : FiniteFormat) (S : SpecialMap F.toFormat)
+    (O : OverflowMap F.toFormat) (rm : RoundingMode) : WithSpecial ℝ → RoundResult
+  | .special s => .value (S.map s)
+  | .finite x =>
+    if h_undef : F.IsUndefined rm then
+      .undefined
+    else
+      let y := rndUnbounded F rm x h_undef
+      if Format.boundOK F.b y then .value (.finite y)
+      else .value (O.map (decide ((y : ℚ) < 0)))
 
 /-! The per-mode proofs that `rndUnbounded` satisfies the spec live in
 `Directed.lean`, `ToOdd.lean` and `Nearest.lean`. -/

@@ -1,44 +1,15 @@
 import Mpfx.Rounding.Op
 
 /-!
-# Special-value and overflow tables
+# Standard special-value and overflow tables
 
-Where a format sends what `RoundsFinite` cannot express:
-
-* `SpecialMap F` — the result of rounding a special input (±Inf, NaN);
-* `OverflowMap F` — the result of an overflowing real, keyed by its sign.
-
-Every entry is a value of `F` (`F.values`). `FiniteFormat.maxFinite` is the
-largest finite value of a bounded format, the saturation target. Standard
-tables: `SpecialMap.exact`, `.saturate`, `.toNaN`; `OverflowMap.ieee` (IEEE 754
-§7.4), `.saturate`, `.toNaN`. The saturating tables need a finite bound.
+`FiniteFormat.maxFinite`, the largest finite value of a bounded format, and the
+standard `SpecialMap` / `OverflowMap` instances: `SpecialMap.exact`, `.saturate`,
+`.toNaN`; `OverflowMap.ieee` (IEEE 754 §7.4), `.saturate`, `.toNaN`. The
+saturating tables need a finite bound.
 -/
 
 namespace Mpfx
-
-/-! ### Negation -/
-
-/-- Negation of a special value: infinities flip sign, NaN is fixed. -/
-def Special.neg : Special → Special
-  | .inf negative => .inf !negative
-  | .nan => .nan
-
-@[simp] theorem Special.neg_neg (s : Special) : s.neg.neg = s := by
-  cases s <;> simp [Special.neg]
-
-/-- Negation through `WithSpecial`. -/
-def WithSpecial.neg {α : Type} [Neg α] : WithSpecial α → WithSpecial α
-  | .finite a => .finite (-a)
-  | .special s => .special s.neg
-
-/-- `F`'s specials are closed under negation. -/
-def Format.NegClosed (F : Format) : Prop := ∀ s ∈ F.specials, s.neg ∈ F.specials
-
-theorem Format.neg_mem_values {F : Format} (hF : F.NegClosed) {v : WithSpecial Dyadic}
-    (hv : v ∈ F.values) : v.neg ∈ F.values := by
-  cases v with
-  | finite d => exact Format.neg_mem (F := F) hv
-  | special s => exact hF s hv
 
 /-! ### The largest finite value -/
 
@@ -88,17 +59,7 @@ theorem saturated_mem (F : FiniteFormat) (hb : F.b ≠ ⊤) (negative : Bool) :
 
 end FiniteFormat
 
-/-! ### The tables -/
-
-/-- Where special inputs go. -/
-structure SpecialMap (F : Format) where
-  map : Special → WithSpecial Dyadic
-  mem : ∀ s, map s ∈ F.values
-
-/-- Where overflow goes, keyed by `negative`. -/
-structure OverflowMap (F : Format) where
-  map : Bool → WithSpecial Dyadic
-  mem : ∀ negative, map negative ∈ F.values
+/-! ### Standard tables -/
 
 namespace SpecialMap
 
@@ -123,10 +84,6 @@ def toNaN (F : Format) (hnan : Special.nan ∈ F.specials) : SpecialMap F :=
 end SpecialMap
 
 namespace OverflowMap
-
-/-- The table for the negated input: `(O.neg).map b = -(O.map (!b))`. -/
-def neg {F : Format} (hF : F.NegClosed) (O : OverflowMap F) : OverflowMap F :=
-  ⟨fun negative => (O.map !negative).neg, fun _ => Format.neg_mem_values hF (O.mem _)⟩
 
 /-- IEEE 754 §7.4: nearest overflows to `±Inf`, toward-zero to `±maxFinite`,
 directed modes to `±Inf` on their side and `±maxFinite` on the other. The

@@ -23,6 +23,29 @@ inductive WithSpecial (α : Type) where
   | special (s : Special)
 deriving DecidableEq, Repr
 
+/-- Negation of a special value: infinities flip sign, NaN is fixed. -/
+def Special.neg : Special → Special
+  | .inf negative => .inf !negative
+  | .nan => .nan
+
+@[simp] theorem Special.neg_neg (s : Special) : s.neg.neg = s := by
+  cases s <;> simp [Special.neg]
+
+/-- Negation through `WithSpecial`. -/
+def WithSpecial.neg {α : Type} [Neg α] : WithSpecial α → WithSpecial α
+  | .finite a => .finite (-a)
+  | .special s => .special s.neg
+
+@[simp] theorem WithSpecial.neg_finite {α : Type} [Neg α] (a : α) :
+    (WithSpecial.finite a).neg = .finite (-a) := rfl
+
+@[simp] theorem WithSpecial.neg_special {α : Type} [Neg α] (s : Special) :
+    (WithSpecial.special s : WithSpecial α).neg = .special s.neg := rfl
+
+@[simp] theorem WithSpecial.neg_neg {α : Type} [InvolutiveNeg α] (v : WithSpecial α) :
+    v.neg.neg = v := by
+  cases v <;> simp
+
 /-- The abstract number format `𝒜(p, exp, b, S)`.
 
 * `p : Prec` — maximum precision (in binary digits). `p = 0` is the trivial
@@ -116,6 +139,15 @@ theorem neg_mem {F : Format} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F := by
 
 theorem mem_neg_iff (F : Format) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
   ⟨fun h => by simpa using neg_mem h, neg_mem⟩
+
+/-- `F`'s specials are closed under negation. -/
+def NegClosed (F : Format) : Prop := ∀ s ∈ F.specials, s.neg ∈ F.specials
+
+theorem neg_mem_values {F : Format} (hF : F.NegClosed) {v : WithSpecial Dyadic}
+    (hv : v ∈ F.values) : v.neg ∈ F.values := by
+  cases v with
+  | finite d => exact neg_mem (F := F) hv
+  | special s => exact hF s hv
 
 /-- `F` contains at least one nonzero value. §4.2's non-triviality restriction. -/
 def Nontrivial (F : Format) : Prop :=

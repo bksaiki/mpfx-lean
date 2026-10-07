@@ -246,6 +246,32 @@ Build: `lake build Mpfx.Rounding.Special`.
 
 ### Phase 5: total `rnd` over `WithSpecial`
 
+**Done.** Placement, chosen so each definition sits with its subject and the
+import graph stays acyclic (`Rounds` needs the tables, so they cannot live in
+`Rounding/Special.lean`, which imports `Rounding.Op`):
+
+| What | Where |
+| --- | --- |
+| `Special.neg`, `WithSpecial.neg` (+ `simp`) | `Format/Defs.lean`, after the types |
+| `Format.NegClosed`, `Format.neg_mem_values` | `Format/Defs.lean`, after `Format.neg_mem` |
+| `SpecialMap`, `OverflowMap`, `OverflowMap.neg` | `Rounding/Defs.lean`, before `Rounds` |
+| `RoundResult` (`value \| undefined`), `Rounds F S O rm` | `Rounding/Defs.lean` |
+| `Rounds.neg_*`, `congr_of_roundsFinite`, mode equivalences | `Rounding/Basic.lean` |
+| `rnd F S O rm` | `Rounding/Op/Defs.lean` |
+| `rnd_iff_rounds`, `overflows_iff_not_roundsInBound` | `Rounding/Op.lean` (needs existence) |
+| `maxFinite`, all standard tables | `Rounding/Special.lean` |
+
+Other notes:
+
+- `Rounds F S O rm (.finite x) (.value v)` has one witness `y` with
+  `(boundOK ∧ v = .finite y) ∨ (¬ boundOK ∧ v = O.map (decide (y < 0)))`, so no
+  decidability instance is needed in `Rounding/Defs`.
+- The `Rounds.neg_*` lemmas take `hF : F.NegClosed` and use `O.neg hF` on the
+  negated side. `Rounds.toNegative_iff_*` are now proved directly from their
+  `RoundsFinite` counterparts instead of through a double negation.
+- The Phase 3 bridges (`rounds_finite_iff`, `exists_rounds_overflow_iff`) are
+  removed.
+
 - `Rounding/Defs.lean`: `RoundResult` becomes `value | undefined`;
   `RoundResult.neg` negates through `WithSpecial`; `Rounds F S O rm v r`.
 - `Rounding/Op/Defs.lean`, `Rounding/Op.lean`: `rnd F S O rm` and
