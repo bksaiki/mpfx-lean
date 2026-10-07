@@ -10,7 +10,8 @@ Soundness of the two inference rules:
   is small enough that nothing in `F₁` uses more than `F₂.p` bits, so
   `F₁.p > F₂.p` is permitted.
 
-Both are stated for `Format` and proved entirely over `ℚ`.
+Both require `S₁ ⊆ S₂` on the specials, are stated for `Format`, and are proved
+over `ℚ`. `F₁ ⊆ F₂` (`Subset`) covers numeric values and specials.
 
 `subset_iff_contains` is completeness: for `F₁` with `BoundRep` and
 `Nontrivial`, `F₁ ⊆ F₂` iff one rule fires. Also `extend` and the digit-shift
@@ -21,10 +22,28 @@ namespace Mpfx
 
 namespace Format
 
-/-- Format inclusion: every value of `F₁` is also a value of `F₂`. -/
-def Subset (F₁ F₂ : Format) : Prop := ∀ x : Dyadic, x ∈ F₁ → x ∈ F₂
+/-- Format inclusion: every value of `F₁`, numeric or special, is a value of `F₂`. -/
+structure Subset (F₁ F₂ : Format) : Prop where
+  mem : ∀ x : Dyadic, x ∈ F₁ → x ∈ F₂
+  specials : F₁.specials ⊆ F₂.specials
 
 instance : HasSubset Format := ⟨Subset⟩
+
+/-- Apply `h : F₁ ⊆ F₂` to a numeric member directly, as `h x hx`. -/
+instance {F₁ F₂ : Format} : CoeFun (F₁ ⊆ F₂) (fun _ => ∀ x : Dyadic, x ∈ F₁ → x ∈ F₂) :=
+  ⟨Subset.mem⟩
+
+/-- Build `F₁ ⊆ F₂` from the specials inclusion and numeric membership. -/
+theorem subset_of_mem {F₁ F₂ : Format} (hs : F₁.specials ⊆ F₂.specials)
+    (h : ∀ x : Dyadic, x ∈ F₁ → x ∈ F₂) : F₁ ⊆ F₂ := ⟨h, hs⟩
+
+theorem Subset.refl (F : Format) : F ⊆ F := ⟨fun _ h => h, subset_rfl⟩
+
+theorem Subset.trans {F₁ F₂ F₃ : Format} (h₁ : F₁ ⊆ F₂) (h₂ : F₂ ⊆ F₃) : F₁ ⊆ F₃ :=
+  ⟨fun x hx => h₂.mem x (h₁.mem x hx), h₁.specials.trans h₂.specials⟩
+
+instance : Std.Refl (α := Format) (· ⊆ ·) := ⟨Subset.refl⟩
+instance : IsTrans Format (· ⊆ ·) := ⟨fun _ _ _ => Subset.trans⟩
 
 /-- The magnitude-bound check is monotone in the bound. -/
 theorem boundOK_mono {b₁ b₂ : Bound} (h : b₁ ≤ b₂) {x : Dyadic} :
@@ -39,12 +58,12 @@ theorem boundOK_mono {b₁ b₂ : Bound} (h : b₁ ≤ b₂) {x : Dyadic} :
       exact_mod_cast h12
     exact le_trans hx hd
 
-/-- **𝒜-Contains-Prec**. If `p₁ ≤ p₂`, `exp₂ ≤ exp₁`, and `b₁ ≤ b₂`,
-then `𝒜(p₁, exp₁, b₁) ⊆ 𝒜(p₂, exp₂, b₂)`. -/
+/-- **𝒜-Contains-Prec**. If `p₁ ≤ p₂`, `exp₂ ≤ exp₁`, `b₁ ≤ b₂` and `S₁ ⊆ S₂`,
+then `𝒜(p₁, exp₁, b₁, S₁) ⊆ 𝒜(p₂, exp₂, b₂, S₂)`. -/
 theorem containsPrec {F₁ F₂ : Format}
-    (hp : F₁.p ≤ F₂.p) (he : F₂.exp ≤ F₁.exp) (hb : F₁.b ≤ F₂.b) :
-    F₁ ⊆ F₂ := by
-  intro x hx
+    (hp : F₁.p ≤ F₂.p) (he : F₂.exp ≤ F₁.exp) (hb : F₁.b ≤ F₂.b)
+    (hs : F₁.specials ⊆ F₂.specials) : F₁ ⊆ F₂ := by
+  refine ⟨fun x hx => ?_, hs⟩
   obtain ⟨hpx, hex, hbx⟩ := hx
   exact ⟨Dyadic.precisionAtMost_mono hp hpx,
          Dyadic.quantumAtLeast_anti he hex,
@@ -57,8 +76,9 @@ least `F.exp` is contained in `F.unbounded`. This is the shared "the exact resul
 is representable in the wide format" step behind every operation-specific
 double-rounding rule (§5.2). -/
 theorem subset_unbounded_of_le {F G : Format}
-    (hp : G.p ≤ F.p) (he : F.exp ≤ G.exp) : G ⊆ F.unbounded :=
-  containsPrec hp he le_top
+    (hp : G.p ≤ F.p) (he : F.exp ≤ G.exp) (hs : G.specials ⊆ F.specials) :
+    G ⊆ F.unbounded :=
+  containsPrec hp he le_top hs
 
 /-- Membership form of `subset_unbounded_of_le`: a value whose precision is at
 most `p ≤ F.p` and whose quantum is at least `e ≥ F.exp` lies in `F.unbounded`.
@@ -69,7 +89,8 @@ theorem mem_unbounded_of_le {F : Format} {p : Prec} {e : QExp}
     {v : Dyadic} (hp : p ≤ F.p) (he : F.exp ≤ e)
     (hvp : Dyadic.precisionAtMost p v) (hvq : Dyadic.quantumAtLeast e v) :
     v ∈ F.unbounded :=
-  subset_unbounded_of_le (G := { p := p, exp := e, b := ⊤ }) hp he v ⟨hvp, hvq, trivial⟩
+  subset_unbounded_of_le (G := { p := p, exp := e, b := ⊤, specials := ∅ }) hp he
+    (Set.empty_subset _) v ⟨hvp, hvq, trivial⟩
 
 /-- The non-negative dyadic `2 ^ e = 1 · 2^e`. -/
 def nnPow (e : ℤ) : NonNegDyadic :=
@@ -84,16 +105,16 @@ def nnPow (e : ℤ) : NonNegDyadic :=
 
 /-- **𝒜-Contains-Sub**. If `F₁`'s bound is at most `2^(exp₁ + p₂)`
 (so every value of `F₁` fits in `F₂.p = p₂` bits at exponent `exp₁`), plus
-the standard quantum and bound orderings, then `F₁ ⊆ F₂` — even when
+the standard quantum, bound and specials orderings, then `F₁ ⊆ F₂` — even when
 `F₁.p > F₂.p`. -/
 theorem containsSub {F₁ F₂ : Format}
     {exp₁ : ℤ} (he₁ : F₁.exp = (exp₁ : QExp))
     {p₂ : ℕ} (hp₂pos : 0 < p₂) (hp₂ : F₂.p = (p₂ : Prec))
     (hbprec : F₁.b ≤ ((nnPow (exp₁ + (p₂ : ℤ)) : NonNegDyadic) : Bound))
     (he : F₂.exp ≤ F₁.exp)
-    (hb : F₁.b ≤ F₂.b) :
+    (hb : F₁.b ≤ F₂.b) (hs : F₁.specials ⊆ F₂.specials) :
     F₁ ⊆ F₂ := by
-  intro x hx
+  refine ⟨fun x hx => ?_, hs⟩
   obtain ⟨_, hex, hbx⟩ := hx
   -- x = c · 2^exp₁.
   have hex_coe : Dyadic.quantumAtLeast (exp₁ : QExp) x := by rw [← he₁]; exact hex
@@ -351,13 +372,13 @@ unchanged either way. -/
 
 /-- Premises of `𝒜-Contains-Prec`. -/
 def ContainsPrec (F₁ F₂ : Format) : Prop :=
-  F₁.p ≤ F₂.p ∧ F₂.exp ≤ F₁.exp ∧ F₁.b ≤ F₂.b
+  F₁.p ≤ F₂.p ∧ F₂.exp ≤ F₁.exp ∧ F₁.b ≤ F₂.b ∧ F₁.specials ⊆ F₂.specials
 
 /-- Premises of `𝒜-Contains-Sub`. -/
 def ContainsSub (F₁ F₂ : Format) : Prop :=
   ∃ (e₁ : ℤ) (p₂ : ℕ), F₁.exp = (e₁ : QExp) ∧ 0 < p₂ ∧ F₂.p = (p₂ : Prec) ∧
     F₁.b ≤ ((nnPow (e₁ + (p₂ : ℤ)) : NonNegDyadic) : Bound) ∧
-    F₂.exp ≤ F₁.exp ∧ F₁.b ≤ F₂.b
+    F₂.exp ≤ F₁.exp ∧ F₁.b ≤ F₂.b ∧ F₁.specials ⊆ F₂.specials
 
 /-- **Completeness of the containment rules.** For `F₁` with a representable bound that
 represents a nonzero value, `F₁ ⊆ F₂` holds exactly when one of the two rules
@@ -369,12 +390,12 @@ theorem subset_iff_contains {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F�
     have hb := b_le_of_subset hbr hnt h
     have he := exp_le_of_subset hnt h
     by_cases hp : F₁.p ≤ F₂.p
-    · exact Or.inl ⟨hp, he, hb⟩
+    · exact Or.inl ⟨hp, he, hb, h.specials⟩
     · obtain ⟨e₁, p₂, he₁, hp₂pos, hp₂, hbb⟩ := sub_test_of_subset hbr hnt h hp
-      exact Or.inr ⟨e₁, p₂, he₁, hp₂pos, hp₂, hbb, he, hb⟩
-  · rintro (⟨hp, he, hb⟩ | ⟨e₁, p₂, he₁, hp₂pos, hp₂, hbb, he, hb⟩)
-    · exact containsPrec hp he hb
-    · exact containsSub he₁ hp₂pos hp₂ hbb he hb
+      exact Or.inr ⟨e₁, p₂, he₁, hp₂pos, hp₂, hbb, he, hb, h.specials⟩
+  · rintro (⟨hp, he, hb, hs⟩ | ⟨e₁, p₂, he₁, hp₂pos, hp₂, hbb, he, hb, hs⟩)
+    · exact containsPrec hp he hb hs
+    · exact containsSub he₁ hp₂pos hp₂ hbb he hb hs
 
 /-! ### Format extension
 
@@ -382,13 +403,15 @@ theorem subset_iff_contains {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F�
 `k` (bound unchanged). Used by §5.2 to phrase the double-rounding rules'
 intermediate formats `A(p₁ + k, exp₁ − k, b₁)`. -/
 
-/-- Extend `F` by `k` bits: `p ↦ p + k`, `exp ↦ exp − k`, `b` unchanged. -/
+/-- Extend `F` by `k` bits: `p ↦ p + k`, `exp ↦ exp − k`, `b` and specials unchanged. -/
 def extend (F : Format) (k : ℕ) : Format where
   p := F.p + k
   exp := F.exp.map (· - (k : ℤ))
   b := F.b
+  specials := F.specials
 
 @[simp] theorem extend_b (F : Format) k : (F.extend k).b = F.b := rfl
+@[simp] theorem extend_specials (F : Format) k : (F.extend k).specials = F.specials := rfl
 
 /-- `F ⊆ F.extend k`: extending only relaxes the precision and quantum
 constraints. -/
@@ -402,6 +425,7 @@ theorem self_subset_extend (F : Format) (k : ℕ) : F ⊆ F.extend k := by
       rw [WithBot.map_coe]
       exact WithBot.coe_le_coe.mpr (sub_le_self e (by positivity))
   · exact le_refl _
+  · exact subset_rfl
 
 /-- `extend` is monotone in the bit count: `F.extend j ⊆ F.extend k` when `j ≤ k`. -/
 theorem extend_mono (F : Format) {j k : ℕ} (h : j ≤ k) :
@@ -416,12 +440,13 @@ theorem extend_mono (F : Format) {j k : ℕ} (h : j ≤ k) :
       have hjk : (j : ℤ) ≤ (k : ℤ) := by exact_mod_cast h
       exact WithBot.coe_le_coe.mpr (by omega)
   · exact le_refl _
+  · exact subset_rfl
 
 /-- `(F.extend 1).extend 1 ⊆ F.extend 2` via precision/quantum equivalence.
 The core is `(p+1)+1 = p+2`, `(exp-1)-1 = exp-2`, same bound. -/
 theorem extend_one_extend_one_subset_extend_two (F : Format) :
     (F.extend 1).extend 1 ⊆ F.extend 2 := by
-  intro y hy
+  refine subset_of_mem subset_rfl fun y hy => ?_
   obtain ⟨hp, hq, hb⟩ := hy
   refine ⟨?_, ?_, hb⟩
   · change Dyadic.precisionAtMost (F.p + ((2 : ℕ) : Prec)) y
@@ -460,6 +485,10 @@ theorem two_le_p_of_precision_two_witness {F : Format} {v : Dyadic}
 end Format
 
 namespace FiniteFormat
+
+/-- Dropping the bound enlarges the format. -/
+theorem subset_unbounded (F : FiniteFormat) : F.toFormat ⊆ F.unbounded.toFormat :=
+  Format.subset_of_mem subset_rfl fun _ => mem_unbounded_of_mem
 
 /-- Extend a `FiniteFormat` by `k` bits. The `finite` invariant is preserved:
 `extend` only grows `p` (a finite `p` stays finite) and only shrinks `exp`

@@ -7,13 +7,13 @@ import Mpfx.Rounding.Op
 /-!
 # Correct double rounding (§5.2)
 
-The double-rounding rules in the `RoundsFinite` layer (`rndRTZ_RTZ`, …):
+The double-rounding rules in the `RoundsFinite` layer (`roundsRTZ_RTZ_finite`, …):
 stated *spec-relationally* — given that `z` is the rounding of `x` in `F₂`
 and `w` is the rounding of `z` in `F₁` (with `F₁ ⊆ F₂`), conclude that `w` is
 also the rounding of `x` in `F₁` directly. Overflow bookkeeping is sidestepped
-and the existence of `z`, `w` is taken as hypotheses. `rndRTO_RN` is in
-`Mpfx.DoubleRounding.Nearest`; the overflow-aware `Rounds` layer
-(`roundsRTZ_RTZ`, …) is in `Mpfx.DoubleRounding.Total`.
+and the existence of `z`, `w` is taken as hypotheses. `roundsRTO_RN_finite` is in
+`Mpfx.DoubleRounding.Nearest`; the overflow-aware total forms
+(`roundsRTZ_RTZ_inBound`, …) are in `Mpfx.DoubleRounding.Total`.
 -/
 
 
@@ -36,7 +36,7 @@ theorem rndExact {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode}
 /-- **rnd-RTZ-RTZ**. Chained round-toward-zero collapses: if
 `F₁ ⊆ F₂`, `z` is the RTZ-rounding of `x` in `F₂`, and `w` is the RTZ-rounding
 of `z` in `F₁`, then `w` is the RTZ-rounding of `x` in `F₁`. -/
-theorem rndRTZ_RTZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+theorem roundsRTZ_RTZ_finite {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
     {x : ℝ} {z w : Dyadic}
     (hz : RoundsFinite F₂ .toZero x z) (hw : RoundsFinite F₁ .toZero (z : ℝ) w) :
     RoundsFinite F₁ .toZero x w := by
@@ -105,7 +105,7 @@ theorem rndRTZ_RTZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
 
 /-- **rnd-RAZ-RAZ**, case `0 < x`. The general theorem follows by
 sign-symmetry and the `x = 0` case. -/
-private theorem rndRAZ_RAZ_pos {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+private theorem roundsRAZ_RAZ_finite_pos {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
     {x : ℝ} (hx : 0 < x) {z w : Dyadic}
     (hz : RoundsFinite F₂ .awayZero x z) (hw : RoundsFinite F₁ .awayZero (z : ℝ) w) :
     RoundsFinite F₁ .awayZero x w := by
@@ -138,7 +138,7 @@ private theorem rndRAZ_RAZ_pos {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat 
 
 /-- **rnd-RAZ-RAZ**. General version. Combines the positive case,
 the negative case (via `RoundsFinite.neg_awayZero`), and the `x = 0` case. -/
-theorem rndRAZ_RAZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+theorem roundsRAZ_RAZ_finite {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
     {x : ℝ} {z w : Dyadic}
     (hz : RoundsFinite F₂ .awayZero x z) (hw : RoundsFinite F₁ .awayZero (z : ℝ) w) :
     RoundsFinite F₁ .awayZero x w := by
@@ -148,7 +148,7 @@ theorem rndRAZ_RAZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
       (RoundsFinite.neg_awayZero F₂ x z).mp hz
     have hw' : RoundsFinite F₁ .awayZero ((-z : Dyadic) : ℝ) (-w) := by
       rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_awayZero F₁ (z : ℝ) w).mp hw
-    have hresult := rndRAZ_RAZ_pos hsub (neg_pos.mpr hx_neg) hz' hw'
+    have hresult := roundsRAZ_RAZ_finite_pos hsub (neg_pos.mpr hx_neg) hz' hw'
     have hflip := (RoundsFinite.neg_awayZero F₁ (-x) (-w)).mp hresult
     rwa [neg_neg, neg_neg] at hflip
   · -- x = 0
@@ -169,12 +169,12 @@ theorem rndRAZ_RAZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
         rw [Dyadic.coe_real_neg]; linarith
       have key := hwmin (-y) hny h1 h2
       rwa [Dyadic.coe_real_neg, abs_neg] at key
-  · exact rndRAZ_RAZ_pos hsub hx_pos hz hw
+  · exact roundsRAZ_RAZ_finite_pos hsub hx_pos hz hw
 
 /-- **rnd-RTO-RTO**, general case `x ∈ ℝ`.
 
 Restricted to `F₂.p ≥ 2`. -/
-theorem rndRTO_RTO {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+theorem roundsRTO_RTO_finite {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
     (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
     {x : ℝ} {z w' : Dyadic}
     (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .toOdd (z : ℝ) w') :
@@ -434,15 +434,13 @@ private theorem RoundsFinite.awayZero_of_trivial {F₁ F₂ : FiniteFormat}
     rw [hF₁_triv v hvF₁, hw'_zero]
 
 /-- **rnd-RTO-RTZ**, positive case `0 < x`. -/
-private theorem rndRTO_RTZ_pos {F₁ F₂ : FiniteFormat}
+private theorem roundsRTO_RTZ_finite_pos {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
     (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
     {x : ℝ} (hx_pos : 0 < x) {z w' : Dyadic}
     (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .toZero (z : ℝ) w') :
     RoundsFinite F₁ .toZero x w' := by
-  -- `F₁ ⊆ F₁.extend 1 ⊆ F₂`.
-  have hsub' : F₁.toFormat ⊆ F₂.toFormat := fun y hy =>
-    hsub y (Format.self_subset_extend F₁.toFormat 1 y hy)
+  have hsub' : F₁.toFormat ⊆ F₂.toFormat := (Format.self_subset_extend _ 1).trans hsub
   have hz_nn : 0 ≤ (z : ℝ) := toOdd_nonneg_of_nn hx_pos.le hz
   obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
   obtain ⟨hw'F₁, hw'_bnd_z, hw'_sign_z, hw'_max⟩ := hw
@@ -497,61 +495,64 @@ private theorem rndRTO_RTZ_pos {F₁ F₂ : FiniteFormat}
     have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
     exact hw'_max v hvF₁ hv_bnd_z hv_z_sign
 
-/-- **rnd-RTO-RTZ**, general case, **paper form**. An RTO rounding
-`z` of `x` in `F₂` followed by an RTZ rounding `w'` of `z` in `F₁` collapses
-to an RTZ rounding of `x` in `F₁`. Uses the single bound-aware containment
-hypothesis `(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`; the auxiliary
-`2 ≤ F₂.p` is *derived* (or `F₁` is trivial). -/
-theorem rndRTO_RTZ {F₁ F₂ : FiniteFormat}
+/-- **rnd-RTO-RTZ** under `F₁.extend 1 ⊆ F₂` and `2 ≤ F₂.p`, without the relaxed
+bound. -/
+theorem roundsRTO_RTZ_finite_of_extend {F₁ F₂ : FiniteFormat}
+    (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
+    (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
+    {x : ℝ} {z w' : Dyadic}
+    (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .toZero (z : ℝ) w') :
+    RoundsFinite F₁ .toZero x w' := by
+  rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
+  · -- x < 0: negate, apply the positive case, negate back.
+    have hx_pos' : 0 < (-x) := by linarith
+    have hz' : RoundsFinite F₂ .toOdd (-x) (-z) :=
+      (RoundsFinite.neg_toOdd F₂ x z).mp hz
+    have hw' : RoundsFinite F₁ .toZero ((-z : Dyadic) : ℝ) (-w') := by
+      rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_toZero F₁ (z : ℝ) w').mp hw
+    have h_result := roundsRTO_RTZ_finite_pos hsub hp_F₂ hx_pos' hz' hw'
+    have hfinal := (RoundsFinite.neg_toZero F₁ (-x) (-w')).mp h_result
+    rwa [neg_neg, neg_neg] at hfinal
+  · -- x = 0: forces z = 0 and w' = 0.
+    subst hx_zero
+    have hz_zero : z = 0 := RoundsFinite.eq_zero_of_zero hz
+    rw [hz_zero] at hw
+    obtain ⟨hw'F₁, hw'_bnd, _, _⟩ := hw
+    have hw'_zero : (w' : ℝ) = 0 := by
+      rw [Dyadic.coe_real_zero, abs_zero] at hw'_bnd
+      exact abs_nonpos_iff.mp hw'_bnd
+    refine ⟨hw'F₁, ?_, ?_, ?_⟩
+    · simp [hw'_zero]
+    · simp [hw'_zero]
+    · intro v _ hv_bnd _
+      rw [hw'_zero, abs_zero]
+      simpa using hv_bnd
+  · exact roundsRTO_RTZ_finite_pos hsub hp_F₂ hx_pos hz hw
+
+/-- **rnd-RTO-RTZ** under the relaxed containment; `2 ≤ F₂.p` follows unless `F₁`
+is trivial. -/
+theorem roundsRTO_RTZ_finite {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     {x : ℝ} {z w' : Dyadic}
     (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .toZero (z : ℝ) w') :
     RoundsFinite F₁ .toZero x w' := by
   rcases two_le_p_or_trivial_of_extend_one_withBound_subset hsub with hp_F₂ | hF₁_triv
-  · -- main case: 2 ≤ F₂.p. Recover the weaker subset and run the trichotomy.
-    have hsub' := extend_one_subset_of_withBound_subset hsub
-    rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
-    · -- x < 0: negate, apply the positive case, negate back.
-      have hx_pos' : 0 < (-x) := by linarith
-      have hz' : RoundsFinite F₂ .toOdd (-x) (-z) :=
-        (RoundsFinite.neg_toOdd F₂ x z).mp hz
-      have hw' : RoundsFinite F₁ .toZero ((-z : Dyadic) : ℝ) (-w') := by
-        rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_toZero F₁ (z : ℝ) w').mp hw
-      have h_result := rndRTO_RTZ_pos hsub' hp_F₂ hx_pos' hz' hw'
-      have hfinal := (RoundsFinite.neg_toZero F₁ (-x) (-w')).mp h_result
-      rwa [neg_neg, neg_neg] at hfinal
-    · -- x = 0: forces z = 0 and w' = 0.
-      subst hx_zero
-      have hz_zero : z = 0 := RoundsFinite.eq_zero_of_zero hz
-      rw [hz_zero] at hw
-      obtain ⟨hw'F₁, hw'_bnd, _, _⟩ := hw
-      have hw'_zero : (w' : ℝ) = 0 := by
-        rw [Dyadic.coe_real_zero, abs_zero] at hw'_bnd
-        exact abs_nonpos_iff.mp hw'_bnd
-      refine ⟨hw'F₁, ?_, ?_, ?_⟩
-      · simp [hw'_zero]
-      · simp [hw'_zero]
-      · intro v _ hv_bnd _
-        rw [hw'_zero, abs_zero]
-        simpa using hv_bnd
-    · -- x > 0
-      exact rndRTO_RTZ_pos hsub' hp_F₂ hx_pos hz hw
+  · exact roundsRTO_RTZ_finite_of_extend (extend_one_subset_of_withBound_subset hsub) hp_F₂
+      hz hw
   · -- trivial case: F₁ = {0}.
     exact RoundsFinite.toZero_of_trivial hF₁_triv hw.1
 
 /-- **rnd-RTO-RAZ**, positive case `0 < x`. Symmetric to
-`rndRTO_RTZ_pos` but for round-away-from-zero. The key RTO-padding application
+`roundsRTO_RTZ_finite_pos` but for round-away-from-zero. The key RTO-padding application
 (`toOdd_notMem_of_extend_subset`) happens in the ToNegative (RTN / round-down)
 branch of `z` rather than the ToPositive (RTP) branch. -/
-private theorem rndRTO_RAZ_pos {F₁ F₂ : FiniteFormat}
+private theorem roundsRTO_RAZ_finite_pos {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
     (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
     {x : ℝ} (hx_pos : 0 < x) {z w' : Dyadic}
     (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .awayZero (z : ℝ) w') :
     RoundsFinite F₁ .awayZero x w' := by
-  -- `F₁ ⊆ F₁.extend 1 ⊆ F₂`.
-  have hsub' : F₁.toFormat ⊆ F₂.toFormat := fun y hy =>
-    hsub y (Format.self_subset_extend F₁.toFormat 1 y hy)
+  have hsub' : F₁.toFormat ⊆ F₂.toFormat := (Format.self_subset_extend _ 1).trans hsub
   have hz_nn : 0 ≤ (z : ℝ) := toOdd_nonneg_of_nn hx_pos.le hz
   obtain ⟨hzF₂, hz_adj, hz_odd_imp⟩ := hz
   obtain ⟨hw'F₁, hw'_bnd_z, hw'_sign_z, hw'_min⟩ := hw
@@ -615,52 +616,57 @@ private theorem rndRTO_RAZ_pos {F₁ F₂ : FiniteFormat}
     have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
     exact hw'_min v hvF₁ hv_bnd_z hv_z_sign
 
-/-- **rnd-RTO-RAZ**, general case, **paper form**. An RTO rounding
-`z` of `x` in `F₂` followed by an RAZ (away-from-zero) rounding `w'` of `z` in
-`F₁` collapses to an RAZ rounding of `x` in `F₁`. Uses the single bound-aware
-containment hypothesis `(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`; the
-auxiliary `2 ≤ F₂.p` is *derived* (or `F₁` is trivial). -/
-theorem rndRTO_RAZ {F₁ F₂ : FiniteFormat}
+/-- **rnd-RTO-RAZ** under `F₁.extend 1 ⊆ F₂` and `2 ≤ F₂.p`, without the relaxed
+bound. -/
+theorem roundsRTO_RAZ_finite_of_extend {F₁ F₂ : FiniteFormat}
+    (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
+    (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
+    {x : ℝ} {z w' : Dyadic}
+    (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .awayZero (z : ℝ) w') :
+    RoundsFinite F₁ .awayZero x w' := by
+  rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
+  · -- x < 0: negate, apply the positive case, negate back.
+    have hx_pos' : 0 < (-x) := by linarith
+    have hz' : RoundsFinite F₂ .toOdd (-x) (-z) :=
+      (RoundsFinite.neg_toOdd F₂ x z).mp hz
+    have hw' : RoundsFinite F₁ .awayZero ((-z : Dyadic) : ℝ) (-w') := by
+      rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_awayZero F₁ (z : ℝ) w').mp hw
+    have h_result := roundsRTO_RAZ_finite_pos hsub hp_F₂ hx_pos' hz' hw'
+    have hfinal := (RoundsFinite.neg_awayZero F₁ (-x) (-w')).mp h_result
+    rwa [neg_neg, neg_neg] at hfinal
+  · -- x = 0: forces z = 0 and w' = 0.
+    subst hx_zero
+    have hz_zero : z = 0 := RoundsFinite.eq_zero_of_zero hz
+    rw [hz_zero] at hw
+    obtain ⟨hw'F₁, _, _, hw'_min⟩ := hw
+    have h_min := hw'_min 0 F₁.zero_mem (le_refl _) (by simp)
+    have hw'_zero : (w' : ℝ) = 0 := by
+      rw [Dyadic.coe_real_zero, abs_zero] at h_min
+      exact abs_nonpos_iff.mp h_min
+    refine ⟨hw'F₁, ?_, ?_, ?_⟩
+    · simp [hw'_zero]
+    · simp [hw'_zero]
+    · intro v _ _ _
+      simp [hw'_zero, abs_nonneg]
+  · exact roundsRTO_RAZ_finite_pos hsub hp_F₂ hx_pos hz hw
+
+/-- **rnd-RTO-RAZ** under the relaxed containment; `2 ≤ F₂.p` follows unless `F₁`
+is trivial. -/
+theorem roundsRTO_RAZ_finite {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     {x : ℝ} {z w' : Dyadic}
     (hz : RoundsFinite F₂ .toOdd x z) (hw : RoundsFinite F₁ .awayZero (z : ℝ) w') :
     RoundsFinite F₁ .awayZero x w' := by
   rcases two_le_p_or_trivial_of_extend_one_withBound_subset hsub with hp_F₂ | hF₁_triv
-  · -- main case: 2 ≤ F₂.p. Recover the weaker subset and run the trichotomy.
-    have hsub' := extend_one_subset_of_withBound_subset hsub
-    rcases lt_trichotomy x 0 with hx_neg | hx_zero | hx_pos
-    · -- x < 0: negate, apply the positive case, negate back.
-      have hx_pos' : 0 < (-x) := by linarith
-      have hz' : RoundsFinite F₂ .toOdd (-x) (-z) :=
-        (RoundsFinite.neg_toOdd F₂ x z).mp hz
-      have hw' : RoundsFinite F₁ .awayZero ((-z : Dyadic) : ℝ) (-w') := by
-        rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_awayZero F₁ (z : ℝ) w').mp hw
-      have h_result := rndRTO_RAZ_pos hsub' hp_F₂ hx_pos' hz' hw'
-      have hfinal := (RoundsFinite.neg_awayZero F₁ (-x) (-w')).mp h_result
-      rwa [neg_neg, neg_neg] at hfinal
-    · -- x = 0: forces z = 0 and w' = 0.
-      subst hx_zero
-      have hz_zero : z = 0 := RoundsFinite.eq_zero_of_zero hz
-      rw [hz_zero] at hw
-      obtain ⟨hw'F₁, _, _, hw'_min⟩ := hw
-      have h_min := hw'_min 0 F₁.zero_mem (le_refl _) (by simp)
-      have hw'_zero : (w' : ℝ) = 0 := by
-        rw [Dyadic.coe_real_zero, abs_zero] at h_min
-        exact abs_nonpos_iff.mp h_min
-      refine ⟨hw'F₁, ?_, ?_, ?_⟩
-      · simp [hw'_zero]
-      · simp [hw'_zero]
-      · intro v _ _ _
-        simp [hw'_zero, abs_nonneg]
-    · -- x > 0
-      exact rndRTO_RAZ_pos hsub' hp_F₂ hx_pos hz hw
+  · exact roundsRTO_RAZ_finite_of_extend (extend_one_subset_of_withBound_subset hsub) hp_F₂
+      hz hw
   · -- trivial case: F₁ = {0}.
     exact RoundsFinite.awayZero_of_trivial hF₁_triv hz hw
 
 /-- **rnd-RTP-RTP** (round toward `+∞`, chained). For `x > 0` it is RAZ→RAZ
-(`rndRAZ_RAZ_pos`); for `x ≤ 0` it is RTZ→RTZ (`rndRTZ_RTZ`). The two regimes
+(`roundsRAZ_RAZ_finite_pos`); for `x ≤ 0` it is RTZ→RTZ (`roundsRTZ_RTZ_finite`). The two regimes
 are connected to RTP through the sign-bridge iff lemmas. Only needs `F₁ ⊆ F₂`. -/
-theorem rndRTP_RTP {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+theorem roundsRTP_RTP_finite {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
     {x : ℝ} {z w : Dyadic}
     (hz : RoundsFinite F₂ .toPositive x z) (hw : RoundsFinite F₁ .toPositive (z : ℝ) w) :
     RoundsFinite F₁ .toPositive x w := by
@@ -674,7 +680,7 @@ theorem rndRTP_RTP {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
     have hw_RTZ : RoundsFinite F₁ .toZero (z : ℝ) w :=
       (RoundsFinite.toPositive_iff_toZero_of_nonpos F₁ hz_le_0 w).mp hw
     exact (RoundsFinite.toPositive_iff_toZero_of_nonpos F₁ hx_le w).mpr
-      (rndRTZ_RTZ hsub hz_RTZ hw_RTZ)
+      (roundsRTZ_RTZ_finite hsub hz_RTZ hw_RTZ)
   · -- x > 0: bridge to RAZ.
     have hx_pos : 0 < x := not_le.mp hx_le
     have hz_nn : 0 ≤ (z : ℝ) := le_trans hx_pos.le hz.2.1
@@ -683,12 +689,12 @@ theorem rndRTP_RTP {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
     have hw_RAZ : RoundsFinite F₁ .awayZero (z : ℝ) w :=
       (RoundsFinite.toPositive_iff_awayZero_of_nonneg F₁ hz_nn w).mp hw
     exact (RoundsFinite.toPositive_iff_awayZero_of_nonneg F₁ hx_pos.le w).mpr
-      (rndRAZ_RAZ_pos hsub hx_pos hz_RAZ hw_RAZ)
+      (roundsRAZ_RAZ_finite_pos hsub hx_pos hz_RAZ hw_RAZ)
 
 /-- **rnd-RTN-RTN** (round toward `−∞`, chained). For `x < 0` it is RAZ→RAZ
-(`rndRAZ_RAZ`); for `x ≥ 0` it is RTZ→RTZ (`rndRTZ_RTZ`), connected to RTN via
+(`roundsRAZ_RAZ_finite`); for `x ≥ 0` it is RTZ→RTZ (`roundsRTZ_RTZ_finite`), connected to RTN via
 the sign-bridge iff lemmas. Only needs `F₁ ⊆ F₂`. -/
-theorem rndRTN_RTN {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+theorem roundsRTN_RTN_finite {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
     {x : ℝ} {z w : Dyadic}
     (hz : RoundsFinite F₂ .toNegative x z) (hw : RoundsFinite F₁ .toNegative (z : ℝ) w) :
     RoundsFinite F₁ .toNegative x w := by
@@ -701,7 +707,7 @@ theorem rndRTN_RTN {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
     have hw_RAZ : RoundsFinite F₁ .awayZero (z : ℝ) w :=
       (RoundsFinite.toNegative_iff_awayZero_of_nonpos F₁ hz_le_0 w).mp hw
     exact (RoundsFinite.toNegative_iff_awayZero_of_nonpos F₁ hx_le w).mpr
-      (rndRAZ_RAZ hsub hz_RAZ hw_RAZ)
+      (roundsRAZ_RAZ_finite hsub hz_RAZ hw_RAZ)
   · -- x ≥ 0: bridge to RTZ.
     have hx_nn : 0 ≤ x := not_lt.mp hx_neg
     have hz_nn : 0 ≤ (z : ℝ) := by
@@ -712,6 +718,6 @@ theorem rndRTN_RTN {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
     have hw_RTZ : RoundsFinite F₁ .toZero (z : ℝ) w :=
       (RoundsFinite.toNegative_iff_toZero_of_nonneg F₁ hz_nn w).mp hw
     exact (RoundsFinite.toNegative_iff_toZero_of_nonneg F₁ hx_nn w).mpr
-      (rndRTZ_RTZ hsub hz_RTZ hw_RTZ)
+      (roundsRTZ_RTZ_finite hsub hz_RTZ hw_RTZ)
 
 end Mpfx

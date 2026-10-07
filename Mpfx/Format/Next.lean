@@ -30,6 +30,13 @@ def withBound (F : Format) (b' : Bound) : Format := { F with b := b' }
 
 @[simp] theorem withBound_b (F : Format) (b' : Bound) :
     (F.withBound b').b = b' := rfl
+@[simp] theorem withBound_specials (F : Format) (b' : Bound) :
+    (F.withBound b').specials = F.specials := rfl
+
+/-- Relaxing the bound enlarges the format. -/
+theorem withBound_mono (F : Format) {b b' : Bound} (h : ∀ v, boundOK b v → boundOK b' v) :
+    F.withBound b ⊆ F.withBound b' :=
+  subset_of_mem subset_rfl fun v hv => ⟨hv.1, hv.2.1, h v hv.2.2⟩
 
 /-- The paper's `next_{F.p, F.exp}(b)` from §5.2: the smallest Dyadic
 in the grid `A(F.p, F.exp, ∞)` strictly above `b`.
@@ -725,6 +732,11 @@ theorem boundOK_boundAfterNext_of_boundOK {F₁ : FiniteFormat} {d : Dyadic}
     change |(d : ℚ)| ≤ ((F₁.toFormat.next b.val : Dyadic) : ℚ)
     linarith
 
+/-- `F ⊆ F.withBound next(b)`. -/
+theorem FiniteFormat.subset_withBound_boundAfterNext (F : FiniteFormat) :
+    F.toFormat ⊆ F.toFormat.withBound F.toFormat.boundAfterNext :=
+  Format.withBound_mono F.toFormat (b := F.b) fun _ => boundOK_boundAfterNext_of_boundOK
+
 /-- Antitonicity of the relaxed bound: if `G` shares `F`'s grid (so their
 `next` agree definitionally) but carries a bound `D` with
 `next(D) ≤ next(b₁)`, then `G`'s relaxed bound implies `F`'s. -/
@@ -846,32 +858,8 @@ private theorem extend_one_extend_one_p_exp (F : FiniteFormat) :
 `F₁.extend 1 ⊆ F₂`, since `next(b₁) ≥ b₁`. -/
 theorem extend_one_subset_of_withBound_subset {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat) :
-    (F₁.extend 1).toFormat ⊆ F₂.toFormat := by
-  intro y hy
-  apply hsub
-  obtain ⟨hp_y, hq_y, hb_y⟩ := hy
-  refine ⟨hp_y, hq_y, ?_⟩
-  -- goal: boundOK F₁.boundAfterNext y (withBound replaces only the bound).
-  change Format.boundOK F₁.toFormat.boundAfterNext y
-  cases hF_b : F₁.b using Bound.recTopCoe with
-  | top =>
-    rw [Format.boundAfterNext_top hF_b]; trivial
-  | coe b =>
-    obtain ⟨h_nn, h_after⟩ := Format.boundAfterNext_coe hF_b
-    rw [h_after]
-    -- goal: |(y : ℚ)| ≤ ((F₁.next b.val : Dyadic) : ℚ).
-    change |((y : Dyadic) : ℚ)| ≤ (((F₁.toFormat.next b.val : Dyadic)) : ℚ)
-    -- y's own bound: |y| ≤ b.val (over ℚ), since (extend 1).b = F₁.b.
-    change Format.boundOK (F₁.extend 1).b y at hb_y
-    rw [show (F₁.extend 1).b = F₁.b from rfl, hF_b] at hb_y
-    -- b ≤ next(b) over ℝ; bridge to ℚ.
-    have hb_nn : 0 ≤ ((b.val : Dyadic) : ℝ) := nonneg_coe_real b
-    have h_le_next : ((b.val : Dyadic) : ℝ) ≤ ((F₁.toFormat.next b.val : Dyadic) : ℝ) :=
-      Format.self_le_next F₁.toFormat b.val hb_nn
-    have h_le_next_q : ((b.val : Dyadic) : ℚ) ≤ ((F₁.toFormat.next b.val : Dyadic) : ℚ) := by
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h_le_next
-      exact_mod_cast h_le_next
-    exact le_trans hb_y h_le_next_q
+    (F₁.extend 1).toFormat ⊆ F₂.toFormat :=
+  (Format.withBound_mono _ (b := F₁.b) fun _ => boundOK_boundAfterNext_of_boundOK).trans hsub
 
 /-- From the paper-aligned containment
 `(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`, either `F₂.p ≥ 2` (the
@@ -1063,6 +1051,20 @@ theorem two_le_p_of_nontrivial {F₁ F₂ : FiniteFormat}
   · obtain ⟨d, hd, hne⟩ := hnt
     exact absurd (eq_zero_of_coe_real_zero (htriv d hd)) hne
 
+/-- The RN containment, restated at base `F₁.extend 1`. -/
+private theorem extend_one_extend_one_withBound_subset {F₁ F₂ : FiniteFormat}
+    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
+              ⊆ F₂.toFormat) :
+    (((F₁.extend 1).extend 1).toFormat.withBound
+      (F₁.extend 1).toFormat.boundAfterNext) ⊆ F₂.toFormat := by
+  obtain ⟨he_p, he_exp⟩ := extend_one_extend_one_p_exp F₁
+  refine Format.subset_of_mem hsub.specials fun y hy => ?_
+  obtain ⟨hp, hq, hb⟩ := hy
+  apply hsub.mem
+  refine ⟨?_, ?_, hb⟩
+  · rw [Format.withBound_p] at hp ⊢; rwa [he_p] at hp
+  · rw [Format.withBound_exp] at hq ⊢; rwa [he_exp] at hq
+
 /-- RN analog (`k = 2` case) of `extend_one_subset_of_withBound_subset`: from the
 paper-aligned containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext)
 ⊆ F₂`, derive the weaker `F₁.extend 2 ⊆ F₂` form. Obtained from the generic
@@ -1073,15 +1075,8 @@ theorem extend_two_subset_of_withBound_subset {F₁ F₂ : FiniteFormat}
               ⊆ F₂.toFormat) :
     (F₁.extend 2).toFormat ⊆ F₂.toFormat := by
   obtain ⟨he_p, he_exp⟩ := extend_one_extend_one_p_exp F₁
-  have hsub' : (((F₁.extend 1).extend 1).toFormat.withBound
-      (F₁.extend 1).toFormat.boundAfterNext) ⊆ F₂.toFormat := by
-    intro y hy
-    obtain ⟨hp, hq, hb⟩ := hy
-    apply hsub
-    refine ⟨?_, ?_, hb⟩
-    · rw [Format.withBound_p] at hp ⊢; rwa [he_p] at hp
-    · rw [Format.withBound_exp] at hq ⊢; rwa [he_exp] at hq
-  intro y hy
+  have hsub' := extend_one_extend_one_withBound_subset hsub
+  refine Format.subset_of_mem hsub.specials fun y hy => ?_
   refine extend_one_subset_of_withBound_subset hsub' y ?_
   obtain ⟨hp, hq, hb⟩ := hy
   exact ⟨by rwa [he_p], by rwa [he_exp], hb⟩
@@ -1099,15 +1094,7 @@ theorem two_le_p_or_trivial_of_extend_two_withBound_subset {F₁ F₂ : FiniteFo
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
               ⊆ F₂.toFormat) :
     ((2 : ℕ) : Prec) ≤ F₂.p ∨ ∀ d : Dyadic, d ∈ F₁ → (d : ℝ) = 0 := by
-  obtain ⟨he_p, he_exp⟩ := extend_one_extend_one_p_exp F₁
-  have hsub' : (((F₁.extend 1).extend 1).toFormat.withBound
-      (F₁.extend 1).toFormat.boundAfterNext) ⊆ F₂.toFormat := by
-    intro y hy
-    obtain ⟨hp, hq, hb⟩ := hy
-    apply hsub
-    refine ⟨?_, ?_, hb⟩
-    · rw [Format.withBound_p] at hp ⊢; rwa [he_p] at hp
-    · rw [Format.withBound_exp] at hq ⊢; rwa [he_exp] at hq
+  have hsub' := extend_one_extend_one_withBound_subset hsub
   rcases two_le_p_or_trivial_of_extend_one_withBound_subset hsub' with h | htriv
   · exact Or.inl h
   · exact Or.inr fun d hd => htriv d (Format.self_subset_extend F₁.toFormat 1 d hd)

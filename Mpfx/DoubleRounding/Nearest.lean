@@ -3,13 +3,13 @@ import Mpfx.DoubleRounding.Basic
 /-!
 # `rnd-RTO-RNE` / `rnd-RTO-RNA` (§5.2)
 
-`rndRTO_RN`: round-to-odd in `F₂` then round-to-nearest in `F₁` (either
+`roundsRTO_RN_finite`: round-to-odd in `F₂` then round-to-nearest in `F₁` (either
 tie-break) is correct double rounding.
 -/
 
 namespace Mpfx
 
-/-! ## Round-to-nearest helpers for `rndRTO_RN` -/
+/-! ## Round-to-nearest helpers for `roundsRTO_RN_finite` -/
 
 /-- Helper for tie-break: from `|x - w'| = |x - z'|` with `w' ≠ z'`, derive
 `x = (w' + z') / 2`. -/
@@ -105,7 +105,7 @@ private theorem RoundsFinite.nearest_of_trivial {F₁ : FiniteFormat} {tb : TieB
 
 /-! ## `rnd-RTO-RN` — round-to-odd then round-to-nearest -/
 
-/-- The closeness transfer step for `rndRTO_RN`: given that `z = RTO F₂ x`
+/-- The closeness transfer step for `roundsRTO_RN_finite`: given that `z = RTO F₂ x`
 sits outside `F₁.extend 1` (RTO-padding lemma) and `w' = RN F₁ z`, every F₁-adjacent
 `z'` to `x` satisfies `|x - w'| ≤ |x - z'|`. The argument uses the midpoint
 `m = (w' + z') / 2` (in F₂ via `midpoint_F₁_in_F₂_of_F_adjacent`, in
@@ -327,7 +327,7 @@ private lemma rndRTO_RN_close_transfer {F₁ F₂ : FiniteFormat}
       rw [abs_of_nonpos h_x_w_neg, abs_of_nonneg h_x_z_pos]
       linarith
 
-/-- The "no-tie" derivation used by the nearest-rounding branch of `rndRTO_RN`.
+/-- The "no-tie" derivation used by the nearest-rounding branch of `roundsRTO_RN_finite`.
 Given that `z = RTO F₂ x` is unrepresentable in `F₁` and that `z'` is supposedly
 tied with `w'` for `x`'s nearest-rounding in `F₁`, derive `False`: the tie
 equation forces `x = midpoint(w', z')`, F-adjacency makes that midpoint lie in
@@ -420,12 +420,11 @@ private lemma rndRTO_no_tie_contradiction {F₁ F₂ : FiniteFormat}
     exact RoundsFinite.toOdd_unique_of_mem h_mid_F₂ hz'
   exact hxne (by rw [hz_eq]; exact hm_x.symm)
 
-/-- Shared core for the nearest-rounding branch of `rndRTO_RN`. From the
+/-- Shared core for the nearest-rounding branch of `roundsRTO_RN_finite`. From the
 derived subset facts plus extracted hypotheses from the inner nearest-rounding,
 produces the three facts needed by either tie-break: adjacency transfer
 (`h_adj_x`), closeness transfer (`h_close`), and an absence-of-tie property
-(`h_no_tie`). The two `tb` branches of `rndRTO_RN` differ only in how they
-consume `h_no_tie`. -/
+(`h_no_tie`). -/
 private theorem rndRTO_nearest_facts {F₁ F₂ : FiniteFormat}
     (hsub2 : (F₁.extend 2).toFormat ⊆ F₂.toFormat)
     (hsub_ext1 : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
@@ -498,8 +497,8 @@ private theorem rndRTO_nearest_facts {F₁ F₂ : FiniteFormat}
         refine ⟨hw'F₁, le_trans hxz hzw, ?_⟩
         intro v hvF₁ hxv
         exact hw_min v hvF₁ (hzRU.2.2 v (hsub' _ hvF₁) hxv)
-  have hsub_double : ((F₁.extend 1).extend 1).toFormat ⊆ F₂.toFormat := fun y hy =>
-    hsub2 y (Format.extend_one_extend_one_subset_extend_two F₁.toFormat y hy)
+  have hsub_double : ((F₁.extend 1).extend 1).toFormat ⊆ F₂.toFormat :=
+    (Format.extend_one_extend_one_subset_extend_two _).trans hsub2
   have hz_not_F₁_ext1 : z ∉ F₁.extend 1 :=
     toOdd_notMem_of_extend_subset hsub_double hp_F₂ hz hxne
   have h_close := rndRTO_RN_close_transfer hsub_ext1 hsub' hF₁_sub_ext1
@@ -509,38 +508,23 @@ private theorem rndRTO_nearest_facts {F₁ F₂ : FiniteFormat}
   exact rndRTO_no_tie_contradiction hsub_ext1 hz hxne hw'F₁ hz'F₁
     h_adj_x hz'_adj hz'_ne_w' hz'_eq_dist
 
-/-- **rnd-RTO-RN**, paper-aligned form for round-to-odd followed by
-round-to-nearest, parameterized by the nearest-rounding tie-break `tb`.
-Covers both RNE (`tb = .toEven`) and RNA (`tb = .awayZero`) in a single
-theorem: the hypothesis `hsub` encodes the paper's RN containment, uniform with
-the `rndRTO_RTZ`/`rndRTO_RAZ` signatures. -/
-theorem rndRTO_RN {F₁ F₂ : FiniteFormat}
-    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
-              ⊆ F₂.toFormat)
+/-- **rnd-RTO-RN** under `F₁.extend 2 ⊆ F₂` and `2 ≤ F₂.p`, without the relaxed
+bound. -/
+theorem roundsRTO_RN_finite_of_extend {F₁ F₂ : FiniteFormat}
+    (hsub2 : (F₁.extend 2).toFormat ⊆ F₂.toFormat)
+    (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
     {tb : TieBreak} {x : ℝ} {z w' : Dyadic}
     (hz : RoundsFinite F₂ .toOdd x z)
     (hw : RoundsFinite F₁ (.nearest tb) (z : ℝ) w') :
     RoundsFinite F₁ (.nearest tb) x w' := by
-  rcases two_le_p_or_trivial_of_extend_two_withBound_subset hsub with hp_F₂ | hF₁_triv
-  swap
-  · -- F₁ trivial: handled uniformly for any tb.
-    exact RoundsFinite.nearest_of_trivial hF₁_triv hw.1
-  -- main case: 2 ≤ F₂.p. Derive the weaker subset chain.
-  have hsub2 : (F₁.extend 2).toFormat ⊆ F₂.toFormat :=
-    extend_two_subset_of_withBound_subset hsub
   have h_ext1_sub_ext2 : (F₁.extend 1).toFormat ⊆ (F₁.extend 2).toFormat :=
     Format.extend_mono F₁.toFormat (by exact_mod_cast (by omega : (1 : ℕ) ≤ 2) : (1 : ℕ) ≤ 2)
-  have hsub_ext1 : (F₁.extend 1).toFormat ⊆ F₂.toFormat := fun y hy =>
-    hsub2 _ (h_ext1_sub_ext2 _ hy)
-  have hsub' : F₁.toFormat ⊆ F₂.toFormat := fun y hy =>
-    hsub_ext1 _ (Format.self_subset_extend F₁.toFormat 1 _ hy)
+  have hsub_ext1 : (F₁.extend 1).toFormat ⊆ F₂.toFormat := h_ext1_sub_ext2.trans hsub2
+  have hsub' : F₁.toFormat ⊆ F₂.toFormat := (Format.self_subset_extend _ 1).trans hsub_ext1
   rcases eq_or_ne ((z : ℝ)) x with hzx | hzx
   · -- x = z: hw already has the right shape after rewriting.
     rw [hzx] at hw; exact hw
   have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
-  -- Non-trivial case: destructure hw (requires cases tb), then assemble via
-  -- rndRTO_nearest_facts. The IsFaithfulRound↔directed conversions sit at the
-  -- nearest-spec boundary.
   cases tb with
   | toEven =>
     obtain ⟨hw'F₁, hw_faithful, hw_close, _⟩ := hw
@@ -574,5 +558,20 @@ theorem rndRTO_RN {F₁ F₂ : FiniteFormat}
     intro z' hz'F₁ hz'_faithful hz'_ne_w' hz'_eq_dist
     exact (h_no_tie z' hz'F₁ (isFaithfulRound_iff_directed.mp hz'_faithful)
       hz'_ne_w' hz'_eq_dist).elim
+
+/-- **rnd-RTO-RN** (RNE and RNA) under the relaxed RN containment; `2 ≤ F₂.p`
+follows unless `F₁` is trivial. -/
+theorem roundsRTO_RN_finite {F₁ F₂ : FiniteFormat}
+    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
+              ⊆ F₂.toFormat)
+    {tb : TieBreak} {x : ℝ} {z w' : Dyadic}
+    (hz : RoundsFinite F₂ .toOdd x z)
+    (hw : RoundsFinite F₁ (.nearest tb) (z : ℝ) w') :
+    RoundsFinite F₁ (.nearest tb) x w' := by
+  rcases two_le_p_or_trivial_of_extend_two_withBound_subset hsub with hp_F₂ | hF₁_triv
+  · exact roundsRTO_RN_finite_of_extend (extend_two_subset_of_withBound_subset hsub) hp_F₂
+      hz hw
+  · -- F₁ trivial: handled uniformly for any tb.
+    exact RoundsFinite.nearest_of_trivial hF₁_triv hw.1
 
 end Mpfx

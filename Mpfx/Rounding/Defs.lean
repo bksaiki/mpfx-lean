@@ -5,11 +5,13 @@ import Mpfx.Format.Parity
 
 Defines:
 
-* `RoundingMode`, `TieBreak`, `RoundResult` — the modes and the
-  result ADT (`.finite`, `.overflow`, `.undefined`).
+* `RoundingMode`, `TieBreak`, `RoundResult` — the modes and the result
+  (`.value v` or `.undefined`).
 * `FiniteFormat.IsUndefined` — when `.undefined` fires.
+* `SpecialMap`, `OverflowMap` — where special inputs and overflow go.
 * `IsFaithfulRound` — RoundDown or RoundUp.
-* `Rounds : FiniteFormat → RoundingMode → ℝ → RoundResult → Prop` — the
+* `RoundsFinite`, `RoundsInBound`, `Overflows` — the numeric spec.
+* `Rounds F S O rm : WithSpecial ℝ → RoundResult → Prop` — the
   specification relation, all seven modes.
 
 The companion file **`Mpfx/Rounding/Op.lean`** adds the noncomputable
@@ -43,33 +45,25 @@ inductive RoundingMode where
   | nearest : TieBreak → RoundingMode
 deriving DecidableEq, Repr
 
-/-- The result of rounding a real `x` in a `Format` with some `RoundingMode`.
+/-- The result of rounding in a `Format` with some `RoundingMode`.
 
-* `.finite d` — `d : Dyadic` is the rounded value.
-* `.overflow positive` — `|x|` exceeds the format's magnitude bound. The
-  `positive : Bool` records the sign of the would-be result: `true` for
-  positive overflow, `false` for negative. (The would-be result is never
-  zero, since `0 ∈ F` always.)
+* `.value v` — the rounded value, numeric or special.
 * `.undefined` — the `(Format, RoundingMode)` combination is degenerate
-  and rounding has no semantic meaning. Currently fires only on
+  and rounding has no semantic meaning. Fires only on
   `(p = 1, exp = ⊥, rm ∈ {.toOdd, .nearest .toEven})`. -/
 inductive RoundResult where
-  | finite (d : Dyadic) : RoundResult
-  | overflow (positive : Bool) : RoundResult
+  | value (v : WithSpecial Dyadic) : RoundResult
   | undefined : RoundResult
 
 namespace RoundResult
 
-/-- Pointwise negation on `RoundResult`. `.finite y` maps to `.finite (-y)`;
-`.overflow positive` flips the sign bit; `.undefined` is a fixed point. -/
+/-- Negation through the value; `.undefined` is a fixed point. -/
 def neg : RoundResult → RoundResult
-  | .finite y    => .finite (-y)
-  | .overflow b  => .overflow !b
-  | .undefined   => .undefined
+  | .value v   => .value v.neg
+  | .undefined => .undefined
 
-@[simp] theorem neg_finite (y : Dyadic) : (RoundResult.finite y).neg = .finite (-y) := rfl
-@[simp] theorem neg_overflow (b : Bool) :
-    (RoundResult.overflow b).neg = .overflow !b := rfl
+@[simp] theorem neg_value (v : WithSpecial Dyadic) :
+    (RoundResult.value v).neg = .value v.neg := rfl
 @[simp] theorem neg_undefined : RoundResult.undefined.neg = .undefined := rfl
 
 @[simp] theorem neg_neg (r : RoundResult) : r.neg.neg = r := by
@@ -109,25 +103,38 @@ def FiniteFormat.toParityFormatOfNearestEven
   by_contra h_neg; push Not at h_neg
   exact h ⟨h_neg.1, h_neg.2, Or.inr rfl⟩
 
+/-! ### Special-value and overflow tables -/
+
+/-- Where special inputs go. -/
+structure SpecialMap (F : Format) where
+  map : Special → WithSpecial Dyadic
+  mem : ∀ s, map s ∈ F.values
+
+/-- Where overflow goes, keyed by `negative`. -/
+structure OverflowMap (F : Format) where
+  map : Bool → WithSpecial Dyadic
+  mem : ∀ negative, map negative ∈ F.values
+
+/-- The table for the negated input: `(O.neg hF).map b = (O.map !b).neg`. -/
+def OverflowMap.neg {F : Format} (hF : F.NegClosed) (O : OverflowMap F) : OverflowMap F :=
+  ⟨fun negative => (O.map !negative).neg, fun _ => Format.neg_mem_values hF (O.mem _)⟩
+
+@[simp] theorem OverflowMap.neg_map {F : Format} (hF : F.NegClosed) (O : OverflowMap F)
+    (negative : Bool) : (O.neg hF).map negative = (O.map !negative).neg := rfl
+
 /-! ### The specification relation `Rounds`
 
-`Rounds F rm x r : Prop` asserts that `r : RoundResult` is *the* answer
-that mode `rm` gives for input `x : ℝ` in format `F`:
+`Rounds F S O rm v r : Prop` asserts that `r : RoundResult` is *the* answer
+that mode `rm` gives for input `v` in format `F`:
 
-* `Rounds F rm x .undefined`  ↔  `F.IsUndefined rm`.
-* `Rounds F rm x .overflow`   ↔  not undefined *and* the unbounded
-                                 rounding produces a value that
-                                 violates `F.b`. (IEEE-style overflow.)
-* `Rounds F rm x (.finite y)` ↔  not undefined *and* `y` is the
-                                 unbounded rounding *and* `y` fits the
-                                 bound `F.b`.
+* a special input `s` gives `.value (S.map s)`;
+* a real input gives `.undefined` iff `F.IsUndefined rm`; otherwise its
+  unbounded rounding `y`, as `.value (.finite y)` if `y` fits the bound
+  `F.b`, else `.value (O.map (y < 0))` (overflow).
 
 The mode-specific rounding spec `RoundsFinite` is evaluated against
-`F.unbounded` (i.e., `F` with `b := ⊤`) — the bound check is a
-*separate* conjunct, applied to the value chosen by the unbounded
-spec. This ensures IEEE-style overflow: saturation isn't a "valid
-answer" — the only candidate is the unbounded rounding, and overflow
-fires if and only if that candidate is out of range. -/
+`F.unbounded` (i.e., `F` with `b := ⊤`); the bound is checked separately on
+its result, so overflow happens iff the unbounded rounding is out of range. -/
 
 /-- A *faithful* rounding of `x`: `y ∈ F` is either the largest F-element
 ≤ `x` (RTN) or the smallest F-element ≥ `x` (RTP). All of RTO, RNE, RNA
@@ -136,9 +143,8 @@ def IsFaithfulRound (F : FiniteFormat) (x : ℝ) (y : Dyadic) : Prop :=
   (y ∈ F ∧ (y : ℝ) ≤ x ∧ ∀ z : Dyadic, z ∈ F → (z : ℝ) ≤ x → (z : ℝ) ≤ (y : ℝ)) ∨
   (y ∈ F ∧ x ≤ (y : ℝ) ∧ ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ))
 
-/-- The finite-result rounding spec: when `r = .finite y`, this is the
-mode-specific condition `y` must satisfy. Lifted out of `Rounds` so the
-`.overflow` clause can quantify over its negation. -/
+/-- The mode-specific rounding spec: `y ∈ F` is the mode-`rm` rounding of `x`
+(no bound check beyond membership). `Rounds` applies it to `F.unbounded`. -/
 def RoundsFinite (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) :
     Prop :=
   y ∈ F ∧
@@ -175,20 +181,24 @@ def RoundsFinite (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) :
       (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
           z ≠ y → |x - (y : ℝ)| = |x - (z : ℝ)| → |(z : ℝ)| ≤ |(y : ℝ)|)
 
-/-- Per-mode, per-result rounding-specification predicate. Dispatches on
-the `RoundResult` constructor; the mode-spec is always against
-`F.unbounded` and the bound `F.b` is checked separately. -/
-def Rounds (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (r : RoundResult) :
-    Prop :=
-  match r with
-  | .undefined   => F.IsUndefined rm
-  | .overflow b  =>
-      ¬ F.IsUndefined rm ∧
-      ∃ y, RoundsFinite F.unbounded rm x y ∧ ¬ Format.boundOK F.b y ∧
-           (b ↔ (0 : ℚ) < (y : ℚ))
-  | .finite y    =>
-      ¬ F.IsUndefined rm ∧
-      RoundsFinite F.unbounded rm x y ∧ Format.boundOK F.b y
+/-- The unbounded rounding of `x` is `y`, and `y` is within `F`'s bound. -/
+def RoundsInBound (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) : Prop :=
+  RoundsFinite F.unbounded rm x y ∧ Format.boundOK F.b y
+
+/-- The unbounded rounding of `x` leaves `F`'s bound. -/
+def Overflows (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) : Prop :=
+  ∃ y, RoundsFinite F.unbounded rm x y ∧ ¬ Format.boundOK F.b y
+
+/-- The rounding-specification relation. The mode-spec is against
+`F.unbounded`; the bound `F.b` is checked separately on its result. -/
+def Rounds (F : FiniteFormat) (S : SpecialMap F.toFormat) (O : OverflowMap F.toFormat)
+    (rm : RoundingMode) : WithSpecial ℝ → RoundResult → Prop
+  | .special s, r => r = .value (S.map s)
+  | .finite _, .undefined => F.IsUndefined rm
+  | .finite x, .value v =>
+      ¬ F.IsUndefined rm ∧ ∃ y, RoundsFinite F.unbounded rm x y ∧
+        ((Format.boundOK F.b y ∧ v = .finite y) ∨
+         (¬ Format.boundOK F.b y ∧ v = O.map (decide ((y : ℚ) < 0))))
 
 /-! ### Modes that are always defined -/
 
@@ -215,13 +225,5 @@ theorem not_isUndefined_of_two_le_p {F : FiniteFormat} {rm : RoundingMode}
   rintro ⟨h1, -, -⟩
   rw [h1] at hp
   simp at hp
-
-/-- Package an out-of-bound unbounded rounding as an overflow `Rounds`
-result (with the sign bit computed from the witness). -/
-theorem rounds_overflow_of_not_boundOK {F : FiniteFormat} {rm : RoundingMode}
-    {x : ℝ} {y : Dyadic} (h₁u : ¬ F.IsUndefined rm)
-    (hy : RoundsFinite F.unbounded rm x y) (hbOK : ¬ Format.boundOK F.b y) :
-    ∃ b, Rounds F rm x (.overflow b) :=
-  ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
 
 end Mpfx

@@ -101,6 +101,9 @@ namespace Dyadic
 theorem coe_real_eq_ratCast (d : Dyadic) :
     ((d : Dyadic) : ℝ) = ((d : ℚ) : ℝ) := rfl
 
+theorem coe_real_lt_zero_iff (d : Dyadic) : (d : ℝ) < 0 ↔ (d : ℚ) < 0 := by
+  rw [coe_real_eq_ratCast, Rat.cast_lt_zero]
+
 /-- Extensionality through the real coercion: equal reals ⟹ equal dyadics. -/
 theorem ext_real {a b : Dyadic} (h : ((a : Dyadic) : ℝ) = ((b : Dyadic) : ℝ)) : a = b := by
   apply Subtype.ext

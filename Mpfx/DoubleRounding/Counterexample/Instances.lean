@@ -220,7 +220,7 @@ trivial, and parity reads the full integer coefficient
 
 def F₁t_g (e : ℤ) : ParityFormat where
   toFiniteFormat :=
-    { toFormat := { p := ⊤, exp := (e : QExp), b := ⊤ }
+    { toFormat := { p := ⊤, exp := (e : QExp), b := ⊤, specials := ∅ }
       finite := Or.inr WithBot.coe_ne_bot
       pos := by simp }
   parity := Or.inr WithBot.coe_ne_bot
@@ -367,7 +367,7 @@ dispatch reduces to binade quantization at precision `q₂`. -/
 /-- The floating target format `𝒜(q, ⊥, ⊤)` with precision `q ≥ 2`. -/
 def F₁f_g (q : ℕ) (hq_ge_2 : 2 ≤ q) : ParityFormat where
   toFiniteFormat :=
-    { toFormat := { p := (q : Prec), exp := ⊥, b := ⊤ }
+    { toFormat := { p := (q : Prec), exp := ⊥, b := ⊤, specials := ∅ }
       finite := Or.inl WithTop.coe_ne_top
       pos := by simp; omega }
   parity := Or.inl (by
@@ -1138,7 +1138,7 @@ dispatch. -/
 
 def F₁p_g (e : ℤ) : ParityFormat where
   toFiniteFormat :=
-    { toFormat := { p := ((1 : ℕ) : Prec), exp := (e : QExp), b := ⊤ }
+    { toFormat := { p := ((1 : ℕ) : Prec), exp := (e : QExp), b := ⊤, specials := ∅ }
       finite := Or.inr WithBot.coe_ne_bot
       pos := by simp }
   parity := Or.inr WithBot.coe_ne_bot

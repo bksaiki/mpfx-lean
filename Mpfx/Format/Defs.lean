@@ -4,13 +4,60 @@ import Mathlib.Data.Int.Log
 /-!
 # Abstract number formats (§4.2)
 
-`Format` (`𝒜(p, exp, b)`) and its membership relation, the `FiniteFormat`
-subtype, its canonical exponent, and the digit count `numDigits`.
+`Format` (`𝒜(p, exp, b, S)`) and its membership relation, the special values
+`Special` / `WithSpecial`, the `FiniteFormat` subtype, its canonical exponent,
+and the digit count `numDigits`.
 -/
 
 namespace Mpfx
 
-/-- The abstract number format `𝒜(p, exp, b)`.
+/-- A non-numeric value: an infinity or NaN. -/
+inductive Special where
+  | inf (negative : Bool)
+  | nan
+deriving DecidableEq, Repr
+
+/-- `α` extended with the special values. -/
+inductive WithSpecial (α : Type) where
+  | finite (a : α)
+  | special (s : Special)
+deriving DecidableEq, Repr
+
+/-- Negation of a special value: infinities flip sign, NaN is fixed. -/
+def Special.neg : Special → Special
+  | .inf negative => .inf !negative
+  | .nan => .nan
+
+@[simp] theorem Special.neg_neg (s : Special) : s.neg.neg = s := by
+  cases s <;> simp [Special.neg]
+
+/-- Negation through `WithSpecial`. -/
+def WithSpecial.neg {α : Type} [Neg α] : WithSpecial α → WithSpecial α
+  | .finite a => .finite (-a)
+  | .special s => .special s.neg
+
+@[simp] theorem WithSpecial.neg_finite {α : Type} [Neg α] (a : α) :
+    (WithSpecial.finite a).neg = .finite (-a) := rfl
+
+@[simp] theorem WithSpecial.neg_special {α : Type} [Neg α] (s : Special) :
+    (WithSpecial.special s : WithSpecial α).neg = .special s.neg := rfl
+
+@[simp] theorem WithSpecial.neg_neg {α : Type} [InvolutiveNeg α] (v : WithSpecial α) :
+    v.neg.neg = v := by
+  cases v <;> simp
+
+/-- A dyadic value read as a real one. -/
+def WithSpecial.toReal : WithSpecial Dyadic → WithSpecial ℝ
+  | .finite d => .finite d
+  | .special s => .special s
+
+@[simp] theorem WithSpecial.toReal_finite (d : Dyadic) :
+    (WithSpecial.finite d).toReal = .finite (d : ℝ) := rfl
+
+@[simp] theorem WithSpecial.toReal_special (s : Special) :
+    (WithSpecial.special s : WithSpecial Dyadic).toReal = .special s := rfl
+
+/-- The abstract number format `𝒜(p, exp, b, S)`.
 
 * `p : Prec` — maximum precision (in binary digits). `p = 0` is the trivial
   format `{0}`; `⊤` denotes "no precision constraint" (the format is
@@ -20,11 +67,13 @@ namespace Mpfx
   constraint" (the format is unbounded floating-point).
 * `b : Bound` — non-negative magnitude bound. `NonNegDyadic` enforces
   `b ≥ 0`; `⊤` denotes "unbounded".
+* `specials : Set Special` — the special values the format represents.
 -/
 structure Format where
   p : Prec
   exp : QExp
   b : Bound
+  specials : Set Special
 
 namespace Format
 
@@ -49,12 +98,25 @@ def unbounded (F : Format) : Format := { F with b := ⊤ }
 @[simp] theorem unbounded_p (F : Format) : F.unbounded.p = F.p := rfl
 @[simp] theorem unbounded_exp (F : Format) : F.unbounded.exp = F.exp := rfl
 @[simp] theorem unbounded_b (F : Format) : F.unbounded.b = ⊤ := rfl
+@[simp] theorem unbounded_specials (F : Format) : F.unbounded.specials = F.specials := rfl
 @[simp] theorem unbounded_unbounded (F : Format) :
     F.unbounded.unbounded = F.unbounded := rfl
 
 end Format
 
 instance : Membership Dyadic Format := ⟨Format.Mem⟩
+
+/-- The values of `F`, numeric and special. Not a `Membership` instance: a second
+instance on `Format` would clash with `Membership Dyadic Format`. -/
+def Format.values (F : Format) : Set (WithSpecial Dyadic)
+  | .finite d => d ∈ F
+  | .special s => s ∈ F.specials
+
+@[simp] theorem Format.finite_mem_values {F : Format} {d : Dyadic} :
+    WithSpecial.finite d ∈ F.values ↔ d ∈ F := Iff.rfl
+
+@[simp] theorem Format.special_mem_values {F : Format} {s : Special} :
+    WithSpecial.special s ∈ F.values ↔ s ∈ F.specials := Iff.rfl
 
 namespace Format
 
@@ -88,6 +150,15 @@ theorem neg_mem {F : Format} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F := by
 
 theorem mem_neg_iff (F : Format) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
   ⟨fun h => by simpa using neg_mem h, neg_mem⟩
+
+/-- `F`'s specials are closed under negation. -/
+def NegClosed (F : Format) : Prop := ∀ s ∈ F.specials, s.neg ∈ F.specials
+
+theorem neg_mem_values {F : Format} (hF : F.NegClosed) {v : WithSpecial Dyadic}
+    (hv : v ∈ F.values) : v.neg ∈ F.values := by
+  cases v with
+  | finite d => exact neg_mem (F := F) hv
+  | special s => exact hF s hv
 
 /-- `F` contains at least one nonzero value. §4.2's non-triviality restriction. -/
 def Nontrivial (F : Format) : Prop :=
@@ -123,6 +194,12 @@ theorem bound_mem {F : Format} (hb : BoundRep F) {bv : NonNegDyadic}
   rw [hF]
   change |((bv.val : Dyadic) : ℚ)| ≤ ((bv.val : Dyadic) : ℚ)
   rw [abs_of_nonneg bv.property]
+
+/-- Numeric membership depends only on `p`, `exp` and `b`. -/
+theorem mem_congr {F G : Format} (hp : F.p = G.p) (he : F.exp = G.exp) (hb : F.b = G.b)
+    {d : Dyadic} : d ∈ F ↔ d ∈ G := by
+  change Mem F d ↔ Mem G d
+  unfold Mem; rw [hp, he, hb]
 
 /-- Zero is in every format. -/
 theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by

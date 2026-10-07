@@ -1,9 +1,9 @@
 import Mpfx.Rounding.Op
 
 /-!
-# `Rounds`-level infrastructure
+# Restricting and lifting the unbounded rounding
 
-Shared machinery for the `Rounds`-level theorems: per-mode *restrict*
+Shared machinery for the overflow-aware theorems: per-mode *restrict*
 (`unbounded spec + in-bound ⟹ bounded spec`) and *lift* (`bounded spec +
 in-bound unbounded rounding ⟹ unbounded spec`) lemmas. -/
 

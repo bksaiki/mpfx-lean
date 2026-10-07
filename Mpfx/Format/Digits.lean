@@ -18,7 +18,7 @@ then a parity-transfer chain across a subformat `F₁ ⊆ F₂`:
   once the effective precisions are known equal.
 * `IsOdd.transfer_of_subset` — the RTO-padding lemma: `F₁ ⊆ F₂`,
   `2 ≤ F₂.p`, `y ∈ F₁`, `F₂.IsOdd y` ⟹ `F₁.IsOdd y`. Consumed by the
-  RTO double-rounding rules (`rndRTO_RTO`, …).
+  RTO double-rounding rules (`roundsRTO_RTO_finite`, …).
 
 Proved over `ℚ`, with `ℝ` bridges only where `Int.log` / `numDigits`
 require them.
@@ -838,7 +838,7 @@ forces `F₁.exp = F₂.exp = e_y` and reduces to `Odd 1`).
 
 The `numDigits F₁ y = numDigits F₂ y` hypothesis is the conclusion of
 `numDigits_eq_of_subset_of_isOdd`; together they form the standard
-parity-transfer chain used by `rndRTO_RTO`. -/
+parity-transfer chain used by `roundsRTO_RTO_finite`. -/
 theorem IsOdd.transfer_of_numDigits_eq {F₁ F₂ : ParityFormat}
     (hsub : F₁.toFormat ⊆ F₂.toFormat)
     (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
@@ -864,7 +864,8 @@ theorem IsOdd.transfer_of_numDigits_eq {F₁ F₂ : ParityFormat}
 /-- **RTO-padding lemma** (RTO digit-padding preserves oddness across a subformat).
 If `F₁ ⊆ F₂`, `F₂` has at least 2 bits, and `y ∈ F₁` is `IsOdd` in `F₂`, then
 `y` is `IsOdd` in `F₁` as well. The capstone consumed by the RTO-composition
-double-rounding rules (`rndRTO_RTO`, `rndRTO_RTZ`, `rndRTO_RAZ`, `rndRTO_RN`):
+double-rounding rules (`roundsRTO_RTO_finite`, `roundsRTO_RTZ_finite`,
+`roundsRTO_RAZ_finite`, `roundsRTO_RN_finite`):
 it composes the digit-count agreement (`numDigits_eq_of_subset_of_isOdd`)
 with the parity transfer (`IsOdd.transfer_of_numDigits_eq`). -/
 theorem IsOdd.transfer_of_subset {F₁ F₂ : ParityFormat}
