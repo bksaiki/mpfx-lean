@@ -391,8 +391,123 @@ name.
   double rounding with the hypotheses discharged, and the negation showing the
   IEEE tables do not compose for RTO → RTZ.
 
-**7d.** Whether, with overflow handled by tables, the rules' bound conditions
-(`b₂ ≥ next(b₁)`, through the relaxed containment) can be weakened.
+**7d. Not started — handoff.** Make each rule's hypotheses as general as
+possible. The tree is at the 7c commit; an attempt at step 1 was reverted
+unbuilt.
+
+*Why the current bounds are not minimal.* The relaxed containment
+(`b₂ ≥ next(b₁)`, or `b₂ ≥ M` for RN) exists so `F₂` never overflows where `F₁`
+does not. With tables that is only needed where the overflow entry disagrees
+with `F₁`'s rounding. Hand analysis (unproved):
+
+| Rule | IEEE tables (RTO → ±Inf) | if RTO saturated |
+| --- | --- | --- |
+| RTZ → RTZ | plain `F₁ ⊆ F₂` suffices (RTZ saturates = bounded spec) | same |
+| RAZ → RAZ | already plain | — |
+| RTO → RAZ | plain likely suffices (padding keeps `z` off `maxFinite₁`) | not checked |
+| RTO → RTO | relaxed bound tight | plain likely suffices |
+| RTO → RTZ | tables do not compose at all | plain likely suffices |
+| RTO → RN | `b₂ ≥ M` tight | `b₂ ≥ M` still needed |
+
+*Design (settled with the owner): region conditions.* For a real `x`, let `z`
+be its unbounded rounding into `F₂`, `w` that of `z` into `F₁` (chain), `y`
+that of `x` into `F₁` (direct). The equality `rnd₁ (rnd₂ v) = rnd₁ v` needs:
+
+| Region | Situation | Needed | Supplied by |
+| --- | --- | --- | --- |
+| A | `z`, `w`, `y` all in bound | `w = y` | finite form under plain containment (`hA`) |
+| C1 | chain in bound, direct overflows | `O₁.map s = .finite w` | `OverflowAgrees.direct` |
+| C2 | direct in bound, chain overflows | `O₁.map s = .finite y` | `OverflowAgrees.chain` |
+| C3 | chain and direct overflow | signs agree | automatic (`IsFaithfulRound.decide_lt_zero`) |
+| D1 | `F₂` overflows, direct in bound | `rnd₁ (O₂.map s).toReal = .value (.finite y)` | `OverflowAgrees.inner` |
+| D2 | `F₂` and direct overflow | `rnd₁ (O₂.map s).toReal = .value (O₁.map s)` | `OverflowMap.Composes` |
+
+(`s = decide (x < 0)`; it equals the sign of any nonzero rounding of `x`.)
+
+```lean
+structure OverflowAgrees (F₁ : FiniteFormat) (S₁ : SpecialMap F₁.toFormat)
+    (O₁ : OverflowMap F₁.toFormat) (rm₁ : RoundingMode)
+    (F₂ : FiniteFormat) (O₂ : OverflowMap F₂.toFormat) (rm₂ : RoundingMode) : Prop where
+  direct : ∀ x z w, RoundsInBound F₂ rm₂ x z → RoundsInBound F₁ rm₁ z w →
+    Overflows F₁ rm₁ x → O₁.map (decide (x < 0)) = .finite w
+  chain : ∀ x z y, RoundsInBound F₂ rm₂ x z → Overflows F₁ rm₁ z →
+    RoundsInBound F₁ rm₁ x y → O₁.map (decide (x < 0)) = .finite y
+  inner : ∀ x y, Overflows F₂ rm₂ x → RoundsInBound F₁ rm₁ x y →
+    rnd F₁ S₁ O₁ rm₁ (O₂.map (decide (x < 0))).toReal = .value (.finite y)
+```
+
+*Target signatures.* Headline (`DoubleRounding/Special.lean`):
+
+| Theorem | Hypotheses (besides `hS`, `hO`, `hov : OverflowAgrees …`, `hu`) |
+| --- | --- |
+| `rndRTZ_RTZ` | `F₁ ⊆ F₂` |
+| `rndRAZ_RAZ` | `F₁ ⊆ F₂` |
+| `rndRTO_RTO` | `F₁ ⊆ F₂`, `2 ≤ F₂.p`, `¬ F₁.IsUndefined .toOdd` |
+| `rndRTO_RTZ` | `F₁.extend 1 ⊆ F₂`, `2 ≤ F₂.p` |
+| `rndRTO_RAZ` | `F₁.extend 1 ⊆ F₂`, `2 ≤ F₂.p` |
+| `rndRTO_RN` | `F₁.extend 2 ⊆ F₂`, `2 ≤ F₂.p`, `¬ F₁.IsUndefined (.nearest tb)` |
+
+No `Nontrivial` on the headline: it only enters through `of_bound`. The current
+headline signatures survive as `rndXX_YY_of_bound` corollaries (relaxed
+containment + `Nontrivial`), so the paper's forms stay available.
+
+*Steps (one commit each, pause between).*
+
+1. **Finite forms under plain containment.** `roundsRTO_RTZ_finite`,
+   `roundsRTO_RAZ_finite` (`DoubleRounding/Basic.lean`) and `roundsRTO_RN_finite`
+   (`Nearest.lean`) take the paper-form relaxed containment and derive
+   `2 ≤ F₂.p` or triviality from it. Split each: a new `…_finite_of_extend`
+   taking `F₁.extend k ⊆ F₂` and `2 ≤ F₂.p` holds the current main case (the
+   sign split around the private `…_pos` cores; for RN the core
+   `rndRTO_nearest_facts` already takes plain containment), and the paper form
+   becomes the trivial-`F₁` case plus a call. RTZ/RAZ/RTO-RTO finite forms are
+   already plain. Build: `lake build Mpfx.DoubleRounding.Nearest`.
+2. **Region A lemma per rule.** From the plain finite form by restrict/lift
+   (`RoundsFinite.*_restrict`, `*_lift`, `RoundsFinite.unique`): all three in
+   bound ⇒ `w = y`. Pattern: see the in-bound branch of `roundsRTZ_RTZ_inBound`.
+3. **`OverflowAgrees` and the new generic theorem.** Replace `rnd_double`'s
+   `hP`/`hC` by `hA` (region A) and `hov`. The proof follows today's
+   `rnd_double`: the in-bound/overflow case split on `z`, then on `w`/`y`,
+   using `rnd_finite_of_roundsFinite` and the sign lemma.
+4. **`OverflowAgrees.of_bound`.** Generic: from a rule's `…_inBound` and
+   `…_noOverflow` forms every field is vacuous (C1: `noOverflow`; C2 and D1:
+   the `inBound` disjunct contradicts uniqueness). Then rewrite the six
+   headline theorems to the target signatures and add the `…_of_bound`
+   corollaries (relaxed ⇒ plain containment via `extend_*_subset_of_withBound_subset`
+   and `boundOK_boundAfterNext_of_boundOK`; `2 ≤ F₂.p` via
+   `two_le_p_of_nontrivial` / `…_extend_two`). Update `MpfxTest/DoubleRounding.lean`.
+5. **`OverflowAgrees.of_saturate` for RTZ outer** (`O₁ = OverflowMap.saturate F₁ hb₁`,
+   `O₂ = OverflowMap.saturate F₂ hb₂`, plain `F₁ ⊆ F₂`). Sketch: C1 — `|x| > b₁ ≥ maxFinite₁`,
+   `maxFinite₁ ∈ F₂` so `|z| ≥ maxFinite₁`, so `|w| ≥ maxFinite₁`, and in bound
+   gives `|w| ≤ maxFinite₁` (`le_maxFinite`), so `w = ±maxFinite₁` with `x`'s sign;
+   C2 — vacuous (`|w| ≤ |z| ≤ |x|` makes `w` a candidate below `y`);
+   D1 — same as C1 for `y`, and `rnd₁(±maxFinite₂) = ±maxFinite₁` whether or
+   not it overflows. Also `OverflowMap.saturate_toZero_composes` under plain
+   containment (the D2 computation; generalizes `ieee_toZero_composes`) and
+   `OverflowMap.ieee F .toZero hb hinf = OverflowMap.saturate F hb` (likely
+   `rfl`). Test: IEEE RTZ → RTZ under plain `F₁ ⊆ F₂`.
+6. *(Optional.)* Saturating-RTO discharges for RTO → RTO and RTO → RTZ, and an
+   `MpfxTest` example showing RTO → RN fails for `b₂ < M`.
+
+*Pitfalls met in 7a–7c.*
+
+- Subset proofs passed inline as arguments may elaborate before the implicit
+  format is known; state them with `have hsubG : <type> := …` first (see the
+  `…_noOverflow` proofs in `Total.lean`).
+- After `rcases hF₁b : F₁.b with _ | b₁` the equation reads `F₁.b = some b₁`;
+  `hF₁b ▸ h` then fails where `↑b₁` is expected — use `rw [hF₁b] at h`.
+- `rw` does not reduce `if false = true then …`; expose table entries with
+  `change` (see `ieee_toZero_composes`).
+- Inside a theorem named `X.mul_nonneg`, `mul_nonneg` resolves to itself; use
+  `_root_.mul_nonneg`.
+- Never run two builds at once; stop builds by PID, not `pkill -f "lake build"`
+  (that matches the calling shell).
+
+*Open questions for 7d.* Field and structure names (`OverflowAgrees`,
+`direct`/`chain`/`inner`, `of_bound`, `of_saturate`); whether `hA` stays a
+separate hypothesis of the generic theorem or folds into `OverflowAgrees`;
+whether RTO's IEEE table should switch to saturation (owner chose `±Inf`; it is
+what makes RTO → RTZ fail).
 
 
 Settled before starting:
