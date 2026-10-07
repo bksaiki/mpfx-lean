@@ -1,7 +1,7 @@
 import Mpfx.Format
 
 /-!
-# Format containment (§5.1, Fig. 8)
+# Format containment (§5.1)
 
 Soundness of the two inference rules:
 
@@ -35,7 +35,7 @@ theorem boundOK_mono {b₁ b₂ : Bound} (h : b₁ ≤ b₂) {x : Dyadic} :
       exact_mod_cast h12
     exact le_trans hx hd
 
-/-- **𝒜-Contains-Prec** (Fig. 8). If `p₁ ≤ p₂`, `exp₂ ≤ exp₁`, and `b₁ ≤ b₂`,
+/-- **𝒜-Contains-Prec**. If `p₁ ≤ p₂`, `exp₂ ≤ exp₁`, and `b₁ ≤ b₂`,
 then `𝒜(p₁, exp₁, b₁) ⊆ 𝒜(p₂, exp₂, b₂)`. -/
 theorem containsPrec {F₁ F₂ : Format}
     (hp : F₁.p ≤ F₂.p) (he : F₂.exp ≤ F₁.exp) (hb : F₁.b ≤ F₂.b) :
@@ -78,7 +78,7 @@ def nnPow (e : ℤ) : NonNegDyadic :=
 @[simp] theorem coe_real_nnPow (e : ℤ) : (((nnPow e).val : Dyadic) : ℝ) = (2 : ℝ) ^ e := by
   rw [Dyadic.coe_real_eq_ratCast, coe_nnPow]; push_cast; ring
 
-/-- **𝒜-Contains-Sub** (Fig. 8). If `F₁`'s bound is at most `2^(exp₁ + p₂)`
+/-- **𝒜-Contains-Sub**. If `F₁`'s bound is at most `2^(exp₁ + p₂)`
 (so every value of `F₁` fits in `F₂.p = p₂` bits at exponent `exp₁`), plus
 the standard quantum and bound orderings, then `F₁ ⊆ F₂` — even when
 `F₁.p > F₂.p`. -/
@@ -345,17 +345,17 @@ its bound test `b₁ ≤ 2^(exp₁+∞)` is vacuous and its remaining premises a
 those of `ContainsPrec` (whose `p₁ ≤ ∞` is free), so the disjunction below is
 unchanged either way. -/
 
-/-- Premises of `𝒜-Contains-Prec` (Fig. 7). -/
+/-- Premises of `𝒜-Contains-Prec`. -/
 def ContainsPrec (F₁ F₂ : Format) : Prop :=
   F₁.p ≤ F₂.p ∧ F₂.exp ≤ F₁.exp ∧ F₁.b ≤ F₂.b
 
-/-- Premises of `𝒜-Contains-Sub` (Fig. 7). -/
+/-- Premises of `𝒜-Contains-Sub`. -/
 def ContainsSub (F₁ F₂ : Format) : Prop :=
   ∃ (e₁ : ℤ) (p₂ : ℕ), F₁.exp = (e₁ : QExp) ∧ 0 < p₂ ∧ F₂.p = (p₂ : Prec) ∧
     F₁.b ≤ ((nnPow (e₁ + (p₂ : ℤ)) : NonNegDyadic) : Bound) ∧
     F₂.exp ≤ F₁.exp ∧ F₁.b ≤ F₂.b
 
-/-- **Figure 7 decides containment.** For `F₁` with a representable bound that
+/-- **Completeness of the containment rules.** For `F₁` with a representable bound that
 represents a nonzero value, `F₁ ⊆ F₂` holds exactly when one of the two rules
 fires. No assumption on `F₂` is needed. -/
 theorem subset_iff_contains {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial) :
@@ -456,7 +456,7 @@ theorem two_le_p_of_precision_two_witness {F : Format} {v : Dyadic}
 /-! ### Bound replacement and the `next` operator
 
 `F.withBound b'` swaps out `F`'s magnitude bound for `b'`. `F.next b` is the
-paper's `next_{F.p, F.exp}(b)` from §5.2 / Fig. 9: the smallest Dyadic in the
+paper's `next_{F.p, F.exp}(b)` from §5.2: the smallest Dyadic in the
 grid `A(F.p, F.exp, ∞)` strictly above `b`. -/
 
 /-- Replace `F`'s bound with `b'`, keeping precision and quantum. No
@@ -472,7 +472,7 @@ def withBound (F : Format) (b' : Bound) : Format := { F with b := b' }
 @[simp] theorem withBound_b (F : Format) (b' : Bound) :
     (F.withBound b').b = b' := rfl
 
-/-- The paper's `next_{F.p, F.exp}(b)` from §5.2 / Fig. 9: the smallest Dyadic
+/-- The paper's `next_{F.p, F.exp}(b)` from §5.2: the smallest Dyadic
 in the grid `A(F.p, F.exp, ∞)` strictly above `b`.
 
 For `b > 0` with finite `(F.p, F.exp)`, computed as `b + step` where the grid
@@ -713,7 +713,7 @@ def extend (F : FiniteFormat) (k : ℕ) : FiniteFormat where
 @[simp] theorem extend_toFormat (F : FiniteFormat) k :
     (F.extend k).toFormat = F.toFormat.extend k := rfl
 
-/-- **Lemma 5.2**: extending `F` by `k` increases the digit count of every
+/-- **Digit-shift lemma** (`w₂ = w₁ + k`): extending `F` by `k` increases the digit count of every
 nonzero `x` by exactly `k`. -/
 theorem numDigits_extend (F : FiniteFormat) (k : ℕ) {x : ℝ} (hx : x ≠ 0) :
     (F.extend k).numDigits x = F.numDigits x + k := by

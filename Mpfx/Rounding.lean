@@ -138,7 +138,7 @@ def IsFaithfulRound (F : FiniteFormat) (x : ℝ) (y : Dyadic) : Prop :=
   (y ∈ F ∧ x ≤ (y : ℝ) ∧ ∀ z : Dyadic, z ∈ F → x ≤ (z : ℝ) → (y : ℝ) ≤ (z : ℝ))
 
 -- `ParityFormat.IsOdd` and `ParityFormat.IsEven` live in
--- `Mpfx/Format.lean`, built on `Format.numDigits` (Lemma 5.1) +
+-- `Mpfx/Format.lean`, built on `Format.numDigits` (digit-count lemma) +
 -- `Dyadic.IsRepresentableAtP`.
 
 /-- The finite-result rounding spec: when `r = .finite y`, this is the

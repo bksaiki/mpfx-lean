@@ -60,7 +60,7 @@ Mpfx/
 │                   Mem, boundOK, Format.unbounded,
 │                   FiniteFormat.unbounded, FiniteFormat.zero_mem,
 │                   FiniteFormat.canonicalExp,
-│                   numDigits (Lemma 5.1) + evaluators,
+│                   numDigits (digit-count lemma) + evaluators,
 │                   IsOdd, IsEven, parity dichotomy + alternating
 │                   + not_both lemmas across all 6 format cases
 ├── Rounding.lean   relational layer (constructive):
@@ -83,10 +83,10 @@ Mpfx/
 ├── RoundOp.lean    function layer (noncomputable, classical):
 │                   rndInt, rndParity, rndUnbounded, rnd, per-mode soundness,
 │                   rndUnbounded_satisfies/_unique, rnd_iff_rounds
-├── Containment.lean §5.1 / Fig. 8: Format.Subset + HasSubset,
+├── Containment.lean §5.1: Format.Subset + HasSubset,
 │                   boundOK_mono, nnPow, containsPrec, containsSub,
 │                   Format.extend + self_subset_extend + extend_mono,
-│                   FiniteFormat.extend + numDigits_extend (Lemma 5.2),
+│                   FiniteFormat.extend + numDigits_extend (digit-shift lemma),
 │                   withBound + next (+ next lemmas) — §5.2 bound API
 ├── Ulp.lean        ulp/rndDown/rndUp/midp, the nearest error bound and the
 │                   below/above-midpoint characterisations, succ/pred/predPos
@@ -97,12 +97,12 @@ Mpfx/
 │                   not_mem_between_adjacent, adjacent_canonical_form,
 │                   midpoint_mem_extend_one_of_adjacent(_pos/_of_p_top),
 │                   half_mem_extend_one. Built over the ℚ substrate.
-├── Digits.lean     §5.1-supporting digit/parity-transfer lemmas (Lemma 5.3):
+├── Digits.lean     §5.1-supporting digit/parity-transfer lemmas (RTO-padding lemma):
 │                   numDigits_le_one_of_p_one, precisionAtMost_not_IsOdd
 │                   (corollary), numDigits_eq_of_subset_of_isOdd(_aux),
 │                   odd_index_of_p_one_corner, IsOdd.transfer_of_numDigits_eq,
-│                   IsOdd.transfer_of_subset (capstone Lemma 5.3)
-├── DoubleRounding.lean §5.2 / Fig. 9 rules (spec-relational over
+│                   IsOdd.transfer_of_subset (capstone RTO-padding lemma)
+├── DoubleRounding.lean §5.2 double-rounding rules (spec-relational over
                     RoundsFinite): rndRTZ_RTZ, rndRAZ_RAZ(_pos), rndRTO_RTO,
                     rndRTO_RTZ, rndRTO_RAZ, rndRTO_RN — ALL paper-exact.
                     RTO helper chain (toOdd_notMem_of_extend_subset, …),
@@ -110,6 +110,13 @@ Mpfx/
                     extend_{one,two}_subset_of_paper_subset, *_of_trivial),
                     RN web (rndRTO_RN_close_transfer, rndRTO_no_tie_contradiction,
                     rndRTO_nearest_facts) + bridges. Also rndRTP_RTP/rndRTN_RTN.
+├── CanonicalExp.lean canonicalExp closed forms, exists_canonical_rep,
+│                   quantumAtLeast under neg/add/mul
+├── NearestMidpoint.lean Roux Lemma 16: rnd_lt_mid(')
+├── DoubleRoundingMul.lean Roux ×: rndExact, rndMul_expBot/_expFinite
+├── DoubleRoundingAdd.lean Roux +/−: rndAdd
+├── DoubleRoundingSqrt.lean Roux √: rndSqrt_expBot/_expFinite
+├── DoubleRoundingDiv.lean Roux /: rndDiv_expBot/_expFinite
 └── FormatInference.lean §6.1: ⊗/⊕ format inference. Dyadic.abs, Format.toSet,
                     opMul/opAdd/opAddPrec, mul_subset/add_subset (the inferred
                     format contains every product/sum), neg_subset/abs_subset.
@@ -132,7 +139,7 @@ Mpfx/
 
 ## Open: New features
 
-- [ ] **Fig. 7 format instances**: `binary64`, `binary32`, `E5M2`,
+- [ ] **Paper format instances**: `binary64`, `binary32`, `E5M2`,
       `E4M3`, `int8`, `fixed<-4, 8>`. Concrete `FiniteFormat` or
       `ParityFormat` values; useful as smoke tests.
 - [ ] **Smoke tests** (`Mpfx/Tests.lean`): concrete

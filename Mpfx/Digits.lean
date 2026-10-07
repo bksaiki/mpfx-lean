@@ -1,20 +1,20 @@
 import Mpfx.Containment
 
 /-!
-# Digit-count and parity-transfer lemmas (Lemma 5.3)
+# Digit-count and parity-transfer lemmas (RTO-padding lemma)
 
-The headline is **Lemma 5.3** — RTO digit-padding preserves representability —
+The headline is the **RTO-padding lemma** — RTO digit-padding preserves representability —
 realized here as a parity-transfer chain across a subformat `F₁ ⊆ F₂`:
 
 * `FiniteFormat.numDigits_le_one_of_p_one`,
-  `ParityFormat.precisionAtMost_not_IsOdd` — the Lemma 5.3 *corollary*: a
+  `ParityFormat.precisionAtMost_not_IsOdd` — the RTO-padding *corollary*: a
   value with precision `≤ w` can't be `IsOdd` at an effective precision `> w`.
 * `numDigits_eq_of_subset_of_isOdd` (+ its hard `≤` core
   `numDigits_eq_of_subset_of_isOdd_aux`) — for an `IsOdd F₂` value `y ∈ F₁`,
   the effective precisions in `F₁` and `F₂` agree.
 * `IsOdd.transfer_of_numDigits_eq` — transfers `IsOdd` across the subformat
   once the effective precisions are known equal.
-* **`IsOdd.transfer_of_subset`** — the capstone **Lemma 5.3**: `F₁ ⊆ F₂`,
+* **`IsOdd.transfer_of_subset`** — the capstone **RTO-padding lemma**: `F₁ ⊆ F₂`,
   `2 ≤ F₂.p`, `y ∈ F₁`, `F₂.IsOdd y` ⟹ `F₁.IsOdd y`. This is the form the
   RTO-composition double-rounding rules (`rndRTO_RTO`, …) consume.
 
@@ -45,7 +45,7 @@ theorem FiniteFormat.numDigits_le_one_of_p_one {F : FiniteFormat}
       change min ((1 : ℕ) : ℤ) (Int.log 2 |x| - e' + 1) ≤ 1
       exact min_le_left _ _
 
-/-- **Lemma 5.3 corollary** (format-parameterized form): If `y` has precision
+/-- **RTO-padding corollary** (format-parameterized form): If `y` has precision
 at most `w` and the rounding precision in `F` (= `numDigits F y`) strictly
 exceeds `w`, then `y` cannot be `IsOdd F`. -/
 theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ}
@@ -436,9 +436,9 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
           omega
   exact hy''_not_F₂ (hsub y'' hy''_F₁)
 
-/-- Lemma 5.3, digit-count half: if `y ∈ F₁`, `F₁ ⊆ F₂`, `2 ≤ F₂.p`, and `y`
+/-- RTO-padding lemma, digit-count half: if `y ∈ F₁`, `F₁ ⊆ F₂`, `2 ≤ F₂.p`, and `y`
 is `IsOdd F₂`, then `F₁` and `F₂` assign `y` the same effective precision.
-- `≥`: the Lemma 5.3 corollary (`precisionAtMost_not_IsOdd`).
+- `≥`: the RTO-padding corollary (`precisionAtMost_not_IsOdd`).
 - `≤`: by contradiction via `numDigits_eq_of_subset_of_isOdd_aux`. -/
 theorem numDigits_eq_of_subset_of_isOdd
     {F₁ : FiniteFormat} {F₂ : ParityFormat}
@@ -698,7 +698,7 @@ theorem IsOdd.transfer_of_numDigits_eq {F₁ F₂ : ParityFormat}
       exact odd_index_of_p_one_corner hsub hp_F₂ hF₁_p_1 hyF₁ h_iod_F₂' h_eq h_rep_F₂
     · rw [if_neg hF₁_p_1]; exact h_par_F₂
 
-/-- **Lemma 5.3** (RTO digit-padding preserves oddness across a subformat).
+/-- **RTO-padding lemma** (RTO digit-padding preserves oddness across a subformat).
 If `F₁ ⊆ F₂`, `F₂` has at least 2 bits, and `y ∈ F₁` is `IsOdd` in `F₂`, then
 `y` is `IsOdd` in `F₁` as well. The capstone consumed by the RTO-composition
 double-rounding rules (`rndRTO_RTO`, `rndRTO_RTZ`, `rndRTO_RAZ`, `rndRTO_RN`):

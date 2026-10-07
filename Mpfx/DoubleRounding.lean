@@ -4,7 +4,7 @@ import Mpfx.Rounding
 import Mpfx.RoundOp
 
 /-!
-# Correct double rounding (§5.2, Fig. 9)
+# Correct double rounding (§5.2)
 
 The double-rounding rules, in two layers:
 
@@ -16,7 +16,7 @@ The double-rounding rules, in two layers:
   paper's `rnd`-relation; overflow bookkeeping is sidestepped and the
   existence of `z`, `w` is taken as hypotheses.
 
-* **`Rounds` layer** (`roundsRTZ_RTZ`, …, one per Fig. 9 rule): the full,
+* **`Rounds` layer** (`roundsRTZ_RTZ`, …, one per double-rounding rule): the full,
   overflow-aware, self-contained form — no chain hypotheses. For any
   `x : ℝ`, either (i) rounding `x` directly in `F₁` *overflows*, or (ii)
   rounding `x` in `F₂` does **not** overflow (finite `z`), the chained
@@ -32,7 +32,7 @@ The double-rounding rules, in two layers:
 namespace Mpfx
 
 
-/-- **rnd-RTZ-RTZ** (Fig. 9). Chained round-toward-zero collapses: if
+/-- **rnd-RTZ-RTZ**. Chained round-toward-zero collapses: if
 `F₁ ⊆ F₂`, `z` is the RTZ-rounding of `x` in `F₂`, and `w` is the RTZ-rounding
 of `z` in `F₁`, then `w` is the RTZ-rounding of `x` in `F₁`. -/
 theorem rndRTZ_RTZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
@@ -102,7 +102,7 @@ theorem rndRTZ_RTZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
         exact mul_nonneg hy_ge hzgt.le
     exact hwmax y hyF₁ hyz_le hyz_sign
 
-/-- **rnd-RAZ-RAZ** (Fig. 9), case `0 < x`. The general theorem follows by
+/-- **rnd-RAZ-RAZ**, case `0 < x`. The general theorem follows by
 sign-symmetry and the `x = 0` case. -/
 theorem rndRAZ_RAZ_pos {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
     {x : ℝ} (hx : 0 < x) {z w : Dyadic}
@@ -135,7 +135,7 @@ theorem rndRAZ_RAZ_pos {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂
     have hyz_sign : 0 ≤ (y : ℝ) * (z : ℝ) := mul_nonneg hy_sign hz_pos.le
     exact hwmin y hyF₁ hzy_le hyz_sign
 
-/-- **rnd-RAZ-RAZ** (Fig. 9). General version. Combines the positive case,
+/-- **rnd-RAZ-RAZ**. General version. Combines the positive case,
 the negative case (via `RoundsFinite.neg_awayZero`), and the `x = 0` case. -/
 theorem rndRAZ_RAZ {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
     {x : ℝ} {z w : Dyadic}
@@ -250,7 +250,7 @@ private theorem exp_bot_of_subset {F₁ F₂ : FiniteFormat}
   have hc_lt1_int : c < 1 := by exact_mod_cast hc_lt1
   omega
 
-/-- **rnd-RTO-RTO** (Fig. 9), general case `x ∈ ℝ`.
+/-- **rnd-RTO-RTO**, general case `x ∈ ℝ`.
 
 Restricted to `F₂.p ≥ 2`. -/
 theorem rndRTO_RTO {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
@@ -268,7 +268,7 @@ theorem rndRTO_RTO {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
     have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
     rcases eq_or_ne z w' with hzw | hzw
     · -- z = w': w' is x's F₁-rounding directly via hz's faithfulness, and
-      -- its F₁-oddness comes from F₂-oddness via Lemma 5.3 transfer.
+      -- its F₁-oddness comes from F₂-oddness via RTO-padding transfer.
       subst hzw
       refine ⟨hw'F₁, ?_, ?_⟩
       · -- Faithfulness: z is x's F₁-faithful rounding because z ∈ F₁ ⊆ F₂
@@ -372,7 +372,7 @@ theorem rndRTO_RTO {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toF
         intro _
         exact hw_odd_imp hz_ne_w'
 
-/-! ## `rnd-RTO-RTZ` (Fig. 9)
+/-! ## `rnd-RTO-RTZ`
 
 Chain: an RTO rounding `z` of `x` in the wider `F₂`, then an RTZ rounding `w'`
 of `z` in `F₁`, collapses to a single RTZ rounding of `x` in `F₁`. Uses the
@@ -390,7 +390,7 @@ private theorem toOdd_nonneg_of_nn {F : FiniteFormat} {x : ℝ} {z : Dyadic}
     rwa [Dyadic.coe_real_zero] at this
   · linarith [hRU.2.1]
 
-/-- **Lemma 5.3, applied form.** If `z` is the RTO-rounding of `x` in `F₂`
+/-- **RTO-padding lemma, applied form.** If `z` is the RTO-rounding of `x` in `F₂`
 (with `x ≠ z`, hence `z` is `F₂`-odd) and `F₁` assigns `z` strictly fewer
 digits than `F₂`, then `z ∉ F₁`: an `F₁`-representable value would have
 precision below the rounding precision, contradicting oddness via
@@ -427,7 +427,7 @@ private theorem toOdd_notMem_of_lower_numDigits {F₁ F₂ : FiniteFormat}
     rw [hF₂'_nd, hn_eq]; exact hlt
   exact F₂'.precisionAtMost_not_IsOdd hn_pos hgt h_prec hodd
 
-/-- **Lemma 5.3, paper form (simpler hypothesis).** From `F₁.extend 1 ⊆ F₂`,
+/-- **RTO-padding lemma, paper form (simpler hypothesis).** From `F₁.extend 1 ⊆ F₂`,
 `2 ≤ F₂.p`, and an RTO rounding `z` of `x` in `F₂` with `x ≠ z`, conclude
 `z ∉ F₁`.
 
@@ -534,7 +534,7 @@ private theorem extend_one_subset_of_paper_subset {F₁ F₂ : FiniteFormat}
 
 /-- From the paper-aligned containment
 `(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`, either `F₂.p ≥ 2` (the
-auxiliary needed for Lemma 5.3) or `F₁` contains only `0`. The proof either
+auxiliary needed for the RTO-padding lemma) or `F₁` contains only `0`. The proof either
 constructs a precision-2 witness `v = 3·2^k` lying in
 `(F₁.extend 1).withBound F₁.boundAfterNext` (forcing `F₂.p ≥ 2` via
 `two_le_p_of_precision_two_witness`), or shows `F₁` is trivial. The witness
@@ -760,7 +760,7 @@ private theorem RoundsFinite.awayZero_of_trivial {F₁ F₂ : FiniteFormat}
   · intro v hvF₁ _ _
     rw [hF₁_triv v hvF₁, hw'_zero]
 
-/-- **rnd-RTO-RTZ** (Fig. 9), positive case `0 < x`. -/
+/-- **rnd-RTO-RTZ**, positive case `0 < x`. -/
 private theorem rndRTO_RTZ_pos {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
     (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
@@ -824,7 +824,7 @@ private theorem rndRTO_RTZ_pos {F₁ F₂ : FiniteFormat}
     have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
     exact hw'_max v hvF₁ hv_bnd_z hv_z_sign
 
-/-- **rnd-RTO-RTZ** (Fig. 9), general case, **paper form**. An RTO rounding
+/-- **rnd-RTO-RTZ**, general case, **paper form**. An RTO rounding
 `z` of `x` in `F₂` followed by an RTZ rounding `w'` of `z` in `F₁` collapses
 to an RTZ rounding of `x` in `F₁`. Uses the single bound-aware containment
 hypothesis `(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`; the auxiliary
@@ -866,8 +866,8 @@ theorem rndRTO_RTZ {F₁ F₂ : FiniteFormat}
   · -- trivial case: F₁ = {0}.
     exact RoundsFinite.toZero_of_trivial hF₁_triv hw.1
 
-/-- **rnd-RTO-RAZ** (Fig. 9), positive case `0 < x`. Symmetric to
-`rndRTO_RTZ_pos` but for round-away-from-zero. The key Lemma 5.3 application
+/-- **rnd-RTO-RAZ**, positive case `0 < x`. Symmetric to
+`rndRTO_RTZ_pos` but for round-away-from-zero. The key RTO-padding application
 (`toOdd_notMem_of_extend_subset`) happens in the ToNegative (RTN / round-down)
 branch of `z` rather than the ToPositive (RTP) branch. -/
 private theorem rndRTO_RAZ_pos {F₁ F₂ : FiniteFormat}
@@ -942,7 +942,7 @@ private theorem rndRTO_RAZ_pos {F₁ F₂ : FiniteFormat}
     have hv_z_sign : 0 ≤ (v : ℝ) * (z : ℝ) := mul_nonneg hv_nn hz_nn
     exact hw'_min v hvF₁ hv_bnd_z hv_z_sign
 
-/-- **rnd-RTO-RAZ** (Fig. 9), general case, **paper form**. An RTO rounding
+/-- **rnd-RTO-RAZ**, general case, **paper form**. An RTO rounding
 `z` of `x` in `F₂` followed by an RAZ (away-from-zero) rounding `w'` of `z` in
 `F₁` collapses to an RAZ rounding of `x` in `F₁`. Uses the single bound-aware
 containment hypothesis `(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`; the
@@ -1161,10 +1161,10 @@ private theorem RoundsFinite.nearest_of_trivial {F₁ : FiniteFormat} {tb : TieB
     intro z hzF₁ _ hz_ne_w' _
     exact (hz_ne_w' (h_eq_w' z hzF₁)).elim
 
-/-! ## `rnd-RTO-RN` (Fig. 9) — round-to-odd then round-to-nearest -/
+/-! ## `rnd-RTO-RN` — round-to-odd then round-to-nearest -/
 
 /-- The closeness transfer step for `rndRTO_RN`: given that `z = RTO F₂ x`
-sits outside `F₁.extend 1` (Lemma 5.3) and `w' = RN F₁ z`, every F₁-adjacent
+sits outside `F₁.extend 1` (RTO-padding lemma) and `w' = RN F₁ z`, every F₁-adjacent
 `z'` to `x` satisfies `|x - w'| ≤ |x - z'|`. The argument uses the midpoint
 `m = (w' + z') / 2` (in F₂ via `midpoint_F₁_in_F₂_of_F_adjacent`, in
 `F₁.extend 1` via `midpoint_in_F₁_extend_one_of_F_adjacent`), shows
@@ -1567,7 +1567,7 @@ private theorem rndRTO_nearest_facts {F₁ F₂ : FiniteFormat}
   exact rndRTO_no_tie_contradiction hsub_ext1 hz hxne hw'F₁ hz'F₁
     h_adj_x hz'_adj hz'_ne_w' hz'_eq_dist
 
-/-- **rnd-RTO-RN** (Fig. 9), paper-aligned form for round-to-odd followed by
+/-- **rnd-RTO-RN**, paper-aligned form for round-to-odd followed by
 round-to-nearest, parameterized by the nearest-rounding tie-break `tb`.
 Covers both RNE (`tb = .toEven`) and RNA (`tb = .awayZero`) in a single
 theorem: the hypothesis `hsub` encodes the paper's RN containment, uniform with
@@ -1983,7 +1983,7 @@ private theorem RoundsFinite.nearest_lift {F : FiniteFormat} {tb : TieBreak}
 
 /-! # Total double rounding (overflow-aware, self-contained)
 
-The `Rounds` layer: no chain hypotheses at all. For each Fig. 9 rule, conclude
+The `Rounds` layer: no chain hypotheses at all. For each double-rounding rule, conclude
 that either (i) rounding `x` directly in `F₁` overflows, or (ii) rounding
 `x` in `F₂` does **not** overflow (finite `z`), the chained rounding is
 finite (`w`), and double rounding holds. The paper's side condition ("the
@@ -2225,7 +2225,7 @@ private theorem abs_faithful_le_of_le {F₂ : FiniteFormat} {x : ℝ} {z N : Dya
 
 /-- Chain no-overflow for RTO-RTZ. If the chained RTZ rounding `w` of
 `z = RTO_{F₂}(x)` escaped the bound, grid minimality would force
-`|w| = |z| = next(b₁)`; but `z` is `F₂`-odd (Lemma 5.3 transfer through the
+`|w| = |z| = next(b₁)`; but `z` is `F₂`-odd (RTO-padding transfer through the
 `extend 1` containment shows `z` cannot lie on the `F₁`-grid within the
 relaxed bound), contradiction. -/
 private theorem toOdd_toZero_noOverflow_chain {F₁ F₂ : FiniteFormat}
@@ -2274,7 +2274,7 @@ private theorem toOdd_toZero_noOverflow_chain {F₁ F₂ : FiniteFormat}
     intro h
     rw [← h] at hzN
     linarith
-  -- Lemma 5.3 transfer: `z` cannot lie on the `F₁` grid within the relaxed
+  -- RTO-padding transfer: `z` cannot lie on the `F₁` grid within the relaxed
   -- bound — but `±N` does.
   set F₁wB : FiniteFormat := FiniteFormat.withBoundFF F₁ F₁.toFormat.boundAfterNext
     with hF₁wB_def
@@ -2511,7 +2511,7 @@ private theorem abs_le_mid_of_nearest_inbound {F₁ : FiniteFormat}
 
 /-- Chain no-overflow for RTO-RN. With `|z| ≤ M` (midpoint), an out-of-bound
 chained rounding would have to sit at `±next(b₁)`, strictly farther from `z`
-than the in-bound side `±b₁` — except at `|z| = M` exactly, which Lemma 5.3
+than the in-bound side `±b₁` — except at `|z| = M` exactly, which the RTO-padding lemma
 (through the `extend 2` containment) rules out. -/
 private theorem toOdd_nearest_noOverflow_chain {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
@@ -2562,7 +2562,7 @@ private theorem toOdd_nearest_noOverflow_chain {F₁ F₂ : FiniteFormat}
       rw [abs_of_nonneg (by exact_mod_cast b₁.2 : (0 : ℚ) ≤ (b₁.val : ℚ))]
     exact boundOK_of_abs_le (by rwa [abs_of_nonneg hb₁_nn]) hb₁_ok
   push Not at hzb
-  -- `b₁ < |z| ≤ M`; Lemma 5.3 through the `extend 2` containment excludes
+  -- `b₁ < |z| ≤ M`; RTO padding through the `extend 2` containment excludes
   -- `|z| = M`, so `b₁ < |z| < M`.
   have h_notmem : z ∉ FiniteFormat.withBoundFF (F₁.extend 1)
       ((F₁.extend 1).toFormat.boundAfterNext) := by

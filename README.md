@@ -21,6 +21,7 @@ Mpfx`), and its file. To inspect a statement, qualify with `Mpfx.`, e.g.
 | --- | --- | --- |
 | `𝒜-Contains-Prec` | `Format.containsPrec` | `Mpfx/Containment.lean` |
 | `𝒜-Contains-Sub` | `Format.containsSub` | `Mpfx/Containment.lean` |
+| Completeness (`F₁ ⊆ F₂` iff a rule fires) | `Format.subset_iff_contains` | `Mpfx/Containment.lean` |
 
 ### Supporting lemmas
 
@@ -32,19 +33,21 @@ Mpfx`), and its file. To inspect a statement, qualify with `Mpfx.`, e.g.
 
 ### §5.2 — Correct double rounding (Fig. 9)
 
-All positive rules, in `Mpfx/DoubleRounding.lean`. Each has the form: given
+All positive rules, in `Mpfx/DoubleRounding.lean`. The finite form: given
 `RoundsFinite F₂ rm₂ x z` and `RoundsFinite F₁ rm₁ z w` (with the stated
-containment of `F₁` in `F₂`), then `RoundsFinite F₁ rm₁ x w`.
+containment of `F₁` in `F₂`), then `RoundsFinite F₁ rm₁ x w`. The total form,
+over `Rounds` with overflow: either rounding `x` directly in `F₁` overflows, or
+the chained rounding is finite and agrees with it.
 
-| Paper | Lean |
-| --- | --- |
-| `rnd-RTZ-RTZ` | `rndRTZ_RTZ` |
-| `rnd-RAZ-RAZ` | `rndRAZ_RAZ` |
-| `rnd-RTO-RTO` | `rndRTO_RTO` |
-| `rnd-RTO-RTZ` | `rndRTO_RTZ` |
-| `rnd-RTO-RAZ` | `rndRTO_RAZ` |
-| `rnd-RTO-RNE` / `rnd-RTO-RNA` | `rndRTO_RN` (one theorem, both tie-breaks) |
-| RTP→RTP, RTN→RTN (IEEE directed) | `rndRTP_RTP`, `rndRTN_RTN` |
+| Paper | Finite form | Total form |
+| --- | --- | --- |
+| `rnd-RTZ-RTZ` | `rndRTZ_RTZ` | `roundsRTZ_RTZ` |
+| `rnd-RAZ-RAZ` | `rndRAZ_RAZ` | `roundsRAZ_RAZ` |
+| `rnd-RTO-RTO` | `rndRTO_RTO` | `roundsRTO_RTO` |
+| `rnd-RTO-RTZ` | `rndRTO_RTZ` | `roundsRTO_RTZ` |
+| `rnd-RTO-RAZ` | `rndRTO_RAZ` | `roundsRTO_RAZ` |
+| `rnd-RTO-RNE` / `rnd-RTO-RNA` | `rndRTO_RN` (both tie-breaks) | `roundsRTO_RN` |
+| RTP→RTP, RTN→RTN (IEEE directed) | `rndRTP_RTP`, `rndRTN_RTN` | — |
 
 ### §5.2 — Counterexamples for the invalid pairings
 
@@ -57,6 +60,23 @@ rounding (`∃ x z w, RoundsFinite F₂ rm₂ x z ∧ RoundsFinite F₁ rm₁ z 
 `no_rndRNE_RNE`, `no_rndRNE_RAZ`, `no_rndRNE_RTZ`, `no_rndRNE_RTO`,
 `no_rndRTZ_RNE`, `no_rndRTZ_RAZ`, `no_rndRTZ_RTO`,
 `no_rndRAZ_RNE`, `no_rndRAZ_RTZ`, `no_rndRAZ_RTO`.
+
+### Operation-specific double rounding (Roux 2014)
+
+Beyond the paper: Pierre Roux, *Innocuous Double Rounding of Basic Arithmetic
+Operations* (JFR 7(1), 2014), radix 2. Double rounding of an operation on
+`F₁`-values is correct under a precision margin weaker than the generic rules
+need. Finite form, over `F₁.unbounded` and `F₂.unbounded`.
+
+| Operation | Condition | Lean | File |
+| --- | --- | --- | --- |
+| `x × y`, any modes | `p₂ ≥ 2p₁` | `rndMul_expBot`, `rndMul_expFinite` | `Mpfx/DoubleRoundingMul.lean` |
+| `x + y`, nearest | `p₂ ≥ 2p₁ + 1` | `rndAdd` | `Mpfx/DoubleRoundingAdd.lean` |
+| `√x`, nearest | `p₂ ≥ 2p₁ + 2` | `rndSqrt_expBot`, `rndSqrt_expFinite` | `Mpfx/DoubleRoundingSqrt.lean` |
+| `x / y`, nearest | `p₂ ≥ 2p₁` | `rndDiv_expBot`, `rndDiv_expFinite` | `Mpfx/DoubleRoundingDiv.lean` |
+
+`_expBot` takes no minimum quantum, `_expFinite` a finite one; see each
+docstring for the exponent conditions.
 
 ### §6.1 — Format inference
 
@@ -84,7 +104,10 @@ To confirm a result rests on no unexpected axioms, e.g.:
 ```lean
 import Mpfx
 #print axioms Mpfx.rndRTO_RN
+-- 'Mpfx.rndRTO_RN' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
+
+Every theorem listed above depends on exactly these three standard axioms.
 
 ## Layout
 
@@ -99,10 +122,16 @@ import Mpfx
 | `Mpfx/RoundOp.lean` | The constructive `rnd` and the bridge `rnd_iff_rounds`. |
 | `Mpfx/Containment.lean` | §5.1 containment; `extend`/`withBound`/`next`. |
 | `Mpfx/Ulp.lean` | `ulp`, `rndDown`/`rndUp`/`midp`, `succ`/`pred`. |
+| `Mpfx/CanonicalExp.lean` | Closed forms of the canonical exponent; quantum alignment under `±`, `×`. |
+| `Mpfx/NearestMidpoint.lean` | Nearest double rounding below the midpoint (Roux Lemma 16). |
 | `Mpfx/Discrete.lean` | Canonical representation, F-adjacency, midpoint membership. |
 | `Mpfx/Digits.lean` | Lemmas 5.2 and 5.3. |
 | `Mpfx/DoubleRounding.lean` | §5.2 positive rules. |
 | `Mpfx/DoubleRoundingCex.lean` | §5.2 counterexamples. |
+| `Mpfx/DoubleRoundingMul.lean` | Roux: `×` and the exact-intermediate combinator `rndExact`. |
+| `Mpfx/DoubleRoundingAdd.lean` | Roux: `+` / `−`. |
+| `Mpfx/DoubleRoundingSqrt.lean` | Roux: `√`. |
+| `Mpfx/DoubleRoundingDiv.lean` | Roux: `/`. |
 | `Mpfx/FormatInference.lean` | §6.1 inference. |
 
 Formalization design notes are in [`docs/DESIGN.md`](docs/DESIGN.md); status and

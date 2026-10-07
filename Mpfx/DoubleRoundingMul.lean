@@ -17,8 +17,7 @@ This file transcribes the **multiplication** result (Roux Thm 10 /
 Flocq `round_round_mult`), radix 2, and the shared **exact-intermediate**
 combinator `rndExact` on which it — and the underflow/exact cases of the other
 operations — rests. Addition/subtraction, square root, and division live in
-`DoubleRoundingAdd`/`DoubleRoundingSqrt`/`DoubleRoundingDiv`; see
-`docs/agents/DOUBLE_ROUNDING_OPS_PLAN.md`.
+`DoubleRoundingAdd`/`DoubleRoundingSqrt`/`DoubleRoundingDiv`.
 
 ## Technique: exact intermediate
 

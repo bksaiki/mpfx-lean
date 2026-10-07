@@ -25,7 +25,6 @@ The near-midpoint obligation therefore splits:
 Top-level results: `rndDiv_expBot` (no minimum quantum) and `rndDiv_expFinite`
 (minimum quantum `emin`), for arbitrary operands with `b ≠ 0`; the underflow
 regimes go through `nearest_zero_of_small`/`round_round_div_zero`.
-See `docs/agents/DOUBLE_ROUNDING_OPS_PLAN.md` §9.
 -/
 
 namespace Mpfx

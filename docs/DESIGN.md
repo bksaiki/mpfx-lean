@@ -54,7 +54,7 @@ that invariant never needs threading. Two subtypes refine `Format`:
   extra condition under which `IsOdd` / `IsEven` are well-anchored.
 
 Rounding (`Rounds`, `rnd`) is stated over `FiniteFormat`; parity (`IsOdd`,
-`IsEven`, Lemma 5.3) over `ParityFormat`. Parent fields are accessed directly
+`IsEven`, RTO-padding lemma) over `ParityFormat`. Parent fields are accessed directly
 through inheritance (`F.p`, not `F.toFormat.p`); `.toFormat` appears only where
 an operator lives on `Format` itself (`⊆`, `withBound`, `boundAfterNext`).
 

@@ -290,7 +290,7 @@ def unbounded (F : FiniteFormat) : FiniteFormat where
 @[simp] theorem unbounded_unbounded (F : FiniteFormat) :
     F.unbounded.unbounded = F.unbounded := rfl
 
-/-- **Lemma 5.1**: number of binary digits the format rounds `x` to.
+/-- **Digit-count lemma**: number of binary digits the format rounds `x` to.
 Case analysis on `(F.p, F.exp)`:
 
 - `(⊤, e')`: fixed-point with quantum `2^e'`. Digits = `⌊log₂|x|⌋ − e' + 1`.

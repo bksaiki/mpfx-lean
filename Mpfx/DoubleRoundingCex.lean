@@ -7,7 +7,7 @@ import Mpfx.RoundOp
 # Counterexamples to the invalid double-rounding pairings (§5.2)
 
 The ten `no_rnd<rm₂>_<rm₁>` theorems refute every mode pairing absent
-from Fig. 9: rounding `x` first in `F₂` under `rm₂` and then in `F₁`
+from the double-rounding rules: rounding `x` first in `F₂` under `rm₂` and then in `F₁`
 under `rm₁` can disagree with rounding `x` directly in `F₁` under `rm₁`.
 Each takes an arbitrary **unbounded** inner format `F₁ = 𝒜(p₁, exp₁, ⊤)`
 — the precision `p₁` and quantum `exp₁` are otherwise unconstrained — and

@@ -5,10 +5,9 @@ import Mpfx.DoubleRoundingMul
 /-!
 # Operation-specific double rounding: addition (Roux 2014, §3)
 
-Phase 3 of `docs/agents/DOUBLE_ROUNDING_OPS_PLAN.md`. Roux's Theorem 20 (radix 2,
-no minimum quantum): double rounding of addition is innocuous when
-`p₂ ≥ 2p₁ + 1`. The proof
-splits on the exponent gap between the operands:
+Roux's Theorem 20 (radix 2, no minimum quantum): double rounding of addition
+is innocuous when `p₂ ≥ 2p₁ + 1`. The proof splits on the exponent gap between
+the operands:
 
 * **Case 1** (`ln y ≥ φ₁(ln x) − 1`, operands within `p₁+1` binades): `x + y`
   fits in `2p₁ + 1` significand bits, so it is *exactly* representable in `F₂`
