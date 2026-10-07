@@ -42,7 +42,7 @@ All positive rules, in `Mpfx/DoubleRounding/`, at three levels:
 
 - **Finite form**: given `RoundsFinite F₂ rm₂ x z` and `RoundsFinite F₁ rm₁ z w`
   (with the stated containment of `F₁` in `F₂`), then `RoundsFinite F₁ rm₁ x w`.
-  The RTO rules also have a `…_finite_of_extend` form taking the plain
+  RTO → RTZ/RAZ/RN also have a `…_finite_of_extend` form taking the plain
   containment `F₁.extend k ⊆ F₂` and `2 ≤ F₂.p`.
 - **Total form**, with bounds: either rounding `x` directly in `F₁` overflows
   (`Overflows`), or rounding `x` into `F₂` and the result into `F₁` stays in

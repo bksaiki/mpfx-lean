@@ -1,17 +1,18 @@
 import Mpfx.DoubleRounding.Propagation
 
 /-!
-# Total double rounding (overflow-aware, self-contained)
+# Total double rounding
 
-Stated with `Overflows` and `RoundsInBound`, with no chain hypotheses. For
-each double-rounding rule, conclude that either (i) rounding `x` directly in
-`F₁` overflows, or (ii) rounding `x` in `F₂` does **not** overflow (finite
-`z`), the chained rounding is finite (`w`), and double rounding holds. The
-paper's side condition ("the rules hold whenever `rnd_{F₁}(x)` does not
-overflow") is the guard between the two disjuncts; the paper's bound
-conditions (`next(b₁)` vs `b₁`) become *proof obligations* for no-overflow
-propagation. An arbitrary (off-grid) bound is reduced to its grid floor, so
-no regularity hypothesis surfaces in the public statements. -/
+Per rule, stated with `Overflows` and `RoundsInBound`:
+
+* `…_inBound`: either the direct rounding into `F₁` overflows, or the rounding
+  into `F₂` and the chain stay in bound and agree with it;
+* `…_noOverflow`: an in-bound chain keeps the direct rounding in bound;
+* `…_agree`: when all three are in bound they agree, under the plain
+  containment.
+
+An off-grid bound is reduced to its grid floor, so no regularity hypothesis
+appears in the statements. -/
 
 namespace Mpfx
 
@@ -360,10 +361,8 @@ floor-adjusted format via `bound_floor_setup` +
 `rounds_floor_lift` (degenerate corner via
 `rounds_total_of_zero_bound`), then proves the core. -/
 
-/-- **rnd-RTZ-RTZ**, total form. Either rounding `x` directly in `F₁`
-overflows, or rounding `x` in `F₂` does not overflow (finite `z`), the
-chained rounding is finite (`w`), and double rounding holds. Uses the
-paper's strengthened containment `F₁.withBound next(b₁) ⊆ F₂`. -/
+/-- **rnd-RTZ-RTZ**, total form: the direct rounding overflows, or `F₂` and the chain stay in
+bound and agree with it. -/
 theorem roundsRTZ_RTZ_inBound {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     (x : ℝ) :
@@ -371,8 +370,6 @@ theorem roundsRTZ_RTZ_inBound {F₁ F₂ : FiniteFormat}
     (∃ z w : Dyadic, RoundsInBound F₂ .toZero x z ∧
       RoundsInBound F₁ .toZero (z : ℝ) w ∧
       RoundsInBound F₁ .toZero x w) := by
-  -- Reduce to a bound that is on the grid (and positive when `exp = ⊥`)
-  -- by replacing it with its grid floor.
   suffices key : ∀ F : FiniteFormat,
       (F.toFormat.withBound F.toFormat.boundAfterNext) ⊆ F₂.toFormat →
       (∀ b : NonNegDyadic, F.b = (b : Bound) →
@@ -401,7 +398,6 @@ theorem roundsRTZ_RTZ_inBound {F₁ F₂ : FiniteFormat}
   intro F hsub hreg
   have h₁u := not_isUndefined_toZero F
   have h₂u := not_isUndefined_toZero F₂
-  -- Plain containment, recovered from the paper form.
   have hsub' : F.toFormat ⊆ F₂.toFormat :=
       Format.subset_of_mem hsub.specials fun d hd =>
     hsub d ⟨hd.1, hd.2.1, boundOK_boundAfterNext_of_boundOK hd.2.2⟩
@@ -419,8 +415,6 @@ theorem roundsRTZ_RTZ_inBound {F₁ F₂ : FiniteFormat}
     set w := rndUnbounded F .toZero (z : ℝ) h₁u with hw_def
     have hw_bnd : Format.boundOK F.b w := toZero_noOverflow_chain hy hbOK hz hw
     have hwR : RoundsInBound F .toZero (z : ℝ) w := ⟨hw, hw_bnd⟩
-    -- Double rounding holds: restrict the chain, compose spec-relationally,
-    -- and lift back along the in-bound direct rounding.
     have hsub_u : F.toFormat ⊆ F₂.unbounded.toFormat :=
       Format.subset_of_mem hsub.specials fun d hd =>
       mem_unbounded_of_mem (F := F₂) (hsub' d hd)
@@ -446,9 +440,8 @@ theorem roundsRTZ_RTZ_noOverflow {F₁ F₂ : FiniteFormat}
     exact toZero_noOverflow_direct hreg_G (fun _ hb hm => next_mem_of_withBound_subset hsubG hb hm)
       hz.1.isFaithfulRound hw.1 hbw hy
 
-/-- **rnd-RAZ-RAZ**, total form. Either rounding `x` directly in `F₁`
-overflows, or rounding `x` in `F₂` does not overflow (finite `z`), the
-chained rounding is finite (`w`), and double rounding holds. -/
+/-- **rnd-RAZ-RAZ**, total form: the direct rounding overflows, or `F₂` and the chain stay in
+bound and agree with it. -/
 theorem roundsRAZ_RAZ_inBound {F₁ F₂ : FiniteFormat}
     (hsub : F₁.toFormat ⊆ F₂.toFormat) (x : ℝ) :
     Overflows F₁ .awayZero x ∨
@@ -472,8 +465,6 @@ theorem roundsRAZ_RAZ_inBound {F₁ F₂ : FiniteFormat}
     have hw_bnd : Format.boundOK F₁.b w :=
       awayZero_noOverflow_chain hsub hy hbOK hz hw
     have hwR : RoundsInBound F₁ .awayZero (z : ℝ) w := ⟨hw, hw_bnd⟩
-    -- Double rounding holds: restrict the chain, compose spec-relationally,
-    -- and lift back along the in-bound direct rounding.
     have hsub_u : F₁.toFormat ⊆ F₂.unbounded.toFormat :=
       Format.subset_of_mem hsub.specials fun d hd =>
       mem_unbounded_of_mem (F := F₂) (hsub d hd)
@@ -498,10 +489,8 @@ theorem roundsRAZ_RAZ_noOverflow {F₁ F₂ : FiniteFormat} {x : ℝ} {z w : Dya
         (by linarith [hz.1.2.2.1] : x * (z : ℝ) ≥ 0) fun h => absurd h h0
   exact hby (awayZero_noOverflow_direct hw.1.1 (hz.1.2.1.trans hw.1.2.1) hwx hw.2 hy)
 
-/-- **rnd-RTO-RTO**, total form (unified — no parity split on `b₁`). Either
-rounding `x` directly in `F₁` (RTO) overflows, or the RTO rounding of `x` in
-`F₂` does not overflow (finite `z`), the chained RTO rounding is finite
-(`w`), and double rounding holds. -/
+/-- **rnd-RTO-RTO**, total form: the direct rounding overflows, or `F₂` and the chain stay in
+bound and agree with it. -/
 theorem roundsRTO_RTO_inBound {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
@@ -510,8 +499,6 @@ theorem roundsRTO_RTO_inBound {F₁ F₂ : FiniteFormat}
     (∃ z w : Dyadic, RoundsInBound F₂ .toOdd x z ∧
       RoundsInBound F₁ .toOdd (z : ℝ) w ∧
       RoundsInBound F₁ .toOdd x w) := by
-  -- Reduce to a bound that is on the grid (and positive when `exp = ⊥`)
-  -- by replacing it with its grid floor.
   suffices key : ∀ F : FiniteFormat,
       (F.toFormat.withBound F.toFormat.boundAfterNext) ⊆ F₂.toFormat →
       (∀ b : NonNegDyadic, F.b = (b : Bound) →
@@ -563,8 +550,6 @@ theorem roundsRTO_RTO_inBound {F₁ F₂ : FiniteFormat}
     have hw_bnd : Format.boundOK F.b w :=
       toOdd_toOdd_noOverflow_chain hsub hreg hp_F₂ h₁u hy hbOK hz hw
     have hwR : RoundsInBound F .toOdd (z : ℝ) w := ⟨hw, hw_bnd⟩
-    -- Double rounding holds: restrict the chain, compose spec-relationally,
-    -- and lift back along the in-bound direct rounding.
     have hsub_u : F.toFormat ⊆ F₂.unbounded.toFormat :=
       Format.subset_of_mem hsub.specials fun d hd =>
       mem_unbounded_of_mem (F := F₂)
@@ -591,10 +576,9 @@ theorem roundsRTO_RTO_noOverflow {F₁ F₂ : FiniteFormat}
         boundOK_boundAfterNext_mono (G := G) hF₁b rfl rfl hmono hv.2.2⟩
     exact toOdd_toOdd_noOverflow_direct hsubG hreg_G hp_F₂ h₁u hz.1 hw.1 hbw hy
 
-/-- **rnd-RTO-RTZ**, total form. Either rounding `x` directly in `F₁` (RTZ)
-overflows, or the RTO rounding of `x` in `F₂` does not overflow (finite `z`),
-the chained RTZ rounding is finite (`w`), and double rounding holds.
-Nontriviality of `F₁` forces `2 ≤ F₂.p` through the containment. -/
+/-- **rnd-RTO-RTZ**, total form: the direct rounding overflows, or `F₂` and the chain stay in
+bound and agree with it. Nontriviality of `F₁` forces `2 ≤ F₂.p` through the
+containment. -/
 theorem roundsRTO_RTZ_inBound {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     (hnt : F₁.toFormat.Nontrivial) (x : ℝ) :
@@ -603,8 +587,6 @@ theorem roundsRTO_RTZ_inBound {F₁ F₂ : FiniteFormat}
       RoundsInBound F₁ .toZero (z : ℝ) w ∧
       RoundsInBound F₁ .toZero x w) := by
   have hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p := two_le_p_of_nontrivial hsub hnt
-  -- Reduce to a bound that is on the grid (and positive when `exp = ⊥`)
-  -- by replacing it with its grid floor.
   suffices key : ∀ F : FiniteFormat,
       ((F.extend 1).toFormat.withBound F.toFormat.boundAfterNext) ⊆ F₂.toFormat →
       (∀ b : NonNegDyadic, F.b = (b : Bound) →
@@ -661,8 +643,6 @@ theorem roundsRTO_RTZ_inBound {F₁ F₂ : FiniteFormat}
     have hw_bnd : Format.boundOK F.b w :=
       toOdd_toZero_noOverflow_chain hsub hreg hp_F₂ hy hbOK hz hw
     have hwR : RoundsInBound F .toZero (z : ℝ) w := ⟨hw, hw_bnd⟩
-    -- Double rounding holds: restrict the chain, compose spec-relationally,
-    -- and lift back along the in-bound direct rounding.
     have hsub_u : ((F.extend 1).toFormat.withBound F.toFormat.boundAfterNext)
         ⊆ F₂.unbounded.toFormat :=
       Format.subset_of_mem hsub.specials fun d hd =>
@@ -690,11 +670,9 @@ theorem roundsRTO_RTZ_noOverflow {F₁ F₂ : FiniteFormat}
       (fun _ hb hm => next_mem_of_extend_withBound_subset hsubG hb hm)
       hz.1.isFaithfulRound hw.1 hbw hy
 
-/-- **rnd-RTO-RAZ**, total form. Either rounding `x` directly in `F₁` (RAZ)
-overflows, or the RTO rounding of `x` in `F₂` does not overflow (finite `z`),
-the chained RAZ rounding is finite (`w`), and double rounding holds.
-Nontriviality of `F₁` forces, through the containment, that `F₂` supports
-RTO. -/
+/-- **rnd-RTO-RAZ**, total form: the direct rounding overflows, or `F₂` and the chain stay in
+bound and agree with it. Nontriviality of `F₁` forces `2 ≤ F₂.p` through the
+containment. -/
 theorem roundsRTO_RAZ_inBound {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     (hnt : F₁.toFormat.Nontrivial) (x : ℝ) :
@@ -724,8 +702,6 @@ theorem roundsRTO_RAZ_inBound {F₁ F₂ : FiniteFormat}
       have h1 := hw.2.2.2 y hy.1 hzy_abs hzy_sign
       exact boundOK_of_abs_le h1 hbOK
     have hwR : RoundsInBound F₁ .awayZero (z : ℝ) w := ⟨hw, hw_bnd⟩
-    -- Double rounding holds: restrict the chain, compose spec-relationally,
-    -- and lift back along the in-bound direct rounding.
     have hsub_u : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext)
         ⊆ F₂.unbounded.toFormat :=
       Format.subset_of_mem hsub.specials fun d hd =>
@@ -749,11 +725,9 @@ theorem roundsRTO_RAZ_noOverflow {F₁ F₂ : FiniteFormat}
     (two_le_p_of_nontrivial hsub hnt) hz.1 hw.1 hw.2
   exact hby (awayZero_noOverflow_direct hw.1.1 hxw hwx hw.2 hy)
 
-/-- **rnd-RTO-RN**, total form, parameterized by the tie-break `tb`. Either
-rounding `x` directly in `F₁` (RN) overflows, or the RTO rounding of `x` in
-`F₂` does not overflow (finite `z`), the chained RN rounding is finite (`w`),
-and double rounding holds. Nontriviality of `F₁` forces `2 ≤ F₂.p` through
-the containment; `F₁` must support the tie-break (vacuous for RNA). -/
+/-- **rnd-RTO-RN**, total form: the direct rounding overflows, or `F₂` and the chain stay in
+bound and agree with it. Nontriviality of `F₁` forces `2 ≤ F₂.p` through the
+containment; `F₁` must support the tie-break (vacuous for RNA). -/
 theorem roundsRTO_RN_inBound {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
       ⊆ F₂.toFormat)
@@ -764,8 +738,6 @@ theorem roundsRTO_RN_inBound {F₁ F₂ : FiniteFormat}
       RoundsInBound F₁ (.nearest tb) (z : ℝ) w ∧
       RoundsInBound F₁ (.nearest tb) x w) := by
   have hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p := two_le_p_of_nontrivial_extend_two hsub hnt
-  -- Reduce to a bound that is on the grid (and positive when `exp = ⊥`)
-  -- by replacing it with its grid floor.
   suffices key : ∀ F : FiniteFormat,
       ((F.extend 2).toFormat.withBound (F.extend 1).toFormat.boundAfterNext)
         ⊆ F₂.toFormat →
@@ -824,8 +796,6 @@ theorem roundsRTO_RN_inBound {F₁ F₂ : FiniteFormat}
     have hw_bnd : Format.boundOK F.b w :=
       toOdd_nearest_noOverflow_chain hsub hreg hp_F₂ h₁u hy hbOK hz hw
     have hwR : RoundsInBound F (.nearest tb) (z : ℝ) w := ⟨hw, hw_bnd⟩
-    -- Double rounding holds: restrict the chain, compose spec-relationally,
-    -- and lift back along the in-bound direct rounding.
     have hsub_u : ((F.extend 2).toFormat.withBound (F.extend 1).toFormat.boundAfterNext)
         ⊆ F₂.unbounded.toFormat :=
       Format.subset_of_mem hsub.specials fun d hd =>

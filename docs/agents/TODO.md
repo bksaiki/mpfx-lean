@@ -175,12 +175,12 @@ MpfxTest/             `lake test` examples
 - [ ] **Paper format instances**: `binary64`, `binary32`, `E5M2`,
       `E4M3`, `int8`, `fixed<-4, 8>`. Concrete `FiniteFormat` or
       `ParityFormat` values; useful as smoke tests.
-- [ ] **Smoke tests** (`Mpfx/Tests.lean`): concrete
-      `rnd F rm x = .finite y` proofs. Since `rnd` is `noncomputable`,
-      these are `rfl`/`decide`-style equational proofs, not `#eval`.
-      *Computable-mirror option*: define `rndQ : FiniteFormat → RoundingMode
-      → ℚ → RoundResult` for rational inputs and prove
-      `rndQ F rm q = rnd F rm (q : ℝ)`, then close concrete tests by
+- [ ] **Smoke tests** (in `MpfxTest/`): concrete
+      `rnd F S O rm (.finite x) = .value (.finite y)` proofs. Since `rnd` is
+      `noncomputable`, these are equational proofs, not `#eval`.
+      *Computable-mirror option*: define `rndQ F S O rm : ℚ → RoundResult`
+      for rational inputs and prove
+      `rndQ F S O rm q = rnd F S O rm (.finite (q : ℝ))`, then close concrete tests by
       `decide`/`native_decide`. The `ℚ` substrate (decidable eq/order)
       makes this viable; Lean-core `Dyadic` could back the `native_decide`
       kernel via `toRat` if raw speed is ever needed.
@@ -216,6 +216,31 @@ smoke tests and external use:
 - [ ] Format-independent `Dyadic.isOdd` / `Dyadic.isEven` predicates.
 - [ ] `simp` set for `c · 2^e` normalization (assoc/comm, regrouping
       `c · 2^e = 2c · 2^(e-1)`).
+
+## Open: special values (provisional calls)
+
+Each stands until its reopen condition holds.
+
+- [ ] **Names** in `DoubleRounding/Special.lean`: `OverflowAgrees` and its
+      fields `direct`/`chain`/`inner`, `of_bound`, `of_saturate`, the
+      `…_agree` and `…_of_bound` families.
+- [ ] **IEEE RTO overflow** goes to `±Inf` (`OverflowMap.ieee`), which is what
+      makes RTO → RTZ fail to compose. Saturating it would make RTO → RTZ
+      compose (`MpfxTest/DoubleRounding.lean`).
+- [ ] **Unchecked:** RTO → RN with a saturating RTO table and the IEEE RN
+      table. By hand, `b₂ ≥ M` is still needed.
+- **`opMul`/`opAdd` specials** are `∅`. Reopen if §6.1 is meant to cover
+  special arithmetic (`Inf · 0`, `Inf − Inf`).
+- **`.undefined` is numeric-only**: special inputs always go through `S`.
+  Reopen if a double-rounding statement becomes awkward because of it.
+- **Tables are arbitrary**, with constraints as named predicates. Reopen if
+  the same predicate appears on most theorems.
+- **`S` and `O` are separate parameters**, not a bundled policy. Reopen if
+  call sites are noisy.
+- **The overflow sign is that of the unbounded rounding `y`** (`y < 0`). It
+  equals that of `x` whenever overflow fires.
+- **`specials : Set Special`**, not two `Bool`s. Reopen if a computable `rnd`
+  or `decide`-based tests are wanted.
 
 ## Documented non-theorems / possible extensions
 

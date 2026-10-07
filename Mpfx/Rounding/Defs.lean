@@ -133,11 +133,8 @@ that mode `rm` gives for input `v` in format `F`:
   `F.b`, else `.value (O.map (y < 0))` (overflow).
 
 The mode-specific rounding spec `RoundsFinite` is evaluated against
-`F.unbounded` (i.e., `F` with `b := ⊤`) — the bound check is a
-*separate* conjunct, applied to the value chosen by the unbounded
-spec. This ensures IEEE-style overflow: saturation isn't a "valid
-answer" — the only candidate is the unbounded rounding, and overflow
-fires if and only if that candidate is out of range. -/
+`F.unbounded` (i.e., `F` with `b := ⊤`); the bound is checked separately on
+its result, so overflow happens iff the unbounded rounding is out of range. -/
 
 /-- A *faithful* rounding of `x`: `y ∈ F` is either the largest F-element
 ≤ `x` (RTN) or the smallest F-element ≥ `x` (RTP). All of RTO, RNE, RNA

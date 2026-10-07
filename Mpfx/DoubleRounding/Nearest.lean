@@ -424,8 +424,7 @@ private lemma rndRTO_no_tie_contradiction {F₁ F₂ : FiniteFormat}
 derived subset facts plus extracted hypotheses from the inner nearest-rounding,
 produces the three facts needed by either tie-break: adjacency transfer
 (`h_adj_x`), closeness transfer (`h_close`), and an absence-of-tie property
-(`h_no_tie`). The two `tb` branches of `roundsRTO_RN_finite` differ only in how they
-consume `h_no_tie`. -/
+(`h_no_tie`). -/
 private theorem rndRTO_nearest_facts {F₁ F₂ : FiniteFormat}
     (hsub2 : (F₁.extend 2).toFormat ⊆ F₂.toFormat)
     (hsub_ext1 : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
@@ -531,9 +530,6 @@ theorem roundsRTO_RN_finite_of_extend {F₁ F₂ : FiniteFormat}
   · -- x = z: hw already has the right shape after rewriting.
     rw [hzx] at hw; exact hw
   have hxne : x ≠ (z : ℝ) := fun h => hzx h.symm
-  -- Non-trivial case: destructure hw (requires cases tb), then assemble via
-  -- rndRTO_nearest_facts. The IsFaithfulRound↔directed conversions sit at the
-  -- nearest-spec boundary.
   cases tb with
   | toEven =>
     obtain ⟨hw'F₁, hw_faithful, hw_close, _⟩ := hw
@@ -568,11 +564,8 @@ theorem roundsRTO_RN_finite_of_extend {F₁ F₂ : FiniteFormat}
     exact (h_no_tie z' hz'F₁ (isFaithfulRound_iff_directed.mp hz'_faithful)
       hz'_ne_w' hz'_eq_dist).elim
 
-/-- **rnd-RTO-RN**, paper-aligned form for round-to-odd followed by
-round-to-nearest, parameterized by the nearest-rounding tie-break `tb`.
-Covers both RNE (`tb = .toEven`) and RNA (`tb = .awayZero`) in a single
-theorem: the hypothesis `hsub` encodes the paper's RN containment, uniform with
-the `roundsRTO_RTZ_finite`/`roundsRTO_RAZ_finite` signatures. -/
+/-- **rnd-RTO-RN** (RNE and RNA) under the relaxed RN containment; `2 ≤ F₂.p`
+follows unless `F₁` is trivial. -/
 theorem roundsRTO_RN_finite {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
               ⊆ F₂.toFormat)

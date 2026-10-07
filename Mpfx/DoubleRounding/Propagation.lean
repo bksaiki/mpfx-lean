@@ -8,21 +8,18 @@ Per rule, how the bound check moves between the direct rounding into `F₁`, the
 rounding into `F₂`, and the chained rounding into `F₁`: no-overflow propagation
 (`*_noOverflow_F₂`, `*_noOverflow_chain`: an in-bound direct rounding keeps
 `F₂` and the chain in bound) and back (`*_noOverflow_direct`: an in-bound chain
-keeps the direct rounding in bound). Each lemma assumes a regular bound (on the grid, positive
-when `exp = ⊥`); `Mpfx.DoubleRounding.Total` reduces arbitrary bounds to it.
+keeps the direct rounding in bound). The RTZ, RTO and RN lemmas assume a
+regular bound (on the grid, positive when `exp = ⊥`);
+`Mpfx.DoubleRounding.Total` reduces arbitrary bounds to it.
 -/
 
 namespace Mpfx
 
 /-! ## rnd-RTZ-RTZ: no-overflow propagation
 
-Unlike the spec-relational form, the total form needs the paper containment
-`F₁.withBound F₁.boundAfterNext ⊆ F₂` in place of plain `F₁ ⊆ F₂`;
-otherwise no-overflow propagation fails — e.g.
-`F₁ = A(1, ⊥, 5)`, `F₂ = A(3, ⊥, 4)` satisfy the paper containment
-(`A(1, ⊥, 6) ⊆ A(3, ⊥, 4)`), yet at `x = 5.2` the `F₁`-RTZ rounding is `4`
-(no overflow) while the `F₂`-RTZ rounding is `5 > 4` (overflow). -/
-
+No-overflow propagation needs `F₁.withBound F₁.boundAfterNext ⊆ F₂`, not just
+`F₁ ⊆ F₂`: `A(1, ⊥, 5) ⊆ A(3, ⊥, 4)`, yet at `x = 5.2` RTZ gives `4` in `F₁`
+(in bound) and `5` in `F₂` (overflow). -/
 
 /-- An in-bound RTZ rounding pins `x` strictly below `next(b₁)`: otherwise
 `±next(b₁)` would compete and force `|y| > b₁`. -/
@@ -53,11 +50,8 @@ theorem abs_lt_next_of_toZero_inbound {F₁ : FiniteFormat}
     rw [Dyadic.coe_real_neg, abs_neg, abs_of_nonneg hN_nn] at hN_y
     linarith
 
-/-- No-overflow propagation for RTZ-RTZ: if the unbounded RTZ rounding `y`
-of `x` in `F₁` is in-bound, then the unbounded RTZ rounding `z` of `x` in
-`F₂` is in-bound: `|x| < next(b₁)` by `abs_lt_next_of_toZero_inbound`, and
-`next(b₁) ∈ F₂` via the containment, so `|z| ≤ |x| < next(b₁)` is within
-`F₂`'s bound. -/
+/-- No-overflow propagation for RTZ-RTZ: an in-bound `F₁` rounding keeps the
+`F₂` rounding in bound (`|z| ≤ |x| < next(b₁) ∈ F₂`). -/
 theorem toZero_noOverflow_F₂ {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     (hreg : ∀ b : NonNegDyadic, F₁.b = (b : Bound) →
@@ -243,11 +237,8 @@ theorem abs_faithful_le_of_le {F₂ : FiniteFormat} {x : ℝ} {z N : Dyadic}
     have h2 := abs_le.mp hxN
     exact abs_le.mpr ⟨by linarith, by linarith⟩
 
-/-- Chain no-overflow for RTO-RTZ. If the chained RTZ rounding `w` of
-`z = RTO_{F₂}(x)` escaped the bound, grid minimality would force
-`|w| = |z| = next(b₁)`; but `z` is `F₂`-odd (RTO-padding transfer through the
-`extend 1` containment shows `z` cannot lie on the `F₁`-grid within the
-relaxed bound), contradiction. -/
+/-- Chain no-overflow for RTO-RTZ: an escaping chain would force
+`|w| = |z| = next(b₁)`, but `z` is `F₂`-odd, so off `F₁`'s grid (RTO padding). -/
 theorem toOdd_toZero_noOverflow_chain {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     (hreg : ∀ b : NonNegDyadic, F₁.b = (b : Bound) →
@@ -359,12 +350,8 @@ theorem abs_lt_next_of_toOdd_inbound {F₁ : FiniteFormat}
         linarith
       linarith
 
-/-- Chain no-overflow for RTO-RTO, via composition at the *intermediate*
-format `G := F₁.withBound next(b₁)`: the chained rounding `w` is in-`G`
-(its faithful candidates are squeezed into `[-N, N]`), so the
-spec-relational composition at `(G, F₂.unbounded)` plus restrict/lift shows
-`w` is *the* unbounded RTO rounding of `x` in `F₁` — which is in-bound by
-hypothesis. -/
+/-- Chain no-overflow for RTO-RTO: the chain stays in `G := F₁.withBound next(b₁)`,
+so composing at `(G, F₂.unbounded)` makes `w` the direct rounding, in bound. -/
 theorem toOdd_toOdd_noOverflow_chain {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     (hreg : ∀ b : NonNegDyadic, F₁.b = (b : Bound) →
@@ -805,7 +792,7 @@ theorem toZero_noOverflow_direct {F₁ F₂ : FiniteFormat}
   have h := boundOK_of_abs_lt_next hF₁b hb₁_mem hguard hy.1 (lt_of_le_of_lt hy.2.1 hxN)
   rwa [hF₁b] at h
 
-/-- `next(b₁) ∈ F₂` from the RTZ / RTO-RTO containment. -/
+/-- `next(b₁) ∈ F₂` from the relaxed containment. -/
 theorem next_mem_of_withBound_subset {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     {b₁ : NonNegDyadic} (hF₁b : F₁.b = (b₁ : Bound)) (hb₁_mem : b₁.val ∈ F₁) :

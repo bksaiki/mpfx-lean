@@ -530,14 +530,10 @@ theorem roundsRTO_RTZ_finite_of_extend {F₁ F₂ : FiniteFormat}
     · intro v _ hv_bnd _
       rw [hw'_zero, abs_zero]
       simpa using hv_bnd
-  · -- x > 0
-    exact roundsRTO_RTZ_finite_pos hsub hp_F₂ hx_pos hz hw
+  · exact roundsRTO_RTZ_finite_pos hsub hp_F₂ hx_pos hz hw
 
-/-- **rnd-RTO-RTZ**, general case, **paper form**. An RTO rounding
-`z` of `x` in `F₂` followed by an RTZ rounding `w'` of `z` in `F₁` collapses
-to an RTZ rounding of `x` in `F₁`. Uses the single bound-aware containment
-hypothesis `(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`; the auxiliary
-`2 ≤ F₂.p` is *derived* (or `F₁` is trivial). -/
+/-- **rnd-RTO-RTZ** under the relaxed containment; `2 ≤ F₂.p` follows unless `F₁`
+is trivial. -/
 theorem roundsRTO_RTZ_finite {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     {x : ℝ} {z w' : Dyadic}
@@ -658,14 +654,10 @@ theorem roundsRTO_RAZ_finite_of_extend {F₁ F₂ : FiniteFormat}
     · simp [hw'_zero]
     · intro v _ _ _
       simp [hw'_zero, abs_nonneg]
-  · -- x > 0
-    exact roundsRTO_RAZ_finite_pos hsub hp_F₂ hx_pos hz hw
+  · exact roundsRTO_RAZ_finite_pos hsub hp_F₂ hx_pos hz hw
 
-/-- **rnd-RTO-RAZ**, general case, **paper form**. An RTO rounding
-`z` of `x` in `F₂` followed by an RAZ (away-from-zero) rounding `w'` of `z` in
-`F₁` collapses to an RAZ rounding of `x` in `F₁`. Uses the single bound-aware
-containment hypothesis `(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`; the
-auxiliary `2 ≤ F₂.p` is *derived* (or `F₁` is trivial). -/
+/-- **rnd-RTO-RAZ** under the relaxed containment; `2 ≤ F₂.p` follows unless `F₁`
+is trivial. -/
 theorem roundsRTO_RAZ_finite {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     {x : ℝ} {z w' : Dyadic}

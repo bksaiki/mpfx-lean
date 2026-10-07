@@ -34,8 +34,7 @@ private lemma decide_neg_lt_zero {y : Dyadic} (hy : (y : ℚ) ≠ 0) :
     have h2 : ¬ ((y : ℚ) < 0) := fun h' => by linarith
     simp [h1, h2]
 
-/-- An out-of-bound value is nonzero; used in the overflow case of the
-sign-symmetry theorems. -/
+/-- An out-of-bound value is nonzero. -/
 private lemma overflow_witness_ne_zero {F : FiniteFormat} {y : Dyadic}
     (h : ¬ Format.boundOK F.b y) : (y : ℚ) ≠ 0 := by
   intro h0
@@ -191,10 +190,7 @@ theorem RoundsFinite.eq_of_mem {F : FiniteFormat} {rm : RoundingMode} {d : Dyadi
 For each rounding mode we relate rounding a real `x` under `rm` and overflow
 table `O` to rounding `-x` under `rm'` and `O.neg`, with the result negated.
 `rm'` is either `rm` itself (modes symmetric around zero) or its "flipped"
-partner (`.toNegative` ↔ `.toPositive`).
-
-Each mode gets its own theorem — there is intentionally no unified
-`Rounds.neg` polymorphic over the mode. -/
+partner (`.toNegative` ↔ `.toPositive`). -/
 
 /-- Sign-symmetry of `RoundsFinite` at mode `.toZero`. -/
 theorem RoundsFinite.neg_toZero (F : FiniteFormat) (x : ℝ) (y : Dyadic) :

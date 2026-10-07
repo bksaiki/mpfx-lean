@@ -11,8 +11,7 @@ Soundness of the two inference rules:
   `F₁.p > F₂.p` is permitted.
 
 Both require `S₁ ⊆ S₂` on the specials, are stated for `Format`, and are proved
-over `ℚ`. `F₁ ⊆ F₂` (`Subset`) covers numeric values and specials; a subset
-proof applies to a numeric member directly (`hsub x hx`).
+over `ℚ`. `F₁ ⊆ F₂` (`Subset`) covers numeric values and specials.
 
 `subset_iff_contains` is completeness: for `F₁` with `BoundRep` and
 `Nontrivial`, `F₁ ⊆ F₂` iff one rule fires. Also `extend` and the digit-shift
