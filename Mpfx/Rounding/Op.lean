@@ -7,8 +7,9 @@ import Mpfx.Rounding.Op.Nearest
 # The rounding function, assembled
 
 The mode dispatcher `rndUnbounded_satisfies`, its uniqueness counterpart, the
-overflow dichotomy `overflows_iff_not_roundsInBound`, and the bridge
-`rnd_iff_rounds` tying `rnd` to the relational spec `Rounds`.
+overflow dichotomy `overflows_iff_not_roundsInBound`, the bridge
+`rnd_iff_rounds` tying `rnd` to the relational spec `Rounds`, and how special
+inputs and overflow come out of `rnd` (`rnd_special`, `rnd_of_overflows_pos`/`_neg`).
 -/
 
 namespace Mpfx
@@ -86,5 +87,52 @@ theorem rnd_iff_rounds (F : FiniteFormat) (S : SpecialMap F.toFormat)
         rcases h with ⟨hb, rfl⟩ | ⟨hb, rfl⟩
         · rw [if_pos hb]
         · rw [if_neg hb]
+
+/-! ### Special inputs and overflow through `rnd` -/
+
+@[simp] theorem rnd_special (F : FiniteFormat) (S : SpecialMap F.toFormat)
+    (O : OverflowMap F.toFormat) (rm : RoundingMode) (s : Special) :
+    rnd F S O rm (.special s) = .value (S.map s) := rfl
+
+/-- A positive overflow selects the table's positive entry. -/
+theorem rnd_of_overflows_pos {F : FiniteFormat} {S : SpecialMap F.toFormat}
+    {O : OverflowMap F.toFormat} {rm : RoundingMode} {x : ℝ}
+    (h : ¬ F.IsUndefined rm) (hov : Overflows F rm x) (hx : 0 < x) :
+    rnd F S O rm (.finite x) = .value (O.map false) := by
+  obtain ⟨y, hy, hnb⟩ := hov
+  have hy0 : (0 : ℝ) ≤ (y : ℝ) := by
+    rcases isFaithfulRound_iff_directed.mp hy.isFaithfulRound with hd | hu
+    · exact RoundsFinite.toNegative_nonneg hx.le hd
+    · exact hx.le.trans hu.2.1
+  have hneg : decide ((y : ℚ) < 0) = false := by
+    rw [decide_eq_false_iff_not, not_lt]
+    rw [Dyadic.coe_real_eq_ratCast] at hy0
+    exact_mod_cast hy0
+  rw [rnd_iff_rounds]
+  exact ⟨h, y, hy, Or.inr ⟨hnb, by rw [hneg]⟩⟩
+
+/-- A negative overflow selects the table's negative entry. -/
+theorem rnd_of_overflows_neg {F : FiniteFormat} {S : SpecialMap F.toFormat}
+    {O : OverflowMap F.toFormat} {rm : RoundingMode} {x : ℝ}
+    (h : ¬ F.IsUndefined rm) (hov : Overflows F rm x) (hx : x < 0) :
+    rnd F S O rm (.finite x) = .value (O.map true) := by
+  obtain ⟨y, hy, hnb⟩ := hov
+  have hy0 : (y : ℝ) ≤ 0 := by
+    rcases isFaithfulRound_iff_directed.mp hy.isFaithfulRound with hd | hu
+    · exact hd.2.1.trans hx.le
+    · exact RoundsFinite.toPositive_nonpos hx.le hu
+  have hne : (y : ℝ) ≠ 0 := by
+    intro h0
+    apply hnb
+    rw [show y = 0 from Subtype.ext (by
+      rw [Dyadic.coe_real_eq_ratCast] at h0; exact_mod_cast h0)]
+    exact Format.boundOK_zero _
+  have hpos : decide ((y : ℚ) < 0) = true := by
+    rw [decide_eq_true_iff]
+    have h' : (y : ℝ) < 0 := lt_of_le_of_ne hy0 hne
+    rw [Dyadic.coe_real_eq_ratCast] at h'
+    exact_mod_cast h'
+  rw [rnd_iff_rounds]
+  exact ⟨h, y, hy, Or.inr ⟨hnb, by rw [hpos]⟩⟩
 
 end Mpfx

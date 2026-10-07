@@ -287,6 +287,21 @@ Build: `lake build Mpfx.Rounding.Op Mpfx.Rounding.Basic`.
 
 ### Phase 6: sanity theorems for the standard tables
 
+**Done.** Split between the library and a new test library:
+
+- Library (`Rounding/Op.lean`, next to `rnd_iff_rounds`): `rnd_special`
+  (`simp`), `rnd_of_overflows_pos` / `rnd_of_overflows_neg` — for any tables,
+  a defined mode and an overflowing real select `O.map false` / `O.map true`.
+  Phase 7 builds on these.
+- Tests (`MpfxTest/SpecialValues.lean`, a new top-level `MpfxTest` lib in
+  `lakefile.toml` with `testDriver`, as Mathlib's `MathlibTest`; CI runs
+  `lake test`):
+  `example`s pinning `OverflowMap.ieee` to IEEE 754 §7.4 for RNE/RNA, RTZ,
+  RTP and RTN on both signs, `OverflowMap.saturate`/`toNaN`, and special inputs
+  under `SpecialMap.exact`/`saturate`/`toNaN` (including an undefined mode).
+  Kept as examples rather than library theorems, since each is the table
+  definition read back through `rnd`.
+
 - `Rounding/Special.lean` (or a sibling): IEEE agreement for overflow, e.g.
   under `OverflowMap.ieee .nearest .toEven`, `Overflows F rm x` with `x > 0`
   gives `+Inf`; under RTZ gives `.finite maxFinite`. Specials under
@@ -325,6 +340,7 @@ Build: none (docs only).
 
 ```sh
 lake build                      # full build; linters run as part of it
+lake test                       # the test library
 ```
 
 Then `#print axioms` for every theorem in the README tables (expect
