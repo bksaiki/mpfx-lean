@@ -10,10 +10,14 @@ development is put together.
 
 ```lean
 structure Format where
-  p   : Prec   -- precision; 0 = trivial {0}, ⊤ = no constraint
-  exp : QExp   -- min-quantum exponent, ⊥ = no quantum constraint
-  b   : Bound  -- magnitude bound ≥ 0, ⊤ = unbounded
+  p        : Prec         -- precision; 0 = trivial {0}, ⊤ = no constraint
+  exp      : QExp         -- min-quantum exponent, ⊥ = no quantum constraint
+  b        : Bound        -- magnitude bound ≥ 0, ⊤ = unbounded
+  specials : Set Special  -- which of ±Inf, NaN the format has
 ```
+
+`specials` has no default: every format states it (see "Special values and
+overflow" below).
 
 The three field types are abbreviations, defined in `Mpfx/Dyadic.lean`:
 
@@ -82,13 +86,14 @@ dyadics against a real). The composite coercion `Dyadic → ℝ` factors as
 
 Two complementary views of rounding:
 
-- `Rounds : FiniteFormat → RoundingMode → ℝ → RoundResult → Prop` (and its
-  finite-result core `RoundsFinite`) — the specification relation. The
-  double-rounding theorems are stated against this.
-- `rnd : FiniteFormat → RoundingMode → ℝ → RoundResult` — a function computing
-  the result via `Int.log` + `Int.floor`/`Int.ceil` (FLoPS-style, no
+- `Rounds F S O rm : WithSpecial ℝ → RoundResult → Prop`, and its core
+  `RoundsFinite F rm : ℝ → Dyadic → Prop` (the mode's rounding of a real, with
+  no bound check), are the specification relations. The double-rounding
+  theorems are stated against `RoundsFinite`, then lifted to `rnd`.
+- `rnd F S O rm : WithSpecial ℝ → RoundResult` is a function computing the
+  result via `Int.log` + `Int.floor`/`Int.ceil` (FLoPS-style, no
   `Classical.choose`), bridged to the relation by
-  `rnd_iff_rounds : rnd F rm x = r ↔ Rounds F rm x r`.
+  `rnd_iff_rounds : rnd F S O rm v = r ↔ Rounds F S O rm v r`.
 
 "Explicit" means `rnd` is defined by a formula, not chosen from the spec;
 it does not mean constructive logic. `rnd` is `noncomputable` (real
@@ -96,6 +101,48 @@ comparisons aren't computably decidable, and `Int.log : ℝ → ℤ`), and the
 proofs are classical throughout: every theorem depends on `propext`,
 `Classical.choice` and `Quot.sound`, as is usual for Mathlib's `ℝ` (FLoPS
 too). The overflow **sign bit** is a decidable `ℚ` comparison.
+
+## Special values and overflow
+
+Inputs and outputs are `WithSpecial`: a finite value or a `Special`
+(`inf (negative : Bool)` or `nan`). A format's values are
+`Format.values F : Set (WithSpecial Dyadic)`, the finite members plus
+`F.specials`. They are a `Set` rather than a second `Membership` instance,
+since `Membership`'s element type is an `outParam` and would clash with
+`Membership Dyadic Format`.
+
+**Specials are values; overflow is an event.** `±Inf` and NaN are inputs and
+outputs. Overflow happens to a real input and never appears as a value: what it
+produces is chosen by the format. `rnd` takes two tables of `F`, independent
+of the rounding mode:
+
+| Table | Keyed by | Says |
+| --- | --- | --- |
+| `SpecialMap F` | `Special` | where a special input goes |
+| `OverflowMap F` | `Bool` (`negative`) | where an overflowing real goes |
+
+Each entry must be one of `F.values`. A table follows the mode only when built
+to: `OverflowMap.ieee F rm` is IEEE 754 §7.4, so RTP sends `+overflow` to
+`+Inf` but `−overflow` to `−maxFinite`. The other standard tables (all in
+`Mpfx/Rounding/Special.lean`) are `SpecialMap.exact`/`saturate`/`toNaN` and
+`OverflowMap.saturate`/`toNaN`. Tables are arbitrary; conditions on them (e.g.
+`OverflowAgrees` for double rounding) are named predicates used as
+hypotheses, so OCP E4M3 or P3109 saturation fit without special cases.
+
+`RoundResult` is `value (v : WithSpecial Dyadic) | undefined`. `undefined` is
+returned only for real inputs, when `(F, rm)` has no well-defined rounding
+(`F.IsUndefined rm`: `p = 1`, `exp = ⊥` and RTO or RNE); special inputs always
+go through `S`.
+
+**Why overflow is a predicate.** `Overflows F rm x` says the unbounded
+rounding of `x` leaves `F`'s bound; `RoundsInBound F rm x y` says it is `y`
+and fits. A saturating table maps overflow to `±maxFinite`, which is also an
+ordinary result, so overflow cannot be read off `rnd`'s output. Double rounding
+still depends on it: whether `F₂` and `F₁` overflow on the same inputs decides
+which table conditions the equality `rnd₁ (rnd₂ v) = rnd₁ v` needs. So
+overflow is kept as a predicate on the input, not a constructor of the result.
+
+Signed zero is out of scope: `Dyadic` has one zero, and no table touches it.
 
 ## RoundingMode coverage
 

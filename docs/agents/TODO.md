@@ -14,8 +14,8 @@ development:
    `ParityFormat extends FiniteFormat` additionally
    rules out `(p = 1, exp = ⊥)` so `IsOdd` / `IsEven` are anchored.
 2. **Explicit rounding.** Alongside the spec relation
-   `Rounds F rm x r : Prop`, a function `rnd F rm x : RoundResult`
-   computes the rounded value via `Int.log` + `Int.floor`/`Int.ceil`
+   `Rounds F S O rm v r : Prop`, a function `rnd F S O rm v : RoundResult`
+   (`S`, `O`: the special-value and overflow tables) computes the rounded value via `Int.log` + `Int.floor`/`Int.ceil`
    (FLoPS-style). No `Classical.choose` in the definition; it is
    `noncomputable` because real comparisons aren't computably
    decidable. Proofs are classical throughout (see `docs/DESIGN.md`).
@@ -58,16 +58,19 @@ Mpfx/
 │                     precisionAtMost_of_abs_le (saturation renormalization),
 │                     isRepresentableAtP_of_saturation
 ├── Format/
-│   ├── Defs.lean     Format / FiniteFormat, Mem, boundOK, Format.unbounded,
-│   │                 FiniteFormat.unbounded, FiniteFormat.zero_mem,
-│   │                 FiniteFormat.canonicalExp, numDigits + evaluators
+│   ├── Defs.lean     Special, WithSpecial (+ neg, toReal), Format (with
+│   │                 specials) / FiniteFormat, Mem, Format.values, NegClosed,
+│   │                 boundOK, Format.unbounded, FiniteFormat.unbounded,
+│   │                 FiniteFormat.zero_mem, FiniteFormat.canonicalExp,
+│   │                 numDigits + evaluators
 │   ├── Parity.lean   ParityFormat, IsOdd, IsEven, negation, canonical-rep
 │   │                 characterizations, transport (IsOdd/IsEven.congr,
 │   │                 *_iff_of_toFormat_eq, parity_witness_congr)
 │   ├── Parity/
 │   │   └── Alternate.lean per-regime canonical-rep parity iffs, saturation
 │   │                 facts, alternating_parity_* / alternating_isEven_*
-│   ├── Containment.lean §5.1: Format.Subset + HasSubset,
+│   ├── Containment.lean §5.1: Format.Subset (numeric members and specials)
+│   │                 + HasSubset, subset_of_mem,
 │   │                 boundOK_mono, nnPow, containsPrec, containsSub,
 │   │                 subset_iff_contains (completeness),
 │   │                 Format.extend + self_subset_extend + extend_mono,
@@ -98,9 +101,10 @@ Mpfx/
 ├── Rounding/
 │   ├── Defs.lean     relational layer:
 │   │                 TieBreak, RoundingMode,
-│   │                 RoundResult (with signed overflow), RoundResult.neg,
-│   │                 FiniteFormat.IsUndefined,
-│   │                 IsFaithfulRound, RoundsFinite, Rounds,
+│   │                 RoundResult (value | undefined), RoundResult.neg,
+│   │                 FiniteFormat.IsUndefined, SpecialMap, OverflowMap (+ neg),
+│   │                 IsFaithfulRound, RoundsFinite, RoundsInBound, Overflows,
+│   │                 Rounds,
 │   │                 FiniteFormat.toParityFormatOf{ToOdd,NearestEven}
 │   ├── Basic.lean    relational consequences of the spec. Sign symmetry:
 │   │                 IsFaithfulRound.neg_iff, per-mode RoundsFinite.neg_*,
@@ -116,18 +120,31 @@ Mpfx/
 │   │                 parity; the toOdd and nearest .toEven forms
 │   ├── Op.lean, Op/  function layer (noncomputable):
 │   │                 rndInt, rndParity, rndUnbounded, rnd, per-mode soundness,
-│   │                 rndUnbounded_satisfies/_unique, rnd_iff_rounds
+│   │                 rndUnbounded_satisfies/_unique, rnd_iff_rounds,
+│   │                 rnd_special, rnd_of_overflows_pos/_neg
+│   ├── Special.lean  maxFinite (+ abs_le_maxFinite, saturated_eq_finite), the
+│   │                 standard tables: SpecialMap.exact/saturate/toNaN,
+│   │                 OverflowMap.ieee/saturate/toNaN
 │   └── Ulp.lean      ulp/rndDown/rndUp/midp, the nearest error bound and the
 │                     below/above-midpoint characterisations, succ/pred/predPos
 │                     and their membership + adjacency lemmas
 └── DoubleRounding/
     ├── Basic.lean    §5.2 rules, spec-relational over RoundsFinite:
-    │                 roundsRTZ_RTZ_finite, roundsRAZ_RAZ_finite(_pos), roundsRTO_RTO_finite, roundsRTO_RTZ_finite,
-    │                 roundsRTO_RAZ_finite, roundsRTP_RTP_finite, roundsRTN_RTN_finite, rndExact. RTO helper
+    │                 roundsRTZ_RTZ_finite, roundsRAZ_RAZ_finite(_pos), roundsRTO_RTO_finite,
+    │                 roundsRTO_RTZ_finite(_of_extend), roundsRTO_RAZ_finite(_of_extend),
+    │                 roundsRTP_RTP_finite, roundsRTN_RTN_finite, rndExact. RTO helper
     │                 chain (toOdd_notMem_of_extend_subset, …), *_of_trivial
-    ├── Nearest.lean  roundsRTO_RN_finite and its RN web (rndRTO_RN_close_transfer,
-    │                 rndRTO_no_tie_contradiction, rndRTO_nearest_facts)
-    ├── Total.lean    roundsRTZ_RTZ_inBound, …, roundsRTO_RN_inBound: overflow-aware total forms
+    ├── Nearest.lean  roundsRTO_RN_finite(_of_extend) and its RN web
+    │                 (rndRTO_RN_close_transfer, rndRTO_no_tie_contradiction,
+    │                 rndRTO_nearest_facts)
+    ├── Propagation.lean per-rule overflow propagation on a regular bound:
+    │                 *_noOverflow_F₂, *_noOverflow_chain, *_noOverflow_direct
+    ├── Total.lean    roundsRTZ_RTZ_inBound, …, roundsRTO_RN_inBound: overflow-aware
+    │                 total forms (grid-floor reduction); *_noOverflow;
+    │                 roundsRTZ_RTZ_agree, …: agreement in bound, plain containment
+    ├── Special.lean  rules with tables: rndRTZ_RTZ, …, rndRTO_RN and *_of_bound;
+    │                 rnd_double, SpecialMap/OverflowMap.Composes, OverflowAgrees
+    │                 (+ of_bound, of_saturate), the standard tables' composition
     ├── Counterexample.lean the ten Cex.no_rnd* theorems
     ├── Counterexample/ Basic (anchors, gap lemmas), Neighborhood
     │                 (AnchorNeighborhood + generic cores), Instances (the four
@@ -137,6 +154,10 @@ Mpfx/
     ├── Add.lean      Roux +/−: rndAdd
     ├── Sqrt.lean     Roux √: rndSqrt_expBot/_expFinite
     └── Div.lean      Roux /: rndDiv_expBot/_expFinite
+MpfxTest/             `lake test` examples
+├── SpecialValues.lean the tables against IEEE 754 §7.4, special inputs
+└── DoubleRounding.lean IEEE double rounding with tables; RTO → RTZ and
+                      RTO → RN failures
 ```
 
 ## Open: Rounding API extensions
@@ -207,8 +228,8 @@ smoke tests and external use:
 
 ## Long-term / out of scope
 
-- Subnormal flushing, signed zero, ∞, NaN (paper §9).
-- Overflow semantics for double rounding under saturation modes.
+- Subnormal flushing and signed zero (paper §9). `±Inf`, NaN and overflow
+  tables are done (`Format.specials`, `SpecialMap`, `OverflowMap`).
 - Posits, P3109 unsigned floats.
 - Stochastic rounding modes (FLoPS does these; not needed for
   *When Double Rounding is Correct*).

@@ -569,6 +569,17 @@ Build: `lake build Mpfx.DoubleRounding.Total`.
 
 ### Phase 8: documentation
 
+**Done.** README: the §5.2 table gained a "With tables" column and a section
+on the table conditions; containment notes the specials conjunct; the axioms
+example now matches its output (it printed `rndRTO_RN`'s output under
+`roundsRTO_RN_finite`); `lake test` and the new modules are in the layout.
+DESIGN: `specials`, the two tables, `RoundResult`, why overflow is a
+predicate. TODO: layout tree; ∞/NaN and saturation dropped from out of scope.
+ROADMAP: a "Special values" group, including the open item on which total
+forms the paper cites. After the last phase: full `lake build` and `lake test`
+pass; `#print axioms` over the 54 README theorems gives only `propext`,
+`Classical.choice`, `Quot.sound`.
+
 - `README.md`: the theorem tables (total forms, containment conjunct),
   `#print axioms` output, layout row for `Rounding/Special.lean`.
 - `docs/DESIGN.md`: `Format.specials`, the two tables, why overflow is a
