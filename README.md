@@ -13,7 +13,7 @@ appendix.
 
 Each entry gives the paper result, the Lean name (relative to `namespace
 Mpfx`), and its file. To inspect a statement, qualify with `Mpfx.`, e.g.
-`#check @Mpfx.Format.containsPrec` or `#check @Mpfx.rndRTO_RN`.
+`#check @Mpfx.Format.containsPrec` or `#check @Mpfx.roundsRTO_RN_finite`.
 
 ### §5.1 — Format containment (Fig. 8)
 
@@ -41,13 +41,13 @@ the chained rounding is finite and agrees with it.
 
 | Paper | Finite form | Total form |
 | --- | --- | --- |
-| `rnd-RTZ-RTZ` | `rndRTZ_RTZ` | `roundsRTZ_RTZ` |
-| `rnd-RAZ-RAZ` | `rndRAZ_RAZ` | `roundsRAZ_RAZ` |
-| `rnd-RTO-RTO` | `rndRTO_RTO` | `roundsRTO_RTO` |
-| `rnd-RTO-RTZ` | `rndRTO_RTZ` | `roundsRTO_RTZ` |
-| `rnd-RTO-RAZ` | `rndRTO_RAZ` | `roundsRTO_RAZ` |
-| `rnd-RTO-RNE` / `rnd-RTO-RNA` | `rndRTO_RN` (both tie-breaks) | `roundsRTO_RN` |
-| RTP→RTP, RTN→RTN (IEEE directed) | `rndRTP_RTP`, `rndRTN_RTN` | — |
+| `rnd-RTZ-RTZ` | `roundsRTZ_RTZ_finite` | `roundsRTZ_RTZ_inBound` |
+| `rnd-RAZ-RAZ` | `roundsRAZ_RAZ_finite` | `roundsRAZ_RAZ_inBound` |
+| `rnd-RTO-RTO` | `roundsRTO_RTO_finite` | `roundsRTO_RTO_inBound` |
+| `rnd-RTO-RTZ` | `roundsRTO_RTZ_finite` | `roundsRTO_RTZ_inBound` |
+| `rnd-RTO-RAZ` | `roundsRTO_RAZ_finite` | `roundsRTO_RAZ_inBound` |
+| `rnd-RTO-RNE` / `rnd-RTO-RNA` | `roundsRTO_RN_finite` (both tie-breaks) | `roundsRTO_RN_inBound` |
+| RTP→RTP, RTN→RTN (IEEE directed) | `roundsRTP_RTP_finite`, `roundsRTN_RTN_finite` | — |
 
 ### §5.2 — Counterexamples for the invalid pairings
 
@@ -103,7 +103,7 @@ To confirm a result rests on no unexpected axioms, e.g.:
 
 ```lean
 import Mpfx
-#print axioms Mpfx.rndRTO_RN
+#print axioms Mpfx.roundsRTO_RN_finite
 -- 'Mpfx.rndRTO_RN' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
 
@@ -131,7 +131,7 @@ Every theorem listed above depends on exactly these three standard axioms.
 | `Mpfx/Rounding/Op.lean`, `Op/` | The rounding function `rnd` and the bridge `rnd_iff_rounds`. |
 | `Mpfx/Rounding/Ulp.lean` | `ulp`, `rndDown`/`rndUp`/`midp`, `succ`/`pred`. |
 | `Mpfx/DoubleRounding/Basic.lean` | §5.2 positive rules (finite form), except RTO→RN; `rndExact`. |
-| `Mpfx/DoubleRounding/Nearest.lean` | `rndRTO_RN`. |
+| `Mpfx/DoubleRounding/Nearest.lean` | `roundsRTO_RN_finite`. |
 | `Mpfx/DoubleRounding/Total.lean` | §5.2 positive rules (total form). |
 | `Mpfx/DoubleRounding/Counterexample.lean`, `Counterexample/` | §5.2 counterexamples. |
 | `Mpfx/DoubleRounding/NearestMidpoint.lean` | Nearest double rounding below the midpoint (Roux Lemma 16). |

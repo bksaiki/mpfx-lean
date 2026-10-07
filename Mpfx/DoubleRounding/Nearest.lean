@@ -3,13 +3,13 @@ import Mpfx.DoubleRounding.Basic
 /-!
 # `rnd-RTO-RNE` / `rnd-RTO-RNA` (§5.2)
 
-`rndRTO_RN`: round-to-odd in `F₂` then round-to-nearest in `F₁` (either
+`roundsRTO_RN_finite`: round-to-odd in `F₂` then round-to-nearest in `F₁` (either
 tie-break) is correct double rounding.
 -/
 
 namespace Mpfx
 
-/-! ## Round-to-nearest helpers for `rndRTO_RN` -/
+/-! ## Round-to-nearest helpers for `roundsRTO_RN_finite` -/
 
 /-- Helper for tie-break: from `|x - w'| = |x - z'|` with `w' ≠ z'`, derive
 `x = (w' + z') / 2`. -/
@@ -105,7 +105,7 @@ private theorem RoundsFinite.nearest_of_trivial {F₁ : FiniteFormat} {tb : TieB
 
 /-! ## `rnd-RTO-RN` — round-to-odd then round-to-nearest -/
 
-/-- The closeness transfer step for `rndRTO_RN`: given that `z = RTO F₂ x`
+/-- The closeness transfer step for `roundsRTO_RN_finite`: given that `z = RTO F₂ x`
 sits outside `F₁.extend 1` (RTO-padding lemma) and `w' = RN F₁ z`, every F₁-adjacent
 `z'` to `x` satisfies `|x - w'| ≤ |x - z'|`. The argument uses the midpoint
 `m = (w' + z') / 2` (in F₂ via `midpoint_F₁_in_F₂_of_F_adjacent`, in
@@ -327,7 +327,7 @@ private lemma rndRTO_RN_close_transfer {F₁ F₂ : FiniteFormat}
       rw [abs_of_nonpos h_x_w_neg, abs_of_nonneg h_x_z_pos]
       linarith
 
-/-- The "no-tie" derivation used by the nearest-rounding branch of `rndRTO_RN`.
+/-- The "no-tie" derivation used by the nearest-rounding branch of `roundsRTO_RN_finite`.
 Given that `z = RTO F₂ x` is unrepresentable in `F₁` and that `z'` is supposedly
 tied with `w'` for `x`'s nearest-rounding in `F₁`, derive `False`: the tie
 equation forces `x = midpoint(w', z')`, F-adjacency makes that midpoint lie in
@@ -420,11 +420,11 @@ private lemma rndRTO_no_tie_contradiction {F₁ F₂ : FiniteFormat}
     exact RoundsFinite.toOdd_unique_of_mem h_mid_F₂ hz'
   exact hxne (by rw [hz_eq]; exact hm_x.symm)
 
-/-- Shared core for the nearest-rounding branch of `rndRTO_RN`. From the
+/-- Shared core for the nearest-rounding branch of `roundsRTO_RN_finite`. From the
 derived subset facts plus extracted hypotheses from the inner nearest-rounding,
 produces the three facts needed by either tie-break: adjacency transfer
 (`h_adj_x`), closeness transfer (`h_close`), and an absence-of-tie property
-(`h_no_tie`). The two `tb` branches of `rndRTO_RN` differ only in how they
+(`h_no_tie`). The two `tb` branches of `roundsRTO_RN_finite` differ only in how they
 consume `h_no_tie`. -/
 private theorem rndRTO_nearest_facts {F₁ F₂ : FiniteFormat}
     (hsub2 : (F₁.extend 2).toFormat ⊆ F₂.toFormat)
@@ -514,8 +514,8 @@ private theorem rndRTO_nearest_facts {F₁ F₂ : FiniteFormat}
 round-to-nearest, parameterized by the nearest-rounding tie-break `tb`.
 Covers both RNE (`tb = .toEven`) and RNA (`tb = .awayZero`) in a single
 theorem: the hypothesis `hsub` encodes the paper's RN containment, uniform with
-the `rndRTO_RTZ`/`rndRTO_RAZ` signatures. -/
-theorem rndRTO_RN {F₁ F₂ : FiniteFormat}
+the `roundsRTO_RTZ_finite`/`roundsRTO_RAZ_finite` signatures. -/
+theorem roundsRTO_RN_finite {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
               ⊆ F₂.toFormat)
     {tb : TieBreak} {x : ℝ} {z w' : Dyadic}

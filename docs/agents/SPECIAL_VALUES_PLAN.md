@@ -29,7 +29,7 @@ Rounding a real is specified in two layers:
 | `Rounds F rm x r` | `Rounding/Defs.lean` | `r` is *the* result: undefined iff `F.IsUndefined rm`; else the unbounded rounding `y`, `.finite y` if `y` fits `F.b`, `.overflow (0 < y)` if not |
 | `rnd F rm x` | `Rounding/Op/Defs.lean` | the function; `rnd_iff_rounds` (`Rounding/Op.lean`) |
 | `Rounds.neg_*` | `Rounding/Basic.lean` | sign symmetry of `Rounds` over `RoundResult.neg` |
-| `roundsRTZ_RTZ`, …, `roundsRTO_RN` | `DoubleRounding/Total.lean` | total double rounding: "direct rounding overflows, **or** the chain is finite and agrees" |
+| `roundsRTZ_RTZ_inBound`, …, `roundsRTO_RN_inBound` | `DoubleRounding/Total.lean` | total double rounding: "direct rounding overflows, **or** the chain is finite and agrees" |
 | `Format` | `Format/Defs.lean` | `𝒜(p, exp, b)`; `Membership Dyadic Format` |
 | `Format.Subset`, `ContainsPrec`, `ContainsSub`, `subset_iff_contains` | `Format/Containment.lean` | §5.1 containment over `Dyadic` membership |
 
@@ -205,7 +205,7 @@ Build: `lake build` (the change reaches most modules).
 - `Rounding/Defs.lean`: add `Overflows`; prove
   `Rounds F rm x (.overflow b) ↔ ¬ F.IsUndefined rm ∧ Overflows F rm x ∧ …`
   against the *current* `Rounds`.
-- `DoubleRounding/Total.lean`: restate `roundsRTZ_RTZ`, …, `roundsRTO_RN` with
+- `DoubleRounding/Total.lean`: restate `roundsRTZ_RTZ_inBound`, …, `roundsRTO_RN_inBound` with
   `Overflows F₁ rm x ∨ …` and numeric conclusions (`RoundsFinite` plus
   `boundOK`) instead of `Rounds … (.finite _)` / `(.overflow _)`.
 
@@ -318,9 +318,9 @@ Build: `lake build Mpfx.Rounding.Special`.
 
 - **The Phase 3 forms are not enough.** They give "direct overflows ∨ chain in
   bound and agrees", which says nothing about the chain when the direct
-  rounding overflows but `F₂` does not. Each rule also needs its *converse*:
+  rounding overflows but `F₂` does not. Each rule also needs the way back (`*_noOverflow`):
   if the chain stays in bound, so does the direct rounding
-  (`roundsRTZ_RTZ_converse`, …). This is new per-rule mathematics, mirroring the
+  (`roundsRTZ_RTZ_noOverflow`, …). This is new per-rule mathematics, mirroring the
   no-overflow propagation in `Total.lean`.
 - **`F₁` must be nontrivial.** For `F₁ = {0}` (`exp = ⊥`, `b₁ = 0`) and
   `F₂ = 𝒜(p, 0, ∞)`, `x = 0.5` rounds RTZ to `0` through the chain but
@@ -331,16 +331,48 @@ Build: `lake build Mpfx.Rounding.Special`.
 - `WithSpecial.toReal` (`Format/Defs`), `IsFaithfulRound.decide_lt_zero`
   (`Rounding/Basic`: a nonzero faithful rounding has the sign of `x`),
   `rnd_finite_of_roundsFinite` (`Rounding/Op`: `rnd` read off any witness).
-- `roundsRTZ_RTZ_converse` (`Total.lean`), with its regular-bound core next to
+- `roundsRTZ_RTZ_noOverflow` (`Total.lean`), with its regular-bound core next to
   the RTZ propagation lemmas and the same grid-floor reduction.
 - New `DoubleRounding/Special.lean`: `SpecialMap.Composes`,
   `OverflowMap.Composes`, the generic `rnd_double` (from a rule's total form,
-  its converse and compatible tables), and `rnd_double_RTZ_RTZ`.
+  its no-overflow form and composing tables), and `rndRTZ_RTZ`.
 - `Total.lean` is now 1506 lines; 7b splits it (the grid-floor reduction is
-  the natural cut) before adding the other converses.
+  the natural cut) before adding the other rules.
 
-**7b.** Converses for RAZ → RAZ, RTO → RTO, RTO → RTZ, RTO → RAZ, RTO → RN, and
-their `rnd_double_*` equalities.
+**7b. Done.** The remaining five rules:
+
+- `Total.lean` split: per-rule propagation moved to the new
+  `DoubleRounding/Propagation.lean` (no-overflow lemmas, now with
+  `*_noOverflow_direct` cores); `Total.lean` keeps the grid-floor reduction, the
+  total forms and the new `rounds*_noOverflow` theorems (lifted through
+  `not_overflows_of_floor`).
+- Naming: `*_noOverflow_F₂` / `*_noOverflow_chain` (direct in bound ⇒ F₂ /
+  chain in bound) are joined by `*_noOverflow_direct` (chain in bound ⇒ direct
+  in bound); the public forms are `roundsRTZ_RTZ_noOverflow`, ….
+- Arguments per rule: RTZ outer modes need `next(b₁) ∈ F₂` (`|z| < next(b₁)` pins
+  `|x|`); RAZ → RAZ needs no hypotheses (the chain's `w` is a candidate for the
+  direct RAZ); RTO → RAZ uses padding to make `w` a candidate; RTO → RTO pins
+  `|x| < next(b₁)` and composes the finite rule at `G = F₁.withBound next(b₁)`;
+  RTO → RN pins `|z| < M` by padding and then `|x| < M`.
+- Extracted from the RTO → RN chain proof and shared: `abs_lt_mid_of_toOdd`,
+  `nearest_boundOK_of_abs_lt_mid`.
+- Equalities `rnd_double_{RAZ_RAZ, RTO_RTO, RTO_RTZ, RTO_RAZ, RTO_RN}` in
+  `DoubleRounding/Special.lean`. `rndRAZ_RAZ` needs no `Nontrivial`;
+  `rndRTO_RTO` adds it to the total form's hypotheses.
+
+**Naming (owner's call, after 7b).** The prefix names the object a theorem is
+about; one family per rule, suffixes mark the level:
+
+| Level | Name |
+| --- | --- |
+| on `rnd`, with tables (the headline) | `rndRTZ_RTZ`, …, `rndRTO_RN` |
+| finite form, on `RoundsFinite` | `roundsRTZ_RTZ_finite`, … (incl. `roundsRTP_RTP_finite`, `_finite_pos`) |
+| total form, on `Overflows`/`RoundsInBound` | `roundsRTZ_RTZ_inBound`, … |
+| no overflow from the chain | `roundsRTZ_RTZ_noOverflow`, … |
+
+The old finite forms were `rndRTZ_RTZ`, …; the old total forms `roundsRTZ_RTZ`,
+…; the table forms `rnd_double_RTZ_RTZ`, …. The generic `rnd_double` keeps its
+name.
 
 **7c.** Discharge `Composes` for the standard tables (`SpecialMap.exact`;
 `OverflowMap.ieee` where it holds, using `maxFinite₂ ≥ next(b₁)`), and the
@@ -456,7 +488,7 @@ signed `finite`.
 
 ### What happens to the paper's cited total forms?
 
-Appendix A cites `roundsRTZ_RTZ`, …, `roundsRTO_RN` with the overflow
+Appendix A cites `roundsRTZ_RTZ_inBound`, …, `roundsRTO_RN_inBound` with the overflow
 disjunct. Phase 3 changes their statements and Phase 7 adds equality forms.
 Either keep the Phase 3 forms under their names (the paper's statement), or
 retire them in favour of the equalities. Provisional: keep both until the

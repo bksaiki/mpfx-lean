@@ -10,7 +10,7 @@ input, special or real, overflowing or not.
 The tables must agree across the formats (`SpecialMap.Composes`,
 `OverflowMap.Composes`): `F₁`'s rounding of an `F₂` table entry is the
 matching `F₁` entry. `rnd_double` reduces each rule to its total form
-(`roundsRTZ_RTZ`, …) and its converse (`roundsRTZ_RTZ_converse`, …).
+(`roundsRTZ_RTZ_inBound`, …) and its no-overflow form (`roundsRTZ_RTZ_noOverflow`, …).
 -/
 
 namespace Mpfx
@@ -32,8 +32,8 @@ private theorem ne_zero_of_not_boundOK {F : FiniteFormat} {y : Dyadic}
     (h : ¬ Format.boundOK F.b y) : (y : ℝ) ≠ 0 := fun h0 =>
   h (by rw [eq_zero_of_coe_real_zero h0]; exact Format.boundOK_zero _)
 
-/-- **Double rounding with tables.** A rule's total form (`hP`) and converse
-(`hC`), with composing tables, give `rnd₁ ∘ rnd₂ = rnd₁` on every input. -/
+/-- **Double rounding with tables.** A rule's total form (`hP`) and no-overflow
+form (`hC`), with composing tables, give `rnd₁ ∘ rnd₂ = rnd₁` on every input. -/
 theorem rnd_double {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat} {rm₁ rm₂ : RoundingMode}
@@ -73,7 +73,7 @@ theorem rnd_double {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
       generalize rndUnbounded F₁ rm₁ (z : ℝ) h₁u = w at hw
       rw [WithSpecial.toReal_finite, rnd_finite_of_roundsFinite h₁u hw]
       by_cases hbw : Format.boundOK F₁.b w
-      · -- Chain in bound: by the converse, so is the direct rounding, and they agree.
+      · -- Chain in bound: by `hC`, so is the direct rounding, and they agree.
         rcases hP x with hov | ⟨z', w', hz', hw', hy'⟩
         · exact absurd hov (hC x z w ⟨hz, hbz⟩ ⟨hw, hbw⟩)
         · obtain rfl := RoundsFinite.unique h₂u hz'.1 hz
@@ -107,7 +107,7 @@ theorem rnd_double {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
 
 /-- **rnd-RTZ-RTZ** with tables: chained round-toward-zero is direct
 round-toward-zero on every input, special or real, overflowing or not. -/
-theorem rnd_double_RTZ_RTZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
+theorem rndRTZ_RTZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat}
     (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
@@ -116,7 +116,74 @@ theorem rnd_double_RTZ_RTZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.to
     {v : WithSpecial ℝ} {u : WithSpecial Dyadic}
     (hu : rnd F₂ S₂ O₂ .toZero v = .value u) :
     rnd F₁ S₁ O₁ .toZero u.toReal = rnd F₁ S₁ O₁ .toZero v :=
-  rnd_double (not_isUndefined_toZero F₁) (roundsRTZ_RTZ hsub)
-    (fun _ _ _ hz hw => roundsRTZ_RTZ_converse hsub hnt hz hw) hS hO hu
+  rnd_double (not_isUndefined_toZero F₁) (roundsRTZ_RTZ_inBound hsub)
+    (fun _ _ _ hz hw => roundsRTZ_RTZ_noOverflow hsub hnt hz hw) hS hO hu
+
+/-- **rnd-RAZ-RAZ** with tables. -/
+theorem rndRAZ_RAZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
+    {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
+    {O₂ : OverflowMap F₂.toFormat}
+    (hsub : F₁.toFormat ⊆ F₂.toFormat)
+    (hS : S₂.Composes S₁ O₁ .awayZero) (hO : O₂.Composes S₁ O₁ .awayZero)
+    {v : WithSpecial ℝ} {u : WithSpecial Dyadic}
+    (hu : rnd F₂ S₂ O₂ .awayZero v = .value u) :
+    rnd F₁ S₁ O₁ .awayZero u.toReal = rnd F₁ S₁ O₁ .awayZero v :=
+  rnd_double (not_isUndefined_awayZero F₁) (roundsRAZ_RAZ_inBound hsub)
+    (fun _ _ _ hz hw => roundsRAZ_RAZ_noOverflow hz hw) hS hO hu
+
+/-- **rnd-RTO-RTO** with tables. -/
+theorem rndRTO_RTO {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
+    {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
+    {O₂ : OverflowMap F₂.toFormat}
+    (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
+    (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p) (h₁u : ¬ F₁.IsUndefined .toOdd)
+    (hnt : F₁.toFormat.Nontrivial)
+    (hS : S₂.Composes S₁ O₁ .toOdd) (hO : O₂.Composes S₁ O₁ .toOdd)
+    {v : WithSpecial ℝ} {u : WithSpecial Dyadic}
+    (hu : rnd F₂ S₂ O₂ .toOdd v = .value u) :
+    rnd F₁ S₁ O₁ .toOdd u.toReal = rnd F₁ S₁ O₁ .toOdd v :=
+  rnd_double h₁u (roundsRTO_RTO_inBound hsub hp_F₂ h₁u)
+    (fun _ _ _ hz hw => roundsRTO_RTO_noOverflow hsub hp_F₂ h₁u hnt hz hw) hS hO hu
+
+/-- **rnd-RTO-RTZ** with tables. The IEEE tables do not compose here:
+RTO overflows to `±Inf`, which RTZ keeps, while direct RTZ saturates. -/
+theorem rndRTO_RTZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
+    {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
+    {O₂ : OverflowMap F₂.toFormat}
+    (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
+    (hnt : F₁.toFormat.Nontrivial)
+    (hS : S₂.Composes S₁ O₁ .toZero) (hO : O₂.Composes S₁ O₁ .toZero)
+    {v : WithSpecial ℝ} {u : WithSpecial Dyadic}
+    (hu : rnd F₂ S₂ O₂ .toOdd v = .value u) :
+    rnd F₁ S₁ O₁ .toZero u.toReal = rnd F₁ S₁ O₁ .toZero v :=
+  rnd_double (not_isUndefined_toZero F₁) (roundsRTO_RTZ_inBound hsub hnt)
+    (fun _ _ _ hz hw => roundsRTO_RTZ_noOverflow hsub hnt hz hw) hS hO hu
+
+/-- **rnd-RTO-RAZ** with tables. -/
+theorem rndRTO_RAZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
+    {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
+    {O₂ : OverflowMap F₂.toFormat}
+    (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
+    (hnt : F₁.toFormat.Nontrivial)
+    (hS : S₂.Composes S₁ O₁ .awayZero) (hO : O₂.Composes S₁ O₁ .awayZero)
+    {v : WithSpecial ℝ} {u : WithSpecial Dyadic}
+    (hu : rnd F₂ S₂ O₂ .toOdd v = .value u) :
+    rnd F₁ S₁ O₁ .awayZero u.toReal = rnd F₁ S₁ O₁ .awayZero v :=
+  rnd_double (not_isUndefined_awayZero F₁) (roundsRTO_RAZ_inBound hsub hnt)
+    (fun _ _ _ hz hw => roundsRTO_RAZ_noOverflow hsub hnt hz hw) hS hO hu
+
+/-- **rnd-RTO-RNE** / **rnd-RTO-RNA** with tables. -/
+theorem rndRTO_RN {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
+    {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
+    {O₂ : OverflowMap F₂.toFormat} {tb : TieBreak}
+    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
+      ⊆ F₂.toFormat)
+    (hnt : F₁.toFormat.Nontrivial) (h₁u : ¬ F₁.IsUndefined (.nearest tb))
+    (hS : S₂.Composes S₁ O₁ (.nearest tb)) (hO : O₂.Composes S₁ O₁ (.nearest tb))
+    {v : WithSpecial ℝ} {u : WithSpecial Dyadic}
+    (hu : rnd F₂ S₂ O₂ .toOdd v = .value u) :
+    rnd F₁ S₁ O₁ (.nearest tb) u.toReal = rnd F₁ S₁ O₁ (.nearest tb) v :=
+  rnd_double h₁u (roundsRTO_RN_inBound hsub hnt h₁u)
+    (fun _ _ _ hz hw => roundsRTO_RN_noOverflow hsub hnt h₁u hz hw) hS hO hu
 
 end Mpfx

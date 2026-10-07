@@ -7,7 +7,7 @@ A positive `y ∈ F` is `c · 2^(canonicalExp y)` with `|c| < 2^p`
 (`exists_canonical_rep`); nothing of `F` lies strictly between two adjacent such
 values (`not_mem_between_adjacent`); and adjacent values differ by exactly one
 step (`adjacent_canonical_form`). Together these are the structural prerequisite
-for `rndRTO_RN`, via the midpoint-membership results. The closing grid facts
+for `roundsRTO_RN_finite`, via the midpoint-membership results. The closing grid facts
 place members on the quantum grid (`quantum_floor_of_mem`/`quantum_ceil_of_mem`)
 and on the local binade step (`binade_quantum`).
 

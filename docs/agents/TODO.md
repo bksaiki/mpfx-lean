@@ -83,7 +83,7 @@ Mpfx/
 │   │                 odd_index_of_p_one_corner, IsOdd.transfer_of_numDigits_eq,
 │   │                 IsOdd.transfer_of_subset (RTO-padding lemma)
 │   ├── Discrete.lean canonical representation / adjacency / midpoint-membership
-│   │                 (prereq for rndRTO_RN): log_le_of_canonical_rep,
+│   │                 (prereq for roundsRTO_RN_finite): log_le_of_canonical_rep,
 │   │                 exists_canonical_rep(_of_parts), canonical_rep_pos,
 │   │                 not_mem_between_adjacent, adjacent_canonical_form,
 │   │                 midpoint_mem_extend_one_of_adjacent(_pos/_of_p_top),
@@ -122,12 +122,12 @@ Mpfx/
 │                     and their membership + adjacency lemmas
 └── DoubleRounding/
     ├── Basic.lean    §5.2 rules, spec-relational over RoundsFinite:
-    │                 rndRTZ_RTZ, rndRAZ_RAZ(_pos), rndRTO_RTO, rndRTO_RTZ,
-    │                 rndRTO_RAZ, rndRTP_RTP, rndRTN_RTN, rndExact. RTO helper
+    │                 roundsRTZ_RTZ_finite, roundsRAZ_RAZ_finite(_pos), roundsRTO_RTO_finite, roundsRTO_RTZ_finite,
+    │                 roundsRTO_RAZ_finite, roundsRTP_RTP_finite, roundsRTN_RTN_finite, rndExact. RTO helper
     │                 chain (toOdd_notMem_of_extend_subset, …), *_of_trivial
-    ├── Nearest.lean  rndRTO_RN and its RN web (rndRTO_RN_close_transfer,
+    ├── Nearest.lean  roundsRTO_RN_finite and its RN web (rndRTO_RN_close_transfer,
     │                 rndRTO_no_tie_contradiction, rndRTO_nearest_facts)
-    ├── Total.lean    roundsRTZ_RTZ, …, roundsRTO_RN: overflow-aware total forms
+    ├── Total.lean    roundsRTZ_RTZ_inBound, …, roundsRTO_RN_inBound: overflow-aware total forms
     ├── Counterexample.lean the ten Cex.no_rnd* theorems
     ├── Counterexample/ Basic (anchors, gap lemmas), Neighborhood
     │                 (AnchorNeighborhood + generic cores), Instances (the four
@@ -198,8 +198,8 @@ smoke tests and external use:
 
 ## Documented non-theorems / possible extensions
 
-- `rndRTO_RTP`, `rndRTO_RTN` (RTO then a directed mode) — provable by
-  sign-reduction like `rndRTP_RTP`/`rndRTN_RTN`; not yet ported.
+- `roundsRTO_RTP_finite`, `roundsRTO_RTN_finite` (RTO then a directed mode) — provable by
+  sign-reduction like `roundsRTP_RTP_finite`/`roundsRTN_RTN_finite`; not yet ported.
 - `rndRNA_RNA` is **not** correct double rounding — RNA→RNA chains can fail at
   binade-boundary inputs (pen-and-paper). A counterexample analogous to
   `no_rndRNE_RNE` could be formalized.

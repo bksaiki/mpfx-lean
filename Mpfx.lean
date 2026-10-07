@@ -8,6 +8,7 @@ import Mpfx.DoubleRounding.Div
 import Mpfx.DoubleRounding.Mul
 import Mpfx.DoubleRounding.Nearest
 import Mpfx.DoubleRounding.NearestMidpoint
+import Mpfx.DoubleRounding.Propagation
 import Mpfx.DoubleRounding.Special
 import Mpfx.DoubleRounding.Sqrt
 import Mpfx.DoubleRounding.Total

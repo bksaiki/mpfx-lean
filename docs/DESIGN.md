@@ -107,5 +107,5 @@ paper's round-to-odd:
 - `toOdd` (RTO);
 - `nearest tb` with `tb : TieBreak` ∈ {`toEven` (RNE), `awayZero` (RNA)}.
 
-`rndRTO_RN` is stated once over an arbitrary `tb`, covering RNE and RNA
+`roundsRTO_RN_finite` is stated once over an arbitrary `tb`, covering RNE and RNA
 together.

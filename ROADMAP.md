@@ -10,10 +10,11 @@ only what the paper depends on. References are Lean names under
 
 **Double rounding**
 
-- [ ] Round-to-odd into RTP and RTN, `rndRTO_RTP` and `rndRTO_RTN`
-  (possible extensions in `docs/agents/TODO.md`): corollaries of
-  `rndRTO_RTZ` and `rndRTO_RAZ` by the sign reduction `rndRTP_RTP`
-  and `rndRTN_RTN` use. The paper's evaluation relies on this step
+- [ ] Round-to-odd into RTP and RTN, `roundsRTO_RTP_finite` and
+  `roundsRTO_RTN_finite` (possible extensions in `docs/agents/TODO.md`):
+  corollaries of `roundsRTO_RTZ_finite` and `roundsRTO_RAZ_finite` by the sign
+  reduction `roundsRTP_RTP_finite` and `roundsRTN_RTN_finite` use. The paper's
+  evaluation relies on this step
   for MPFX's RTP and RTN, and it is not mechanized.
 - [ ] Round-to-even as a target (RTE: an inexact result goes to the
   neighbour whose last digit is even) is not in `RoundingMode`. On
