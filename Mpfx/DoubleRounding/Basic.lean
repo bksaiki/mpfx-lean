@@ -12,8 +12,8 @@ stated *spec-relationally* — given that `z` is the rounding of `x` in `F₂`
 and `w` is the rounding of `z` in `F₁` (with `F₁ ⊆ F₂`), conclude that `w` is
 also the rounding of `x` in `F₁` directly. Overflow bookkeeping is sidestepped
 and the existence of `z`, `w` is taken as hypotheses. `rndRTO_RN` is in
-`Mpfx.DoubleRounding.Nearest`; the overflow-aware `Rounds` layer
-(`roundsRTZ_RTZ`, …) is in `Mpfx.DoubleRounding.Total`.
+`Mpfx.DoubleRounding.Nearest`; the overflow-aware total forms
+(`roundsRTZ_RTZ`, …) are in `Mpfx.DoubleRounding.Total`.
 -/
 
 

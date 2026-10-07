@@ -186,6 +186,20 @@ Build: `lake build` (the change reaches most modules).
 
 ### Phase 3: `Overflows`, and total theorems without `RoundResult.overflow`
 
+**Done.** Diverged from the plan:
+
+- Added `RoundsInBound F rm x y := RoundsFinite F.unbounded rm x y ∧
+  boundOK F.b y` next to `Overflows` (`Rounding/Defs.lean`), so the six total
+  theorems keep their shape: `Overflows F₁ rm₁ x ∨ ∃ z w, RoundsInBound … ∧ …`.
+  Neither predicate carries `¬ IsUndefined`; the old `.finite` conjuncts did,
+  and the proofs simply stopped re-packaging it.
+- Bridges `rounds_finite_iff` and `exists_rounds_overflow_iff` relate them to
+  the current `Rounds`; nothing uses them yet (Phase 5 may drop them).
+- `rounds_withBoundFF_floor_iff` split into `overflows_withBoundFF_floor_iff`
+  and `roundsInBound_withBoundFF_floor_iff`; `rounds_overflow_of_not_boundOK`
+  is gone (its only users were here). `Total.lean` no longer mentions `Rounds`
+  or `RoundResult`.
+
 - `Rounding/Defs.lean`: add `Overflows`; prove
   `Rounds F rm x (.overflow b) ↔ ¬ F.IsUndefined rm ∧ Overflows F rm x ∧ …`
   against the *current* `Rounds`.

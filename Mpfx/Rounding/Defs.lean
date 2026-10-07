@@ -175,6 +175,14 @@ def RoundsFinite (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) :
       (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
           z ≠ y → |x - (y : ℝ)| = |x - (z : ℝ)| → |(z : ℝ)| ≤ |(y : ℝ)|)
 
+/-- The unbounded rounding of `x` is `y`, and `y` is within `F`'s bound. -/
+def RoundsInBound (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) : Prop :=
+  RoundsFinite F.unbounded rm x y ∧ Format.boundOK F.b y
+
+/-- The unbounded rounding of `x` leaves `F`'s bound. -/
+def Overflows (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) : Prop :=
+  ∃ y, RoundsFinite F.unbounded rm x y ∧ ¬ Format.boundOK F.b y
+
 /-- Per-mode, per-result rounding-specification predicate. Dispatches on
 the `RoundResult` constructor; the mode-spec is always against
 `F.unbounded` and the bound `F.b` is checked separately. -/
@@ -189,6 +197,17 @@ def Rounds (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (r : RoundResult) :
   | .finite y    =>
       ¬ F.IsUndefined rm ∧
       RoundsFinite F.unbounded rm x y ∧ Format.boundOK F.b y
+
+theorem rounds_finite_iff {F : FiniteFormat} {rm : RoundingMode} {x : ℝ} {y : Dyadic} :
+    Rounds F rm x (.finite y) ↔ ¬ F.IsUndefined rm ∧ RoundsInBound F rm x y := Iff.rfl
+
+theorem exists_rounds_overflow_iff {F : FiniteFormat} {rm : RoundingMode} {x : ℝ} :
+    (∃ b, Rounds F rm x (.overflow b)) ↔ ¬ F.IsUndefined rm ∧ Overflows F rm x := by
+  constructor
+  · rintro ⟨-, hu, y, hy, hb, -⟩
+    exact ⟨hu, y, hy, hb⟩
+  · rintro ⟨hu, y, hy, hb⟩
+    exact ⟨decide ((0 : ℚ) < (y : ℚ)), hu, y, hy, hb, by simp⟩
 
 /-! ### Modes that are always defined -/
 
@@ -215,13 +234,5 @@ theorem not_isUndefined_of_two_le_p {F : FiniteFormat} {rm : RoundingMode}
   rintro ⟨h1, -, -⟩
   rw [h1] at hp
   simp at hp
-
-/-- Package an out-of-bound unbounded rounding as an overflow `Rounds`
-result (with the sign bit computed from the witness). -/
-theorem rounds_overflow_of_not_boundOK {F : FiniteFormat} {rm : RoundingMode}
-    {x : ℝ} {y : Dyadic} (h₁u : ¬ F.IsUndefined rm)
-    (hy : RoundsFinite F.unbounded rm x y) (hbOK : ¬ Format.boundOK F.b y) :
-    ∃ b, Rounds F rm x (.overflow b) :=
-  ⟨decide ((0 : ℚ) < (y : ℚ)), h₁u, y, hy, hbOK, by simp⟩
 
 end Mpfx
