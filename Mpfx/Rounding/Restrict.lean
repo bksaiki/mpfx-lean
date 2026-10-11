@@ -193,15 +193,14 @@ private theorem faithful_eq_of_third {F : FiniteFormat} {x : ℝ} {w y c : Dyadi
     (hyf : IsFaithfulRound F.unbounded x y)
     (hcf : IsFaithfulRound F.unbounded x c)
     (hc_ne_w : c ≠ w) (hc_ne_y : c ≠ y) : y = w := by
-  rcases hwf with wRD | wRU <;> rcases hcf with cRD | cRU
-  · exact absurd (RoundsFinite.unique_toNegative cRD wRD) hc_ne_w
-  · rcases hyf with yRD | yRU
-    · exact RoundsFinite.unique_toNegative yRD wRD
-    · exact absurd (RoundsFinite.unique_toPositive cRU yRU) hc_ne_y
-  · rcases hyf with yRD | yRU
-    · exact absurd (RoundsFinite.unique_toNegative cRD yRD) hc_ne_y
-    · exact RoundsFinite.unique_toPositive yRU wRU
-  · exact absurd (RoundsFinite.unique_toPositive cRU wRU) hc_ne_w
+  have hd := RoundsFinite.toNegative_floor F x
+  have hu := RoundsFinite.toPositive_ceil F x
+  rcases hwf.eq_or_eq hd hu with hw | hw <;> rcases hyf.eq_or_eq hd hu with hy | hy <;>
+    rcases hcf.eq_or_eq hd hu with hc | hc <;>
+    first
+    | exact hy.trans hw.symm
+    | exact absurd (hc.trans hw.symm) hc_ne_w
+    | exact absurd (hc.trans hy.symm) hc_ne_y
 
 /-! ## Restrict / lift for `.nearest` -/
 

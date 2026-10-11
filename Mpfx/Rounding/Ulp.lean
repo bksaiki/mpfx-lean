@@ -195,14 +195,11 @@ theorem nearest_eq_of_close (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
       not_lt.mpr (le_of_lt hδ)
     cases tb with
     | awayZero =>
-      unfold rndUnbounded
-      rw [dif_neg (by decide : (RoundingMode.nearest .awayZero) ≠ .toOdd),
-          dif_neg (by decide : (RoundingMode.nearest .awayZero) ≠ .nearest .toEven)]
+      rw [rndUnbounded_of_ne (by decide) (by decide)]
       simp only [rndInt, ← he, if_neg hδ_not, if_pos hδ]
       rw [hfloor]; congr 1; omega
     | toEven =>
-      unfold rndUnbounded
-      rw [dif_neg (by decide : (RoundingMode.nearest .toEven) ≠ .toOdd), dif_pos rfl]
+      rw [rndUnbounded_nearest_toEven]
       simp only [rndParity, ← he, if_neg hδ_not, if_pos hδ]
       rw [hfloor]; congr 1; omega
   · -- `s ≥ m`: floor is `m`, fraction `< ½`, both modes select the floor `m`.
@@ -212,14 +209,11 @@ theorem nearest_eq_of_close (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
       rw [hfloor]; linarith [h.2]
     cases tb with
     | awayZero =>
-      unfold rndUnbounded
-      rw [dif_neg (by decide : (RoundingMode.nearest .awayZero) ≠ .toOdd),
-          dif_neg (by decide : (RoundingMode.nearest .awayZero) ≠ .nearest .toEven)]
+      rw [rndUnbounded_of_ne (by decide) (by decide)]
       simp only [rndInt, ← he, if_pos hδ]
       rw [hfloor]
     | toEven =>
-      unfold rndUnbounded
-      rw [dif_neg (by decide : (RoundingMode.nearest .toEven) ≠ .toOdd), dif_pos rfl]
+      rw [rndUnbounded_nearest_toEven]
       simp only [rndParity, ← he, if_pos hδ]
       rw [hfloor]
 

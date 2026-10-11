@@ -47,7 +47,7 @@ and `docs/DESIGN.md` for how it is put together.
 Mpfx/
 ├── Utils.lean        project-agnostic helpers: two_zpow_* power-of-two lemmas
 │                     (the shift lemmas two_zpow_shift / coeff_eq_of_shift over
-│                     any field of characteristic zero), Int.two_pow_succ_pred,
+│                     any field of characteristic zero), log_abs_mul_zpow,
 │                     sign helpers, format-free scaled-mantissa arithmetic
 ├── Dyadic.lean       IsDyadic (ℚ), Dyadic := subring of ℚ, ofIntZpow (computable),
 │                     coe_real_* / coe_rat_ofIntZpow / ext_real bridge lemmas,
@@ -114,10 +114,13 @@ Mpfx/
 │   ├── Basic.lean    relational consequences of the spec. Sign symmetry:
 │   │                 IsFaithfulRound.neg_iff, per-mode RoundsFinite.neg_*.
 │   │                 Mode-vs-sign: RTP/RTN ↔ RTZ/RAZ by sign of x.
-│   │                 RoundsFinite.{toZero,awayZero,toOdd}_self, uniqueness per
-│   │                 mode and generic, isFaithfulRound, eq_zero_of_zero,
-│   │                 opposite_sides_of_ne, the grid bridges
-│   │                 toNegative_floor/toPositive_ceil (+ equation forms),
+│   │                 RoundsFinite.self (every mode), uniqueness per mode and
+│   │                 generic, isFaithfulRound, eq_of_mem, eq_zero_of_zero,
+│   │                 IsFaithfulRound.eq_or_eq, opposite_sides_of_ne, the grid
+│   │                 bridges toNegative_floor/toPositive_ceil/
+│   │                 toPositive_floor_add_one (+ equation forms), the nearest
+│   │                 modes between round-down and round-up
+│   │                 (nearest_toEven_of_bracket, nearest_awayZero_of_bracket),
 │   │                 isOdd_alternate_of_bracketing, sign and magnitude of a
 │   │                 faithful rounding (decide_lt_zero, mul_nonneg,
 │   │                 abs_faithful_le_of_le, le_abs_faithful_of_le),
@@ -126,9 +129,10 @@ Mpfx/
 │   ├── Restrict.lean restrict/lift between RoundsFinite F and F.unbounded for
 │   │                 every mode (RoundsFinite.restrict / RoundsFinite.lift)
 │   ├── Parity.lean   neighbors_alternate: adjacent values alternate in
-│   │                 parity; the toOdd and nearest .toEven forms
+│   │                 parity
 │   ├── Op.lean, Op/  function layer (noncomputable):
-│   │                 rndInt, rndParity, rndUnbounded, rnd, per-mode soundness,
+│   │                 rndInt, rndParity, rndUnbounded (+ rndUnbounded_of_ne and
+│   │                 the parity-mode equations), rnd, per-mode soundness,
 │   │                 rndUnbounded_satisfies/_unique, rnd_iff_rounds,
 │   │                 rnd_special, rnd_of_overflows
 │   ├── Special.lean  maxFinite (+ abs_le_maxFinite, saturated_eq_finite), the
@@ -172,11 +176,6 @@ MpfxTest/             `lake test` examples
 ```
 
 ## Open: Rounding API extensions
-
-- [ ] **Move `nearest_neighbors_setup` out of `Rounding/Op/`.** It is
-      construction-free and now slim, but still sits under the function layer.
-      Its only consumer is `rndUnbounded_satisfies_nearest`, so inlining may
-      beat relocating.
 
 - [ ] `IsFaithfulRound`-extraction lemmas (split RTN-witness vs
       RTP-witness disjunct accessors).

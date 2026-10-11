@@ -198,12 +198,8 @@ natural tier; every mode is then "`x` if representable, else a choice between
 * [x] `isFaithfulRound_iff_directed` is definitional; prove it by `Iff.rfl`.
   Separate `IsRoundDown`/`IsRoundUp` defs would add names without removing
   proofs, since `RoundsFinite` keeps membership outside its `match`.
-* [ ] `IsFaithfulRound.eq_or_eq (hd : round-down x d) (hu : round-up x u) :
-  IsFaithfulRound x y → y = d ∨ y = u`, three lines via
-  `unique_toNegative`/`unique_toPositive`. It replaces `opposite_sides_of_ne`,
-  `faithful_eq_of_third` (Restrict), `h_faithful_eq` in
-  `nearest_neighbors_setup` (Op/Nearest) and `hfaith` in
-  `Cex.roundsRNE_of_bracket`. About 35 lines.
+* [ ] Use `IsFaithfulRound.eq_or_eq` for `opposite_sides_of_ne` (in
+  `unique_nearest`) and for `hfaith` in `Cex.roundsRNE_of_bracket`.
 * [x] `eq_of_mem` (35 lines, a case per mode), `eq_of_abs_eq_of_mul_nonneg`
   and `toOdd_unique_of_mem` all follow from `IsFaithfulRound F d y → d ∈ F →
   y = d` applied to `h.isFaithfulRound`. Needs `isFaithfulRound` moved above
@@ -223,28 +219,25 @@ natural tier; every mode is then "`x` if representable, else a choice between
 
 **Construction (`Op/`, about 400 lines):**
 
-* [ ] Build `rndUnbounded` by pattern match on all seven modes as a choice
-  between `d := ofIntZpow ⌊s⌋ e` and `u := ofIntZpow ⌈s⌉ e`. Today it
-  dispatches through `if h : rm = .toOdd`, and the same
-  `unfold rndUnbounded; rw [dif_neg …, dif_neg …]` appears 14 times across
-  `Directed`, `Nearest`, `ToOdd` and `Ulp.nearest_eq_of_close`. `rndInt` and
-  `rndParity` lose their unreachable fallback arms. Define `rndDown`/`rndUp` as
-  those grid points, so `rndDown_eq` is `rfl` and `rndDown_spec :=
-  toNegative_floor`.
-* [ ] `Op/Directed.lean`: the four 20-line sign-bridge lemmas become
+* [ ] `rndInt` and `rndParity` still carry unreachable fallback arms, and
+  `rndDown`/`rndUp` in `Ulp.lean` are defined through `rndUnbounded` rather than
+  as the floor and ceiling points (which would make `rndDown_eq` `rfl` and
+  `rndDown_spec` `toNegative_floor`).
+* [x] `Op/Directed.lean`: the four 20-line sign-bridge lemmas become
   `simp [rndUnbounded, rndInt, hx]`. About 150 lines to 30.
-* [ ] `Op/ToOdd.lean` rebuilds membership and the round-down/round-up specs
+* [x] `Op/ToOdd.lean` rebuilds membership and the round-down/round-up specs
   that `RoundsFinite.toNegative_floor` and `toPositive_ceil` give; the parity
   step is `alternate_of_bracketing`. About 133 lines to 40.
-* [ ] `Op/Nearest.lean`: generalise `Cex.roundsRNE_of_bracket` to take
+* [x] `Op/Nearest.lean`: generalise `Cex.roundsRNE_of_bracket` to take
   round-down/round-up specs instead of `Cex.Adjacent`, add an `awayZero`
   sibling, and move both to `Rounding/Basic.lean`. The six hand-assembled
   `refine ⟨h_dlo_mem, …⟩` blocks then collapse; the `awayZero` tie arguments
   are `abs_le_abs` from `dlo + dhi = 2x`. About 381 lines to 120.
-* [ ] "Ceiling = floor + 1 off the grid" is proved four times (in
-  `alternate_of_bracketing`, `Op/ToOdd`, `Op/Nearest`, `Ulp.rndUp_eq`). Mathlib
-  has `Int.ceil_eq_floor_add_one_iff_notMem`. `toPositive_ceil` mirrors
-  `toNegative_floor` and can be derived from it via `Int.floor_neg` and
+* [ ] Derive `Cex.roundsRNE_of_bracket` (adjacent values, `z` possibly at either
+  end) from `RoundsFinite.nearest_toEven_of_bracket`.
+* [ ] `nearest_eq_rndUp_of_midp_lt` in `Ulp.lean` re-proves "ceiling = floor + 1
+  off the grid" (`RoundsFinite.toPositive_floor_add_one`). `toPositive_ceil`
+  mirrors `toNegative_floor` and can be derived from it via `Int.floor_neg` and
   `canonicalExp_neg`. About 20 lines.
 
 **Spec changes (check the paper's wording first):**
@@ -482,7 +475,7 @@ High confidence, low risk, independent of the structural work.
 
 **Rounding layer**
 
-* [ ] `Rounding/Parity.lean`: `toOdd_neighbors_alternate` and
+* [x] `Rounding/Parity.lean`: `toOdd_neighbors_alternate` and
   `nearest_toEven_neighbors_alternate` go once callers use
   `alternate_of_bracketing`.
 * [x] `nearest_error_le_half_ulp` re-derives `nearest_min` by `cases tb` and

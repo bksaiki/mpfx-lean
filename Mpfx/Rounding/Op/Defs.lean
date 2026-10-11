@@ -75,6 +75,25 @@ noncomputable def rndUnbounded (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
   else
     Dyadic.ofIntZpow (rndInt rm x (F.canonicalExp x)) (F.canonicalExp x)
 
+/-- Away from the parity modes, `rndUnbounded` is the integer step at the
+canonical exponent. -/
+theorem rndUnbounded_of_ne {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
+    {h : ¬ F.IsUndefined rm} (h₁ : rm ≠ .toOdd) (h₂ : rm ≠ .nearest .toEven) :
+    rndUnbounded F rm x h =
+      Dyadic.ofIntZpow (rndInt rm x (F.canonicalExp x)) (F.canonicalExp x) := by
+  unfold rndUnbounded; rw [dif_neg h₁, dif_neg h₂]
+
+theorem rndUnbounded_toOdd {F : FiniteFormat} {x : ℝ} {h : ¬ F.IsUndefined .toOdd} :
+    rndUnbounded F .toOdd x h =
+      rndParity (F.toParityFormatOfToOdd h) .toOdd x (F.canonicalExp x) := by
+  unfold rndUnbounded; rw [dif_pos rfl]
+
+theorem rndUnbounded_nearest_toEven {F : FiniteFormat} {x : ℝ}
+    {h : ¬ F.IsUndefined (.nearest .toEven)} :
+    rndUnbounded F (.nearest .toEven) x h =
+      rndParity (F.toParityFormatOfNearestEven h) (.nearest .toEven) x (F.canonicalExp x) := by
+  unfold rndUnbounded; rw [dif_neg (by decide), dif_pos rfl]
+
 /-- Rounding into `F` under mode `rm`, with special inputs sent through `S`.
 A real input goes to `rndUnbounded`, then the bound is checked: the rounded
 value if it fits, otherwise the overflow table `O` at the value's sign. -/

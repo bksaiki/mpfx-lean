@@ -170,33 +170,4 @@ theorem neighbors_alternate {F : FiniteFormat} (x : ℝ)
       ← Int.not_even_iff_odd, Int.even_add_one, not_not]
     exact ⟨Iff.rfl, id⟩
 
-/-- The `IsOdd` half. -/
-theorem toOdd_neighbors_alternate {F : FiniteFormat} (x : ℝ)
-    (h : ¬ F.IsUndefined .toOdd)
-    (hx_ne : x ≠ 0)
-    (h_lo_ne_s :
-      (⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ : ℝ) ≠ x * (2 : ℝ) ^ (-F.canonicalExp x)) :
-    (F.toParityFormatOfToOdd h).IsOdd
-        (Dyadic.ofIntZpow (⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ + 1) (F.canonicalExp x))
-      ↔ ¬ (F.toParityFormatOfToOdd h).IsOdd
-        (Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ (F.canonicalExp x)) :=
-  (neighbors_alternate x h hx_ne h_lo_ne_s).1
-
-/-- Same dispatch: the two parity-format promotions differ only in their proof
-term, hence are the same value. -/
-theorem nearest_toEven_neighbors_alternate {F : FiniteFormat} (x : ℝ)
-    (h : ¬ F.IsUndefined (.nearest .toEven))
-    (hx_ne : x ≠ 0)
-    (h_lo_ne_s :
-      (⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ : ℝ) ≠ x * (2 : ℝ) ^ (-F.canonicalExp x)) :
-    ((F.toParityFormatOfNearestEven h).IsOdd
-        (Dyadic.ofIntZpow (⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ + 1) (F.canonicalExp x))
-      ↔ ¬ (F.toParityFormatOfNearestEven h).IsOdd
-        (Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ (F.canonicalExp x)))
-    ∧ (¬ (F.toParityFormatOfNearestEven h).IsEven
-        (Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ (F.canonicalExp x))
-      → (F.toParityFormatOfNearestEven h).IsEven
-        (Dyadic.ofIntZpow (⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ + 1) (F.canonicalExp x))) :=
-  neighbors_alternate x (fun ⟨h1, h2, _⟩ => h ⟨h1, h2, Or.inr rfl⟩) hx_ne h_lo_ne_s
-
 end Mpfx
