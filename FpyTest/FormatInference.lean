@@ -1,4 +1,4 @@
-import Fpy.FormatInference
+import Fpy.FormatInference.Sound
 
 /-!
 # Format inference on a toy signature

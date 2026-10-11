@@ -1,4 +1,4 @@
-import Fpy.FormatInference
+import Fpy.FormatInference.Defs
 import Fpy.Ops
 
 /-!

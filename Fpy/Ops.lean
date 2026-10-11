@@ -114,10 +114,12 @@ end Num
 /-- The rounded operators of FPy. -/
 inductive ArithOp where
   | add | sub | mul | div | sqrt | fma | neg | abs | logb | exp2 | min | max | round | cast
+deriving DecidableEq
 
 /-- The unrounded operators of FPy. -/
 inductive ExactOp where
   | lt | le | eq | len | isNaN | isInf | and | or | not
+deriving DecidableEq
 
 /-- The exact result of a rounded operator. `round` and `cast` compute the
 identity; the context does the rounding. -/

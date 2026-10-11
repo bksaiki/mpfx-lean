@@ -296,12 +296,47 @@ It diverged from the plan in these places:
 
 #### Phase 3c - Condition refinement
 
-- `Fpy/FormatInference/Refine.lean`: refinement by `x ⋈ c`, and the `|x|` and
-  `logb` unfoldings of §4.2. This includes the narrowing
-  `A(p, exp, b) → A(p, max(exp, k − p + 1), b)`.
-- The assembled `Analysis` for `fpy`, with its `Analysis.Sound`.
+**Done.** As built:
 
-Test: `~/.elan/bin/lake build Fpy.FormatInference.Refine FpyTest`.
+- `Fpy/FormatInference.lean` is split into `Fpy/FormatInference/Defs.lean`
+  (the domain interface, abstract values, environments, `Analysis`, the
+  rules and `Analysis.Sound`) and `Fpy/FormatInference/Sound.lean` (their
+  lemmas and Theorem 4.1). `Fpy/FormatInference/Domain.lean` and
+  `Ops.lean` need only `Defs`.
+- `Fpy/FormatInference/Refine.lean`:
+  - `Atom` is a test `g(x) ⋈ c`, or `c ⋈ g(x)`, with `g` one of `x`, `|x|`
+    and `logb x`, and `⋈` one of `<`, `≤` and `=`. `parseAtom` reads one off
+    an expression.
+  - `Atom.narrow` and `Atom.narrowFmt` narrow a format by a test.
+  - `refine` handles atoms, `not`, a true `and` and a false `or`.
+  - `refine_sound` is the `Analysis.Sound.refine` obligation.
+- `Fpy/FormatInference/Analysis.lean`:
+  - `fpyAnalysis` assembles the pieces;
+  - `ctxOfAVal` reads a known context off a constant record, through
+    `AVal.const?`;
+  - `fpyAnalysis_sound` discharges every obligation;
+  - `fpy_run_sound` is Theorem 4.1 for FPy.
+- `FpyTest/FormatInference/Refine.lean` checks the §4.2 example: `{1, 2, 4}`
+  refined by `x < 3` keeps `2` and drops `4`.
+
+How refinement is pinned down, since the draft gives only examples:
+
+- `|x|` and `logb x` are unfolded only under `R`, where they are exact. Under
+  a rounding context, `round(|x|) ⋈ c` says nothing exact about `|x|`.
+- The conditions for narrowing are semantic: "every finite `g(x)` passing
+  the test is at most `c`" for the bound, and "at least `c`, and not `−∞`"
+  for the exponent. This covers every comparison and outcome that implies
+  the bound, without a case for each operator. For example, the false
+  branch of `|x| > c` lowers the bound to `c`.
+- The bound must be a dyadic constant, and the exponent uses `k = ⌈c⌉`.
+- Narrowing changes only the bound or exponent, never the specials. A true
+  comparison excludes NaN, and could remove it from the specials; the
+  draft does not ask for this.
+- `isNaN` and `isInf` tests are not refined. Fig. 9's `isnan(t) or …` would
+  need them to drop NaN in the else branch. That is an extension; the
+  draft's §4.2 lists only comparisons.
+
+Test: `~/.elan/bin/lake build Fpy.FormatInference.Refine Fpy.FormatInference.Analysis FpyTest`.
 
 ### Phase 4 - Digit-bound analysis and Theorem 4.2
 
