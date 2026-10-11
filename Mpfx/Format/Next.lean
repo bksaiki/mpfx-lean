@@ -776,46 +776,13 @@ two. -/
 theorem bound_top_of_withBound_top_subset {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.toFormat.withBound ⊤) ⊆ F₂.toFormat) : F₂.b = ⊤ := by
   by_contra h
-  obtain ⟨b₂, hb₂⟩ : ∃ b₂ : NonNegDyadic, F₂.b = (b₂ : Bound) := by
-    cases hc : F₂.b using Bound.recTopCoe with
-    | top => exact absurd hc h
-    | coe b₂ => exact ⟨b₂, rfl⟩
-  set E := WithBot.unbotD 0 F₁.exp with hE_def
-  set K := max E (Int.log 2 ((b₂.val : Dyadic) : ℚ) + 1) with hK_def
-  set w := Dyadic.ofIntZpow 1 K with hw_def
-  have hw_mem : w ∈ (F₁.toFormat.withBound ⊤) := by
-    refine ⟨?_, ?_, ?_⟩
-    · change Dyadic.precisionAtMost F₁.p w
-      exact precisionAtMost_one_zpow F₁.pos K
-    · change Dyadic.quantumAtLeast F₁.exp w
-      cases hexp : F₁.exp using QExp.recBotCoe with
-      | bot => trivial
-      | coe e =>
-        rw [Dyadic.quantumAtLeast_coe]
-        have hE : E = e := by rw [hE_def, hexp]; rfl
-        have hKe : e ≤ K := by rw [← hE]; exact le_max_left _ _
-        refine ⟨2 ^ (K - e).toNat, ?_⟩
-        rw [hw_def, Dyadic.coe_rat_ofIntZpow]
-        have hk : ((K - e).toNat : ℤ) = K - e := Int.toNat_of_nonneg (by omega)
-        push_cast
-        rw [← zpow_natCast (2 : ℚ) ((K - e).toNat), hk,
-          ← zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), sub_add_cancel]
-        ring
-    · change Format.boundOK (⊤ : Bound) w
-      trivial
-  have hb_w : Format.boundOK F₂.b w := (hsub w hw_mem).2.2
-  rw [hb₂] at hb_w
-  have hb_w' : |(w : ℚ)| ≤ ((b₂.val : Dyadic) : ℚ) := hb_w
-  have h2K_pos : (0 : ℚ) < (2 : ℚ) ^ K := zpow_pos (by norm_num) _
-  have hw_val : |(w : ℚ)| = (2 : ℚ) ^ K := by
-    rw [hw_def, Dyadic.coe_rat_ofIntZpow]
-    push_cast
-    rw [one_mul, abs_of_pos h2K_pos]
-  have hlt : ((b₂.val : Dyadic) : ℚ) < (2 : ℚ) ^ K :=
-    lt_of_lt_of_le (Int.lt_zpow_succ_log_self (by norm_num) _)
-      (zpow_le_zpow_right₀ (by norm_num) (le_max_right _ _))
-  rw [hw_val] at hb_w'
-  linarith
+  obtain ⟨b₂, hb₂⟩ := WithTop.ne_top_iff_exists.mp h
+  obtain ⟨k, hk, hgt⟩ := Format.exists_zpow_gt ((b₂.val : Dyadic) : ℝ) F₁.exp
+  have hv := (hsub _ (Format.ofIntZpow_mem (precisionAtMost_one_zpow F₁.pos k) hk trivial)).2.2
+  rw [← hb₂] at hv
+  have := abs_coe_real_le_of_boundOK hv
+  rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) k)] at this
+  exact absurd this (not_le_of_gt hgt)
 
 /-- Specialization: the paper containment with `F₁.b = ⊤` forces `F₂.b = ⊤`. -/
 theorem b_eq_top_of_withBound_subset {F₁ F₂ : FiniteFormat}

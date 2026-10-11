@@ -113,20 +113,8 @@ theorem IsOdd.numDigits_pos {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
 /-- An `IsOdd` value is nonzero. -/
 theorem IsOdd.ne_zero {F : ParityFormat} {y : Dyadic} (h : IsOdd F y) :
     y ≠ 0 := by
-  intro hy0
-  obtain ⟨c, e, ⟨hyeq, hlow, _⟩, _⟩ := h
-  rw [hy0] at hyeq
-  have h2e_pos : (0 : ℚ) < (2 : ℚ) ^ e := zpow_pos (by norm_num) _
-  have hc_zero : (c : ℚ) = 0 := by
-    push_cast at hyeq
-    rcases mul_eq_zero.mp hyeq.symm with h | h
-    · exact h
-    · linarith
-  have hc_zero_int : c = 0 := by exact_mod_cast hc_zero
-  rw [hc_zero_int, abs_zero] at hlow
-  have : (1 : ℤ) ≤ (2 : ℤ) ^ ((F.toFiniteFormat.numDigits ((y : Dyadic) : ℝ)).toNat - 1) :=
-    one_le_pow₀ (by norm_num)
-  linarith
+  obtain ⟨c, e, hrep, _⟩ := h
+  exact fun hy0 => hrep.ne_zero (by simp [hy0])
 
 /-- If `(c, e)` is a canonical-form representation at `F`'s `numDigits y`
 precision and `F.p ≠ 1`, then `F.IsOdd y ↔ Odd c`. The forward direction

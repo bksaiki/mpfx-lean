@@ -48,7 +48,7 @@ private theorem canonical_rep_reconstruct {p : ℕ} {y : Dyadic}
   refine ⟨?_, ?_⟩
   · set d : ℤ := c_can * (2 : ℤ) ^ (e_can - k).toNat with hd_def
     have h_y_eq_d : ((y : Dyadic) : ℝ) = (d : ℝ) * (2 : ℝ) ^ k := by
-      rw [hy_eq, hd_def]; exact two_zpow_shift_real c_can h_k_le_e_can
+      rw [hy_eq, hd_def]; exact two_zpow_shift c_can h_k_le_e_can
     have h_y_lt : ((y : Dyadic) : ℝ) < (2 : ℝ) ^ (k + (p : ℤ)) := by
       have h_log_lt : Int.log 2 ((y : Dyadic) : ℝ) < k + (p : ℤ) := by omega
       have := (Int.lt_zpow_iff_log_lt (by norm_num : 1 < (2 : ℕ)) hy_pos).mpr h_log_lt
@@ -72,7 +72,7 @@ private theorem canonical_rep_reconstruct {p : ℕ} {y : Dyadic}
       exact_mod_cast this
     have h_abs : |d| = d := abs_of_pos h_d_pos
     rw [h_abs]; exact h_d_lt
-  · rw [hy_eq]; exact two_zpow_shift_real c_can h_k_le_e_can
+  · rw [hy_eq]; exact two_zpow_shift c_can h_k_le_e_can
 
 /-- From `y = c · 2^e` with `|c| < 2^p` and `y > 0`: `⌊log₂ y⌋ ≤ e + p − 1`. -/
 private theorem log_le_of_canonical_rep {p : ℕ} {y : Dyadic} {c_can e_can : ℤ}
@@ -139,7 +139,7 @@ theorem exists_canonical_rep_of_parts (F : FiniteFormat) {p : ℕ}
     by_contra h_lt
     push Not at h_lt
     have h_diff : c_can = c' * (2 : ℤ) ^ (e' - e_can).toNat :=
-      coeff_eq_of_shift_real (by omega) (hy_eq.symm.trans hc'_eq)
+      coeff_eq_of_shift (by omega) (hy_eq.symm.trans hc'_eq)
     have h_2_dvd_c_can : (2 : ℤ) ∣ c_can := by
       rw [h_diff]
       have hd_pos_nat : 0 < (e' - e_can).toNat := by omega
@@ -322,13 +322,11 @@ theorem adjacent_canonical_form (F : FiniteFormat) {p : ℕ}
     exact not_mem_between_adjacent F hp hc_pos hc_lt_int hkc hp_y₂ hq_y₂
       (hy₁_eq ▸ h_lt) h_lt2
   have hz_q : Dyadic.quantumAtLeast F.exp (Dyadic.ofIntZpow (c + 1) k) := by
+    refine Dyadic.quantumAtLeast_ofIntZpow ?_
     cases hexp : F.exp using QExp.recBotCoe with
-    | bot => trivial
+    | bot => exact bot_le
     | coe e =>
-      rw [Dyadic.quantumAtLeast_coe_real]
-      refine ⟨(c + 1) * (2 : ℤ) ^ (k - e).toNat, ?_⟩
-      rw [Dyadic.coe_ofIntZpow]
-      exact two_zpow_shift_real (c + 1)
+      exact WithBot.coe_le_coe.mpr
         (by have := F.exp_le_canonicalExp ((y₁ : Dyadic) : ℝ) hexp; omega)
   have h_2k_pos : (0 : ℝ) < (2 : ℝ) ^ k := zpow_pos (by norm_num) _
   set z : Dyadic := Dyadic.ofIntZpow (c + 1) k with hz_def
@@ -438,7 +436,7 @@ theorem midpoint_mem_extend_one_of_adjacent_pos (F : FiniteFormat) {p : ℕ}
       rw [h_exp_extend, Dyadic.quantumAtLeast_coe_real]
       refine ⟨(2 * c + 1) * (2 : ℤ) ^ (k - 1 - (e - 1)).toNat, ?_⟩
       rw [h_mid_eq]
-      exact two_zpow_shift_real (2 * c + 1)
+      exact two_zpow_shift (2 * c + 1)
         (by have := F.exp_le_canonicalExp ((y₁ : Dyadic) : ℝ) hexp; omega)
 
 /-- For `y ∈ F` (any F shape), `midpoint(0, y) = y/2 ∈ F.extend 1`.

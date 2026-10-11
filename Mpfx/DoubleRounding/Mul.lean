@@ -24,30 +24,13 @@ no-op and the chained rounding collapses to the direct one (`rndExact`). This
 holds for **any** rounding modes, not just round-to-nearest.
 
 `rndMul_expBot`/`rndMul_expFinite` establish `x · y ∈ F₂.unbounded` from the explicit
-bounds `p₂ ≥ 2p₁` (mantissas multiply, `mul_precisionAtMost`) and `exp₂ ≤ 2·exp₁`
+bounds `p₂ ≥ 2p₁` (mantissas multiply, `Dyadic.precisionAtMost_mul`) and `exp₂ ≤ 2·exp₁`
 (quanta add, `Dyadic.quantumAtLeast_mul`), then apply `rndExact`. Stated relationally
 over `RoundsFinite`: given `z` the `F₂`-rounding of the input and `w` the
 `F₁`-rounding of `z`, conclude `w` is the direct `F₁`-rounding of the input.
 -/
 
 namespace Mpfx
-
-/-- A product of two `p₁`-bit dyadics fits in `p₂` bits when `2p₁ ≤ p₂`
-(mantissas multiply, `|cx·cy| < 2^(2p₁) ≤ 2^p₂`). -/
-private theorem mul_precisionAtMost {p₁ p₂ : ℕ} (hpp : 2 * p₁ ≤ p₂)
-    {x y : Dyadic} (hx : Dyadic.precisionAtMost (p₁ : Prec) x)
-    (hy : Dyadic.precisionAtMost (p₁ : Prec) y) :
-    Dyadic.precisionAtMost (p₂ : Prec) (x * y) := by
-  obtain ⟨cx, ex, hcx, hcxb⟩ := (Dyadic.precisionAtMost_coe_real p₁ x).mp hx
-  obtain ⟨cy, ey, hcy, hcyb⟩ := (Dyadic.precisionAtMost_coe_real p₁ y).mp hy
-  refine (Dyadic.precisionAtMost_coe_real p₂ (x * y)).mpr ⟨cx * cy, ex + ey, ?_, ?_⟩
-  · rw [show ((x * y : Dyadic) : ℝ) = (x : ℝ) * (y : ℝ) from by push_cast; ring, hcx, hcy,
-        zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; push_cast; ring
-  · rw [abs_mul]
-    calc |cx| * |cy| < (2 : ℤ) ^ p₁ * (2 : ℤ) ^ p₁ :=
-          mul_lt_mul'' hcxb hcyb (abs_nonneg _) (abs_nonneg _)
-      _ = (2 : ℤ) ^ (2 * p₁) := by rw [← pow_add]; congr 1; ring
-      _ ≤ (2 : ℤ) ^ p₂ := pow_le_pow_right₀ (by norm_num) hpp
 
 /-- **Product exactly representable in the finer format.** For `x, y ∈ F₁` with
 `2p₁ ≤ p₂` and `F₂.exp ≤ F₁.exp + F₁.exp` (`exp₂ ≤ 2·exp₁`), the product `x · y`
@@ -61,7 +44,7 @@ private theorem mul_mem_F₂_unbounded {F₁ F₂ : FiniteFormat} {p₁ p₂ : �
   -- is contained in `F₂.unbounded` by `𝒜-Contains-Prec` (`mem_unbounded_of_le`).
   Format.mem_unbounded_of_le (p := ((2 * p₁ : ℕ) : Prec))
     (by rw [hp₂]; exact_mod_cast hpp) he
-    (mul_precisionAtMost (p₂ := 2 * p₁) (le_refl _) (hp₁ ▸ hx.1) (hp₁ ▸ hy.1))
+    (by rw [two_mul, Nat.cast_add]; exact Dyadic.precisionAtMost_mul (hp₁ ▸ hx.1) (hp₁ ▸ hy.1))
     (Dyadic.quantumAtLeast_mul hx.2.1 hy.2.1)
 
 /-- **rnd-mult, no minimum quantum** (Roux Thm 10 / Figueroa, radix 2). With

@@ -208,7 +208,7 @@ theorem ofIntZpow_mem {F : Format} {c k : ℤ}
     (hp : Dyadic.precisionAtMost F.p (Dyadic.ofIntZpow c k))
     (he : F.exp ≤ (k : QExp)) (hb : boundOK F.b (Dyadic.ofIntZpow c k)) :
     Dyadic.ofIntZpow c k ∈ F :=
-  ⟨hp, Dyadic.quantumAtLeast_anti he ⟨c, by rw [Dyadic.coe_rat_ofIntZpow]⟩, hb⟩
+  ⟨hp, Dyadic.quantumAtLeast_ofIntZpow he, hb⟩
 
 /-- A `BoundRep` format's finite bound is one of its values. -/
 theorem bound_mem {F : Format} (hb : BoundRep F) {bv : NonNegDyadic}
@@ -218,12 +218,6 @@ theorem bound_mem {F : Format} (hb : BoundRep F) {bv : NonNegDyadic}
   rw [hF]
   change |((bv.val : Dyadic) : ℚ)| ≤ ((bv.val : Dyadic) : ℚ)
   rw [abs_of_nonneg bv.property]
-
-/-- Numeric membership depends only on `p`, `exp` and `b`. -/
-theorem mem_congr {F G : Format} (hp : F.p = G.p) (he : F.exp = G.exp) (hb : F.b = G.b)
-    {d : Dyadic} : d ∈ F ↔ d ∈ G := by
-  change Mem F d ↔ Mem G d
-  unfold Mem; rw [hp, he, hb]
 
 /-- Zero is in every format. -/
 theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
@@ -236,12 +230,7 @@ theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
     cases F.exp using QExp.recBotCoe with
     | bot => trivial
     | coe e => exact ⟨0, by simp⟩
-  · change boundOK F.b (0 : Dyadic)
-    cases F.b using Bound.recTopCoe with
-    | top => trivial
-    | coe b =>
-      change |((0 : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-      simpa using b.property
+  · exact boundOK_zero F.b
 
 end Format
 

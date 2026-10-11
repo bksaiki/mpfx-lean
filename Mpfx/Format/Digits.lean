@@ -28,30 +28,6 @@ namespace Mpfx
 
 namespace FiniteFormat
 
-/-- For nonzero `y ≠ 0` with `y = c · 2^e'` and `c ≠ 0`, we have `e' ≤ log|y|`. -/
-private theorem quantum_exp_le_log {y : Dyadic} {e' : ℤ} {c : ℤ}
-    (hy_ne : (y : ℝ) ≠ 0) (hyeq : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') :
-    e' ≤ Int.log 2 |(y : ℝ)| := by
-  have hc_ne : c ≠ 0 := by
-    intro hc0; rw [hc0] at hyeq; push_cast at hyeq
-    rw [zero_mul] at hyeq; exact hy_ne hyeq
-  have hc_abs_ge : (1 : ℤ) ≤ |c| := Int.one_le_abs hc_ne
-  have habs_lo : (2 : ℝ) ^ e' ≤ |(y : ℝ)| := by
-    rw [hyeq, abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-    calc (2 : ℝ) ^ e'
-        = 1 * (2 : ℝ) ^ e' := (one_mul _).symm
-      _ ≤ |(c : ℝ)| * (2 : ℝ) ^ e' := by
-          apply mul_le_mul_of_nonneg_right _ (zpow_pos (by norm_num) _).le
-          exact_mod_cast hc_abs_ge
-  have he_y_hi : |(y : ℝ)| < (2 : ℝ) ^ (Int.log 2 |(y : ℝ)| + 1) :=
-    Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
-  by_contra h_lt
-  push Not at h_lt
-  have h_log : Int.log 2 |(y : ℝ)| + 1 ≤ e' := by omega
-  have h_pow_le : (2 : ℝ) ^ (Int.log 2 |(y : ℝ)| + 1) ≤ (2 : ℝ) ^ e' :=
-    zpow_le_zpow_right₀ (by norm_num) h_log
-  linarith
-
 /-- `numDigits` is non-negative for nonzero `y ∈ F`. -/
 theorem numDigits_nonneg (F : FiniteFormat) (y : Dyadic) (hy : y ∈ F.toFormat)
     (hy_ne : (y : ℝ) ≠ 0) : 1 ≤ F.numDigits (y : ℝ) := by
@@ -66,8 +42,7 @@ theorem numDigits_nonneg (F : FiniteFormat) (y : Dyadic) (hy : y ∈ F.toFormat)
     | coe e' =>
       rw [numDigits_top_coe F hy_ne hexp hp]
       rw [hexp] at hQ
-      obtain ⟨c, hyeq⟩ := (Dyadic.quantumAtLeast_coe_real _ _).mp hQ
-      have h_log_ge := quantum_exp_le_log hy_ne hyeq
+      have h_log_ge := Dyadic.le_log_of_quantum hQ hy_ne
       omega
   | coe p =>
     cases hexp : F.exp using QExp.recBotCoe with
@@ -77,8 +52,7 @@ theorem numDigits_nonneg (F : FiniteFormat) (y : Dyadic) (hy : y ∈ F.toFormat)
     | coe e' =>
       rw [numDigits_coe_coe F hy_ne hp hexp]
       rw [hexp] at hQ
-      obtain ⟨c, hyeq⟩ := (Dyadic.quantumAtLeast_coe_real _ _).mp hQ
-      have h_log_ge := quantum_exp_le_log hy_ne hyeq
+      have h_log_ge := Dyadic.le_log_of_quantum hQ hy_ne
       have hpp : 1 ≤ (p : ℤ) := by exact_mod_cast F.p_pos hp
       exact le_min hpp (by omega)
 
@@ -126,23 +100,7 @@ theorem mem_imp_precisionAtMost_numDigits {F : FiniteFormat} {y : Dyadic}
   have e'_le_e_y : ∀ e' : ℤ,
       (∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') → e' ≤ e_y := by
     intro e' ⟨c, hyeq⟩
-    have hc_ne : c ≠ 0 := by
-      intro hc0; rw [hc0] at hyeq; push_cast at hyeq
-      rw [zero_mul] at hyeq; exact hy_ne hyeq
-    have hc_abs_ge : (1 : ℤ) ≤ |c| := Int.one_le_abs hc_ne
-    have habs_lo : (2 : ℝ) ^ e' ≤ |(y : ℝ)| := by
-      rw [hyeq, abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-      calc (2 : ℝ) ^ e'
-          = 1 * (2 : ℝ) ^ e' := (one_mul _).symm
-        _ ≤ |(c : ℝ)| * (2 : ℝ) ^ e' := by
-            apply mul_le_mul_of_nonneg_right _ (zpow_pos (by norm_num) _).le
-            exact_mod_cast hc_abs_ge
-    by_contra h_lt
-    push Not at h_lt
-    have h_log : e_y + 1 ≤ e' := by omega
-    have h_pow_le : (2 : ℝ) ^ (e_y + 1) ≤ (2 : ℝ) ^ e' :=
-      zpow_le_zpow_right₀ (by norm_num) h_log
-    linarith [habs_lo, he_y_hi]
+    exact Dyadic.le_log_of_quantum ((Dyadic.quantumAtLeast_coe_real e' y).mpr ⟨c, hyeq⟩) hy_ne
   -- Case analysis on (F.p, F.exp).
   cases hp : F.p using ENat.recTopCoe with
   | top =>
@@ -244,7 +202,7 @@ theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ}
   rcases lt_or_ge e₁ e₂ with he | he
   · -- `e₁ < e₂`: `c₁ = c₂ · 2^(e₂-e₁)` is even, contradicting `Odd c₁`.
     have heq_int : c₁ = c₂ * 2 ^ (e₂ - e₁).toNat :=
-      coeff_eq_of_shift_rat (le_of_lt he) heq_rat
+      coeff_eq_of_shift (le_of_lt he) heq_rat
     have h_even : Even c₁ := by
       rw [heq_int,
           show (e₂ - e₁).toNat = ((e₂ - e₁).toNat - 1) + 1 from by omega, pow_succ]
@@ -252,7 +210,7 @@ theorem ParityFormat.precisionAtMost_not_IsOdd {F : ParityFormat} {w : ℕ}
     exact (Int.not_even_iff_odd.mpr hp_check) h_even
   · -- `e₁ ≥ e₂`: `|c₂| = |c₁| · 2^(e₁-e₂) ≥ 2^(p_y-1) ≥ 2^w`, contradicting `|c₂| < 2^w`.
     have heq_int : c₂ = c₁ * 2 ^ (e₁ - e₂).toNat :=
-      coeff_eq_of_shift_rat he heq_rat.symm
+      coeff_eq_of_shift he heq_rat.symm
     have h_abs : |c₂| = |c₁| * 2 ^ (e₁ - e₂).toNat := by
       rw [heq_int, abs_mul, abs_pow]; congr 1
     -- `2^(p_y - 1) ≤ |c₁|` (the low bound of `IsRepresentableAtP`).
@@ -442,7 +400,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
           omega
         refine ⟨c'' * 2 ^ (e - 1 - e₁).toNat, ?_⟩
         rw [Dyadic.coe_rat_ofIntZpow]
-        exact two_zpow_shift_rat c'' (by omega)
+        exact two_zpow_shift c'' (by omega)
     · have hyF₁_bnd := hyF₁.2.2
       cases hb : F₁.b using Bound.recTopCoe with
       | top => trivial
@@ -478,7 +436,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
     have h_diff_nat : ((e''' - (e - 1)).toNat : ℤ) = e''' - (e - 1) :=
       Int.toNat_of_nonneg (le_of_lt h_diff_pos)
     have h_c''_int : c'' = c''' * 2 ^ (e''' - (e - 1)).toNat :=
-      coeff_eq_of_shift_real (by omega) (hy''_real.symm.trans h_eq)
+      coeff_eq_of_shift (by omega) (hy''_real.symm.trans h_eq)
     have h_pow_ge : 1 ≤ (e''' - (e - 1)).toNat := by
       have : ((e''' - (e - 1)).toNat : ℤ) ≥ 1 := by rw [h_diff_nat]; omega
       exact_mod_cast this
@@ -494,7 +452,7 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
     intro c''' e''' h_eq
     have h_e_le := h_int_rep_le c''' e''' h_eq
     have h_c'''_eq : c''' = c'' * 2 ^ (e - 1 - e''').toNat :=
-      coeff_eq_of_shift_real h_e_le (h_eq.symm.trans hy''_real)
+      coeff_eq_of_shift h_e_le (h_eq.symm.trans hy''_real)
     rw [h_c'''_eq, abs_mul, abs_pow]
     have h2_abs : |(2 : ℤ)| = 2 := by decide
     rw [h2_abs]
@@ -710,7 +668,7 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
     have h_diff_nat : ((e₁ - e).toNat : ℤ) = e₁ - e :=
       Int.toNat_of_nonneg (le_of_lt h_diff)
     have h_int_eq : c = c'_q * 2 ^ (e₁ - e).toNat :=
-      coeff_eq_of_shift_real (by omega) (h_y_eq_real.symm.trans hc'_q_eq)
+      coeff_eq_of_shift (by omega) (h_y_eq_real.symm.trans hc'_q_eq)
     have h_k_ge_1 : 1 ≤ (e₁ - e).toNat := by
       have : ((e₁ - e).toNat : ℤ) ≥ 1 := by rw [h_diff_nat]; omega
       exact_mod_cast this
@@ -816,7 +774,7 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
     have h_gt' : 0 < e₂ - e₁ := by omega
     have h_int_eq : (1 : ℤ) = c''' * 2 ^ (e₂ - e₁).toNat := by
       rw [Dyadic.coe_rat_ofIntZpow] at hc'''_eq
-      exact coeff_eq_of_shift_rat (by omega) hc'''_eq
+      exact coeff_eq_of_shift (by omega) hc'''_eq
     have h_2_dvd : (2 : ℤ) ∣ c''' * 2 ^ (e₂ - e₁).toNat := by
       rw [show (e₂ - e₁).toNat = ((e₂ - e₁).toNat - 1) + 1 from by omega,
           pow_succ]

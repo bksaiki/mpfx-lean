@@ -49,32 +49,15 @@ private theorem alternating_isEven_of_alternating_iff
 "log distributes through multiplication by powers of 2" identity. -/
 theorem log_abs_mul_zpow {k : ℤ} (hk_ne : k ≠ 0) (e' : ℤ) :
     Int.log 2 |(k : ℝ) * (2 : ℝ) ^ e'| = Int.log 2 (|k| : ℝ) + e' := by
-  have h_2_ne : (2 : ℝ) ≠ 0 := by norm_num
-  have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e' := zpow_pos (by norm_num) _
-  have h_abs_k_pos : (0 : ℝ) < (|k| : ℝ) := by
-    have h1 : (1 : ℤ) ≤ |k| := Int.one_le_abs hk_ne
-    have h2 : (1 : ℝ) ≤ (|k| : ℝ) := by exact_mod_cast h1
-    linarith
-  have h_abs_y : |(k : ℝ) * (2 : ℝ) ^ e'| = (|k| : ℝ) * (2 : ℝ) ^ e' := by
-    rw [abs_mul, abs_of_pos h_2e_pos]
-  rw [h_abs_y]
-  have h_y_pos : (0 : ℝ) < (|k| : ℝ) * (2 : ℝ) ^ e' := mul_pos h_abs_k_pos h_2e_pos
-  have h_lb_k : (2 : ℝ) ^ (Int.log 2 (|k| : ℝ)) ≤ (|k| : ℝ) :=
-    Int.zpow_log_le_self (by norm_num : (1 : ℕ) < 2) h_abs_k_pos
-  have h_ub_k : (|k| : ℝ) < (2 : ℝ) ^ (Int.log 2 (|k| : ℝ) + 1) :=
-    Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
-  have h_lb : (2 : ℝ) ^ (Int.log 2 (|k| : ℝ) + e') ≤ (|k| : ℝ) * (2 : ℝ) ^ e' := by
-    rw [zpow_add₀ h_2_ne]
-    exact mul_le_mul_of_nonneg_right h_lb_k h_2e_pos.le
-  have h_ub : (|k| : ℝ) * (2 : ℝ) ^ e' < (2 : ℝ) ^ (Int.log 2 (|k| : ℝ) + e' + 1) := by
-    rw [show Int.log 2 (|k| : ℝ) + e' + 1 = (Int.log 2 (|k| : ℝ) + 1) + e' by ring,
-        zpow_add₀ h_2_ne]
-    exact mul_lt_mul_of_pos_right h_ub_k h_2e_pos
-  have h_le : Int.log 2 (|k| : ℝ) + e' ≤ Int.log 2 ((|k| : ℝ) * (2 : ℝ) ^ e') :=
-    (Int.zpow_le_iff_le_log (by norm_num : (1 : ℕ) < 2) h_y_pos).mp h_lb
-  have h_lt : Int.log 2 ((|k| : ℝ) * (2 : ℝ) ^ e') < Int.log 2 (|k| : ℝ) + e' + 1 :=
-    (Int.lt_zpow_iff_log_lt (by norm_num : (1 : ℕ) < 2) h_y_pos).mp h_ub
-  omega
+  have h2e : (0 : ℝ) < (2 : ℝ) ^ e' := zpow_pos two_pos e'
+  have hk : (0 : ℝ) < |(k : ℝ)| := abs_pos.mpr (Int.cast_ne_zero.mpr hk_ne)
+  rw [abs_mul, abs_of_pos h2e]
+  refine log_eq_of_zpow_bounds (mul_pos hk h2e) ?_ ?_
+  · rw [zpow_add₀ two_ne_zero]
+    exact mul_le_mul_of_nonneg_right (Int.zpow_log_le_self (by norm_num) hk) h2e.le
+  · rw [show Int.log 2 |(k : ℝ)| + e' + 1 = (Int.log 2 |(k : ℝ)| + 1) + e' by ring,
+      zpow_add₀ two_ne_zero]
+    exact mul_lt_mul_of_pos_right (Int.lt_zpow_succ_log_self (by norm_num) _) h2e
 
 /-! ### Per-case canonical-rep helpers
 
@@ -106,7 +89,7 @@ private theorem canonical_rep_floating {F : ParityFormat}
   have h_nd_toNat : (F.toFiniteFormat.numDigits (y : ℝ)).toNat = p := by
     rw [F.toFiniteFormat.numDigits_coe_bot h_y_ne hp_eq hexp_bot]; simp
   rw [h_nd_toNat]
-  exact Dyadic.isRepresentableAtP_of_bounds h_y_rat hk_lo hk_hi
+  exact ⟨h_y_rat, hk_lo, hk_hi⟩
 
 /-- Canonical h_rep construction for mixed-normal (`p ≠ 1`): when
 `|k| ∈ [2^(p-1), 2^p)`, the (k, e_c) pair is canonical at `numDigits` bits. -/

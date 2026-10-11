@@ -160,7 +160,7 @@ on `exp₂ ≤ exp₁`.
 Each necessity proof exhibits one value of `F₁` that `F₂` cannot represent. -/
 
 /-- Above any real there is a power of two, at an exponent above `e`. -/
-private theorem exists_zpow_gt (r : ℝ) (e : QExp) :
+theorem exists_zpow_gt (r : ℝ) (e : QExp) :
     ∃ k : ℤ, e ≤ (k : QExp) ∧ r < (2 : ℝ) ^ k := by
   refine ⟨max (e.unbotD 0) (Int.log 2 r + 1), ?_, lt_of_lt_of_le
     (Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) r)
@@ -258,10 +258,6 @@ wider than `p₂` digits. -/
 /-- `2^p + 1`: odd, exactly `p+1` digits wide. -/
 def wit (p : ℕ) : ℤ := 2 ^ p + 1
 
-private theorem one_lt_two_pow {p : ℕ} (hp : 0 < p) : (1 : ℤ) < 2 ^ p := by
-  calc (1 : ℤ) = 2 ^ 0 := by norm_num
-    _ < 2 ^ p := pow_lt_pow_right₀ (by norm_num) hp
-
 private theorem wit_pos (p : ℕ) : 0 < wit p := by unfold wit; positivity
 
 private theorem odd_wit {p : ℕ} (hp : 0 < p) : Odd (wit p) :=
@@ -285,7 +281,7 @@ private theorem precisionAtMost_wit {p₁ : Prec} {p₂ : ℕ} (hp : 0 < p₂)
     have hq : p₂ + 1 ≤ q := by
       have : (p₂ : Prec) < (q : Prec) := hp' ▸ hlt
       exact_mod_cast this
-    have h1 := one_lt_two_pow hp
+    have h1 : (1 : ℤ) < 2 ^ p₂ := one_lt_pow₀ (by norm_num) hp.ne'
     calc |wit p₂| = 2 ^ p₂ + 1 := by rw [abs_of_pos (wit_pos p₂)]; rfl
       _ < 2 ^ (p₂ + 1) := by rw [pow_succ]; omega
       _ ≤ 2 ^ q := pow_le_pow_right₀ (by norm_num) hq

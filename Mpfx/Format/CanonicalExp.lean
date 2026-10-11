@@ -276,23 +276,10 @@ theorem ofIntZpow_mem_unbounded (F : FiniteFormat) {k e : ℤ}
     | coe p =>
       exact Dyadic.precisionAtMost_of_abs_le (F.p_pos hp) k e
         (Dyadic.coe_rat_ofIntZpow k e) (hk_bound hp)
-  · change Dyadic.quantumAtLeast F.exp (Dyadic.ofIntZpow k e)
-    cases hexp : F.exp using QExp.recBotCoe with
-    | bot => trivial
-    | coe e' =>
-      rw [Dyadic.quantumAtLeast_coe_real]
-      have h_e_ge : e' ≤ e := he_ge hexp
-      have h_diff_nn : 0 ≤ e - e' := by omega
-      refine ⟨k * 2 ^ (e - e').toNat, ?_⟩
-      rw [Dyadic.coe_ofIntZpow]
-      have h_split : (2 : ℝ) ^ e = (2 : ℝ) ^ (e - e').toNat * (2 : ℝ) ^ e' := by
-        rw [show ((2 : ℝ) ^ (e - e').toNat : ℝ) = (2 : ℝ) ^ ((e - e').toNat : ℤ)
-            from (zpow_natCast _ _).symm, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0),
-            Int.toNat_of_nonneg h_diff_nn]
-        congr 1; ring
-      rw [h_split, ← mul_assoc]
-      push_cast
-      ring
+  · refine Dyadic.quantumAtLeast_ofIntZpow ?_
+    cases hexp : F.unbounded.exp using QExp.recBotCoe with
+    | bot => exact bot_le
+    | coe e' => exact WithBot.coe_le_coe.mpr (he_ge hexp)
   · change Format.boundOK F.unbounded.b (Dyadic.ofIntZpow k e)
     rw [FiniteFormat.unbounded_b]; trivial
 
@@ -341,17 +328,8 @@ theorem exp_le_log_of_mem (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp
     {z : Dyadic} (hz : z ∈ F.unbounded) (hz0 : 0 < ((z : Dyadic) : ℝ)) :
     e ≤ Int.log 2 ((z : Dyadic) : ℝ) := by
   obtain ⟨-, hq, -⟩ := hz
-  rw [FiniteFormat.unbounded_exp, hexp, Dyadic.quantumAtLeast_coe_real] at hq
-  obtain ⟨c, hc⟩ := hq
-  have h2e : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-  have hc1 : (1 : ℝ) ≤ (c : ℝ) := by
-    by_contra hcc
-    push Not at hcc
-    have h0 : (c : ℤ) ≤ 0 := by exact_mod_cast Int.lt_add_one_iff.mp (by exact_mod_cast hcc)
-    have : (c : ℝ) ≤ 0 := by exact_mod_cast h0
-    nlinarith
-  have hge : (2 : ℝ) ^ e ≤ ((z : Dyadic) : ℝ) := by nlinarith
-  exact (Int.zpow_le_iff_le_log (by norm_num) hz0).mp (by exact_mod_cast hge)
+  rw [FiniteFormat.unbounded_exp, hexp] at hq
+  simpa [abs_of_pos hz0] using Dyadic.le_log_of_quantum hq hz0.ne'
 
 /-- The spacing of the binade below a positive `F`-value is no coarser than that
 value's own binade. -/

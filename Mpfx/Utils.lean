@@ -16,28 +16,15 @@ lemma abs_mul_two_zpow (c : ℝ) (e : ℤ) :
   rw [abs_mul, abs_zpow, abs_of_pos (by norm_num : (0 : ℝ) < 2)]
 
 /-- Split `2 ^ e₁ = 2 ^ (e₁ - e₂).toNat * 2 ^ e₂` when `e₂ ≤ e₁`. -/
-lemma two_zpow_split_toNat {e₁ e₂ : ℤ} (h : e₂ ≤ e₁) :
-    (2 : ℝ) ^ e₁ = (2 : ℝ) ^ (e₁ - e₂).toNat * (2 : ℝ) ^ e₂ := by
-  have h2 : (2 : ℝ) ≠ 0 := by norm_num
-  have hsub : ((e₁ - e₂).toNat : ℤ) = e₁ - e₂ := Int.toNat_of_nonneg (by omega)
-  rw [show ((2 : ℝ) ^ (e₁ - e₂).toNat : ℝ) = (2 : ℝ) ^ ((e₁ - e₂).toNat : ℤ) from
-      (zpow_natCast _ _).symm, ← zpow_add₀ h2, hsub]
+lemma two_zpow_split_toNat {K : Type*} [Field K] [CharZero K] {e₁ e₂ : ℤ} (h : e₂ ≤ e₁) :
+    (2 : K) ^ e₁ = (2 : K) ^ (e₁ - e₂).toNat * (2 : K) ^ e₂ := by
+  rw [← zpow_natCast, ← zpow_add₀ two_ne_zero, Int.toNat_of_nonneg (by omega)]
   congr 1; ring
 
-/-- `(2:ℝ)^(e - f) = ((2:ℤ)^(e - f).toNat : ℝ)` when `f ≤ e`. -/
-private lemma two_zpow_diff_eq (e f : ℤ) (h : f ≤ e) :
-    (2 : ℝ) ^ (e - f) = ((2 : ℤ) ^ (e - f).toNat : ℝ) := by
-  have hn_eq : ((e - f).toNat : ℤ) = e - f := Int.toNat_of_nonneg (by omega)
-  rw [show (2 : ℝ) ^ (e - f) = (2 : ℝ) ^ (((e - f).toNat : ℤ) : ℤ) by rw [hn_eq],
-      zpow_natCast]
-  push_cast; ring
-
-/-- `(2:ℝ)^e = ((2:ℤ)^n : ℝ) * (2:ℝ)^f` where `n = (e - f).toNat`, when `f ≤ e`. -/
-lemma two_zpow_split (e f : ℤ) (h : f ≤ e) :
-    (2 : ℝ) ^ e = ((2 : ℤ) ^ (e - f).toNat : ℝ) * (2 : ℝ) ^ f := by
-  have h_split : (2 : ℝ) ^ e = (2 : ℝ) ^ (e - f) * (2 : ℝ) ^ f := by
-    rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
-  rw [h_split, two_zpow_diff_eq e f h]
+/-- `2^e = ((2:ℤ)^n : K) * 2^f` where `n = (e - f).toNat`, when `f ≤ e`. -/
+lemma two_zpow_split {K : Type*} [Field K] [CharZero K] (e f : ℤ) (h : f ≤ e) :
+    (2 : K) ^ e = ((2 : ℤ) ^ (e - f).toNat : K) * (2 : K) ^ f := by
+  rw [two_zpow_split_toNat h]; push_cast; rfl
 
 /-- Read off `Int.log 2 x = k` from the binade bounds `2^k ≤ x < 2^(k+1)`. -/
 theorem log_eq_of_zpow_bounds {x : ℝ} {k : ℤ} (hx : 0 < x)
@@ -69,49 +56,19 @@ theorem two_zpow_dbl (a : ℤ) : (2 : ℝ) ^ a = 2 * (2 : ℝ) ^ (a - 1) := by
 theorem two_zpow_half (a : ℤ) : (2 : ℝ) ^ a / 2 = (2 : ℝ) ^ (a - 1) := by
   rw [two_zpow_dbl a]; ring
 
-/-- `2^f = 4 · 2^(f − 2)`. -/
-lemma two_zpow_split_minus_two (f : ℤ) :
-    (2 : ℝ) ^ f = 4 * (2 : ℝ) ^ (f - 2) := by
-  rw [← two_zpow_add_two, sub_add_cancel]
-
-/-- Re-base a canonical rep to a coarser exponent (ℝ): shift `(c:ℝ)·2^e` down to
-quantum `k ≤ e`, folding the extra powers of two into an integer coefficient. -/
-lemma two_zpow_shift_real (c : ℤ) {e k : ℤ} (h : k ≤ e) :
-    (c : ℝ) * (2 : ℝ) ^ e = ((c * (2 : ℤ) ^ (e - k).toNat : ℤ) : ℝ) * (2 : ℝ) ^ k := by
+/-- Re-base a canonical rep to a coarser exponent: shift `c·2^e` down to quantum
+`k ≤ e`, folding the extra powers of two into an integer coefficient. -/
+lemma two_zpow_shift {K : Type*} [Field K] [CharZero K] (c : ℤ) {e k : ℤ} (h : k ≤ e) :
+    (c : K) * (2 : K) ^ e = ((c * (2 : ℤ) ^ (e - k).toNat : ℤ) : K) * (2 : K) ^ k := by
   rw [two_zpow_split e k h]; push_cast; ring
 
-/-- Re-base a canonical rep to a coarser exponent (ℚ), the ℚ twin of
-`two_zpow_shift_real`. -/
-lemma two_zpow_shift_rat (c : ℤ) {e k : ℤ} (h : k ≤ e) :
-    (c : ℚ) * (2 : ℚ) ^ e = ((c * (2 : ℤ) ^ (e - k).toNat : ℤ) : ℚ) * (2 : ℚ) ^ k := by
-  have hn : ((e - k).toNat : ℤ) = e - k := Int.toNat_of_nonneg (by omega)
-  have hsplit : (2 : ℚ) ^ e = (2 : ℚ) ^ ((e - k).toNat : ℤ) * (2 : ℚ) ^ k := by
-    rw [← zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0), hn]; congr 1; ring
-  rw [hsplit, zpow_natCast]; push_cast; ring
-
-/-- Inverse of the shift (ℝ): if two canonical reps of the same real agree with
+/-- Inverse of the shift: if two canonical reps of the same value agree with
 `e₁ ≤ e₂`, the finer coefficient is the coarser one scaled by `2^(e₂-e₁)`. -/
-lemma coeff_eq_of_shift_real {c₁ c₂ e₁ e₂ : ℤ} (h : e₁ ≤ e₂)
-    (heq : (c₁ : ℝ) * (2 : ℝ) ^ e₁ = (c₂ : ℝ) * (2 : ℝ) ^ e₂) :
+lemma coeff_eq_of_shift {K : Type*} [Field K] [CharZero K] {c₁ c₂ e₁ e₂ : ℤ} (h : e₁ ≤ e₂)
+    (heq : (c₁ : K) * (2 : K) ^ e₁ = (c₂ : K) * (2 : K) ^ e₂) :
     c₁ = c₂ * (2 : ℤ) ^ (e₂ - e₁).toNat := by
-  rw [two_zpow_shift_real c₂ h] at heq
-  have h2 : (0 : ℝ) < (2 : ℝ) ^ e₁ := zpow_pos (by norm_num) _
-  exact_mod_cast mul_right_cancel₀ (ne_of_gt h2) heq
-
-/-- Inverse of the shift (ℚ), the ℚ twin of `coeff_eq_of_shift_real`. -/
-lemma coeff_eq_of_shift_rat {c₁ c₂ e₁ e₂ : ℤ} (h : e₁ ≤ e₂)
-    (heq : (c₁ : ℚ) * (2 : ℚ) ^ e₁ = (c₂ : ℚ) * (2 : ℚ) ^ e₂) :
-    c₁ = c₂ * (2 : ℤ) ^ (e₂ - e₁).toNat := by
-  rw [two_zpow_shift_rat c₂ h] at heq
-  have h2 : (0 : ℚ) < (2 : ℚ) ^ e₁ := zpow_pos (by norm_num) _
-  exact_mod_cast mul_right_cancel₀ (ne_of_gt h2) heq
-
-/-- If `z·x ≥ 0` and `0 < x`, then `0 ≤ z`. -/
-lemma nonneg_of_mul_nonneg_pos {z x : ℝ} (h_sign : z * x ≥ 0) (hx : 0 < x) :
-    0 ≤ z := by
-  rcases le_or_gt 0 z with h | h
-  · exact h
-  · exfalso; nlinarith
+  rw [two_zpow_shift c₂ h] at heq
+  exact_mod_cast mul_right_cancel₀ (zpow_ne_zero _ two_ne_zero) heq
 
 /-- Extract one factor of `2` from `(2 : ℤ) ^ k` when `k ≥ 1`. -/
 lemma Int.two_pow_succ_pred {k : ℕ} (hk : 1 ≤ k) :

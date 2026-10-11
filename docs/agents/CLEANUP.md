@@ -485,36 +485,36 @@ High confidence, low risk, independent of the structural work.
 
 **Format layer**
 
-* [ ] `Inference.lean`: `add_inferred_q` is `quantumAtLeast_add
+* [x] `Inference.lean`: `add_inferred_q` is `quantumAtLeast_add
   (quantumAtLeast_anti min_le_left hqx) (quantumAtLeast_anti min_le_right
   hqy)`; the quantum half of `mul_inferred_pq` is `Dyadic.quantumAtLeast_mul`;
   the precision half duplicates the private `mul_precisionAtMost` in
   `DoubleRounding/Mul.lean`. Add `Dyadic.precisionAtMost_mul` and use it in
   both. About 70 lines.
-* [ ] "`y = c · 2^e ≠ 0` implies `e ≤ ⌊log₂|y|⌋`" is proved four times:
+* [x] "`y = c · 2^e ≠ 0` implies `e ≤ ⌊log₂|y|⌋`" is proved four times:
   `Digits.quantum_exp_le_log` (private), the inlined `e'_le_e_y` in the same
   file, `CanonicalExp.exp_le_log_of_mem`, and `Dyadic.abs_ge_two_zpow_of_quantum`.
   Keep one `Dyadic.le_log_of_quantum`. About 50 lines.
-* [ ] "`c · 2^k` has quantum at least `e` when `e ≤ k`" is re-proved inline in
+* [x] "`c · 2^k` has quantum at least `e` when `e ≤ k`" is re-proved inline in
   `ofIntZpow_mem_unbounded`, `Next.lean` (twice), `Digits.lean`,
   `Discrete.lean` (twice) and the body of `quantumAtLeast_anti`. Add
   `Dyadic.quantumAtLeast_ofIntZpow`, and make `ofIntZpow_mem_unbounded` a thin
   wrapper of `Format.ofIntZpow_mem`. Three membership constructors overlap:
   `Format.ofIntZpow_mem`, `ofIntZpow_mem_unbounded`, `Format.mem_unbounded_of_le`.
   About 80 lines.
-* [ ] `Utils.lean`: `two_zpow_split_toNat`, `two_zpow_diff_eq`,
+* [x] `Utils.lean`: `two_zpow_split_toNat`, `two_zpow_diff_eq`,
   `two_zpow_split`, `two_zpow_shift_real`/`_rat`, `coeff_eq_of_shift_real`/`_rat`
   exist as ℚ and ℝ twins, with further inline copies in `IsDyadic.add_aux`,
   `quantumAtLeast_anti`, `IsRepresentableAtP.unique`, `CanonicalExp.lean`,
   `Next.lean` and `Inference.lean`. State them once over any `DivisionRing`.
   About 70 lines.
-* [ ] `Dyadic.lean`: `IsRepresentableAtP.unique` (83 lines) is about 25 via
+* [x] `Dyadic.lean`: `IsRepresentableAtP.unique` (83 lines) is about 25 via
   `log_eq_of_zpow_bounds`; `Int.exists_odd_factor(_aux)` is Mathlib
   `Nat.exists_eq_two_pow_mul_odd` on `c.natAbs`; `precisionAtMost_of_abs_le`
   has mirror sign branches. `ParityFormat.IsOdd.ne_zero` and the `y = 0`
   branch of `isEven_iff_even_of_canonical` are `IsRepresentableAtP.ne_zero`.
   About 110 lines.
-* [ ] Bridging boilerplate (34 `change |…| ≤ …`, 39 `change
+* [~] Bridging boilerplate (34 `change |…| ≤ …`, 39 `change
   Dyadic.precisionAtMost/quantumAtLeast/boundOK …`, about 15
   `rw [coe_real_eq_ratCast, …, ← Rat.cast_abs]; exact_mod_cast`):
   * make `boundOK_coe_iff_real : boundOK (b : Bound) d ↔ |(d : ℝ)| ≤ (b.val :
@@ -526,20 +526,23 @@ High confidence, low risk, independent of the structural work.
   * add a norm_cast `Dyadic.coe_real_ne_zero_iff`;
   * use `nonneg_coe_real` instead of re-deriving it.
 
-  About 120 lines.
+  About 120 lines. Done in part: `exact_mod_cast` bridges Dyadic→ℝ casts by
+  itself, so 27 `rw [Dyadic.coe_real_eq_ratCast, …, ← Rat.cast_abs]` steps were
+  dropped, and `extend_p`/`extend_exp_coe`/`extend_exp_bot` were added. The
+  `mem_def` and `boundOK` iff sweep over the `change` lines remains.
 * [ ] `Format/Parity.lean`: `IsOdd`/`IsEven` lemmas are duplicated pairwise.
   Factor through an index `idx F c e := if F.p = 1 then e − exp.unbotD 0 + 1
   else c` and a private witness predicate, and prove `neg` once for any
   sign-invariant predicate. `IsOdd_iff_of_toFormat_eq` is a corollary of
   `IsOdd.congr`. About 90 lines. Superseded by §S1 if that lands.
-* [ ] `Format.extend_extend : (F.extend j).extend k = F.extend (j + k)`
+* [x] `Format.extend_extend : (F.extend j).extend k = F.extend (j + k)`
   replaces the hand proofs in `extend_one_extend_one_subset_extend_two`,
   `extend_one_extend_one_p_exp` and `extend_one_extend_one_withBound_subset`.
   About 45 lines.
-* [ ] `Next.bound_top_of_withBound_top_subset` (43 lines) duplicates the top
+* [x] `Next.bound_top_of_withBound_top_subset` (43 lines) duplicates the top
   branch of `Containment.b_le_of_subset`; make `exists_zpow_gt` public. About
   30 lines.
-* [ ] Small: `log_abs_mul_zpow` (`Parity/Alternate.lean`, 28 lines) is five via
+* [x] Small: `log_abs_mul_zpow` (`Parity/Alternate.lean`, 28 lines) is five via
   `log_eq_of_zpow_bounds`, and belongs in `Utils.lean`. The private
   `one_lt_two_pow` in `Containment.lean` duplicates `abs_one_lt_two_pow` and
   Mathlib's `one_lt_two_pow`. `Format.zero_mem` re-proves `boundOK_zero`
@@ -557,25 +560,28 @@ High confidence, low risk, independent of the structural work.
   `Alternate` verbatim; `toOdd_neighbors_alternate` and
   `nearest_toEven_neighbors_alternate` go once callers use
   `alternate_of_bracketing`. About 250 lines.
-* [ ] `nearest_error_le_half_ulp` re-derives `nearest_min` by `cases tb` and
+* [x] `nearest_error_le_half_ulp` re-derives `nearest_min` by `cases tb` and
   rebuilds faithfulness that `(rndDown_spec F x).isFaithfulRound` gives.
   `maxFinite_nonneg` is `RoundsFinite.toNegative_nonneg`, and `maxFinite` is
   `rndDown F b`. About 15 lines.
 
 **Double-rounding layer**
 
-* [ ] `Propagation.nearest_components` is `⟨h.1, h.isFaithfulRound,
+* [~] `Propagation.nearest_components` is `⟨h.1, h.isFaithfulRound,
   nearest_min⟩`; `Nearest.midpoint_F₁_in_F₂_of_F_adjacent` is a one-line
   wrapper; `cases tb₂ <;> exact hz.2.1` in `NearestMidpoint` is
   `hz.isFaithfulRound`; paired `rndUnbounded_unique` rewrites in
   `Propagation`, `NearestMidpoint` and `Add` are `RoundsFinite.unique`. About
-  20 lines.
+  20 lines. Done except the two wrappers, kept: each has four or five callers
+  that would otherwise repeat the expansion.
 
 **Dead code**
 
-* [ ] `Utils.nonneg_of_mul_nonneg_pos`, `Utils.two_zpow_split_minus_two`,
+* [~] `Utils.nonneg_of_mul_nonneg_pos`, `Utils.two_zpow_split_minus_two`,
   `Format.mem_congr`, `Format.neg_subset_finite`, `Format.abs_subset_finite`
-  (unused since the last PR). `Dyadic.coe_abs`/`coe_rat_abs` are simp-tagged
+  (unused since the last PR). Done except `neg_subset_finite`/`abs_subset_finite`,
+  kept as the README's paper-facing finite forms, and `coe_abs`/`coe_rat_abs`,
+  kept as the coercion API of `Dyadic.abs`. `Dyadic.coe_abs`/`coe_rat_abs` are simp-tagged
   but `Dyadic.abs` is only ever unfolded; consider Mathlib's `|·|` on the
   subring. `Dyadic.isRepresentableAtP_of_bounds` is a bare constructor wrapper
   with one use. About 45 lines.
