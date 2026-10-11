@@ -405,9 +405,9 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
   obtain ⟨c2, hyeq⟩ := hqy
   -- bridge bounds to ℝ
   have hbxR : |(x : ℝ)| ≤ ((b1.1 : Dyadic) : ℝ) := by
-    rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]; exact_mod_cast hbx
+    exact_mod_cast hbx
   have hbyR : |(y : ℝ)| ≤ ((b2.1 : Dyadic) : ℝ) := by
-    rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]; exact_mod_cast hby
+    exact_mod_cast hby
   have hxeqR : (x : ℝ) = (c1 : ℝ) * (2 : ℝ) ^ e1 := by
     rw [Dyadic.coe_real_eq_ratCast, hxeq]; push_cast; ring
   have hyeqR : (y : ℝ) = (c2 : ℝ) * (2 : ℝ) ^ e2 := by
@@ -423,9 +423,9 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
     ring
   have h2m_pos : (0 : ℝ) < (2 : ℝ) ^ m := zpow_pos (by norm_num) _
   have h_b1_nn : 0 ≤ ((b1.1 : Dyadic) : ℝ) := by
-    rw [Dyadic.coe_real_eq_ratCast]; exact_mod_cast b1.2
+    exact_mod_cast b1.2
   have h_b2_nn : 0 ≤ ((b2.1 : Dyadic) : ℝ) := by
-    rw [Dyadic.coe_real_eq_ratCast]; exact_mod_cast b2.2
+    exact_mod_cast b2.2
   have h_c_bound : |(c : ℝ)| * (2 : ℝ) ^ m ≤ ((b1.1 : Dyadic) : ℝ) + ((b2.1 : Dyadic) : ℝ) := by
     calc |(c : ℝ)| * (2 : ℝ) ^ m
         = |((x + y : Dyadic) : ℝ)| := by rw [h_xy_eqR, abs_mul_two_zpow]

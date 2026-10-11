@@ -35,8 +35,6 @@ private theorem boundOK_of_boundOK_floor {F₁ : FiniteFormat} {D : NonNegDyadic
     (hD_le : Format.boundOK F₁.b D.val) {v : Dyadic}
     (hv : Format.boundOK ((D : Bound)) v) : Format.boundOK F₁.b v := by
   have hD_abs : |(v : ℝ)| ≤ |((D.val : Dyadic) : ℝ)| := by
-    rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs,
-      ← Rat.cast_abs]
     exact_mod_cast (by rwa [abs_of_nonneg D.2] :
       |(v : ℚ)| ≤ |((D.val : Dyadic) : ℚ)|)
   exact boundOK_of_abs_le hD_abs hD_le
@@ -165,7 +163,6 @@ private theorem rounds_total_of_zero_bound {F₁ F₂ : FiniteFormat}
       rw [hF₁b] at h
       have h1 : |(y : ℚ)| ≤ ((b₁.val : Dyadic) : ℚ) := h
       have hb₁q : ((b₁.val : Dyadic) : ℚ) = 0 := by
-        rw [Dyadic.coe_real_eq_ratCast] at hb₁_zero
         exact_mod_cast hb₁_zero
       rw [hb₁q] at h1
       have h2 : (y : ℚ) = 0 := abs_nonpos_iff.mp h1
@@ -249,7 +246,6 @@ private theorem bound_floor_setup {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
     have hguard : F₁.exp = ⊥ → 0 < ((d : Dyadic) : ℝ) := fun h =>
       lt_of_le_of_ne hd_nn (Ne.symm (hdeg h))
     have hd_nn_q : (0 : ℚ) ≤ (d : ℚ) := by
-      rw [Dyadic.coe_real_eq_ratCast] at hd_nn
       exact_mod_cast hd_nn
     refine ⟨⟨d, hd_nn_q⟩, ?_, ?_, ?_, ?_, ?_⟩
     · -- The floor-adjusted format has a regular (on-grid) bound.
@@ -274,7 +270,6 @@ private theorem bound_floor_setup {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
       intro v hv hbv
       rw [hF₁b] at hbv
       have h1r : |(v : ℝ)| ≤ ((b₁.val : Dyadic) : ℝ) := by
-        rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
         exact_mod_cast hbv
       have h2r : |(v : ℝ)| ≤ ((d : Dyadic) : ℝ) := by
         rcases le_or_gt 0 ((v : Dyadic) : ℝ) with hv0 | hv0
@@ -286,7 +281,6 @@ private theorem bound_floor_setup {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
           rw [abs_of_neg hv0]
           linarith
       change |(v : ℚ)| ≤ ((d : Dyadic) : ℚ)
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs] at h2r
       exact_mod_cast h2r
     · exact next_mono hd_le hguard
     · exact next_mono hd_le

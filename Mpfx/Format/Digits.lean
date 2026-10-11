@@ -453,8 +453,6 @@ private lemma numDigits_eq_of_subset_of_isOdd_aux
         -- Bridge `|y''| < |y|` (ℝ) to ℚ.
         have habs_q : |((y'' : Dyadic) : ℚ)| < |((y : Dyadic) : ℚ)| := by
           have hh := habs_y''_lt_y
-          rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast,
-              ← Rat.cast_abs, ← Rat.cast_abs] at hh
           exact_mod_cast hh
         linarith
   -- For p₂ ≥ 2 with c odd: |c| ≥ 2^(p₂-1) + 1.
@@ -805,8 +803,6 @@ private lemma odd_index_of_p_one_corner {F₁ F₂ : ParityFormat}
               push_cast; ring
             rw [h_eq_pow, abs_of_pos h2e₁_pos, habs_y_eq]
             exact zpow_le_zpow_right₀ (by norm_num) h_e_ge_e₁
-          rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast,
-              ← Rat.cast_abs, ← Rat.cast_abs] at hh
           exact_mod_cast hh
         linarith
   have h_2e1_in_F₂ : (Dyadic.ofIntZpow 1 e₁) ∈ F₂.toFormat := hsub _ h_2e1_in_F₁

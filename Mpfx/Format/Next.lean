@@ -228,9 +228,8 @@ noncomputable def boundAfterNext (F : Format) : Bound :=
   | (b : NonNegDyadic) =>
     (⟨F.next b.val, by
         have hb : 0 ≤ ((b.val : Dyadic) : ℝ) := by
-          rw [Dyadic.coe_real_eq_ratCast]; exact_mod_cast b.2
+          exact_mod_cast b.2
         have h_next_nn : 0 ≤ ((F.next b.val : Dyadic) : ℝ) := next_nonneg F b.val hb
-        rw [Dyadic.coe_real_eq_ratCast] at h_next_nn
         exact_mod_cast h_next_nn⟩ : NonNegDyadic)
 
 /-- `boundAfterNext` evaluator: `⊤` case. -/
@@ -701,7 +700,6 @@ theorem boundOK_boundAfterNext_next {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
   obtain ⟨hnn, h_eq⟩ := Format.boundAfterNext_coe hF₁b
   rw [h_eq]
   have hN_nn_q : (0 : ℚ) ≤ ((F₁.toFormat.next b₁.val : Dyadic) : ℚ) := by
-    rw [Dyadic.coe_real_eq_ratCast] at hN_nn
     exact_mod_cast hN_nn
   change |((F₁.toFormat.next b₁.val : Dyadic) : ℚ)|
     ≤ ((F₁.toFormat.next b₁.val : Dyadic) : ℚ)
@@ -722,7 +720,6 @@ theorem boundOK_boundAfterNext_of_boundOK {F₁ : FiniteFormat} {d : Dyadic}
     have hb_nn : 0 ≤ ((b.val : Dyadic) : ℝ) := nonneg_coe_real b
     have h_le : ((b.val : Dyadic) : ℚ) ≤ ((F₁.toFormat.next b.val : Dyadic) : ℚ) := by
       have h := Format.self_le_next F₁.toFormat b.val hb_nn
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h
       exact_mod_cast h
     change |(d : ℚ)| ≤ ((F₁.toFormat.next b.val : Dyadic) : ℚ)
     linarith
@@ -751,7 +748,6 @@ theorem boundOK_boundAfterNext_mono {F G : FiniteFormat} {b₁ D : NonNegDyadic}
   rw [hnext] at h1
   have h2 : ((F.toFormat.next D.val : Dyadic) : ℚ)
       ≤ ((F.toFormat.next b₁.val : Dyadic) : ℚ) := by
-    rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at hmono
     exact_mod_cast hmono
   change |(v : ℚ)| ≤ ((F.toFormat.next b₁.val : Dyadic) : ℚ)
   linarith
@@ -934,8 +930,6 @@ theorem two_le_p_or_trivial_of_extend_one_withBound_subset {F₁ F₂ : FiniteFo
         change |((Dyadic.ofIntZpow 3 K : Dyadic) : ℚ)| ≤ ((F₁.toFormat.next b.val : Dyadic) : ℚ)
         suffices h_real : |((Dyadic.ofIntZpow 3 K : Dyadic) : ℝ)|
             ≤ ((F₁.toFormat.next b.val : Dyadic) : ℝ) by
-          rw [Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs] at h_real
-          rw [Dyadic.coe_real_eq_ratCast] at h_real
           exact_mod_cast h_real
         have h_v_eq : ((Dyadic.ofIntZpow 3 K : Dyadic) : ℝ) = (3 : ℝ) * (2 : ℝ) ^ K := by
           rw [Dyadic.coe_ofIntZpow]; push_cast; ring
@@ -984,7 +978,6 @@ theorem two_le_p_or_trivial_of_extend_one_withBound_subset {F₁ F₂ : FiniteFo
         have hb_OK : Format.boundOK F₁.b d := hd_mem.2.2
         rw [hF_b] at hb_OK; exact hb_OK
       have hd_le_b : |((d : Dyadic) : ℝ)| ≤ ((b.val : Dyadic) : ℝ) := by
-        rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
         exact_mod_cast hd_le_b_q
       have hb_ge : (2 : ℝ)^e ≤ ((b.val : Dyadic) : ℝ) := le_trans hd_abs_ge hd_le_b
       have h2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
@@ -997,8 +990,6 @@ theorem two_le_p_or_trivial_of_extend_one_withBound_subset {F₁ F₂ : FiniteFo
       -- Prove the bound over ℝ, then cast to ℚ.
       suffices h_real : |((Dyadic.ofIntZpow 3 (e - 1) : Dyadic) : ℝ)|
           ≤ ((F₁.toFormat.next b.val : Dyadic) : ℝ) by
-        rw [Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs] at h_real
-        rw [Dyadic.coe_real_eq_ratCast] at h_real
         exact_mod_cast h_real
       -- |3·2^(e-1)| = 1.5·2^e ≤ next(b) (≥ b + step ≥ 2·2^e ≥ 1.5·2^e).
       have h_v_eq : ((Dyadic.ofIntZpow 3 (e - 1) : Dyadic) : ℝ) = (3 : ℝ) * (2 : ℝ)^(e - 1) := by

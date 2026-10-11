@@ -191,7 +191,7 @@ theorem Nontrivial.exists_sign {F : Format} (h : F.Nontrivial) (b : Bool) :
   obtain ⟨f, -, hf⟩ := hasPositive_one_iff.mpr h
   obtain ⟨ha, ha_pos⟩ := hf 0
   have hq : (0 : ℚ) < (f 0 : ℚ) := by
-    rw [Dyadic.coe_real_eq_ratCast] at ha_pos; exact_mod_cast ha_pos
+    exact_mod_cast ha_pos
   have hne : f 0 ≠ 0 := fun h => by rw [h] at hq; simp at hq
   cases b
   · exact ⟨f 0, ha, hne, by simpa using hq.le⟩
@@ -462,8 +462,6 @@ theorem boundOK_of_abs_le {b : Bound} {g h : Dyadic}
   | top => trivial
   | coe b =>
     have hle' : |(g : ℚ)| ≤ |(h : ℚ)| := by
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast,
-        ← Rat.cast_abs, ← Rat.cast_abs] at hle
       exact_mod_cast hle
     have hb' : |(h : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb
     change |(g : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
@@ -474,7 +472,6 @@ bound over `ℝ`. -/
 theorem abs_coe_real_le_of_boundOK {b₁ : NonNegDyadic} {y : Dyadic}
     (h : Format.boundOK ((b₁ : Bound)) y) :
     |(y : ℝ)| ≤ ((b₁.val : Dyadic) : ℝ) := by
-  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
   exact_mod_cast h
 
 /-- Converse of `abs_coe_real_le_of_boundOK`. -/
@@ -482,7 +479,6 @@ theorem boundOK_coe_of_abs_le {b : NonNegDyadic} {y : Dyadic}
     (h : |(y : ℝ)| ≤ ((b.val : Dyadic) : ℝ)) :
     Format.boundOK ((b : Bound)) y := by
   change |(y : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs] at h
   exact_mod_cast h
 
 /-- A failed bound check, transferred to a strict absolute-value bound
@@ -492,7 +488,6 @@ theorem lt_abs_coe_real_of_not_boundOK {b₁ : NonNegDyadic} {y : Dyadic}
     ((b₁.val : Dyadic) : ℝ) < |(y : ℝ)| := by
   have h1 : ¬ |(y : ℚ)| ≤ ((b₁.val : Dyadic) : ℚ) := h
   push Not at h1
-  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
   exact_mod_cast h1
 
 /-- A dyadic between two in-bound dyadics is in-bound. -/
@@ -504,10 +499,8 @@ theorem boundOK_of_between {b : Bound} {lo hi g : Dyadic}
   | top => trivial
   | coe b =>
     have h1' : (lo : ℚ) ≤ (g : ℚ) := by
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h1
       exact_mod_cast h1
     have h2' : (g : ℚ) ≤ (hi : ℚ) := by
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h2
       exact_mod_cast h2
     change |(g : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
     exact abs_le.mpr ⟨by linarith [(abs_le.mp hblo).1], by linarith [(abs_le.mp hbhi).2]⟩

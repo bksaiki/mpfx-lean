@@ -847,6 +847,6 @@ theorem NonNegDyadic.le_iff_coe_real {a b : NonNegDyadic} :
 
 /-- A `NonNegDyadic` is non-negative over `ℝ`. -/
 theorem nonneg_coe_real (b : NonNegDyadic) : 0 ≤ ((b.val : Dyadic) : ℝ) := by
-  rw [Dyadic.coe_real_eq_ratCast]; exact_mod_cast b.2
+  exact_mod_cast b.2
 
 end Mpfx
