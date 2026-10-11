@@ -202,18 +202,52 @@ MpfxTest/             `lake test` examples
 
 ## Open: Refactoring / cleanup (low-priority)
 
-The full cleanup plan, from a review of the whole development, is in
-[`CLEANUP.md`](CLEANUP.md).
-
+- [!] **One tie-break-uniform nearest clause** (spec change; blocked on
+      checking the paper's wording): `∀ z ∈ F, faithful z → z ≠ y →
+      |x − y| = |x − z| → tb.Prefers F y z`. The `.toEven` and `.awayZero`
+      clauses are the same shape after currying, so this removes the `cases tb`
+      duplication from `eq_of_mem`, the nearest `neg_*`, `unique_nearest`,
+      `nearest_min`, `nearest_restrict`/`nearest_lift`,
+      `nearest_error_le_half_ulp`, `nearest_eq_of_close` and
+      `DoubleRounding/Nearest.lean`. About 120 lines.
+- [!] **`.undefined` at `(1, ⊥)` with RTO/RNE** (blocked on a paper decision).
+      `IsOdd` already computes something there (exponent parity through
+      `unbotD 0`) and it alternates; `(1, ⊥)` is only special in that no
+      2-colouring is invariant under doubling, which no theorem uses. If
+      `.undefined` goes, `rnd` returns `WithSpecial Dyadic` directly,
+      `ParityFormat` goes, and about 110 `IsUndefined`/`.undefined` hits go,
+      including `h₁u` on RNA statements, where RNA is never undefined. Either
+      way, `rndUnbounded` can drop its unused `_h_undef` argument (about 90
+      call sites).
+- [ ] **Rounding as a selection** (high churn). Make rounding a function
+      `sel_rm(x, down x, up x)` with the `RoundsFinite` characterisations as
+      theorems. Per-mode uniqueness disappears, `neg_*` and `monotone_*`
+      become one lemma each, and the directed double-rounding rules become
+      `⌊⌊x⌋₂⌋₁ = ⌊x⌋₁` for any `V₁ ⊆ V₂` plus sign reduction. It loses the
+      bounded-`F` reading of `RoundsFinite` (RTZ saturates, RAZ is partial
+      past `b`), which exists only as a proof device. Entry point: a single
+      `RoundsFinite.iff_select` theorem, then migrate gradually.
 - [ ] **Optional `Coe FiniteFormat Format` instance** — would let `⊆`/
       `withBound`/`boundAfterNext` drop their explicit `.toFormat` too. Add
       only if that noise becomes overwhelming.
 - [ ] **Per-file module docstrings** + paper-reference cross-links (`README`
       is done; individual file headers could still gain `§`-references).
-- (Considered, not done: de-`change`-ing `Rounding/Op/` — its ~60 `change`s
-  are legitimate definitional unfolds of `canonicalExp`/`rndInt`/arithmetic,
-  not the `.toFormat` pattern; removing them needs per-def unfold lemmas with
-  no real payoff.)
+- Considered, not done:
+  - De-`change`-ing `Rounding/Op/`: its `change`s are definitional unfolds of
+    `canonicalExp`/`rndInt`/arithmetic; removing them needs per-def unfold
+    lemmas with no real payoff.
+  - `Special.lean` binders (`section`/`variable`, or a `DoubleRule`
+    structure): only shortens signatures; each rule body is already one
+    `rnd_double` or `.of_bound` call.
+  - One lemma for the four `not_isUndefined_*`: every call site would get
+    longer.
+  - Merging `rndMul_expBot`/`rndMul_expFinite`: renames README-listed
+    theorems to save a docstring.
+  - Restating `boundAfterNext` on `FiniteFormat` to drop `Format.next`: moves
+    the README theorems' relaxed-containment hypotheses off the paper's
+    definition, and the two successors differ at `exp = ⊥, b = 0`.
+  - `Dyadic` over ℝ instead of ℚ: touches every file and gives up the
+    computable `rndQ` option above. Revisit only if that option is abandoned.
 
 ## Open: substrate ergonomics (low-priority)
 
