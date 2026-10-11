@@ -154,7 +154,7 @@ theorem ulp_le_half_ulp_of_canonicalExp_lt {F₁ F₂ : FiniteFormat} {x : ℝ}
         rw [zpow_sub₀ (by norm_num : (2 : ℝ) ≠ 0)]; norm_num
 
 /-- **Nearest error bound.** A round-to-nearest value `z` of `x` is within half
-an ulp of `x`. Stated over `F.unbounded`, where the directed competitors always
+an ulp of `x`. Stated over `F.unbounded`, where the directed candidates always
 exist. -/
 theorem nearest_error_le_half_ulp {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
     {z : Dyadic} (h : RoundsFinite F.unbounded (.nearest tb) x z) :

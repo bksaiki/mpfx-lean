@@ -382,7 +382,7 @@ through `unbotD 0`), and it alternates. `(1, ⊥)` is only special in that no
   `roundsRTO_RAZ_finite_pos` + `_of_extend` (about 200 lines, each a mirrored
   positive/negative/zero split), and **closes the ROADMAP item "Round-to-odd
   into RTP and RTN"**. About 140 lines saved.
-* [ ] `roundsRTO_RTO_finite` derives `¬ F₁.IsUndefined .toOdd` through
+* [x] `roundsRTO_RTO_finite` derives `¬ F₁.IsUndefined .toOdd` through
   `numDigits` (about 28 lines). Every caller already has it; take it as a
   hypothesis. This weakens a README-listed theorem only to what its `rnd` form
   already assumes.

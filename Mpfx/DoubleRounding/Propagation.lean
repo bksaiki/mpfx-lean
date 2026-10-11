@@ -22,7 +22,7 @@ No-overflow propagation needs `F₁.withBound F₁.boundAfterNext ⊆ F₂`, not
 (in bound) and `5` in `F₂` (overflow). -/
 
 /-- An in-bound RTZ rounding pins `x` strictly below `next(b₁)`: otherwise
-`±next(b₁)` would compete and force `|y| > b₁`. -/
+`±next(b₁)` would be a candidate and force `|y| > b₁`. -/
 theorem abs_lt_next_of_toZero_inbound {F₁ : FiniteFormat}
     {b₁ : NonNegDyadic}
     (hF₁b : F₁.b = (b₁ : Bound)) (hb₁_mem : b₁.val ∈ F₁)
@@ -79,7 +79,7 @@ theorem toZero_noOverflow_F₂ {F₁ F₂ : FiniteFormat}
     exact boundOK_of_abs_le hzN hN_F₂.2.2
 
 /-- Chain no-overflow for RTZ-RTZ: the unbounded RTZ rounding `w` of `z` in
-`F₁` is in-bound, given that the direct rounding `y` is (`w` competes
+`F₁` is in-bound, given that the direct rounding `y` is (`w` is a candidate
 against `y` at `x`). -/
 theorem toZero_noOverflow_chain {F₁ F₂ : FiniteFormat} {x : ℝ}
     {y z w : Dyadic}
@@ -104,7 +104,7 @@ theorem toZero_noOverflow_chain {F₁ F₂ : FiniteFormat} {x : ℝ}
 
 /-- No-overflow propagation for RAZ: if the unbounded RAZ rounding `y` of `x`
 in `F₁` is in-bound, then the unbounded RAZ rounding `z` of `x` in `F₂` is
-in-bound (`y ∈ F₁ ⊆ F₂` competes, so `|z| ≤ |y|`). -/
+in-bound (`y ∈ F₁ ⊆ F₂` is a candidate, so `|z| ≤ |y|`). -/
 theorem awayZero_noOverflow_F₂ {F₁ F₂ : FiniteFormat}
     (hsub : F₁.toFormat ⊆ F₂.toFormat) {x : ℝ} {y z : Dyadic}
     (hy : RoundsFinite F₁.unbounded .awayZero x y) (hby : Format.boundOK F₁.b y)
@@ -128,7 +128,7 @@ theorem awayZero_noOverflow_chain {F₁ F₂ : FiniteFormat}
   obtain ⟨hymem, hybnd, hysign, hymin⟩ := hy
   obtain ⟨_, hzbnd, hzsign, hzmin⟩ := hz
   obtain ⟨_, _, _, hwmin⟩ := hw
-  -- `|z| ≤ |y|` since `y ∈ F₂.unbounded` competes for `z`.
+  -- `|z| ≤ |y|` since `y ∈ F₂.unbounded` is a candidate for `z`.
   have hyF₂ : y ∈ F₂ := hsub y (mem_of_mem_unbounded_of_boundOK hymem hby)
   have hzy : |(z : ℝ)| ≤ |(y : ℝ)| :=
     hzmin y (mem_unbounded_of_mem hyF₂) hybnd hysign
@@ -142,7 +142,7 @@ theorem awayZero_noOverflow_chain {F₁ F₂ : FiniteFormat}
     exact abs_nonpos_iff.mp h0
   have hyz : (y : ℝ) * (z : ℝ) ≥ 0 :=
     mul_nonneg_of_common_sign hysign hzsign hy0
-  -- `y` competes for `w` at the point `z`.
+  -- `y` is a candidate for `w` at the point `z`.
   have hwy : |(w : ℝ)| ≤ |(y : ℝ)| := hwmin y hymem hzy hyz
   exact boundOK_of_abs_le hwy hby
 
@@ -152,8 +152,8 @@ theorem awayZero_noOverflow_chain {F₁ F₂ : FiniteFormat}
 
 /-- The RTO rounding `z` of `x` in `F₂` is dominated (in magnitude, with
 matching sign) by any in-bound RAZ rounding `y` of `x` in `F₁`: the faithful
-candidates of `z` are squeezed between `0` and `±y`, since `y ∈ F₂` competes
-on `z`'s side. -/
+candidates of `z` are squeezed between `0` and `±y`, since `y ∈ F₂` is a
+candidate on `z`'s side. -/
 theorem toOdd_abs_le_of_awayZero {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     {x : ℝ} {y z : Dyadic}
@@ -495,7 +495,7 @@ theorem abs_le_mid_of_nearest_inbound {F₁ : FiniteFormat}
 /-- A nearest rounding of an input strictly inside the midpoint `M` of
 `(b₁, next(b₁))` stays in bound: past `±b₁` the in-bound side is strictly
 closer. -/
-private theorem nearest_boundOK_of_abs_lt_mid {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
+theorem nearest_boundOK_of_abs_lt_mid {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
     (hF₁b : F₁.b = (b₁ : Bound)) (hb₁_mem : b₁.val ∈ F₁)
     (hguard : F₁.exp = ⊥ → 0 < ((b₁.val : Dyadic) : ℝ))
     {tb : TieBreak} {z : ℝ} {w : Dyadic}
@@ -618,7 +618,7 @@ private theorem nearest_boundOK_of_abs_lt_mid {F₁ : FiniteFormat} {b₁ : NonN
 /-- RTO padding at the midpoint: an inexact RTO rounding into `F₂` cannot land on
 `±M`, `M` the midpoint of `(b₁, next(b₁))`, since `M` has a free trailing digit
 in `F₂` (through the `extend 2` containment). -/
-private theorem abs_lt_mid_of_toOdd {F₁ F₂ : FiniteFormat}
+theorem abs_lt_mid_of_toOdd {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
       ⊆ F₂.toFormat)
     {b₁ : NonNegDyadic} (hF₁b : F₁.b = (b₁ : Bound)) (hb₁_mem : b₁.val ∈ F₁)
@@ -658,39 +658,6 @@ private theorem abs_lt_mid_of_toOdd {F₁ F₂ : FiniteFormat}
           exact hz_eq
         exact h_notmem (h1 ▸ FiniteFormat.neg_mem hM_G')
   exact hzM_lt
-
-/-- Chain no-overflow for RTO-RN. With `|z| ≤ M` (midpoint), an out-of-bound
-chained rounding would have to sit at `±next(b₁)`, strictly farther from `z`
-than the in-bound side `±b₁` — except at `|z| = M` exactly, which the RTO-padding lemma
-(through the `extend 2` containment) rules out. -/
-theorem toOdd_nearest_noOverflow_chain {F₁ F₂ : FiniteFormat}
-    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
-      ⊆ F₂.toFormat)
-    (hreg : ∀ b : NonNegDyadic, F₁.b = (b : Bound) →
-      b.val ∈ F₁ ∧ (F₁.exp = ⊥ → 0 < ((b.val : Dyadic) : ℝ)))
-    (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
-    {tb : TieBreak} (h₁u : ¬ F₁.IsUndefined (.nearest tb))
-    {x : ℝ} {y z w : Dyadic}
-    (hy : RoundsFinite F₁.unbounded (.nearest tb) x y)
-    (hby : Format.boundOK F₁.b y)
-    (hz : RoundsFinite F₂.unbounded .toOdd x z)
-    (hw : RoundsFinite F₁.unbounded (.nearest tb) (z : ℝ) w) :
-    Format.boundOK F₁.b w := by
-  -- `x = z` short-circuits through uniqueness.
-  rcases eq_or_ne x ((z : Dyadic) : ℝ) with hxz | hxz
-  · have hw' : RoundsFinite F₁.unbounded (.nearest tb) x w := hxz ▸ hw
-    rw [RoundsFinite.unique h₁u hw' hy]; exact hby
-  rcases hF₁b : F₁.b with _ | b₁
-  · trivial
-  obtain ⟨hb₁_mem, hguard⟩ := hreg b₁ hF₁b
-  obtain ⟨-, hyfaithful, hyclose⟩ := nearest_components hy
-  -- `|x| ≤ M`, hence `|z| ≤ M`, and padding makes it strict.
-  have hxM := abs_le_mid_of_nearest_inbound hF₁b hb₁_mem hguard hyfaithful hyclose hby
-  have hM_F₂ := hsub _ (next_mem_extend_two_withBound hF₁b hb₁_mem)
-  have hzM := abs_faithful_le_of_le (mem_unbounded_of_mem hM_F₂) hxM hz.2.1
-  have h := nearest_boundOK_of_abs_lt_mid hF₁b hb₁_mem hguard hw
-    (abs_lt_mid_of_toOdd hsub hF₁b hb₁_mem hguard hp_F₂ hz hxz hzM)
-  rwa [hF₁b] at h
 
 /-! ## Back to the direct rounding: an in-bound chain keeps it in bound -/
 
@@ -871,36 +838,5 @@ theorem toOdd_toOdd_noOverflow_direct {F₁ F₂ : FiniteFormat}
     roundsRTO_RTO_finite hsubG hp_F₂ hz (RoundsFinite.toOdd_restrict hw (hbG w hwN))
   rw [RoundsFinite.unique (F := G) h₁u hy (RoundsFinite.toOdd_lift hxw hy (hbG y hyN))]
   rwa [hF₁b] at hbw
-
-/-- **RTO-RN.** An in-bound chain pins `|z| ≤ M` (midpoint of `(b₁, next b₁)`),
-strictly when inexact (padding), hence `|x| < M`, where the direct nearest
-rounding is in bound. -/
-theorem toOdd_nearest_noOverflow_direct {F₁ F₂ : FiniteFormat}
-    (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
-      ⊆ F₂.toFormat)
-    (hreg : ∀ b : NonNegDyadic, F₁.b = (b : Bound) →
-      b.val ∈ F₁ ∧ (F₁.exp = ⊥ → 0 < ((b.val : Dyadic) : ℝ)))
-    (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
-    {tb : TieBreak} (h₁u : ¬ F₁.IsUndefined (.nearest tb))
-    {x : ℝ} {y z w : Dyadic} (hz : RoundsFinite F₂.unbounded .toOdd x z)
-    (hw : RoundsFinite F₁.unbounded (.nearest tb) (z : ℝ) w) (hbw : Format.boundOK F₁.b w)
-    (hy : RoundsFinite F₁.unbounded (.nearest tb) x y) : Format.boundOK F₁.b y := by
-  rcases eq_or_ne x ((z : Dyadic) : ℝ) with hxz | hxz
-  · rw [RoundsFinite.unique h₁u hy (hxz ▸ hw)]; exact hbw
-  rcases hF₁b : F₁.b with _ | b₁
-  · trivial
-  obtain ⟨hb₁_mem, hguard⟩ := hreg b₁ hF₁b
-  obtain ⟨hb₁_nn, hN_lt, -, -⟩ := next_facts hb₁_mem
-  obtain ⟨-, hwfaithful, hwclose⟩ := nearest_components hw
-  have hM_nn : 0 ≤ (((F₁.extend 1).toFormat.next b₁.val : Dyadic) : ℝ) := by
-    rw [next_extend_midpoint' hb₁_nn hguard]; linarith
-  have hM_F₂ := hsub _ (next_mem_extend_two_withBound hF₁b hb₁_mem)
-  have hzM := abs_lt_mid_of_toOdd hsub hF₁b hb₁_mem hguard hp_F₂ hz hxz
-    (abs_le_mid_of_nearest_inbound hF₁b hb₁_mem hguard hwfaithful hwclose hbw)
-  have hxM := lt_of_not_ge fun h =>
-    absurd (le_abs_faithful_of_le (mem_unbounded_of_mem hM_F₂) hM_nn h hz.2.1)
-      (not_le.mpr hzM)
-  have h := nearest_boundOK_of_abs_lt_mid hF₁b hb₁_mem hguard hy hxM
-  rwa [hF₁b] at h
 
 end Mpfx
