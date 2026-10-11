@@ -86,14 +86,35 @@ that failure, and full IEEE instances of RTO → RN and RTZ → RTZ.
 ### §5.2 — Counterexamples for the invalid pairings
 
 The ten mode pairings that are *not* correct double rounding, in
-`namespace Mpfx.Cex` (`Mpfx/DoubleRounding/Counterexample.lean`). Each exhibits a witness
-format `F₁` and a real `x` whose chained rounding disagrees with the direct
-rounding (`∃ x z w, RoundsFinite F₂ rm₂ x z ∧ RoundsFinite F₁ rm₁ z w ∧
-¬ RoundsFinite F₁ rm₁ x w`):
+`namespace Mpfx.Cex` (`Mpfx/DoubleRounding/Counterexample.lean`). For every
+parity format `F₁`, bounded or not, and every `F₂` satisfying the containment,
+each exhibits a real `x` whose chained rounding disagrees with the direct
+rounding, with no rounding overflowing (`Disagrees`: `∃ x z w y,
+RoundsInBound F₂ rm₂ x z ∧ RoundsInBound F₁ rm₁ z w ∧ RoundsInBound F₁ rm₁ x y ∧
+w ≠ y`). `Disagrees.rnd_ne` turns the witness into a failure of
+`rnd₁ ∘ rnd₂ = rnd₁` for any `SpecialMap` and `OverflowMap`, at a finite input
+with a finite intermediate. The `On rnd` theorems need
+`¬ F₂.IsUndefined (.nearest .toEven)` when the intermediate is RNE.
 
-`no_rndRNE_RNE`, `no_rndRNE_RAZ`, `no_rndRNE_RTZ`, `no_rndRNE_RTO`,
-`no_rndRTZ_RNE`, `no_rndRTZ_RAZ`, `no_rndRTZ_RTO`,
-`no_rndRAZ_RNE`, `no_rndRAZ_RTZ`, `no_rndRAZ_RTO`.
+The only hypothesis on `F₁` is a count of its positive values
+(`Format.HasPositive`; one is `Nontrivial`):
+
+| Pairing | Positive values of `F₁` | In bound (`Disagrees`) | On `rnd` |
+| --- | --- | --- | --- |
+| RNE → RTZ | 1 | `no_roundsRNE_RTZ` | `no_rndRNE_RTZ` |
+| RAZ → RTZ | 1 | `no_roundsRAZ_RTZ` | `no_rndRAZ_RTZ` |
+| RTZ → RNE | 1 | `no_roundsRTZ_RNE` | `no_rndRTZ_RNE` |
+| RNE → RNE | 1 | `no_roundsRNE_RNE` | `no_rndRNE_RNE` |
+| RTZ → RAZ | 2 | `no_roundsRTZ_RAZ` | `no_rndRTZ_RAZ` |
+| RNE → RAZ | 2 | `no_roundsRNE_RAZ` | `no_rndRNE_RAZ` |
+| RAZ → RTO | 2 | `no_roundsRAZ_RTO` | `no_rndRAZ_RTO` |
+| RNE → RTO | 2 | `no_roundsRNE_RTO` | `no_rndRNE_RTO` |
+| RAZ → RNE | 2 | `no_roundsRAZ_RNE` | `no_rndRAZ_RNE` |
+| RTZ → RTO | 3 | `no_roundsRTZ_RTO` | `no_rndRTZ_RTO` |
+
+An unbounded `F₁` has every count (`FiniteFormat.hasPositive_of_b_top`). The
+counts are believed least, since with one fewer an `F₂` without a minimum quantum
+appears to agree on every in-bound input, but that is not proved.
 
 ### Operation-specific double rounding (Roux 2014)
 

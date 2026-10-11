@@ -173,6 +173,23 @@ theorem Nontrivial.p_ne_zero {F : Format} (h : F.Nontrivial) : F.p ≠ 0 := by
   rw [h0] at hp
   exact hd_ne (Dyadic.precisionAtMost_zero_iff_eq_zero.mp hp)
 
+/-- `F` has at least `n` positive values: a strictly increasing `n`-tuple of
+them. One positive value is `Nontrivial` (`hasPositive_one_iff`). -/
+def HasPositive (F : Format) (n : ℕ) : Prop :=
+  ∃ f : Fin n → Dyadic, StrictMono (fun i => (f i : ℝ)) ∧ ∀ i, f i ∈ F ∧ (0 : ℝ) < f i
+
+/-- A nonzero value or its negation is positive. -/
+theorem hasPositive_one_iff {F : Format} : F.HasPositive 1 ↔ F.Nontrivial := by
+  refine ⟨fun ⟨f, _, hf⟩ => ⟨f 0, (hf 0).1, fun h => ?_⟩, fun ⟨d, hd, hne⟩ => ?_⟩
+  · have := (hf 0).2
+    rw [h, Dyadic.coe_real_zero] at this
+    exact lt_irrefl _ this
+  · have hne' : (d : ℝ) ≠ 0 := fun h => hne (Dyadic.ext_real (by rw [h, Dyadic.coe_real_zero]))
+    rcases hne'.lt_or_gt with hneg | hpos
+    · exact ⟨fun _ => -d, Subsingleton.strictMono _,
+        fun _ => ⟨neg_mem hd, by rw [Dyadic.coe_real_neg]; linarith⟩⟩
+    · exact ⟨fun _ => d, Subsingleton.strictMono _, fun _ => ⟨hd, hpos⟩⟩
+
 /-- §4.2's restriction on the magnitude bound: `b ∈ 𝒜(p, exp, ∞) ∪ {∞}`, i.e. a
 finite bound is itself representable. -/
 def BoundRep (F : Format) : Prop :=
@@ -497,6 +514,22 @@ theorem mem_unbounded_of_mem {F : FiniteFormat} {d : Dyadic}
 theorem mem_of_mem_unbounded_of_boundOK {F : FiniteFormat} {d : Dyadic}
     (h : d ∈ F.unbounded) (hb : Format.boundOK F.b d) : d ∈ F :=
   ⟨h.1, h.2.1, hb⟩
+
+/-- Without a bound, a format has every number of positive values: the powers
+of two from its minimum quantum up. -/
+theorem FiniteFormat.hasPositive_of_b_top {F : FiniteFormat} (hb : F.b = ⊤) (n : ℕ) :
+    F.toFormat.HasPositive n := by
+  set e₀ : ℤ := F.exp.unbotD 0
+  refine ⟨fun i => Dyadic.ofIntZpow 1 (e₀ + i), fun i j hij => ?_, fun i => ⟨?_, ?_⟩⟩
+  · simp only [coe_real_ofIntZpow_one]
+    exact zpow_lt_zpow_right₀ (by norm_num) (by simpa using hij)
+  · refine Format.ofIntZpow_mem (precisionAtMost_one_zpow F.pos _) ?_ (by rw [hb]; trivial)
+    cases he : F.exp using QExp.recBotCoe with
+    | bot => exact bot_le
+    | coe e =>
+      have : e₀ = e := by simp [e₀, he]
+      exact WithBot.coe_le_coe.mpr (by omega)
+  · rw [coe_real_ofIntZpow_one]; exact zpow_pos (by norm_num) _
 
 /-- A `FiniteFormat` with `exp = ⊥` has finite precision. -/
 theorem exists_p_coe_of_exp_bot {F : FiniteFormat} (he : F.exp = ⊥) :
