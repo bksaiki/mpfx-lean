@@ -136,13 +136,18 @@ docstring for the exponent conditions.
 ### §6.1 — Format inference
 
 In `Mpfx/Format/Inference.lean`. The inferred format contains every result of
-the unrounded operation:
+the unrounded operation, with special values propagated by IEEE 754 (NaN
+propagates, `∞ × 0` and `∞ − ∞` are NaN, infinities take the product's XOR
+sign or keep their own in a sum). The inferred specials are exactly those the
+operation produces (`special_mem_opMul_iff`, `special_mem_opAdd_iff`,
+`special_mem_opAbs_iff`).
 
-| Paper | Lean |
-| --- | --- |
-| `⊗`-containment (`A ⊗ B ⊆ 𝒜(p₁+p₂, …)`) | `Format.mul_subset` |
-| `⊕`-containment (`A ⊕ B ⊆ 𝒜(…)`) | `Format.add_subset` |
-| `-A ⊆ A`, `\|A\| ⊆ A` | `Format.neg_subset`, `Format.abs_subset` |
+| Paper | Over values (with specials) | Finite form |
+| --- | --- | --- |
+| `⊗`-containment (`A ⊗ B ⊆ 𝒜(p₁+p₂, …)`) | `Format.mul_subset` | `Format.mul_subset_finite` |
+| `⊕`-containment (`A ⊕ B ⊆ 𝒜(…)`) | `Format.add_subset` | `Format.add_subset_finite` |
+| `-A ⊆ A` | `Format.neg_subset` (into `opNeg A`; `= A` for negation-closed specials, `opNeg_of_negClosed`) | `Format.neg_subset_finite` |
+| `\|A\| ⊆ A` | `Format.abs_subset` (into `opAbs A`) | `Format.abs_subset_finite` |
 
 ## Verifying
 
