@@ -190,6 +190,19 @@ theorem hasPositive_one_iff {F : Format} : F.HasPositive 1 ↔ F.Nontrivial := b
         fun _ => ⟨neg_mem hd, by rw [Dyadic.coe_real_neg]; linarith⟩⟩
     · exact ⟨fun _ => d, Subsingleton.strictMono _, fun _ => ⟨hd, hpos⟩⟩
 
+/-- A nontrivial format has a nonzero value of either sign: a positive value
+or its negation. -/
+theorem Nontrivial.exists_sign {F : Format} (h : F.Nontrivial) (b : Bool) :
+    ∃ y : Dyadic, y ∈ F ∧ y ≠ 0 ∧ decide ((y : ℚ) < 0) = b := by
+  obtain ⟨f, -, hf⟩ := hasPositive_one_iff.mpr h
+  obtain ⟨ha, ha_pos⟩ := hf 0
+  have hq : (0 : ℚ) < (f 0 : ℚ) := by
+    rw [Dyadic.coe_real_eq_ratCast] at ha_pos; exact_mod_cast ha_pos
+  have hne : f 0 ≠ 0 := fun h => by rw [h] at hq; simp at hq
+  cases b
+  · exact ⟨f 0, ha, hne, by simpa using hq.le⟩
+  · exact ⟨-f 0, neg_mem ha, neg_ne_zero.mpr hne, by simpa using hq⟩
+
 /-- §4.2's restriction on the magnitude bound: `b ∈ 𝒜(p, exp, ∞) ∪ {∞}`, i.e. a
 finite bound is itself representable. -/
 def BoundRep (F : Format) : Prop :=

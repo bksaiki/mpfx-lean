@@ -26,14 +26,14 @@ specials, `opNeg F = F` (`opNeg_of_negClosed`), but `|F|` can gain `+∞`.
 
 ## Result formats are plain `Format`s
 
-`Format` carries only the three fields `(p, exp, b)` with **no** validity
+`Format` carries only its fields `(p, exp, b, specials)` with **no** validity
 invariants (those live in `FiniteFormat`/`ParityFormat`). So `opMul`/`opAdd`
 produce a plain `Format` with no proof obligations, and need no `F.exp ≠ ⊥`
 preconditions.
 
 For the `⊕`-precision we use a *slightly tighter* formula than the paper:
 `opAddPrec` returns `⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉` (floor inside),
-matching the actual integer bound on `|c|`.  The `max 1 …` keeps `p ≥ 1`.
+matching the actual integer bound on `|c|`.
 -/
 
 namespace Mpfx
@@ -170,23 +170,6 @@ end WithSpecial
 namespace Format
 
 open scoped Pointwise
-
-/-- A nontrivial format has a nonzero value of either sign. -/
-theorem Nontrivial.exists_sign {F : Format} (h : F.Nontrivial) (b : Bool) :
-    ∃ y : Dyadic, y ∈ F ∧ y ≠ 0 ∧ decide ((y : ℚ) < 0) = b := by
-  obtain ⟨d, hd, hne⟩ := h
-  have hne' : (d : ℚ) ≠ 0 := fun h => hne (Subtype.ext h)
-  by_cases hb : decide ((d : ℚ) < 0) = b
-  · exact ⟨d, hd, hne, hb⟩
-  · refine ⟨-d, neg_mem hd, neg_ne_zero.mpr hne, ?_⟩
-    have hneg : ((-d : Dyadic) : ℚ) = -(d : ℚ) := by push_cast; ring
-    rw [hneg]
-    rcases hne'.lt_or_gt with hlt | hgt
-    · have h₁ : ¬ -(d : ℚ) < 0 := by linarith
-      cases b <;> simp_all
-    · have h₁ : -(d : ℚ) < 0 := by linarith
-      have h₂ : ¬ (d : ℚ) < 0 := by linarith
-      cases b <;> simp_all
 
 /-! ## Inferred special values -/
 
@@ -571,29 +554,19 @@ theorem special_mem_opMul_iff {F₁ F₂ : Format} {s : Special} :
       · obtain ⟨x, hx, hx0, hsx⟩ := ha.exists_sign a
         exact ⟨.finite x, hx, .special (.inf b), hb, by simp [hx0, hsx, Bool.xor_comm]⟩
   · rintro ⟨u, hu, v, hv, h⟩
-    rcases u with x | (a | _) <;> rcases v with y | (b | _)
-    · exact absurd h (by simp)
-    · by_cases hx : x = 0
-      · simp only [WithSpecial.finite_mul_inf, if_pos hx, WithSpecial.special.injEq] at h
-        subst h; exact Or.inr (Or.inr (Or.inr ⟨b, hv⟩))
-      · simp only [WithSpecial.finite_mul_inf, if_neg hx, WithSpecial.special.injEq] at h
-        subst h
-        exact ⟨decide ((x : ℚ) < 0), b, Bool.xor_comm _ _, Or.inr ⟨⟨x, hu, hx⟩, hv⟩⟩
-    · simp only [WithSpecial.mul_nan, WithSpecial.special.injEq] at h
-      subst h; exact Or.inr (Or.inl hv)
-    · by_cases hy : y = 0
-      · simp only [WithSpecial.inf_mul_finite, if_pos hy, WithSpecial.special.injEq] at h
-        subst h; exact Or.inr (Or.inr (Or.inl ⟨a, hu⟩))
-      · simp only [WithSpecial.inf_mul_finite, if_neg hy, WithSpecial.special.injEq] at h
-        subst h
-        exact ⟨a, decide ((y : ℚ) < 0), rfl, Or.inl ⟨hu, Or.inr ⟨y, hv, hy⟩⟩⟩
-    · simp only [WithSpecial.inf_mul_inf, WithSpecial.special.injEq] at h
-      subst h; exact ⟨a, b, rfl, Or.inl ⟨hu, Or.inl hv⟩⟩
-    · simp only [WithSpecial.mul_nan, WithSpecial.special.injEq] at h
-      subst h; exact Or.inr (Or.inl hv)
-    all_goals
-      simp only [WithSpecial.nan_mul, WithSpecial.special.injEq] at h
-      subst h; exact Or.inl hu
+    rcases u with x | (a | _) <;> rcases v with y | (b | _) <;>
+      simp only [WithSpecial.finite_mul_finite, WithSpecial.finite_mul_inf,
+        WithSpecial.inf_mul_finite, WithSpecial.inf_mul_inf, WithSpecial.nan_mul,
+        WithSpecial.mul_nan] at h <;>
+      (try split_ifs at h with hx) <;> cases h
+    · exact Or.inr (Or.inr (Or.inr ⟨b, hv⟩))
+    · exact ⟨decide ((x : ℚ) < 0), b, Bool.xor_comm _ _, Or.inr ⟨⟨x, hu, hx⟩, hv⟩⟩
+    · exact Or.inr (Or.inl hv)
+    · exact Or.inr (Or.inr (Or.inl ⟨a, hu⟩))
+    · exact ⟨a, _, rfl, Or.inl ⟨hu, Or.inr ⟨y, hv, hx⟩⟩⟩
+    · exact ⟨a, b, rfl, Or.inl ⟨hu, Or.inl hv⟩⟩
+    · exact Or.inr (Or.inl hv)
+    all_goals exact Or.inl hu
 
 /-- **Mul ⊆ inferred** (paper's `⊗`): the inferred format contains every IEEE product,
 numeric or special. -/
@@ -624,26 +597,19 @@ theorem special_mem_opAdd_iff {F₁ F₂ : Format} {s : Special} :
       · exact ⟨.special (.inf s), h, .finite 0, F₂.zero_mem, rfl⟩
       · exact ⟨.finite 0, F₁.zero_mem, .special (.inf s), h, rfl⟩
   · rintro ⟨u, hu, v, hv, h⟩
-    rcases u with x | (a | _) <;> rcases v with y | (b | _)
-    · exact absurd h (by simp)
-    · simp only [WithSpecial.finite_add_inf, WithSpecial.special.injEq] at h
-      subst h; exact Or.inr hv
-    · simp only [WithSpecial.add_nan, WithSpecial.special.injEq] at h
-      subst h; exact Or.inr (Or.inl hv)
-    · simp only [WithSpecial.inf_add_finite, WithSpecial.special.injEq] at h
-      subst h; exact Or.inl hu
-    · by_cases hab : a = b
-      · simp only [WithSpecial.inf_add_inf, if_pos hab, WithSpecial.special.injEq] at h
-        subst h; exact Or.inl hu
-      · simp only [WithSpecial.inf_add_inf, if_neg hab, WithSpecial.special.injEq] at h
-        subst h
-        refine Or.inr (Or.inr ⟨a, hu, ?_⟩)
-        rwa [show b = !a by cases a <;> cases b <;> simp_all] at hv
-    · simp only [WithSpecial.add_nan, WithSpecial.special.injEq] at h
-      subst h; exact Or.inr (Or.inl hv)
-    all_goals
-      simp only [WithSpecial.nan_add, WithSpecial.special.injEq] at h
-      subst h; exact Or.inl hu
+    rcases u with x | (a | _) <;> rcases v with y | (b | _) <;>
+      simp only [WithSpecial.finite_add_finite, WithSpecial.finite_add_inf,
+        WithSpecial.inf_add_finite, WithSpecial.inf_add_inf, WithSpecial.nan_add,
+        WithSpecial.add_nan] at h <;>
+      (try split_ifs at h with hab) <;> cases h
+    · exact Or.inr hv
+    · exact Or.inr (Or.inl hv)
+    · exact Or.inl hu
+    · exact Or.inl hu
+    · refine Or.inr (Or.inr ⟨a, hu, ?_⟩)
+      rwa [show b = !a by cases a <;> cases b <;> simp_all] at hv
+    · exact Or.inr (Or.inl hv)
+    all_goals exact Or.inl hu
 
 /-- **Add ⊆ inferred** (paper's `⊕`): the inferred format contains every IEEE sum, numeric
 or special. -/
