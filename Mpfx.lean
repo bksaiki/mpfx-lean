@@ -14,12 +14,10 @@ import Mpfx.Dyadic
 import Mpfx.Format.CanonicalExp
 import Mpfx.Format.Containment
 import Mpfx.Format.Defs
-import Mpfx.Format.Digits
 import Mpfx.Format.Discrete
 import Mpfx.Format.Inference
 import Mpfx.Format.Next
 import Mpfx.Format.Parity
-import Mpfx.Format.Parity.Alternate
 import Mpfx.Rounding.Basic
 import Mpfx.Rounding.Defs
 import Mpfx.Rounding.Op

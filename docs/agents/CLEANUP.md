@@ -10,15 +10,14 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 1. [x] Quick wins (§Q) and the unused-API decision (§U).
 2. [x] A uniform `canonicalExp` and successor API (§S3). It unblocks §S1 and §S2.
-3. Parity via coarsening (§S1). The largest remaining block of size and case
-   splitting.
+3. [x] Parity via the shrink (§S1).
 4. The generic overflow theorem (§S2), prototyped on RTO → RN.
 5. Modes as selections between round-down and round-up (§S4), and the
    `ParityFormat` question (§S5) once the paper settles `.undefined`.
 
 ## Structural findings
 
-### S1. Parity by coarsening, not by canonical significand
+### S1. Parity by shrinking, not by canonical significand
 
 About 2.5k lines down to about 600. Medium risk.
 
@@ -63,9 +62,6 @@ preserved. For `p ≥ 2` or `p = ⊤`, and any `exp` including `⊥`:
   pairs.
 * `Rounding/Parity.lean`: the six `alternate_*` leaves and the `Alternate`
   abbreviation.
-* The `IsEven` twin of each `IsOdd` lemma (`IsEven.neg`, `.congr`,
-  `isEven_iff_even_of_canonical`, `parity_witness_even_congr`), since `IsEven`
-  and `IsOdd` become complementary on nonzero values by definition.
 
 **Keep** `isOdd_iff_canonical` as a theorem for paper fidelity, and
 `IsOdd.transfer_of_subset` under its current name. `rndParity` needs one lemma:
@@ -329,10 +325,9 @@ unbounded one and exists only as a proof device. Entry point: a single
 
 Low proof risk. Dropping `.undefined` needs a paper decision.
 
-`ParityFormat.parity` is used in three places, all in `Digits.lean` (via
-`nondegenerate`). The two uses on `F₂` are implied by `2 ≤ F₂.p` and
-`FiniteFormat.finite`; the `F₁` use in `odd_index_of_p_one_corner` is
-derivable. `IsOdd` already computes something at `(1, ⊥)` (exponent parity
+`ParityFormat.parity` is used only to rebuild a `ParityFormat` from another
+with the same `(p, exp)` (`parity_witness_congr`, `isEven_witness`) and in
+`ParityFormat.not_isUndefined`. `IsOdd` already computes something at `(1, ⊥)` (exponent parity
 through `unbotD 0`), and it alternates. `(1, ⊥)` is only special in that no
 2-colouring is invariant under doubling, which no theorem uses.
 
@@ -340,8 +335,10 @@ through `unbotD 0`), and it alternates. `(1, ⊥)` is only special in that no
   `∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ …` wrappers in the
   `RoundsFinite` spec (10 sites), `parity_witness_congr`,
   `IsOdd_iff_of_toFormat_eq`, and the separate `toParityFormatOfToOdd`/
-  `toParityFormatOfNearestEven` (the same value twice). Nearly free alongside
-  §S1.
+  `toParityFormatOfNearestEven` (the same value twice). With
+  `IsEven y ↔ y = 0 ∨ (y ∈ F ∧ ¬ IsOdd y)` as the definition, the `IsEven`
+  twins (`IsEven.neg`, `IsEven.congr`, `IsEven_iff_of_toFormat_eq`,
+  `parity_witness_even_congr`) become corollaries.
 * [ ] Paper decision: whether `rnd` stays `.undefined` at `(1, ⊥)` with
   RTO/RNE. If not, `rnd` returns `WithSpecial Dyadic` directly and about 190
   `IsUndefined`/`.undefined` hits go, including `h₁u` on RNA statements, where
@@ -514,11 +511,9 @@ High confidence, low risk, independent of the structural work.
 
   About 120 lines. The `mem_def`/`boundOK`-iff sweep is dropped: the remaining
   `change` lines are one line each, so rewriting them saves nothing.
-* [ ] `Format/Parity.lean`: `IsOdd`/`IsEven` lemmas are duplicated pairwise.
-  Factor through an index `idx F c e := if F.p = 1 then e − exp.unbotD 0 + 1
-  else c` and a private witness predicate, and prove `neg` once for any
-  sign-invariant predicate. `IsOdd_iff_of_toFormat_eq` is a corollary of
-  `IsOdd.congr`. About 90 lines. Superseded by §S1 if that lands.
+* [ ] `Format/Parity.lean`: `IsOdd.neg`/`IsEven.neg` are duplicates, and
+  `IsOdd_iff_of_toFormat_eq` is a corollary of `IsOdd.congr`. Subsumed by the
+  §S5 redefinition if that lands.
 * [x] `Format.extend_extend : (F.extend j).extend k = F.extend (j + k)`
   replaces the hand proofs in `extend_one_extend_one_subset_extend_two`,
   `extend_one_extend_one_p_exp` and `extend_one_extend_one_withBound_subset`.
@@ -534,16 +529,9 @@ High confidence, low risk, independent of the structural work.
 
 **Rounding layer**
 
-* [ ] `Rounding/Parity.lean` (only if §S1 is deferred): `alternate_normal_p1`
-  re-proves `canonicalExp_closed`, `two_pow_pred_le_scaled`,
-  `abs_floor_ge_two_pow_pred` and `abs_floor_add_one_ge_two_pow_pred`, which
-  `alternate_normal_pne1` already uses at any `p`; `alternate_expBot` repeats
-  the setup. Factor one lemma giving `2^(p−1) ≤ |lo|, |lo + 1| ≤ 2^p` from
-  `e = log|x| + 1 − p`. In `alternate_subnormal_pne1`, `h_x_lt`/`h_s_lt` is
-  `floor_mantissa_lt hp_F`. `neighbors_alternate` restates the private
-  `Alternate` verbatim; `toOdd_neighbors_alternate` and
+* [ ] `Rounding/Parity.lean`: `toOdd_neighbors_alternate` and
   `nearest_toEven_neighbors_alternate` go once callers use
-  `alternate_of_bracketing`. About 250 lines.
+  `alternate_of_bracketing`.
 * [x] `nearest_error_le_half_ulp` re-derives `nearest_min` by `cases tb` and
   rebuilds faithfulness that `(rndDown_spec F x).isFaithfulRound` gives.
   `maxFinite_nonneg` is `RoundsFinite.toNegative_nonneg`, and `maxFinite` is

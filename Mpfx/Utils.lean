@@ -35,6 +35,19 @@ theorem log_eq_of_zpow_bounds {x : ℝ} {k : ℤ} (hx : 0 < x)
     (Int.lt_zpow_iff_log_lt (b := 2) (by norm_num) hx).mp (by exact_mod_cast hhi)
   omega
 
+/-- `Int.log 2 |k · 2^e'| = Int.log 2 |k| + e'` for nonzero integer `k`. -/
+theorem log_abs_mul_zpow {k : ℤ} (hk_ne : k ≠ 0) (e' : ℤ) :
+    Int.log 2 |(k : ℝ) * (2 : ℝ) ^ e'| = Int.log 2 (|k| : ℝ) + e' := by
+  have h2e : (0 : ℝ) < (2 : ℝ) ^ e' := zpow_pos two_pos e'
+  have hk : (0 : ℝ) < |(k : ℝ)| := abs_pos.mpr (Int.cast_ne_zero.mpr hk_ne)
+  rw [abs_mul, abs_of_pos h2e]
+  refine log_eq_of_zpow_bounds (mul_pos hk h2e) ?_ ?_
+  · rw [zpow_add₀ two_ne_zero]
+    exact mul_le_mul_of_nonneg_right (Int.zpow_log_le_self (by norm_num) hk) h2e.le
+  · rw [show Int.log 2 |(k : ℝ)| + e' + 1 = (Int.log 2 |(k : ℝ)| + 1) + e' by ring,
+      zpow_add₀ two_ne_zero]
+    exact mul_lt_mul_of_pos_right (Int.lt_zpow_succ_log_self (by norm_num) _) h2e
+
 /-! ### Powers of two
 
 Stated per exponent shape, so callers can rewrite without touching an exponent

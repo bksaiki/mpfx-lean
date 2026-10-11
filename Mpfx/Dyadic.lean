@@ -455,47 +455,6 @@ theorem IsRepresentableAtP.ne_zero {n : ℕ} {c e : ℤ} {y : Dyadic}
   have hpos : (1 : ℤ) ≤ (2 : ℤ) ^ (n - 1) := one_le_pow₀ (by norm_num)
   linarith
 
-/-- Renormalization: if `|c| = 2^p` (boundary case), then
-`y = c · 2^e = (c/2) · 2^(e+1)` and `(c/2, e+1)` is the canonical
-IsRepresentableAtP form at `p` bits (with `|c/2| = 2^(p-1)`). -/
-theorem isRepresentableAtP_of_saturation {p : ℕ} (hp : 1 ≤ p)
-    {c e : ℤ} {y : Dyadic}
-    (hyeq : (y : ℚ) = (c : ℚ) * (2 : ℚ) ^ e)
-    (hc_eq : |c| = (2 : ℤ) ^ p) :
-    IsRepresentableAtP p (c / 2) (e + 1) y := by
-  have h2p_nonneg : (0 : ℤ) ≤ (2 : ℤ) ^ p := by positivity
-  -- c is even: c = ±2^p, both divisible by 2 (since p ≥ 1).
-  have hc_even : 2 ∣ c := by
-    rcases (abs_eq h2p_nonneg).mp hc_eq with hc | hc
-    · rw [hc, Int.two_pow_succ_pred hp]; exact ⟨_, rfl⟩
-    · rw [hc, Int.two_pow_succ_pred hp]; exact ⟨-(2 ^ (p - 1)), by ring⟩
-  have h_div_eq : 2 * (c / 2) = c := Int.mul_ediv_cancel' hc_even
-  -- |c/2| = 2^(p-1).
-  have h_div_abs : |c / 2| = (2 : ℤ) ^ (p - 1) := by
-    have h1 : 2 * |c / 2| = (2 : ℤ) ^ p := by
-      calc 2 * |c / 2|
-          = |2 * (c / 2)| := by rw [abs_mul]; simp
-        _ = |c| := by rw [h_div_eq]
-        _ = (2 : ℤ) ^ p := hc_eq
-    have h2 : (2 : ℤ) ^ p = 2 * (2 : ℤ) ^ (p - 1) := Int.two_pow_succ_pred hp
-    linarith
-  -- y = (c/2) · 2^(e+1).
-  have h_y_real : (y : ℚ) = ((c / 2 : ℤ) : ℚ) * (2 : ℚ) ^ (e + 1) := by
-    rw [hyeq]
-    have h_real_eq : (c : ℚ) = 2 * ((c / 2 : ℤ) : ℚ) := by
-      have : ((2 * (c / 2) : ℤ) : ℚ) = (c : ℚ) := by exact_mod_cast h_div_eq
-      push_cast at this
-      linarith
-    rw [h_real_eq]
-    rw [show (2 : ℚ) ^ (e + 1) = (2 : ℚ) ^ e * 2 by
-      rw [zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0)]; ring]
-    ring
-  refine ⟨h_y_real, ?_, ?_⟩
-  · rw [h_div_abs]
-  · rw [h_div_abs, Int.two_pow_succ_pred hp]
-    have : (0 : ℤ) < (2 : ℤ) ^ (p - 1) := by positivity
-    linarith
-
 /-- `((ofIntZpow k e : Dyadic) : ℝ) ≠ 0` whenever `k ≠ 0`. Packages the
 recurring `mul_ne_zero (cast) (zpow_pos)` idiom. -/
 theorem coe_ofIntZpow_ne_zero {k : ℤ} (hk : k ≠ 0) (e : ℤ) :
@@ -506,8 +465,7 @@ theorem coe_ofIntZpow_ne_zero {k : ℤ} (hk : k ≠ 0) (e : ℤ) :
 /-- The `Int.log`-based bounds core: for `k ≠ 0` and `y = k · 2^e'`, the pair
 `(k, e')` is the canonical representation of `y` at `log₂|k| + 1` bits. This
 captures the `2^(nd-1) ≤ |k| < 2^nd` derivation (via `Int.zpow_log_le_self` /
-`Int.lt_zpow_succ_log_self`) once, so the case-specific `numDigits` helpers can
-route through it. -/
+`Int.lt_zpow_succ_log_self`) once. -/
 theorem isRepresentableAtP_of_log {k e' : ℤ} (hk : k ≠ 0) {y : Dyadic}
     (hy : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e') :
     IsRepresentableAtP ((Int.log 2 (|k| : ℝ)).toNat + 1) k e' y := by

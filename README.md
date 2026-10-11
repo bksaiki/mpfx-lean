@@ -34,7 +34,7 @@ rules carry that conjunct.
 | --- | --- | --- |
 | Lemma 5.1 (digit position is a function of `(p, exp, x)`) | `FiniteFormat.numDigits` | `Mpfx/Format/Defs.lean` |
 | Lemma 5.2 (`w₂ = w₁ + k`) | `FiniteFormat.numDigits_extend` | `Mpfx/Format/Containment.lean` |
-| Lemma 5.3 (RTO padding preserves representability) | `IsOdd.transfer_of_subset` | `Mpfx/Format/Digits.lean` |
+| Lemma 5.3 (RTO padding preserves representability) | `IsOdd.transfer_of_subset` | `Mpfx/Format/Parity.lean` |
 
 ### §5.2 — Correct double rounding (Fig. 9)
 
@@ -178,18 +178,16 @@ Every theorem listed above depends on exactly these three standard axioms.
 | `Mpfx/Utils.lean` | Project-agnostic `ℝ`/integer helpers. |
 | `Mpfx/Dyadic.lean` | `Dyadic` (subring of `ℚ`), `precisionAtMost`/`quantumAtLeast` (and quantum alignment under `±`, `×`), `IsRepresentableAtP`. |
 | `Mpfx/Format/Defs.lean` | `Format`/`FiniteFormat`, membership, `canonicalExp`, `numDigits`; `Special`, `WithSpecial`, `Format.values`. |
-| `Mpfx/Format/Parity.lean` | `ParityFormat`, `IsOdd`/`IsEven`, transport across formats. |
-| `Mpfx/Format/Parity/Alternate.lean` | Parity alternation between adjacent canonical values. |
-| `Mpfx/Format/Containment.lean` | §5.1 containment and completeness; `extend`, `numDigits_extend`. |
+| `Mpfx/Format/Parity.lean` | `ParityFormat`, `IsOdd`/`IsEven`; even values as the shrink `𝒜(p − 1, exp + 1)`, alternation at the canonical step, RTO-padding lemma (`IsOdd.transfer_of_subset`). |
+| `Mpfx/Format/Containment.lean` | §5.1 containment and completeness; `extend`, `numDigits_extend`, `shrink`. |
 | `Mpfx/Format/Next.lean` | `withBound`, `next`, `boundAfterNext`; containment with a relaxed bound. |
-| `Mpfx/Format/Digits.lean` | Digit-count lemma; RTO-padding lemma (`IsOdd.transfer_of_subset`). |
 | `Mpfx/Format/Discrete.lean` | Canonical representation, F-adjacency, midpoint membership. |
 | `Mpfx/Format/CanonicalExp.lean` | Closed forms of the canonical exponent. |
 | `Mpfx/Format/Inference.lean` | §6.1 inference. |
 | `Mpfx/Rounding/Defs.lean` | Rounding modes, `SpecialMap`/`OverflowMap`, the `Rounds`/`RoundsFinite` spec, `Overflows`, `IsFaithfulRound`. |
 | `Mpfx/Rounding/Basic.lean` | Consequences of the spec: sign symmetry, uniqueness, faithfulness. |
 | `Mpfx/Rounding/Restrict.lean` | Restrict/lift between bounded and unbounded rounding. |
-| `Mpfx/Rounding/Parity.lean` | Adjacent grid points alternate in parity. |
+| `Mpfx/Rounding/Parity.lean` | Adjacent values alternate in parity. |
 | `Mpfx/Rounding/Op.lean`, `Op/` | The rounding function `rnd` and the bridge `rnd_iff_rounds`. |
 | `Mpfx/Rounding/Special.lean` | `maxFinite` and the standard tables: `SpecialMap.exact`/`saturate`/`toNaN`, `OverflowMap.ieee`/`saturate`/`toNaN`. |
 | `Mpfx/Rounding/Ulp.lean` | `ulp`, `rndDown`/`rndUp`/`midp`, nearest rounding around the midpoint. |

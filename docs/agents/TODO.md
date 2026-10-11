@@ -58,7 +58,7 @@ Mpfx/
 │                     abs_ge_two_zpow_of_quantum / le_log_of_quantum, Dyadic.abs,
 │                     IsRepresentableAtP (ℚ) + unique + ne_zero,
 │                     precisionAtMost_of_abs_le (saturation renormalization),
-│                     isRepresentableAtP_of_saturation
+│                     isRepresentableAtP_of_log
 ├── Format/
 │   ├── Defs.lean     Special, WithSpecial (+ neg, toReal), Format (with
 │   │                 specials) / FiniteFormat, Mem, Format.values, NegClosed,
@@ -68,13 +68,15 @@ Mpfx/
 │   │                 _expBot, _expFinite, _pTop, _neg, …), the representation
 │   │                 exists_mul_zpow_canonicalExp and its converse
 │   │                 mem_unbounded_of_mul_zpow_canonicalExp,
-│   │                 numDigits (= ⌊log₂|x|⌋ + 1 − canonicalExp x) + evaluators
-│   ├── Parity.lean   ParityFormat, IsOdd, IsEven, negation, canonical-rep
-│   │                 characterizations, transport (IsOdd/IsEven.congr,
-│   │                 *_iff_of_toFormat_eq, parity_witness_congr)
-│   ├── Parity/
-│   │   └── Alternate.lean per-regime canonical-rep parity iffs, saturation
-│   │                 facts, alternating_parity_* / alternating_isEven_*
+│   │                 numDigits (= ⌊log₂|x|⌋ + 1 − canonicalExp x)
+│   ├── Parity.lean   ParityFormat, IsOdd, IsEven, negation, transport
+│   │                 (IsOdd/IsEven.congr, *_iff_of_toFormat_eq,
+│   │                 parity_witness_congr); isOdd/isEven_iff_canonical, the
+│   │                 shrink characterization isEven/isOdd_iff_mem_shrink,
+│   │                 ofIntZpow_mem_shrink_iff (alternation), the p = 1 forms
+│   │                 is{Odd,Even}_ofIntZpow_of_p_one, isEven_of_subset,
+│   │                 exp_eq_canonicalExp_of_p_one, IsOdd.transfer_of_subset
+│   │                 (RTO-padding lemma)
 │   ├── Containment.lean §5.1: Format.Subset (numeric members and specials)
 │   │                 + HasSubset, subset_of_mem, Subset.trans,
 │   │                 FiniteFormat.subset_unbounded,
@@ -82,17 +84,13 @@ Mpfx/
 │   │                 subset_iff_contains (completeness),
 │   │                 Format.extend + self_subset_extend + extend_mono,
 │   │                 extend_p / extend_exp_coe / extend_exp_bot, extend_extend,
-│   │                 FiniteFormat.extend + numDigits_extend (digit-shift lemma)
+│   │                 FiniteFormat.extend + numDigits_extend (digit-shift lemma),
+│   │                 shrink (inverse of extend 1) + canonicalExp_shrink,
+│   │                 mem_shrink_of_subset
 │   ├── Next.lean     withBound (+ withBound_mono), next (+ next lemmas), boundAfterNext — §5.2
 │   │                 bound API; containment with a relaxed bound:
 │   │                 extend_{one,two}_subset_of_withBound_subset,
 │   │                 two_le_p_or_trivial_of_extend_{one,two}_withBound_subset
-│   ├── Digits.lean   digit-count lemma (numDigits_nonneg,
-│   │                 mem_imp_precisionAtMost_numDigits); parity transfer:
-│   │                 numDigits_le_one_of_p_one, precisionAtMost_not_IsOdd,
-│   │                 numDigits_eq_of_subset_of_isOdd(_aux),
-│   │                 odd_index_of_p_one_corner, IsOdd.transfer_of_numDigits_eq,
-│   │                 IsOdd.transfer_of_subset (RTO-padding lemma)
 │   ├── Discrete.lean canonical representation and midpoint membership
 │   │                 (prereq for roundsRTO_RN_finite): exists_canonical_rep(_of_parts),
 │   │                 midpoint_mem_extend_one_of_adjacent(_pos), half_mem_extend_one,
@@ -126,7 +124,7 @@ Mpfx/
 │   │                 ne_zero_of_not_boundOK, nearest_min. Mentions no
 │   │                 construction.
 │   ├── Restrict.lean per-mode restrict/lift between RoundsFinite F and F.unbounded
-│   ├── Parity.lean   neighbors_alternate: adjacent grid points alternate in
+│   ├── Parity.lean   neighbors_alternate: adjacent values alternate in
 │   │                 parity; the toOdd and nearest .toEven forms
 │   ├── Op.lean, Op/  function layer (noncomputable):
 │   │                 rndInt, rndParity, rndUnbounded, rnd, per-mode soundness,

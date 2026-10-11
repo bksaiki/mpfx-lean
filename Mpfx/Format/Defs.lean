@@ -557,37 +557,14 @@ theorem FiniteFormat.mem_unbounded_of_mul_zpow_canonicalExp (F : FiniteFormat) {
 namespace FiniteFormat
 
 /-- Number of binary digits `F` keeps for `x`: from `x`'s leading bit down to its
-canonical exponent, `⌊log₂|x|⌋ + 1 − canonicalExp x`, and `0` at `x = 0`. In
-closed form (`numDigits_top_coe`, `_coe_bot`, `_coe_coe`): `⌊log₂|x|⌋ − e + 1`
-for fixed point with quantum `2^e`, `p` with no minimum quantum, and
-`min(p, ⌊log₂|x|⌋ − e + 1)` with both. -/
+canonical exponent, `⌊log₂|x|⌋ + 1 − canonicalExp x`, and `0` at `x = 0`. The
+precision at which `IsOdd` reads the significand. -/
 noncomputable def numDigits (F : FiniteFormat) (x : ℝ) : ℤ :=
   if x = 0 then 0 else Int.log 2 |x| + 1 - F.canonicalExp x
-
-@[simp] theorem numDigits_zero (F : FiniteFormat) : F.numDigits 0 = 0 := by simp [numDigits]
 
 theorem numDigits_neg (F : FiniteFormat) (x : ℝ) :
     F.numDigits (-x) = F.numDigits x := by
   simp [numDigits, canonicalExp_neg]
-
-/-- `numDigits` evaluator: `F.p = ⊤`, `F.exp = (e' : ℤ)`, `x ≠ 0`. -/
-theorem numDigits_top_coe (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {e' : ℤ}
-    (hexp : F.exp = (e' : QExp)) (hp : F.p = ⊤) :
-    F.numDigits x = Int.log 2 |x| - e' + 1 := by
-  rw [numDigits, if_neg hx, canonicalExp_pTop hp hexp]; ring
-
-/-- `numDigits` evaluator: `F.p = p`, `F.exp = ⊥`, `x ≠ 0`. -/
-theorem numDigits_coe_bot (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {p : ℕ}
-    (hp : F.p = (p : Prec)) (hexp : F.exp = ⊥) :
-    F.numDigits x = (p : ℤ) := by
-  rw [numDigits, if_neg hx, canonicalExp_expBot hp hexp hx]; ring
-
-/-- `numDigits` evaluator: `F.p = p`, `F.exp = (e' : ℤ)`, `x ≠ 0`. -/
-theorem numDigits_coe_coe (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {p : ℕ} {e' : ℤ}
-    (hp : F.p = (p : Prec))
-    (hexp : F.exp = (e' : QExp)) :
-    F.numDigits x = min (p : ℤ) (Int.log 2 |x| - e' + 1) := by
-  rw [numDigits, if_neg hx, canonicalExp_expFinite hp hexp hx]; omega
 
 end FiniteFormat
 

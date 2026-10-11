@@ -32,8 +32,9 @@ applies and mathlib's own `ENat.recTopCoe` can be used. The price is that `ENat`
 is a `def`, not a reducible wrapper around `Option`: `⊤`, `1` and numerals at
 type `ℕ∞` do **not** reduce into the `Option` matcher, so the `match`-on-`F.p`
 definitions (`canonicalExp`, `numDigits`, `next`) need an explicit `rfl` after
-`rw`/`simp` has substituted `F.p`. Their evaluator lemmas
-(`numDigits_top_coe` and friends) exist so callers rarely meet this.
+`rw`/`simp` has substituted `F.p`. The closed forms (`canonicalExp_pTop`,
+`canonicalExp_expBot`, `canonicalExp_expFinite`) exist so callers rarely meet
+this.
 
 **Always case-split these with their eliminator, never a bare `cases`.** They are
 reducible, so `cases` unfolds past `WithTop`/`WithBot` to `Option` and asks for

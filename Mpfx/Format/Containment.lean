@@ -14,8 +14,9 @@ Both require `S₁ ⊆ S₂` on the specials, are stated for `Format`, and are p
 over `ℚ`. `F₁ ⊆ F₂` (`Subset`) covers numeric values and specials.
 
 `subset_iff_contains` is completeness: for `F₁` with `BoundRep` and
-`Nontrivial`, `F₁ ⊆ F₂` iff one rule fires. Also `extend` and the digit-shift
-lemma `numDigits_extend`.
+`Nontrivial`, `F₁ ⊆ F₂` iff one rule fires. Also `extend` with the digit-shift
+lemma `numDigits_extend`, and its inverse `shrink`, which containment preserves
+(`mem_shrink_of_subset`).
 -/
 
 namespace Mpfx
@@ -537,5 +538,121 @@ theorem numDigits_extend (F : FiniteFormat) (k : ℕ) {x : ℝ} (hx : x ≠ 0) :
   simp only [numDigits, if_neg hx, F.canonicalExp_extend k hx]; ring
 
 end FiniteFormat
+
+/-! ### Shrinking
+
+`F.shrink` drops a digit of precision and raises the minimum quantum by one,
+the inverse of `extend 1`. For `p ≠ 1` its values are the even values of `F`
+(`ParityFormat.isEven_iff_mem_shrink`). -/
+
+namespace Format
+
+/-- Drop a digit: `p ↦ p − 1` and `exp ↦ exp + 1`, with the bound and specials
+unchanged. The inverse of `extend 1` (`shrink_extend_one`). -/
+def shrink (F : Format) : Format := { F with p := F.p - 1, exp := F.exp.map (· + 1) }
+
+theorem shrink_extend_one (F : Format) : (F.extend 1).shrink = F := by
+  obtain ⟨p, e, b, S⟩ := F
+  simp only [shrink, extend, mk.injEq, and_true]
+  refine ⟨?_, ?_⟩
+  · cases p using ENat.recTopCoe with
+    | top => rfl
+    | coe p => norm_cast
+  · cases e using QExp.recBotCoe with
+    | bot => rfl
+    | coe e => simp
+
+end Format
+
+namespace FiniteFormat
+
+/-- The shrink of a format with `p ≠ 1`, which keeps a positive precision. -/
+def shrink (F : FiniteFormat) (h : F.p ≠ ((1 : ℕ) : Prec)) : FiniteFormat where
+  toFormat := F.toFormat.shrink
+  finite := by
+    rcases F.finite with hp | he
+    · left
+      change F.p - 1 ≠ ⊤
+      cases hF : F.p using ENat.recTopCoe with
+      | top => exact absurd hF hp
+      | coe n => exact_mod_cast ENat.coe_ne_top (n - 1)
+    · right
+      change F.exp.map (· + 1) ≠ ⊥
+      cases hF : F.exp using QExp.recBotCoe with
+      | bot => exact absurd hF he
+      | coe e => exact WithBot.coe_ne_bot
+  pos := by
+    change F.p - 1 ≠ 0
+    cases hF : F.p using ENat.recTopCoe with
+    | top => exact (show (⊤ : Prec) - 1 = ⊤ from rfl) ▸ ENat.top_ne_zero
+    | coe n =>
+      have h0 := F.p_pos hF
+      have h1 : n ≠ 1 := fun h1 => h (by rw [hF, h1])
+      exact_mod_cast (show n - 1 ≠ 0 by omega)
+
+theorem shrink_exp_coe {F : FiniteFormat} (h : F.p ≠ ((1 : ℕ) : Prec)) {e : ℤ}
+    (he : F.exp = (e : QExp)) : (F.shrink h).exp = ((e + 1 : ℤ) : QExp) := by
+  change F.exp.map _ = _; rw [he]; rfl
+
+theorem shrink_exp_bot {F : FiniteFormat} (h : F.p ≠ ((1 : ℕ) : Prec))
+    (he : F.exp = ⊥) : (F.shrink h).exp = ⊥ := by
+  change F.exp.map _ = _; rw [he]; rfl
+
+/-- Shrinking raises the canonical exponent of every nonzero `x` by one. -/
+theorem canonicalExp_shrink (F : FiniteFormat) (h : F.p ≠ ((1 : ℕ) : Prec)) {x : ℝ}
+    (hx : x ≠ 0) : (F.shrink h).canonicalExp x = F.canonicalExp x + 1 := by
+  cases hp : F.p using ENat.recTopCoe with
+  | top =>
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot => exact (F.finite.elim (· hp) (· hexp)).elim
+    | coe e =>
+      rw [canonicalExp_pTop hp hexp, canonicalExp_pTop (F := F.shrink h)
+        (by change F.p - 1 = ⊤; rw [hp]; rfl) (shrink_exp_coe h hexp)]
+  | coe n =>
+    have h0 := F.p_pos hp
+    have h1 : n ≠ 1 := fun h1 => h (by rw [hp, h1])
+    have hpc : (F.shrink h).p = ((n - 1 : ℕ) : Prec) := by
+      change F.p - 1 = _; rw [hp]; norm_cast
+    have hcast : ((n - 1 : ℕ) : ℤ) = n - 1 := by omega
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot =>
+      rw [canonicalExp_expBot hp hexp hx, canonicalExp_expBot hpc
+        (shrink_exp_bot h hexp) hx, hcast]
+      ring
+    | coe e =>
+      rw [canonicalExp_expFinite hp hexp hx, canonicalExp_expFinite hpc
+        (shrink_exp_coe h hexp) hx, hcast]
+      omega
+
+end FiniteFormat
+
+namespace Format
+
+private theorem map_add_one_le {a b : QExp} (h : a ≤ b) : a.map (· + 1) ≤ b.map (· + 1) := by
+  cases a using QExp.recBotCoe with
+  | bot => exact bot_le
+  | coe a =>
+    cases b using QExp.recBotCoe with
+    | bot => exact absurd h (by simp)
+    | coe b =>
+      exact WithBot.coe_le_coe.mpr (show a + 1 ≤ b + 1 by have := WithBot.coe_le_coe.mp h; omega)
+
+/-- **Shrinking is monotone.** If `G ⊆ H`, with `G`'s bound one of its values
+and `G` nontrivial, then `G`'s shrink lies in `H`'s once `H.p ≥ 2`. Both
+containment rules survive the shift `(p − 1, exp + 1)`. -/
+theorem mem_shrink_of_subset {G H : Format} (hsub : G ⊆ H) (hbr : BoundRep G)
+    (hnt : G.Nontrivial) (hp : ((2 : ℕ) : Prec) ≤ H.p) {y : Dyadic} (hy : y ∈ G.shrink) :
+    y ∈ H.shrink.unbounded := by
+  rcases (subset_iff_contains hbr hnt).mp hsub with
+    ⟨hpp, he, -, -⟩ | ⟨e₁, p₂, he₁, -, hp₂, hbb, he, -, hs⟩
+  · exact mem_unbounded_of_le (tsub_le_tsub_right hpp 1) (map_add_one_le he) hy.1 hy.2.1
+  · have h2 : 2 ≤ p₂ := by rw [hp₂] at hp; exact_mod_cast hp
+    refine containsSub (F₁ := G.shrink) (F₂ := H.shrink.unbounded) (exp₁ := e₁ + 1)
+      (p₂ := p₂ - 1) (by change G.exp.map _ = _; rw [he₁]; rfl) (by omega)
+      (by change H.p - 1 = _; rw [hp₂]; norm_cast) ?_ (map_add_one_le he) le_top hs y hy
+    rw [show e₁ + 1 + ((p₂ - 1 : ℕ) : ℤ) = e₁ + p₂ by omega]
+    exact hbb
+
+end Format
 
 end Mpfx

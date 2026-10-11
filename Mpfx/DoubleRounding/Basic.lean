@@ -1,5 +1,5 @@
 import Mpfx.Format.Next
-import Mpfx.Format.Digits
+import Mpfx.Format.Parity
 import Mpfx.Format.Discrete
 import Mpfx.Rounding.Defs
 import Mpfx.Rounding.Op
@@ -146,32 +146,10 @@ theorem roundsRTO_RTO_finite {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat �
         -- `¬ F₁.IsUndefined .toOdd`, so a `ParityFormat` over `F₁` exists.
         have h_not_undef : ¬ F₁.IsUndefined .toOdd := by
           rintro ⟨hp1, hexp_bot, _⟩
-          have hz_ne : z ≠ 0 := hF₂'odd.ne_zero
-          have hz_ne_real : (z : ℝ) ≠ 0 := by
-            rw [← Dyadic.coe_real_zero]; exact fun h => hz_ne (Dyadic.coe_real_inj z 0 |>.mp h)
-          -- `F₁.exp = ⊥` + subset forces `F₂.exp = ⊥`, hence `numDigits = p₂ ≥ 2`.
-          have hF₂'_exp_bot : F₂'.exp = ⊥ := by
-            have h := Format.exp_le_of_subset ⟨_, hw'F₁, hz_ne⟩ (hF₂'eq ▸ hsub)
-            rw [hexp_bot] at h; exact le_bot_iff.mp h
-          obtain ⟨p₂, hp₂⟩ : ∃ p₂ : ℕ, F₂'.p = (p₂ : Prec) := by
-            cases hc : F₂'.p using ENat.recTopCoe with
-            | top =>
-              -- `(⊤, ⊥)` is excluded by `FiniteFormat.finite`.
-              exact absurd (F₂'.finite) (by push Not; exact ⟨hc, hF₂'_exp_bot⟩)
-            | coe p₂ => exact ⟨p₂, rfl⟩
-          -- numDigits agreement.
-          have h_eq : F₁.numDigits (z : ℝ) = F₂'.toFiniteFormat.numDigits (z : ℝ) :=
-            numDigits_eq_of_subset_of_isOdd (hF₂'eq ▸ hsub) (hF₂'eq ▸ hp_F₂) hw'F₁ hF₂'odd
-          have h_F₁_eq_1 : F₁.numDigits (z : ℝ) = 1 :=
-            F₁.numDigits_coe_bot hz_ne_real hp1 hexp_bot
-          have h_F₂_eq_p₂ : F₂'.toFiniteFormat.numDigits (z : ℝ) = (p₂ : ℤ) :=
-            F₂'.toFiniteFormat.numDigits_coe_bot hz_ne_real hp₂ hF₂'_exp_bot
-          have hp₂_ge_2 : (2 : ℤ) ≤ (p₂ : ℤ) := by
-            have : ((2 : ℕ) : Prec) ≤ (p₂ : Prec) := hp₂ ▸ (hF₂'eq ▸ hp_F₂)
-            have h2 : (2 : ℕ) ≤ p₂ := by exact_mod_cast this
-            simpa using (by exact_mod_cast h2 : (2 : ℤ) ≤ (p₂ : ℤ))
-          rw [h_F₁_eq_1, h_F₂_eq_p₂] at h_eq
-          omega
+          have h := ParityFormat.exp_eq_canonicalExp_of_p_one (hF₂'eq ▸ hsub) (hF₂'eq ▸ hp_F₂)
+            hp1 hw'F₁ hF₂'odd
+          rw [hexp_bot] at h
+          exact WithBot.bot_ne_coe h
         set F₁' := F₁.toParityFormatOfToOdd h_not_undef with hF₁'_def
         have hF₁'eq : F₁'.toFormat = F₁.toFormat := rfl
         have hF₁'odd : F₁'.IsOdd z := by
@@ -235,50 +213,10 @@ in `F₁`, collapses to the directed rounding of `x` in `F₁`. The `_of_extend`
 forms take `F₁.extend 1 ⊆ F₂` and `2 ≤ F₂.p`; the plain names take the relaxed
 containment that bounds `F₁.extend 1` by `F₁`'s bound after the next value. -/
 
-/-- **RTO-padding lemma, applied form.** If `z` is the RTO-rounding of `x` in `F₂`
-(with `x ≠ z`, hence `z` is `F₂`-odd) and `F₁` assigns `z` strictly fewer
-digits than `F₂`, then `z ∉ F₁`: an `F₁`-representable value would have
-precision below the rounding precision, contradicting oddness via
-`precisionAtMost_not_IsOdd`. -/
-private theorem toOdd_notMem_of_lower_numDigits {F₁ F₂ : FiniteFormat}
-    {z : Dyadic}
-    {F₂' : ParityFormat} (hF₂'eq : F₂'.toFormat = F₂.toFormat) (hodd : F₂'.IsOdd z)
-    (hlt : F₁.numDigits (z : ℝ) < F₂.numDigits (z : ℝ)) :
-    z ∉ F₁ := by
-  intro hzF₁
-  -- `z ≠ 0` (so numDigits is positive), and `numDigits F₁ z ≥ 1`.
-  have hz_ne_real : (z : ℝ) ≠ 0 := by
-    intro h
-    have hz_d : z = 0 := eq_zero_of_coe_real_zero h
-    rw [hz_d] at hodd
-    exact hodd.ne_zero rfl
-  have h_F₁_ge_1 : 1 ≤ F₁.numDigits (z : ℝ) := F₁.numDigits_nonneg z hzF₁ hz_ne_real
-  -- Package `z`'s `F₁`-precision as `precisionAtMost (numDigits F₁ z).toNat`.
-  set n : ℕ := (F₁.numDigits (z : ℝ)).toNat with hn_def
-  have hn_eq : (n : ℤ) = F₁.numDigits (z : ℝ) := Int.toNat_of_nonneg (by linarith)
-  have hn_pos : 1 ≤ n := by
-    have : (1 : ℤ) ≤ (n : ℤ) := by rw [hn_eq]; exact h_F₁_ge_1
-    exact_mod_cast this
-  obtain ⟨c, e, hz_rep_real, hc_bound⟩ :=
-    F₁.mem_imp_precisionAtMost_numDigits hzF₁ hz_ne_real
-  have h_prec : Dyadic.precisionAtMost (n : Prec) z := by
-    rw [Dyadic.precisionAtMost_coe_real]
-    exact ⟨c, e, hz_rep_real, hc_bound⟩
-  -- `numDigits F₂' z = numDigits F₂ z` (same underlying format), and it exceeds `w`.
-  have hF₂'_nd : F₂'.toFiniteFormat.numDigits (z : ℝ) = F₂.numDigits (z : ℝ) :=
-    numDigits_congr (congrArg Format.p hF₂'eq :) (congrArg Format.exp hF₂'eq :) _
-  have hgt : (n : ℤ) < F₂'.toFiniteFormat.numDigits (z : ℝ) := by
-    rw [hF₂'_nd, hn_eq]; exact hlt
-  exact F₂'.precisionAtMost_not_IsOdd hn_pos hgt h_prec hodd
-
-/-- **RTO-padding lemma, paper form (simpler hypothesis).** From `F₁.extend 1 ⊆ F₂`,
-`2 ≤ F₂.p`, and an RTO rounding `z` of `x` in `F₂` with `x ≠ z`, conclude
-`z ∉ F₁`.
-
-Proof: `z ∈ F₁ ⟹ z ∈ F₁.extend 1`; then `numDigits_eq_of_subset_of_isOdd`
-gives `numDigits (F₁.extend 1) z = numDigits F₂ z`, and `numDigits_extend`
-gives the LHS `= numDigits F₁ z + 1`, so `numDigits F₁ z < numDigits F₂ z`,
-contradicting `toOdd_notMem_of_lower_numDigits`. -/
+/-- **RTO-padding lemma, applied form.** From `F₁.extend 1 ⊆ F₂`, `2 ≤ F₂.p`, and
+an RTO rounding `z` of `x` in `F₂` with `x ≠ z`, conclude `z ∉ F₁`. `F₁` is the shrink of
+`F₁.extend 1`, so its values are even in `F₂`, while an inexact RTO result is
+odd. -/
 theorem toOdd_notMem_of_extend_subset {F₁ F₂ : FiniteFormat}
     (hsub : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
     (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
@@ -286,30 +224,12 @@ theorem toOdd_notMem_of_extend_subset {F₁ F₂ : FiniteFormat}
     (hxne : x ≠ (z : ℝ)) :
     z ∉ F₁ := by
   intro hzF₁
-  -- Extract `F₂`-oddness of `z` (as a `ParityFormat` witness over `F₂`).
-  obtain ⟨_, _, hz_odd_imp⟩ := hz
-  obtain ⟨F₂', hF₂'eq, hF₂'odd⟩ := hz_odd_imp hxne
-  have hz_ne_real : (z : ℝ) ≠ 0 := by
-    intro h
-    have hz_d : z = 0 := eq_zero_of_coe_real_zero h
-    rw [hz_d] at hF₂'odd
-    exact hF₂'odd.ne_zero rfl
-  -- `z ∈ F₁ ⟹ z ∈ F₁.extend 1`.
-  have hzF₁_ext : z ∈ (F₁.extend 1) := Format.self_subset_extend F₁.toFormat 1 z hzF₁
-  -- numDigits agreement at `F₁.extend 1`.
-  have hsub' : (F₁.extend 1).toFormat ⊆ F₂'.toFormat := by rw [hF₂'eq]; exact hsub
-  have hp_F₂' : ((2 : ℕ) : Prec) ≤ F₂'.p := by rw [hF₂'eq]; exact hp_F₂
-  have h_eq : (F₁.extend 1).numDigits (z : ℝ) = F₂'.toFiniteFormat.numDigits (z : ℝ) :=
-    numDigits_eq_of_subset_of_isOdd hsub' hp_F₂' hzF₁_ext hF₂'odd
-  rw [F₁.numDigits_extend 1 hz_ne_real] at h_eq
-  -- `numDigits F₂' z = numDigits F₂ z`.
-  have hF₂'_nd : F₂'.toFiniteFormat.numDigits (z : ℝ) = F₂.numDigits (z : ℝ) :=
-    numDigits_congr (congrArg Format.p hF₂'eq :) (congrArg Format.exp hF₂'eq :) _
-  rw [hF₂'_nd] at h_eq
-  -- `numDigits F₁ z + 1 = numDigits F₂ z`, so the strict inequality holds.
-  have hlt : F₁.numDigits (z : ℝ) < F₂.numDigits (z : ℝ) := by
-    omega
-  exact (toOdd_notMem_of_lower_numDigits hF₂'eq hF₂'odd hlt) hzF₁
+  obtain ⟨F₂', hF₂'eq, hodd⟩ := hz.2.2 hxne
+  refine ParityFormat.not_isEven_and_isOdd (ParityFormat.isEven_of_subset (hF₂'eq ▸ hsub)
+    (hF₂'eq ▸ hp_F₂) (Format.self_subset_extend F₁.toFormat 1 z hzF₁) ?_) hodd
+  change z ∈ (F₁.toFormat.extend 1).shrink.unbounded
+  rw [Format.shrink_extend_one]
+  exact mem_unbounded_of_mem hzF₁
 
 /-- An RTO rounding to `0` is exact: `0` is never odd. -/
 private theorem toOdd_eq_zero_of_eq_zero {F : FiniteFormat} {x : ℝ} {z : Dyadic}
