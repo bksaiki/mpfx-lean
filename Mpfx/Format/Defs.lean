@@ -289,6 +289,19 @@ theorem neg_mem {F : FiniteFormat} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F :=
 theorem mem_neg_iff (F : FiniteFormat) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
   Format.mem_neg_iff F.toFormat d
 
+/-- Quantifying over `F` is quantifying over its negations: two predicates that
+agree up to negation hold for all of `F` together. -/
+theorem forall_mem_congr_neg (F : FiniteFormat) {P Q : Dyadic → Prop}
+    (h : ∀ z, P z ↔ Q (-z)) : (∀ z, z ∈ F → P z) ↔ ∀ z, z ∈ F → Q z :=
+  ⟨fun hP z hz => by simpa using (h (-z)).mp (hP _ (neg_mem hz)),
+    fun hQ z hz => (h z).mpr (hQ _ (neg_mem hz))⟩
+
+/-- The `∃` twin of `forall_mem_congr_neg`. -/
+theorem exists_mem_congr_neg (F : FiniteFormat) {P Q : Dyadic → Prop}
+    (h : ∀ z, P z ↔ Q (-z)) : (∃ z, z ∈ F ∧ P z) ↔ ∃ z, z ∈ F ∧ Q z :=
+  ⟨fun ⟨z, hz, hP⟩ => ⟨-z, neg_mem hz, (h z).mp hP⟩,
+    fun ⟨z, hz, hQ⟩ => ⟨-z, neg_mem hz, (h (-z)).mpr (by simpa using hQ)⟩⟩
+
 /-- Canonical exponent for representing `x` in `F`. The `(⊤, ⊥)` branch is
 unreachable by `F.finite`; we list it to make the `match` total. -/
 noncomputable def canonicalExp (F : FiniteFormat) (x : ℝ) : ℤ :=

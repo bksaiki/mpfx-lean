@@ -11,7 +11,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 1. [x] Quick wins (§Q) and the unused-API decision (§U).
 2. [x] A uniform `canonicalExp` and successor API (§S3). It unblocks §S1 and §S2.
 3. [x] Parity via the shrink (§S1).
-4. [~] The generic overflow theorem (§S2).
+4. [x] The generic overflow theorem (§S2).
 5. Modes as selections between round-down and round-up (§S4), and the
    `ParityFormat` question (§S5) once the paper settles `.undefined`.
 
@@ -94,13 +94,6 @@ alternation leaf.
   lemmas in `Propagation.lean` take a bound on the grid. Restate them for a value
   `d ∈ F₁.unbounded` with `|v| ≤ d` in place of the bound check, and the floor
   becomes `rndDown F₁ b₁` with its two defining properties.
-* [ ] The second successor. `Format.next` (four arms, with placeholder values where
-  no successor exists) sits beside `FiniteFormat.next` (`b + 2^cexp b`) only
-  because `boundAfterNext` is defined on `Format`. Restate `boundAfterNext`, and
-  with it the `withBound boundAfterNext` containment hypotheses, on
-  `FiniteFormat`; that removes the `lt_next_of_*` helpers, the private
-  `next_eq_bot_*`/`next_eq_p_top` evaluators and `next_eq_format_next` (about
-  100 lines).
 * [x] The two in-bound pin lemmas (`abs_lt_next_of_toZero_inbound`,
   `abs_lt_next_of_toOdd_inbound`) are six lines each: if `N ≤ |x|` then
   `le_abs_faithful_of_le` gives `N ≤ |y|`, contradicting `|y| ≤ b₁ < N`. This
@@ -202,33 +195,28 @@ natural tier; every mode is then "`x` if representable, else a choice between
 
 **Low-risk entry points:**
 
-* [ ] Add `IsRoundDown`/`IsRoundUp` defs and use them in the `.toNegative`/
-  `.toPositive` clauses of `RoundsFinite` and in `IsFaithfulRound := IsRoundDown
-  ∨ IsRoundUp`. `isFaithfulRound_iff_directed` is already definitional (its
-  proof is the identity); its 30 uses become no-ops.
+* [x] `isFaithfulRound_iff_directed` is definitional; prove it by `Iff.rfl`.
+  Separate `IsRoundDown`/`IsRoundUp` defs would add names without removing
+  proofs, since `RoundsFinite` keeps membership outside its `match`.
 * [ ] `IsFaithfulRound.eq_or_eq (hd : round-down x d) (hu : round-up x u) :
   IsFaithfulRound x y → y = d ∨ y = u`, three lines via
   `unique_toNegative`/`unique_toPositive`. It replaces `opposite_sides_of_ne`,
   `faithful_eq_of_third` (Restrict), `h_faithful_eq` in
   `nearest_neighbors_setup` (Op/Nearest) and `hfaith` in
   `Cex.roundsRNE_of_bracket`. About 35 lines.
-* [ ] `eq_of_mem` (35 lines, a case per mode), `eq_of_abs_eq_of_mul_nonneg`
+* [x] `eq_of_mem` (35 lines, a case per mode), `eq_of_abs_eq_of_mul_nonneg`
   and `toOdd_unique_of_mem` all follow from `IsFaithfulRound F d y → d ∈ F →
   y = d` applied to `h.isFaithfulRound`. Needs `isFaithfulRound` moved above
   `eq_of_mem`; nothing blocks that. About 45 lines.
 
 **Sign symmetry (about 140 lines in `Rounding/Basic.lean`):**
 
-* [ ] Add `FiniteFormat.forall_mem_neg : (∀ z ∈ F, P z) ↔ ∀ z ∈ F, P (-z)`
-  (`rw`, not `simp`: it loops) with an `∃` twin, and `RoundingMode.neg`
-  swapping RTN and RTP. Prove one `RoundsFinite.neg_iff : RoundsFinite F rm x y
-  ↔ RoundsFinite F rm.neg (-x) (-y)`. It replaces `IsFaithfulRound.neg_iff`,
-  `neg_toZero`, `neg_toNegative_iff_toPositive`, `neg_awayZero`,
-  `neg_nearest_awayZero`, `neg_toOdd`, `neg_nearest_toEven`; keep
-  `neg_awayZero`, `neg_toZero`, `neg_toOdd`, `neg_nearest` as one-line aliases
-  for their 18 external call sites. Fallback: prove one direction of each and
-  get the other at `-x, -y` by `neg_neg`, which halves every proof.
-* [ ] `toPositive_iff_awayZero_of_nonneg` (50 lines) and
+* [x] Prove the per-mode `neg_*` lemmas and `IsFaithfulRound.neg_iff` by
+  congruence: `FiniteFormat.forall_mem_congr_neg` / `exists_mem_congr_neg`
+  (predicates that agree up to negation hold over `F` together) leave each
+  clause to `simp`. A plain `forall_mem_neg` does not work under `rw`: it
+  rewrites unpredictable binder occurrences.
+* [x] `toPositive_iff_awayZero_of_nonneg` (50 lines) and
   `toPositive_iff_toZero_of_nonpos` (68 lines) each re-handle `x = 0` with
   manual `abs` algebra. After `eq_of_mem`, `eq_zero_of_zero` disposes of it
   once. About 50 lines.
@@ -308,6 +296,13 @@ through `unbotD 0`), and it alternates. `(1, ⊥)` is only special in that no
 
 ### Not worth doing now
 
+* **The second successor.** `Format.next` (the paper's `next_{p,exp}`, four arms)
+  sits beside `FiniteFormat.next` (`b + 2^cexp b`) because `boundAfterNext` is
+  defined on `Format`. Restating `boundAfterNext` on `FiniteFormat` would remove
+  about 100 lines of `Format.next` helpers, but it moves the relaxed-containment
+  hypotheses of the README theorems off the paper's definition, and the two
+  successors differ at `exp = ⊥, b = 0` (`1` against `0`), which needs its own
+  argument there.
 * **`Dyadic` over ℝ instead of ℚ.** The cast cost is real (53
   `coe_real_eq_ratCast`, 67 `ext_real`/`coe_real_inj`, about 500 cast-tactic
   lines), and the decidability it buys is used only for the overflow sign. But

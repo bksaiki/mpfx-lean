@@ -331,7 +331,7 @@ private lemma rndRTO_RN_close_transfer {F₁ F₂ : FiniteFormat}
 Given that `z = RTO F₂ x` is unrepresentable in `F₁` and that `z'` is supposedly
 tied with `w'` for `x`'s nearest-rounding in `F₁`, derive `False`: the tie
 equation forces `x = midpoint(w', z')`, F-adjacency makes that midpoint lie in
-`F₂`, and `RoundsFinite.toOdd_unique_of_mem` then forces `z = midpoint`, so
+`F₂`, and `RoundsFinite.eq_of_mem` then forces `z = midpoint`, so
 `x = z`, contradicting `hxne`. -/
 private lemma rndRTO_no_tie_contradiction {F₁ F₂ : FiniteFormat}
     (hsub_ext1 : (F₁.extend 1).toFormat ⊆ F₂.toFormat)
@@ -417,7 +417,7 @@ private lemma rndRTO_no_tie_contradiction {F₁ F₂ : FiniteFormat}
   have hm_x : (m : ℝ) = x := by rw [hm_eq, ← hx_mid]
   have hz_eq : z = m := by
     have hz' : RoundsFinite F₂ .toOdd ((m : ℝ)) z := by rw [hm_x]; exact hz
-    exact RoundsFinite.toOdd_unique_of_mem h_mid_F₂ hz'
+    exact RoundsFinite.eq_of_mem h_mid_F₂ hz'
   exact hxne (by rw [hz_eq]; exact hm_x.symm)
 
 /-- Shared core for the nearest-rounding branch of `roundsRTO_RN_finite`. From the
