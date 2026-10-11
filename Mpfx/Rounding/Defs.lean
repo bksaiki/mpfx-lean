@@ -219,6 +219,11 @@ theorem not_isUndefined_toPositive (F : FiniteFormat) :
     ¬ F.IsUndefined .toPositive := by
   rintro ⟨-, -, h | h⟩ <;> simp at h
 
+/-- A parity format is never undefined: its invariant rules out `(1, ⊥)`. -/
+theorem ParityFormat.not_isUndefined (F : ParityFormat) (rm : RoundingMode) :
+    ¬ F.IsUndefined rm :=
+  fun ⟨hp, he, _⟩ => F.parity.elim (· hp) (· he)
+
 /-- `2 ≤ F.p` rules out `IsUndefined` (which requires `p = 1`). -/
 theorem not_isUndefined_of_two_le_p {F : FiniteFormat} {rm : RoundingMode}
     (hp : ((2 : ℕ) : Prec) ≤ F.p) : ¬ F.IsUndefined rm := by

@@ -2,8 +2,6 @@ import Mpfx.DoubleRounding.Add
 import Mpfx.DoubleRounding.Basic
 import Mpfx.DoubleRounding.Counterexample
 import Mpfx.DoubleRounding.Counterexample.Basic
-import Mpfx.DoubleRounding.Counterexample.Instances
-import Mpfx.DoubleRounding.Counterexample.Neighborhood
 import Mpfx.DoubleRounding.Div
 import Mpfx.DoubleRounding.Mul
 import Mpfx.DoubleRounding.Nearest

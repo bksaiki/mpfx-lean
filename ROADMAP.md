@@ -26,11 +26,16 @@ only what the paper depends on. References are Lean names under
   is proved. Either add the mode with a `roundsRTO_RTE` theorem or
   the paper states the exclusion; decide with the library, which
   exposes the mode.
-- [ ] A bounded negative for the nearest intermediate. `no_rndRNE_RNE`
-  and the other `Mpfx.Cex` counterexamples assume `F₁.b = ⊤`, so for
-  bounded targets the paper's "only in trivial cases" for RNE∘RNE
-  rests on a sweep of small pairs. A counterexample theorem with a
-  finite bound, in the same style.
+- [x] A bounded negative for the nearest intermediate. The `Mpfx.Cex`
+  counterexamples now take any `F₁` with one, two or three positive
+  values (`Format.HasPositive`), with every rounding in bound.
+- [ ] Tightness of the counterexample counts. The paper's "only in
+  trivial cases" can name the counts: RNE→RTZ, RAZ→RTZ, RTZ→RNE and
+  RNE→RNE fail once `F₁` is nontrivial, RTZ→RAZ, RNE→RAZ, RAZ→RTO,
+  RNE→RTO and RAZ→RNE with two positive values, RTZ→RTO with three.
+  That one fewer admits no in-bound counterexample for some `F₂`
+  (without a minimum quantum) is argued by hand, not proved. Decide
+  whether the paper states the converse; if so, mechanize it.
 - [ ] Decide whether the paper claims the per-operation
   double-rounding theorems (Roux 2014: `rndMul_*`, `rndAdd`,
   `rndSqrt_*`, `rndDiv_*`). The README lists them as beyond the

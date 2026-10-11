@@ -798,13 +798,14 @@ theorem RoundsFinite.toPositive_eq_ceil (F : FiniteFormat) (x : ℝ) {y : Dyadic
 /-! ### Uniqueness for RTO -/
 
 /-- `Parity.neighbors_alternate`, stated over the round-down/round-up specs. -/
-theorem isOdd_alternate_of_bracketing {F : FiniteFormat} {x : ℝ}
+theorem alternate_of_bracketing {F : FiniteFormat} {x : ℝ}
     (h : ¬ F.IsUndefined .toOdd) {y y' : Dyadic}
     (hy : RoundsFinite F.unbounded .toNegative x y)
     (hy' : RoundsFinite F.unbounded .toPositive x y')
     (hne : x ≠ (y : ℝ)) :
     ((F.toParityFormatOfToOdd h).IsOdd y' ↔
-      ¬ (F.toParityFormatOfToOdd h).IsOdd y) := by
+      ¬ (F.toParityFormatOfToOdd h).IsOdd y) ∧
+    (¬ (F.toParityFormatOfToOdd h).IsEven y → (F.toParityFormatOfToOdd h).IsEven y') := by
   -- `x = 0` would make `y` the round-down of `0`, hence `0 = x`.
   have hx_ne : x ≠ 0 := fun hx0 => hne (by
     have hy0 : RoundsFinite F.unbounded .toNegative 0 y := by rw [← hx0]; exact hy
@@ -823,7 +824,17 @@ theorem isOdd_alternate_of_bracketing {F : FiniteFormat} {x : ℝ}
   have hy'_eq : y' = Dyadic.ofIntZpow (⌊s⌋ + 1) e := by
     rw [RoundsFinite.toPositive_eq_ceil F x hy', h_ceil]
   rw [hy_eq, hy'_eq]
-  exact toOdd_neighbors_alternate x h hx_ne h_lo_ne_s
+  exact neighbors_alternate x h hx_ne h_lo_ne_s
+
+/-- The `IsOdd` half of `alternate_of_bracketing`. -/
+theorem isOdd_alternate_of_bracketing {F : FiniteFormat} {x : ℝ}
+    (h : ¬ F.IsUndefined .toOdd) {y y' : Dyadic}
+    (hy : RoundsFinite F.unbounded .toNegative x y)
+    (hy' : RoundsFinite F.unbounded .toPositive x y')
+    (hne : x ≠ (y : ℝ)) :
+    ((F.toParityFormatOfToOdd h).IsOdd y' ↔
+      ¬ (F.toParityFormatOfToOdd h).IsOdd y) :=
+  (alternate_of_bracketing h hy hy' hne).1
 
 /-- Matching sides collapse by directed uniqueness; the mixed case would need
 both neighbours odd, which `isOdd_alternate_of_bracketing` forbids. -/
