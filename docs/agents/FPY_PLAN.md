@@ -85,7 +85,7 @@ operators, their meaning (`arith`, `exact`), and the map `ρ` from records to
 rounding functions. The semantics and both soundness theorems hold for every
 signature. This is the paper's own claim made literal: "any representation of
 formats that meets the interface is sound". The concrete operators of Table 1
-arrive as one signature, `Fpy.Std`, in Phase 3.
+arrive as one signature, `fpy`, in Phase 3.
 
 ### Semantics, rule for rule
 
@@ -206,31 +206,81 @@ Test: `~/.elan/bin/lake build Fpy.FormatInference FpyTest`.
 
 ### Phase 3 - The paper's domain on Mpfx formats
 
-- `Fpy/Std.lean`, the concrete signature `Std`:
-  - arith: `+ − × ÷ √ fma neg abs logb exp2 min max round cast`;
-  - exact: `< ≤ = len isnan isinf and or not`.
-  - Their meaning follows IEEE 754 special-value rules, reusing
-    `Mpfx.WithSpecial` arithmetic where Mpfx has it.
-  - `ρ` reads a record as `(F, S, O, rm)` and rounds with `Mpfx.rnd`.
-    Records whose `(F, rm)` is `IsUndefined` are outside `dom(ρ)`.
-- `Fpy/FormatInference/Domain.lean`, Fig. 4:
-  - `Fmt ::= set S | abs F | top`, where `F : Mpfx.Format`;
-  - join, including `⌈S⌉`;
-  - `ctxFmt` with its obligation: an Mpfx context rounds into `F.values`, and
-    fixes `F.values` when `S` fixes `F.specials`.
-- `Fpy/FormatInference/Table1.lean`: soundness of each `op♯` row.
+Split into three commits, 3a to 3c. It is the only phase that grows
+Mpfx-facing proof obligations, and Table 1 is large.
+
+#### Phase 3a - The FPy signature, contexts and the Fig. 4 domain
+
+**Done.** As built:
+
+- `Fpy/Ops.lean`:
+  - the IEEE operators on `Num`: `Num.add`, `mul`, `neg`, `sub`, `div`,
+    `sqrt`, `fma`, `abs`, `logb`, `exp2`, `min`, `max`, the comparisons, and
+    `isNaN`/`isInf`;
+  - `ArithOp`, `ExactOp` and their `eval`;
+  - `RoundCtx`, which is `(F, S, O, rm)` with `¬ F.IsUndefined rm`, and its
+    `round` through `Mpfx.rnd`;
+  - the signature `fpy decode`.
+- `Fpy/FormatInference/Domain.lean`:
+  - `Format.reals`, `fmtJoin` and its containment lemmas;
+  - `Fmt` (`set`/`abs`/`top`), `Fmt.join` and `Fmt.domain`;
+  - `fpyCtxFmt` and `fpyCtxFmt_sound`, which is the `Analysis.Sound.ctxFmt`
+    obligation for Mpfx contexts.
+- `Mpfx/Rounding/Op.lean` gains `rnd_mem_values` (`rnd` lands in
+  `F.values`) and `rnd_of_mem_values` (`rnd` fixes `F.values` when `S` fixes
+  `F.specials`).
+- `FpyTest/Ops.lean` checks the special-value choices listed below.
+
+It diverged from the plan in these places:
+
+- The signature is `fpy` in `Fpy/Ops.lean`. The plan's `Std` would shadow
+  Lean's `Std` namespace inside `Fpy`.
+- `fpy` takes the record layout as a parameter: `decode` reads a record as a
+  `RoundCtx`. The draft's `IEEE754(e, n, rm)`, `Fixed(n, rm)` and
+  `Int(n, rm)` are particular decodings, and the theorems hold for every one.
+- The operators are defined on `Num` (`ℝ`) beside Mpfx's on `Dyadic`, rather
+  than reusing them. Phase 3b bridges the two with `toReal`.
+- `⌈S⌉` is any `Ceiling`, meaning any abstract format containing `S`. The
+  draft's smallest one is an instance; soundness needs only containment.
+- The containment check `sub` is exact: it decides `γ F₁ ⊆ γ F₂`
+  classically.
+- `F_C` is an Mpfx context's format only when `S` fixes the format's
+  specials (the fourth `ROADMAP.md` item). Other contexts get `none`, so
+  their roundings are bounded by `⊤`.
+
+Special-value choices, none of which the draft states:
+
+- `x / 0` is an infinity of `x`'s sign, `0 / 0` is NaN, and a finite value
+  over an infinity is `0`.
+- `√` of a negative number, or of `−∞`, is NaN.
+- `logb 0 = −∞` and `logb (±∞) = +∞`, as IEEE `logB`.
+- `exp2 (−∞) = 0`.
+- `min` and `max` propagate NaN, as IEEE 754-2019 `minimum`/`maximum`.
+- Comparisons involving NaN are false.
+
+Test: `~/.elan/bin/lake build Fpy.Ops Fpy.FormatInference.Domain FpyTest`.
+
+#### Phase 3b - Table 1
+
+- `Fpy/FormatInference/Table1.lean`: `op♯` for every arith row, and a proof
+  of soundness for each row.
   - `×`, `+`, `−`, `neg` and `abs` reduce to `Format.mul_subset`,
-    `add_subset`, `neg_subset` and `abs_subset`.
-  - `logb`, `exp2`, `min`, `max` and `round` are new.
+    `add_subset`, `neg_subset` and `abs_subset`, through `toReal`
+    bridges between the `Num` and `Dyadic` operators.
+  - `logb`, `exp2`, `min`, `max` and `round`/`cast` are new.
+  - `exact♯` for the comparisons, `len`, `isNaN`/`isInf` and the boolean
+    operators.
+
+Test: `~/.elan/bin/lake build Fpy.FormatInference.Table1 FpyTest`.
+
+#### Phase 3c - Condition refinement
+
 - `Fpy/FormatInference/Refine.lean`: refinement by `x ⋈ c`, and the `|x|` and
   `logb` unfoldings of §4.2. This includes the narrowing
   `A(p, exp, b) → A(p, max(exp, k − p + 1), b)`.
+- The assembled `Analysis` for `fpy`, with its `Analysis.Sound`.
 
-This is a separate phase because it is the only one that grows Mpfx-facing
-proof obligations, and Table 1 is large. If review prefers, it can split
-into domain plus contexts, Table 1, and refinement, one commit each.
-
-Test: `~/.elan/bin/lake build Fpy.FormatInference.Domain Fpy.FormatInference.Table1 Fpy.FormatInference.Refine FpyTest`.
+Test: `~/.elan/bin/lake build Fpy.FormatInference.Refine FpyTest`.
 
 ### Phase 4 - Digit-bound analysis and Theorem 4.2
 
@@ -245,7 +295,7 @@ Test: `~/.elan/bin/lake build Fpy.FormatInference.Domain Fpy.FormatInference.Tab
   inferred format's range") is a premise discharged by Phase 2's soundness.
 
 This phase comes after Phase 3 because Table 2's context rows read
-`Fixed`/`IEEE754` off `Std`'s `ρ`.
+`Fixed`/`IEEE754` off `fpy`'s `ρ`.
 
 Test: `~/.elan/bin/lake build Fpy.DigitBound FpyTest`.
 
@@ -328,7 +378,7 @@ keep the core proofs small. A concrete operator type would let rules
 mention `+` or `logb` by name (Fig. 8's `D-Linear`, `D-Logb`, `D-Max`) without
 an interface for "integer operators with term transfers".
 
-Provisional: abstract through Phase 2, then `Std` from Phase 3. The digit
+Provisional: abstract through Phase 2, then `fpy` from Phase 3. The digit
 analysis takes an interface for integer-term transfers, as Table 2 already
 tabulates them. Reopen if that interface needs more than Table 2's rows.
 
@@ -408,3 +458,13 @@ and it is cheap, since every rule is syntax-directed except `iteTrue` and
 
 Provisional: no. Add it to Phase 5 if the paper's prose wants
 "computes the same value".
+
+### Should `min`/`max` propagate NaN, or return the other operand?
+
+IEEE 754-2019 has both: `minimum`/`maximum` propagate NaN, and
+`minimumNumber`/`maximumNumber` return the non-NaN operand. Hardware
+specifications use either, and C's `fmin` is the second.
+
+Provisional: NaN propagates (`Num.min`, `Num.max`). Reopen if a benchmark
+specification needs the other. The fix is then a second pair of operators,
+not a change to these.

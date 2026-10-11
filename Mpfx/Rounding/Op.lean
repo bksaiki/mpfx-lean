@@ -9,7 +9,8 @@ import Mpfx.Rounding.Op.Nearest
 The mode dispatcher `rndUnbounded_satisfies`, its uniqueness counterpart, the
 overflow dichotomy `overflows_iff_not_roundsInBound`, the bridge
 `rnd_iff_rounds` tying `rnd` to the relational spec `Rounds`, and how special
-inputs and overflow come out of `rnd` (`rnd_special`, `rnd_of_overflows`).
+inputs and overflow come out of `rnd` (`rnd_special`, `rnd_of_overflows`),
+and where `rnd` lands (`rnd_mem_values`, `rnd_of_mem_values`).
 -/
 
 namespace Mpfx
@@ -112,5 +113,35 @@ theorem rnd_of_overflows {F : FiniteFormat} {S : SpecialMap F.toFormat}
   obtain ⟨y, hy, hnb⟩ := hov
   rw [rnd_finite_of_roundsFinite h hy, if_neg hnb,
     hy.isFaithfulRound.decide_lt_zero (ne_zero_of_not_boundOK hnb)]
+
+/-! ### Where `rnd` lands -/
+
+/-- Every value `rnd` returns is a value of `F`. -/
+theorem rnd_mem_values {F : FiniteFormat} {S : SpecialMap F.toFormat}
+    {O : OverflowMap F.toFormat} {rm : RoundingMode} {v : WithSpecial ℝ}
+    {w : WithSpecial Dyadic} (h : rnd F S O rm v = .value w) : w ∈ F.values := by
+  cases v with
+  | special s =>
+    rw [rnd_special, RoundResult.value.injEq] at h
+    exact h ▸ S.mem s
+  | finite x =>
+    simp only [rnd] at h
+    split_ifs at h with hu hb
+    · rw [← RoundResult.value.inj h]
+      exact mem_of_mem_unbounded_of_boundOK (rndUnbounded_satisfies F rm x hu).1 hb
+    · rw [← RoundResult.value.inj h]
+      exact O.mem _
+
+/-- `rnd` fixes every value of `F` when `S` fixes the specials of `F`. -/
+theorem rnd_of_mem_values {F : FiniteFormat} {S : SpecialMap F.toFormat}
+    {O : OverflowMap F.toFormat} {rm : RoundingMode}
+    (hS : ∀ s ∈ F.specials, S.map s = .special s) (hrm : ¬ F.IsUndefined rm)
+    {w : WithSpecial Dyadic} (hw : w ∈ F.values) : rnd F S O rm w.toReal = .value w := by
+  cases w with
+  | special s => rw [WithSpecial.toReal_special, rnd_special, hS s hw]
+  | finite d =>
+    rw [WithSpecial.toReal_finite,
+      rnd_finite_of_roundsFinite hrm (RoundsFinite.self rm (mem_unbounded_of_mem hw)),
+      if_pos hw.2.2]
 
 end Mpfx
