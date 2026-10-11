@@ -199,15 +199,20 @@ re-unfold the definitions.
   `canonical_rep_reconstruct` and `log_le_of_canonical_rep`. The `|m| < 2^p`
   bound comes from `floor_mantissa_lt`. About 120 lines. Landed as
   `FiniteFormat.exists_mul_zpow_canonicalExp`; the converse is still open.
-* [ ] Keep one successor. Three exist: `Format.next` (four-arm match with junk
+* [~] Keep one successor. Three exist: `Format.next` (four-arm match with junk
   arms), `FiniteFormat.next` (via `canonicalExp`) and `Ulp.succ` (real-valued),
   bridged by `next_eq_format_next` and `next_coe`. Define `boundAfterNext` from
   the one kept. At minimum add `next_zero (he : F.exp = e) : F.next 0 =
   ofIntZpow 1 e` beside `next_pos_eq`; `lt_next` and `next_mono` (68 lines,
   five-way split) then follow from `canonicalExp_mono`. Removes the
   `lt_next_of_*` and `next_eq_bot_*` families and four inline re-derivations of
-  the `b ≤ 0` reduction. About 200 lines.
-* [ ] `two_le_p_or_trivial_of_extend_one_withBound_subset` (170 lines) builds
+  the `b ≤ 0` reduction. About 200 lines. Done in part: `Ulp.succ` is gone,
+  `Format.next_zero` and `FiniteFormat.format_next_eq` (`next b = b + 2^cexp b`
+  for `b ≥ 0`) landed, `next_mono` is stated on `FiniteFormat` and follows from
+  `canonicalExp_mono`, and the inline `b = 0` reductions are gone. `Format.next`
+  keeps its junk arms and the `lt_next_of_*` helpers, since `boundAfterNext` is
+  defined on `Format`.
+* [x] `two_le_p_or_trivial_of_extend_one_withBound_subset` (170 lines) builds
   a `3 · 2^k` witness in each of eight cases. Generic witness: a positive
   `d ∈ F₁`, and `m = (F₁.extend 1).next d = (d + next d)/2`
   (`next_extend_midpoint'`), which is in the extended grid, at most

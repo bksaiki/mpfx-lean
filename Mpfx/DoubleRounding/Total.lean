@@ -282,8 +282,8 @@ private theorem bound_floor_setup {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
           linarith
       change |(v : ℚ)| ≤ ((d : Dyadic) : ℚ)
       exact_mod_cast h2r
-    · exact next_mono hd_le hguard
-    · exact next_mono hd_le
+    · exact next_mono hd_nn hd_le hguard
+    · exact next_mono (F := F₁.extend 1) hd_nn hd_le
         (fun h => hguard (exp_bot_of_extend_bot (F₁ := F₁) (k := 1) h))
 
 /-- The grid-regularity hypothesis is vacuous when the bound is `⊤`. -/
