@@ -3,8 +3,8 @@ import Mathlib.Data.Rat.Cast.Defs
 import Mathlib.Data.Rat.Cast.Order
 import Mathlib.Algebra.Ring.Subring.Basic
 import Mathlib.Data.Int.Log
-import Mathlib.Tactic
 import Mpfx.Utils
+import Mathlib.Tactic
 
 /-!
 # Dyadic numbers and format parameters
@@ -47,13 +47,7 @@ namespace IsDyadic
 private theorem add_aux (c₁ c₂ e₁ e₂ : ℤ) (h : e₁ ≤ e₂) :
     (c₁ : ℚ) * (2 : ℚ) ^ e₁ + (c₂ : ℚ) * (2 : ℚ) ^ e₂
       = ((c₁ + c₂ * 2 ^ (e₂ - e₁).toNat : ℤ) : ℚ) * (2 : ℚ) ^ e₁ := by
-  have h2 : (2 : ℚ) ≠ 0 := by norm_num
-  have hsub : ((e₂ - e₁).toNat : ℤ) = e₂ - e₁ := Int.toNat_of_nonneg (by omega)
-  have hpow : (2 : ℚ) ^ e₂ = (2 : ℚ) ^ (e₂ - e₁).toNat * (2 : ℚ) ^ e₁ := by
-    rw [show ((2 : ℚ) ^ (e₂ - e₁).toNat : ℚ) = (2 : ℚ) ^ ((e₂ - e₁).toNat : ℤ) from
-        (zpow_natCast _ _).symm, ← zpow_add₀ h2, hsub]
-    congr 1; ring
-  rw [hpow]; push_cast; ring
+  rw [Mpfx.two_zpow_split_toNat (K := ℚ) h]; push_cast; ring
 
 theorem zero : IsDyadic 0 := ⟨0, 0, by simp⟩
 
@@ -108,10 +102,6 @@ theorem coe_real_lt_zero_iff (d : Dyadic) : (d : ℝ) < 0 ↔ (d : ℚ) < 0 := b
 theorem ext_real {a b : Dyadic} (h : ((a : Dyadic) : ℝ) = ((b : Dyadic) : ℝ)) : a = b := by
   apply Subtype.ext
   exact_mod_cast h
-
-/-- The composite coercion `Dyadic → ℚ → ℝ` is injective. -/
-theorem coe_real_injective : Function.Injective (fun d : Dyadic => ((d : Dyadic) : ℝ)) :=
-  fun _ _ h => ext_real h
 
 @[simp, norm_cast] theorem coe_real_inj (a b : Dyadic) :
     ((a : Dyadic) : ℝ) = ((b : Dyadic) : ℝ) ↔ a = b :=
@@ -289,15 +279,12 @@ theorem quantumAtLeast_anti {e₁ e₂ : QExp} (h : e₂ ≤ e₁) {x : Dyadic}
     | bot => exact absurd (le_bot_iff.mp h) (WithBot.coe_ne_bot)
     | coe e₁ =>
       obtain ⟨c, hc⟩ := hx
-      have he_le : e₂ ≤ e₁ := by exact_mod_cast WithBot.coe_le_coe.mp h
-      refine ⟨c * 2 ^ (e₁ - e₂).toNat, ?_⟩
-      rw [hc]
-      push_cast
-      rw [show ((2 : ℚ) ^ (e₁ - e₂).toNat : ℚ) = (2 : ℚ) ^ ((e₁ - e₂).toNat : ℤ)
-          from (zpow_natCast _ _).symm,
-          mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0),
-          Int.toNat_of_nonneg (by omega)]
-      congr 2; omega
+      exact ⟨_, hc.trans (Mpfx.two_zpow_shift c (WithBot.coe_le_coe.mp h))⟩
+
+/-- `c · 2^k` has quantum at least `2^e` for every `e ≤ k`. -/
+theorem quantumAtLeast_ofIntZpow {e : QExp} {c k : ℤ} (he : e ≤ (k : QExp)) :
+    quantumAtLeast e (ofIntZpow c k) :=
+  quantumAtLeast_anti he ⟨c, by rw [coe_rat_ofIntZpow]⟩
 
 theorem precisionAtMost_neg {p : Prec} {x : Dyadic} (h : precisionAtMost p x) :
     precisionAtMost p (-x) := by
@@ -366,8 +353,30 @@ theorem quantumAtLeast_mul {e₁ e₂ : QExp} {x y : Dyadic}
       rw [show ((x * y : Dyadic) : ℝ) = (x : ℝ) * (y : ℝ) from by push_cast; ring, hcx, hcy,
           zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; push_cast; ring
 
+/-- A product needs at most the sum of the operands' precisions. -/
+theorem precisionAtMost_mul {p₁ p₂ : Prec} {x y : Dyadic}
+    (hx : precisionAtMost p₁ x) (hy : precisionAtMost p₂ y) :
+    precisionAtMost (p₁ + p₂) (x * y) := by
+  cases p₁ using ENat.recTopCoe with
+  | top => rw [top_add]; trivial
+  | coe a =>
+    cases p₂ using ENat.recTopCoe with
+    | top => rw [add_top]; trivial
+    | coe b =>
+      rw [precisionAtMost_coe] at hx hy
+      obtain ⟨c1, e1, hxeq, hc1⟩ := hx
+      obtain ⟨c2, e2, hyeq, hc2⟩ := hy
+      rw [← Nat.cast_add, precisionAtMost_coe]
+      refine ⟨c1 * c2, e1 + e2, ?_, ?_⟩
+      · change ((x * y : Dyadic) : ℚ) = _
+        push_cast
+        rw [hxeq, hyeq, zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0)]
+        ring
+      · rw [pow_add, abs_mul]
+        exact mul_lt_mul'' hc1 hc2 (abs_nonneg _) (abs_nonneg _)
+
 /-- The dyadic value `3 · 2^k` has precision at most 2 (significand `3` fits
-in `|c| < 2^2 = 4`). Used as a precision-2 witness in `hp_F₂`-derivation. -/
+in `|c| < 2^2 = 4`). -/
 theorem precisionAtMost_two_three_zpow (k : ℤ) :
     precisionAtMost ((2 : ℕ) : Prec) (Dyadic.ofIntZpow 3 k) := by
   rw [precisionAtMost_coe]
@@ -382,23 +391,17 @@ theorem abs_ge_two_zpow_of_quantum {e : ℤ} {d : Dyadic}
     (2 : ℝ)^e ≤ |(d : ℝ)| := by
   rw [quantumAtLeast_coe_real] at hq
   obtain ⟨c, hc_eq⟩ := hq
-  have h2e_pos : (0 : ℝ) < (2 : ℝ)^e := zpow_pos (by norm_num) _
-  have hc_ne : c ≠ 0 := by
-    intro h
-    rw [h] at hc_eq
-    push_cast at hc_eq
-    rw [zero_mul] at hc_eq
-    exact hne hc_eq
-  have hc_abs : (1 : ℤ) ≤ |c| := by
-    have := abs_pos.mpr hc_ne
-    omega
-  have habs : (1 : ℝ) ≤ |(c : ℝ)| := by
-    rw [show |(c : ℝ)| = ((|c| : ℤ) : ℝ) by push_cast; rfl]
-    exact_mod_cast hc_abs
-  rw [hc_eq, abs_mul, abs_of_pos h2e_pos]
-  calc (2 : ℝ)^e = 1 * (2 : ℝ)^e := by ring
-    _ ≤ |(c : ℝ)| * (2 : ℝ)^e :=
-        mul_le_mul_of_nonneg_right habs (le_of_lt h2e_pos)
+  have hc_ne : c ≠ 0 := by rintro rfl; simp [hc_eq] at hne
+  have habs : (1 : ℝ) ≤ |(c : ℝ)| := by exact_mod_cast Int.one_le_abs hc_ne
+  rw [hc_eq, abs_mul, abs_of_pos (zpow_pos two_pos e : (0 : ℝ) < 2 ^ e)]
+  exact le_mul_of_one_le_left (zpow_pos two_pos e).le habs
+
+/-- A nonzero dyadic with `quantumAtLeast e` lies at or above binade `e`. -/
+theorem le_log_of_quantum {e : ℤ} {d : Dyadic}
+    (hq : quantumAtLeast (e : QExp) d) (hne : (d : ℝ) ≠ 0) :
+    e ≤ Int.log 2 |(d : ℝ)| :=
+  (Int.zpow_le_iff_le_log (by norm_num) (abs_pos.mpr hne)).mp
+    (by exact_mod_cast abs_ge_two_zpow_of_quantum hq hne)
 
 /-- `(c, e)` is a representation of `y` at *exactly* `p` binary digits:
 `y = c · 2^e` with `2^(p-1) ≤ |c| < 2^p`. For nonzero `y` representable
@@ -422,21 +425,15 @@ theorem precisionAtMost_of_abs_le {p : ℕ} (hp : 0 < p) {x : Dyadic} (c e : ℤ
     have hone_lt : (1 : ℤ) < (2 : ℤ) ^ p := by
       have : (2 : ℤ) ^ 0 < (2 : ℤ) ^ p := pow_lt_pow_right₀ (by norm_num) hp
       simpa using this
-    have h2ne : (2 : ℚ) ≠ 0 := two_ne_zero
-    rcases hsign with hpos | hneg
-    · refine ⟨1, e + (p : ℤ), ?_, ?_⟩
-      · rw [hx, hpos, zpow_add₀ h2ne]
-        push_cast
-        simp only [← zpow_natCast (2 : ℚ) p]
-        ring
-      · simpa using hone_lt
-    · refine ⟨-1, e + (p : ℤ), ?_, ?_⟩
-      · rw [hx, hneg, zpow_add₀ h2ne]
-        push_cast
-        simp only [← zpow_natCast (2 : ℚ) p]
-        ring
-      · have habs : |(-1 : ℤ)| = 1 := by decide
-        rw [habs]; exact hone_lt
+    -- `c = ±2^p` renormalises to `±1 · 2^(e+p)`.
+    obtain ⟨s, hs, hcs⟩ : ∃ s : ℤ, |s| = 1 ∧ c = s * 2 ^ p := by
+      rcases hsign with h | h
+      exacts [⟨1, by simp, by simp [h]⟩, ⟨-1, by simp, by simp [h]⟩]
+    refine ⟨s, e + (p : ℤ), ?_, by rw [hs]; exact hone_lt⟩
+    rw [hx, hcs, zpow_add₀ two_ne_zero]
+    push_cast
+    simp only [← zpow_natCast (2 : ℚ) p]
+    ring
 
 /-- `IsRepresentableAtP n c e y` implies `y ≠ 0` (since `|c| ≥ 1`). -/
 theorem IsRepresentableAtP.ne_zero {n : ℕ} {c e : ℤ} {y : Dyadic}
@@ -453,54 +450,6 @@ theorem IsRepresentableAtP.ne_zero {n : ℕ} {c e : ℤ} {y : Dyadic}
   have hpos : (1 : ℤ) ≤ (2 : ℤ) ^ (n - 1) := one_le_pow₀ (by norm_num)
   linarith
 
-/-- If `(c, e)` represents `y` with `|c| ∈ [2^(p-1), 2^p)`, then `(c, e)` is the
-IsRepresentableAtP form for `y` at exactly `p` bits. -/
-theorem isRepresentableAtP_of_bounds {p : ℕ} {c e : ℤ} {y : Dyadic}
-    (hyeq : (y : ℚ) = (c : ℚ) * (2 : ℚ) ^ e)
-    (hc_lo : (2 : ℤ) ^ (p - 1) ≤ |c|) (hc_hi : |c| < (2 : ℤ) ^ p) :
-    IsRepresentableAtP p c e y := ⟨hyeq, hc_lo, hc_hi⟩
-
-/-- Renormalization: if `|c| = 2^p` (boundary case), then
-`y = c · 2^e = (c/2) · 2^(e+1)` and `(c/2, e+1)` is the canonical
-IsRepresentableAtP form at `p` bits (with `|c/2| = 2^(p-1)`). -/
-theorem isRepresentableAtP_of_saturation {p : ℕ} (hp : 1 ≤ p)
-    {c e : ℤ} {y : Dyadic}
-    (hyeq : (y : ℚ) = (c : ℚ) * (2 : ℚ) ^ e)
-    (hc_eq : |c| = (2 : ℤ) ^ p) :
-    IsRepresentableAtP p (c / 2) (e + 1) y := by
-  have h2p_nonneg : (0 : ℤ) ≤ (2 : ℤ) ^ p := by positivity
-  -- c is even: c = ±2^p, both divisible by 2 (since p ≥ 1).
-  have hc_even : 2 ∣ c := by
-    rcases (abs_eq h2p_nonneg).mp hc_eq with hc | hc
-    · rw [hc, Int.two_pow_succ_pred hp]; exact ⟨_, rfl⟩
-    · rw [hc, Int.two_pow_succ_pred hp]; exact ⟨-(2 ^ (p - 1)), by ring⟩
-  have h_div_eq : 2 * (c / 2) = c := Int.mul_ediv_cancel' hc_even
-  -- |c/2| = 2^(p-1).
-  have h_div_abs : |c / 2| = (2 : ℤ) ^ (p - 1) := by
-    have h1 : 2 * |c / 2| = (2 : ℤ) ^ p := by
-      calc 2 * |c / 2|
-          = |2 * (c / 2)| := by rw [abs_mul]; simp
-        _ = |c| := by rw [h_div_eq]
-        _ = (2 : ℤ) ^ p := hc_eq
-    have h2 : (2 : ℤ) ^ p = 2 * (2 : ℤ) ^ (p - 1) := Int.two_pow_succ_pred hp
-    linarith
-  -- y = (c/2) · 2^(e+1).
-  have h_y_real : (y : ℚ) = ((c / 2 : ℤ) : ℚ) * (2 : ℚ) ^ (e + 1) := by
-    rw [hyeq]
-    have h_real_eq : (c : ℚ) = 2 * ((c / 2 : ℤ) : ℚ) := by
-      have : ((2 * (c / 2) : ℤ) : ℚ) = (c : ℚ) := by exact_mod_cast h_div_eq
-      push_cast at this
-      linarith
-    rw [h_real_eq]
-    rw [show (2 : ℚ) ^ (e + 1) = (2 : ℚ) ^ e * 2 by
-      rw [zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0)]; ring]
-    ring
-  refine ⟨h_y_real, ?_, ?_⟩
-  · rw [h_div_abs]
-  · rw [h_div_abs, Int.two_pow_succ_pred hp]
-    have : (0 : ℤ) < (2 : ℤ) ^ (p - 1) := by positivity
-    linarith
-
 /-- `((ofIntZpow k e : Dyadic) : ℝ) ≠ 0` whenever `k ≠ 0`. Packages the
 recurring `mul_ne_zero (cast) (zpow_pos)` idiom. -/
 theorem coe_ofIntZpow_ne_zero {k : ℤ} (hk : k ≠ 0) (e : ℤ) :
@@ -511,8 +460,7 @@ theorem coe_ofIntZpow_ne_zero {k : ℤ} (hk : k ≠ 0) (e : ℤ) :
 /-- The `Int.log`-based bounds core: for `k ≠ 0` and `y = k · 2^e'`, the pair
 `(k, e')` is the canonical representation of `y` at `log₂|k| + 1` bits. This
 captures the `2^(nd-1) ≤ |k| < 2^nd` derivation (via `Int.zpow_log_le_self` /
-`Int.lt_zpow_succ_log_self`) once, so the case-specific `numDigits` helpers can
-route through it. -/
+`Int.lt_zpow_succ_log_self`) once. -/
 theorem isRepresentableAtP_of_log {k e' : ℤ} (hk : k ≠ 0) {y : Dyadic}
     (hy : (y : ℚ) = (k : ℚ) * (2 : ℚ) ^ e') :
     IsRepresentableAtP ((Int.log 2 (|k| : ℝ)).toNat + 1) k e' y := by
@@ -551,131 +499,15 @@ theorem isRepresentableAtP_of_log {k e' : ℤ} (hk : k ≠ 0) {y : Dyadic}
       rw [h_cast]; exact h_2pow_gt
     exact_mod_cast h_real_lt
 
-/-- `IsRepresentableAtP p` pins down a unique `(c, e)` representation
-(for `p ≥ 1`). The exponent is determined by `|y|` (via `Int.log`),
-and the significand follows. -/
-theorem IsRepresentableAtP.unique {p : ℕ} {y : Dyadic}
-    {c₁ e₁ c₂ e₂ : ℤ}
-    (h₁ : IsRepresentableAtP p c₁ e₁ y) (h₂ : IsRepresentableAtP p c₂ e₂ y) :
-    c₁ = c₂ ∧ e₁ = e₂ := by
-  obtain ⟨hy₁, hc₁_lo, hc₁_hi⟩ := h₁
-  obtain ⟨hy₂, hc₂_lo, hc₂_hi⟩ := h₂
-  have h_2_ne : (2 : ℚ) ≠ 0 := by norm_num
-  -- |y| determines e uniquely: |c| ∈ [2^(p-1), 2^p) ⟹ |y| ∈ [2^(p-1+e), 2^(p+e)).
-  -- Step 1: derive that |c_i| ≥ 1, so c_i ≠ 0, so y ≠ 0.
-  have hone_le_2pow : ∀ n : ℕ, (1 : ℤ) ≤ (2 : ℤ) ^ n := fun n => one_le_pow₀ (by norm_num)
-  have hc₁_abs_ge_1 : (1 : ℤ) ≤ |c₁| := le_trans (hone_le_2pow _) hc₁_lo
-  have hc₂_abs_ge_1 : (1 : ℤ) ≤ |c₂| := le_trans (hone_le_2pow _) hc₂_lo
-  have hc₁_ne : c₁ ≠ 0 := fun h => by rw [h, abs_zero] at hc₁_abs_ge_1; omega
-  have hc₂_ne : c₂ ≠ 0 := fun h => by rw [h, abs_zero] at hc₂_abs_ge_1; omega
-  -- Rational-valued bounds.
-  have h_2e1_pos : (0 : ℚ) < (2 : ℚ) ^ e₁ := zpow_pos (by norm_num) _
-  have h_2e2_pos : (0 : ℚ) < (2 : ℚ) ^ e₂ := zpow_pos (by norm_num) _
-  have h_eq : (c₁ : ℚ) * (2 : ℚ) ^ e₁ = (c₂ : ℚ) * (2 : ℚ) ^ e₂ := by
-    rw [← hy₁, ← hy₂]
-  -- The exponent: show e₁ = e₂.
-  have h_e_eq : e₁ = e₂ := by
-    -- By symmetry, we show ¬(e₁ < e₂) and ¬(e₂ < e₁).
-    have aux : ∀ {a₁ e₁ a₂ e₂ : ℤ},
-        (1 : ℤ) ≤ |a₁| → |a₁| < (2 : ℤ) ^ p →
-        (2 : ℤ) ^ (p - 1) ≤ |a₂| → |a₂| < (2 : ℤ) ^ p →
-        (a₁ : ℚ) * (2 : ℚ) ^ e₁ = (a₂ : ℚ) * (2 : ℚ) ^ e₂ →
-        ¬ (e₁ < e₂) := by
-      intro a₁ d₁ a₂ d₂ ha₁_ge ha₁_lt ha₂_lo ha₂_hi h_eq h_lt
-      -- d₁ < d₂. a₁ · 2^d₁ = a₂ · 2^d₂ ⟹ a₁ = a₂ · 2^(d₂ - d₁) (in ℚ then in ℤ).
-      have h_diff_pos : 0 < d₂ - d₁ := by omega
-      have h_pow_eq : (2 : ℚ) ^ d₂ = (2 : ℚ) ^ (d₂ - d₁).toNat * (2 : ℚ) ^ d₁ := by
-        rw [show ((2 : ℚ) ^ (d₂ - d₁).toNat : ℚ) = (2 : ℚ) ^ ((d₂ - d₁).toNat : ℤ)
-            from (zpow_natCast _ _).symm,
-            ← zpow_add₀ h_2_ne, Int.toNat_of_nonneg (by omega)]
-        congr 1; ring
-      have h_a1_eq_real : (a₁ : ℚ) = (a₂ : ℚ) * (2 : ℚ) ^ (d₂ - d₁).toNat := by
-        have h2d1_pos : (0 : ℚ) < (2 : ℚ) ^ d₁ := zpow_pos (by norm_num) _
-        have : (a₁ : ℚ) * (2 : ℚ) ^ d₁ =
-            (a₂ : ℚ) * ((2 : ℚ) ^ (d₂ - d₁).toNat * (2 : ℚ) ^ d₁) := by
-          rw [← h_pow_eq]; exact h_eq
-        have := mul_right_cancel₀ (ne_of_gt h2d1_pos)
-          (by linarith [this] : (a₁ : ℚ) * (2 : ℚ) ^ d₁ =
-            (a₂ : ℚ) * (2 : ℚ) ^ (d₂ - d₁).toNat * (2 : ℚ) ^ d₁)
-        exact this
-      have h_a1_int : a₁ = a₂ * 2 ^ (d₂ - d₁).toNat := by
-        have : ((a₂ * 2 ^ (d₂ - d₁).toNat : ℤ) : ℚ) = (a₁ : ℚ) := by
-          push_cast; rw [h_a1_eq_real]
-        exact_mod_cast this.symm
-      have h_abs_eq : |a₁| = |a₂| * 2 ^ (d₂ - d₁).toNat := by
-        rw [h_a1_int, abs_mul]
-        congr 1
-        exact abs_of_nonneg (by positivity)
-      -- |a₁| = |a₂| · 2^(d₂-d₁). With |a₂| ≥ 2^(p-1) and 2^(d₂-d₁) ≥ 2:
-      have h_pow_ge_2 : (2 : ℤ) ≤ (2 : ℤ) ^ (d₂ - d₁).toNat := by
-        have h_toNat_pos : 1 ≤ (d₂ - d₁).toNat := by
-          have : ((d₂ - d₁).toNat : ℤ) = d₂ - d₁ := Int.toNat_of_nonneg (by omega)
-          omega
-        calc (2 : ℤ) = (2 : ℤ) ^ 1 := by ring
-          _ ≤ (2 : ℤ) ^ (d₂ - d₁).toNat := pow_le_pow_right₀ (by norm_num) h_toNat_pos
-      have h_abs_ge_2p : (2 : ℤ) ^ p ≤ |a₁| := by
-        rw [h_abs_eq]
-        rcases p with _ | k
-        · -- p = 0: |a₁| < 1 contradicts |a₁| ≥ 1.
-          exfalso; simp at ha₁_lt; omega
-        · -- p = k + 1: 2^(k+1) ≤ |a₂| · 2^(d₂-d₁)
-          have h2k : (2 : ℤ) ^ k ≤ |a₂| := by
-            have : (2 : ℤ) ^ ((k + 1) - 1) ≤ |a₂| := ha₂_lo
-            simpa using this
-          calc (2 : ℤ) ^ (k + 1)
-              = 2 * (2 : ℤ) ^ k := by rw [pow_succ]; ring
-            _ ≤ 2 * |a₂| := by linarith
-            _ ≤ |a₂| * 2 ^ (d₂ - d₁).toNat := by
-                rw [mul_comm 2 |a₂|]
-                exact mul_le_mul_of_nonneg_left h_pow_ge_2 (abs_nonneg _)
-      linarith
-    -- Apply aux symmetrically.
-    have h_no_lt_12 : ¬ (e₁ < e₂) := aux hc₁_abs_ge_1 hc₁_hi hc₂_lo hc₂_hi h_eq
-    have h_no_lt_21 : ¬ (e₂ < e₁) := aux hc₂_abs_ge_1 hc₂_hi hc₁_lo hc₁_hi h_eq.symm
-    omega
-  refine ⟨?_, h_e_eq⟩
-  rw [h_e_eq] at h_eq
-  have : (c₁ : ℚ) = (c₂ : ℚ) := mul_right_cancel₀ (ne_of_gt h_2e2_pos) h_eq
-  exact_mod_cast this
-
-/-- Auxiliary: any nonzero integer can be factored as `c' * 2^k` with `c'` odd
-and `|c'| ≤ |c|`. Strong induction on `c.natAbs`. -/
-private theorem Int.exists_odd_factor_aux : ∀ n (c : ℤ),
-    c.natAbs ≤ n → c ≠ 0 →
-    ∃ k : ℕ, ∃ c' : ℤ, Odd c' ∧ c = c' * 2^k ∧ c'.natAbs ≤ c.natAbs := by
-  intro n
-  induction n with
-  | zero =>
-    intro c hle hne
-    have : c.natAbs = 0 := Nat.le_zero.mp hle
-    exact absurd (Int.natAbs_eq_zero.mp this) hne
-  | succ n ih =>
-    intro c hle hne
-    rcases Int.even_or_odd c with hev | hod
-    · -- c even: c = 2 * r, r has smaller natAbs.
-      obtain ⟨r, hr⟩ := hev
-      have hr_eq : c = 2 * r := by linarith
-      have hr_ne : r ≠ 0 := by
-        intro h; rw [h, mul_zero] at hr_eq; exact hne hr_eq
-      have h2r_natAbs : (2 * r).natAbs = 2 * r.natAbs := by
-        rw [Int.natAbs_mul]; rfl
-      have hr_natAbs_lt : r.natAbs < c.natAbs := by
-        rw [hr_eq, h2r_natAbs]
-        have : 0 < r.natAbs := Int.natAbs_pos.mpr hr_ne
-        omega
-      have hr_natAbs_le : r.natAbs ≤ n := by omega
-      obtain ⟨k, c', h_odd, h_eq, h_abs⟩ := ih r hr_natAbs_le hr_ne
-      refine ⟨k + 1, c', h_odd, ?_, ?_⟩
-      · rw [hr_eq, h_eq]; ring
-      · omega
-    · -- c odd: k = 0, c' = c.
-      refine ⟨0, c, hod, ?_, le_refl _⟩
-      simp
-
 /-- Any nonzero integer factors as `c' * 2^k` with `c'` odd. -/
 private theorem Int.exists_odd_factor {c₀ : ℤ} (hc : c₀ ≠ 0) :
-    ∃ k : ℕ, ∃ c : ℤ, Odd c ∧ c₀ = c * 2^k ∧ c.natAbs ≤ c₀.natAbs :=
-  Int.exists_odd_factor_aux c₀.natAbs c₀ (le_refl _) hc
+    ∃ k : ℕ, ∃ c : ℤ, Odd c ∧ c₀ = c * 2^k ∧ c.natAbs ≤ c₀.natAbs := by
+  obtain ⟨k, m, hm, hn⟩ := Nat.exists_eq_two_pow_mul_odd (Int.natAbs_ne_zero.mpr hc)
+  have hm_le : m ≤ c₀.natAbs := hn ▸ Nat.le_mul_of_pos_left m (by positivity)
+  rcases Int.natAbs_eq c₀ with h | h
+  · exact ⟨k, m, (Int.odd_coe_nat m).mpr hm, by rw [h, hn]; push_cast; ring, by simpa using hm_le⟩
+  · exact ⟨k, -m, ((Int.odd_coe_nat m).mpr hm).neg, by rw [h, hn]; push_cast; ring,
+      by simpa using hm_le⟩
 
 /-- For any nonzero dyadic with precision at most `p`, there's a representation
 `y = c·2^e` with `c` odd and `|c| < 2^p`. -/
@@ -720,7 +552,7 @@ abbrev Bound := WithTop NonNegDyadic
   | (b : NonNegDyadic) => coe b
 
 
-/-! ### Canonical representations and casts (used by the grid lemmas) -/
+/-! ### Canonical representations and casts -/
 
 /-- `ofIntZpow 1 k` is `2^k` over `ℝ` (coefficient-free form). -/
 theorem coe_real_ofIntZpow_one (k : ℤ) :
@@ -750,20 +582,9 @@ theorem quantum_le_of_odd_rep {e : ℤ} {x : Dyadic}
   obtain ⟨m, hm⟩ : ∃ m : ℤ, ((x : Dyadic) : ℝ) = (m : ℝ) * (2 : ℝ) ^ e := by
     rw [← Dyadic.quantumAtLeast_coe_real]; exact hq
   by_contra hlt; push Not at hlt
-  have h2q_pos : (0 : ℝ) < (2 : ℝ) ^ q := zpow_pos (by norm_num) _
-  have h1 : (c : ℝ) * (2 : ℝ) ^ q = (m : ℝ) * (2 : ℝ) ^ e := by rw [← heq, hm]
-  have h2 : (m : ℝ) * (2 : ℝ) ^ (e - q) * (2 : ℝ) ^ q = (m : ℝ) * (2 : ℝ) ^ e := by
-    rw [mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0), sub_add_cancel]
-  have hce : (c : ℝ) = (m : ℝ) * (2 : ℝ) ^ (e - q) :=
-    mul_right_cancel₀ (ne_of_gt h2q_pos) (h1.trans h2.symm)
-  have hcast : ((m * 2 ^ (e - q).toNat : ℤ) : ℝ) = (m : ℝ) * (2 : ℝ) ^ (e - q) := by
-    push_cast
-    rw [← zpow_natCast (2 : ℝ) ((e - q).toNat), Int.toNat_of_nonneg (by omega)]
-  have hc_int : c = m * 2 ^ (e - q).toNat := by
-    exact_mod_cast hce.trans hcast.symm
+  have hc_int := coeff_eq_of_shift (K := ℝ) hlt.le (heq.symm.trans hm)
   have h2dvd : (2 : ℤ) ∣ c := by
-    rw [hc_int]
-    exact dvd_mul_of_dvd_right (dvd_pow_self 2 (by omega)) m
+    rw [hc_int]; exact dvd_mul_of_dvd_right (dvd_pow_self 2 (by omega)) m
   rcases hodd with ⟨t, ht⟩
   omega
 
@@ -799,45 +620,12 @@ theorem not_precisionAtMost_of_odd {p : ℕ} {x : Dyadic} {c q : ℤ}
   omega
 
 /-- The dyadic value `3 · 2^k` is *not* representable at precision 1: `3` is odd
-and two digits wide. Used as a precision-2 witness to force `2 ≤ F₂.p` from a
-containment hypothesis. -/
+and two digits wide. -/
 theorem not_precisionAtMost_one_three_zpow (k : ℤ) :
     ¬ precisionAtMost ((1 : ℕ) : Prec) (Dyadic.ofIntZpow 3 k) :=
   not_precisionAtMost_of_odd (by norm_num : Odd (3 : ℤ)) (by rw [coe_ofIntZpow]) (by norm_num)
 
 end Dyadic
-
-/-- Odd canonical representation of a positive dyadic at precision `p`,
-packaged with positivity and binade bounds: `b = c·2^q` with `c` odd and
-positive, `2^q ≤ b`, and `q ≤ ⌊log₂ b⌋ < q + p`. -/
-theorem exists_odd_canonical_pos {p : ℕ} {b : Dyadic}
-    (hb_p : Dyadic.precisionAtMost (p : Prec) b)
-    (hb_pos : 0 < ((b : Dyadic) : ℝ)) :
-    ∃ c q : ℤ, ((b : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ q ∧ Odd c ∧ 0 < c ∧
-      (2 : ℝ) ^ q ≤ ((b : Dyadic) : ℝ) ∧
-      q ≤ Int.log 2 ((b : Dyadic) : ℝ) ∧
-      Int.log 2 ((b : Dyadic) : ℝ) < q + (p : ℤ) := by
-  obtain ⟨c, q, hc_eq, hc_odd, hc_lt⟩ :=
-    Dyadic.exists_odd_canonical_of_precisionAtMost hb_p (ne_of_gt hb_pos)
-  have h2q_pos : (0 : ℝ) < (2 : ℝ) ^ q := zpow_pos (by norm_num) _
-  have hc_pos : 0 < c := by
-    by_contra h; push Not at h
-    have hcr : (c : ℝ) ≤ 0 := by exact_mod_cast h
-    nlinarith
-  have hc1 : (1 : ℝ) ≤ (c : ℝ) := by exact_mod_cast hc_pos
-  have h_lb : (2 : ℝ) ^ q ≤ ((b : Dyadic) : ℝ) := by rw [hc_eq]; nlinarith
-  have hcp : (c : ℝ) < (2 : ℝ) ^ (p : ℤ) := by
-    rw [zpow_natCast]
-    have h1 : (c : ℝ) < ((2 ^ p : ℤ) : ℝ) := by
-      exact_mod_cast lt_of_abs_lt hc_lt
-    push_cast at h1; exact h1
-  have h_ub : ((b : Dyadic) : ℝ) < (2 : ℝ) ^ (q + (p : ℤ)) := by
-    rw [hc_eq, zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-    calc (c : ℝ) * (2 : ℝ) ^ q < (2 : ℝ) ^ (p : ℤ) * (2 : ℝ) ^ q := by nlinarith
-      _ = (2 : ℝ) ^ q * (2 : ℝ) ^ (p : ℤ) := by ring
-  exact ⟨c, q, hc_eq, hc_odd, hc_pos, h_lb,
-    (Int.zpow_le_iff_le_log (by norm_num) hb_pos).mp h_lb,
-    (Int.lt_zpow_iff_log_lt (by norm_num) hb_pos).mp h_ub⟩
 
 /-- The order on `NonNegDyadic`, in terms of the underlying reals. -/
 theorem NonNegDyadic.le_iff_coe_real {a b : NonNegDyadic} :
@@ -847,6 +635,6 @@ theorem NonNegDyadic.le_iff_coe_real {a b : NonNegDyadic} :
 
 /-- A `NonNegDyadic` is non-negative over `ℝ`. -/
 theorem nonneg_coe_real (b : NonNegDyadic) : 0 ≤ ((b.val : Dyadic) : ℝ) := by
-  rw [Dyadic.coe_real_eq_ratCast]; exact_mod_cast b.2
+  exact_mod_cast b.2
 
 end Mpfx

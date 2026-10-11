@@ -1,7 +1,7 @@
 import Mpfx.Rounding.Ulp
 
 /-!
-# Double-rounding counterexamples: grid facts
+# Double-rounding counterexamples: discreteness and parity
 
 The format-generic facts the counterexamples are built from. Every format is
 discrete away from zero (`exists_isolated`), so a positive value has an
@@ -39,8 +39,8 @@ private theorem exists_mul_zpow_of_le (c : ℤ) {a K : ℤ} (h : K ≤ a) :
   push_cast; ring
 
 /-- **Discreteness away from zero.** Every format is isolated at every nonzero
-dyadic `m`: its values of magnitude at least `|m|/2` share a quantum, fixed by
-the precision or else by the minimum quantum, and `m` has one too. -/
+dyadic `m`: its values of magnitude at least `|m|/2` are multiples of the step
+there (`exists_mul_zpow_canonicalExp`, `canonicalExp_mono`), and so is `m`. -/
 theorem exists_isolated (F : FiniteFormat) {m : Dyadic} (hm : (m : ℝ) ≠ 0) :
     ∃ K : ℤ, Isolated F m K := by
   obtain ⟨cm, j, hcm⟩ := m.property
@@ -50,34 +50,14 @@ theorem exists_isolated (F : FiniteFormat) {m : Dyadic} (hm : (m : ℝ) ≠ 0) :
   have hmE : (2 : ℝ) ^ (E + 1) ≤ |(m : ℝ)| := by
     rw [hE, sub_add_cancel]
     exact Int.zpow_log_le_self (b := 2) (by norm_num) (abs_pos.mpr hm)
-  -- Values of magnitude at least `2^E` are multiples of a common `2^k`.
+  -- Values of magnitude at least `2^E` are multiples of `2^k`, the step at `2^E`.
   obtain ⟨k, hk⟩ : ∃ k : ℤ, ∀ v ∈ F.unbounded, (2 : ℝ) ^ E ≤ |(v : ℝ)| →
       ∃ c : ℤ, (v : ℝ) = (c : ℝ) * (2 : ℝ) ^ k := by
-    cases hp : F.p using ENat.recTopCoe with
-    | top =>
-      cases he : F.exp using QExp.recBotCoe with
-      | bot => exact (F.finite.elim (· hp) (· he)).elim
-      | coe e =>
-        refine ⟨e, fun v hv _ => ?_⟩
-        have hq : Dyadic.quantumAtLeast F.exp v := hv.2.1
-        rw [he] at hq
-        exact (Dyadic.quantumAtLeast_coe_real e v).mp hq
-    | coe q =>
-      refine ⟨E - q + 1, fun v hv hvE => ?_⟩
-      have hpv : Dyadic.precisionAtMost F.p v := hv.1
-      rw [hp] at hpv
-      obtain ⟨c, e, hce, hc⟩ := (Dyadic.precisionAtMost_coe_real q v).mp hpv
-      -- `|v| < 2^(q + e)`, so `E < q + e`.
-      have h_lt : (2 : ℝ) ^ E < (2 : ℝ) ^ ((q : ℤ) + e) := by
-        refine hvE.trans_lt ?_
-        rw [hce, abs_mul, abs_of_pos (zpow_pos two_pos e : (0 : ℝ) < 2 ^ e), zpow_add₀ two_ne_zero,
-          zpow_natCast]
-        exact mul_lt_mul_of_pos_right (by exact_mod_cast hc) (zpow_pos two_pos e)
-      have he : E - q + 1 ≤ e := by
-        have := (zpow_lt_zpow_iff_right₀ (by norm_num : (1 : ℝ) < 2)).mp h_lt
-        omega
-      rw [hce]
-      exact exists_mul_zpow_of_le c he
+    refine ⟨F.canonicalExp ((2 : ℝ) ^ E), fun v hv hvE => ?_⟩
+    obtain ⟨c, hc⟩ := F.exists_mul_zpow_canonicalExp hv
+    have hmono : F.canonicalExp ((2 : ℝ) ^ E) ≤ F.canonicalExp (v : ℝ) :=
+      F.canonicalExp_mono (zpow_pos two_pos E).ne' (by rwa [abs_of_pos (zpow_pos two_pos E)])
+    exact ⟨_, hc.trans (two_zpow_shift c hmono)⟩
   refine ⟨min (min j k) E, fun v hv hlt => ?_⟩
   set K := min (min j k) E
   have hKE : (2 : ℝ) ^ K ≤ (2 : ℝ) ^ E := zpow_le_zpow_right₀ (by norm_num) (min_le_right _ _)
@@ -150,22 +130,8 @@ theorem alternate_of_adjacent (F : ParityFormat) {u u' : Dyadic}
     ⟨hu, by linarith, fun v hv hvx => hadj v hv (by linarith)⟩
   have hup : RoundsFinite F.unbounded.unbounded .toPositive x u' :=
     ⟨hu', by linarith, fun v hv hxv => not_lt.mp fun hv' => by linarith [hadj v hv hv']⟩
-  obtain ⟨hodd, heven⟩ := alternate_of_bracketing (F := F.unbounded)
-    (F.not_isUndefined .toOdd) hdown hup (by linarith)
-  refine ⟨⟨fun h₁ h₂ => hodd.mp (h₁.congr rfl rfl) (h₂.congr rfl rfl),
-    fun h₁ => (hodd.mpr fun h₂ => h₁ (h₂.congr rfl rfl)).congr rfl rfl⟩,
-    fun h₁ => (heven fun h₂ => h₁ (h₂.congr rfl rfl)).congr rfl rfl⟩
-
-/-- `F`'s parity witness for the nearest-even spec on `F.unbounded`. -/
-theorem isEven_witness (F : ParityFormat) {y : Dyadic} (h : F.IsEven y) :
-    ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsEven y :=
-  ⟨⟨F.unbounded, F.parity⟩, rfl, h.congr rfl rfl⟩
-
-/-- A round-to-odd result off its input is odd in `F`. -/
-theorem isOdd_of_roundsRTO (F : ParityFormat) {x : ℝ} {y : Dyadic}
-    (h : RoundsFinite F.unbounded .toOdd x y) (hne : x ≠ (y : ℝ)) : F.IsOdd y := by
-  obtain ⟨F', hF', hodd⟩ := h.2.2 hne
-  exact hodd.congr (congrArg Format.p hF' :) (congrArg Format.exp hF' :)
+  exact alternate_of_bracketing (F := F.unbounded) (F.not_isUndefined .toOdd) hdown hup
+    (by linarith)
 
 /-! ## Roundings near an isolated value -/
 
@@ -199,17 +165,11 @@ theorem roundsRNE_of_isolated {F : FiniteFormat} {h : Dyadic} {K : ℤ} (hK : Is
     rw [abs_sub_comm (v : ℝ) x] at h₂
     linarith
   have hfy : IsFaithfulRound F.unbounded x h := by
+    have hx' := abs_lt.mp hx
+    have h2K : (0 : ℝ) < 2 ^ K := zpow_pos two_pos K
     rcases le_total (h : ℝ) x with hhx | hxh
-    · refine Or.inl ⟨hh, hhx, fun v hv hvx => not_lt.mp fun hlt => ?_⟩
-      have := hfar v hv (fun e => by rw [e] at hlt; exact lt_irrefl _ hlt)
-      rw [abs_of_nonneg (by linarith : 0 ≤ x - h), abs_of_nonneg (by linarith : 0 ≤ x - v)]
-        at this
-      linarith
-    · refine Or.inr ⟨hh, hxh, fun v hv hxv => not_lt.mp fun hlt => ?_⟩
-      have := hfar v hv (fun e => by rw [e] at hlt; exact lt_irrefl _ hlt)
-      rw [abs_of_nonpos (by linarith : x - h ≤ 0), abs_of_nonpos (by linarith : x - v ≤ 0)]
-        at this
-      linarith
+    · exact Or.inl (roundsDown_of_isolated hK hh hhx (by linarith))
+    · exact Or.inr (roundsUp_of_isolated hK hh (by linarith) hxh)
   refine ⟨hh, hfy, fun v hv _ => ?_, fun ⟨v, hv, _, hne, heq⟩ => ?_⟩
   · by_cases hne : v = h
     · rw [hne]
@@ -245,42 +205,24 @@ one, and on a tie the even one. -/
 theorem roundsRNE_of_bracket {F : FiniteFormat} {u u' y : Dyadic} {z : ℝ}
     (h : Adjacent F u u') (hzu : (u : ℝ) ≤ z) (hzu' : z ≤ (u' : ℝ)) (hy : y = u ∨ y = u')
     (hclose : |z - y| ≤ |z - u| ∧ |z - y| ≤ |z - u'|)
-    (htie : |z - u| = |z - u'| →
-      ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsEven y) :
+    (htie : |z - u| = |z - u'| → F.IsEven y) :
     RoundsFinite F.unbounded (.nearest .toEven) z y := by
   obtain ⟨hu, hu', hlt, hadj⟩ := h
-  -- The faithful roundings of `z` are `u` and `u'`.
-  have hfaith : ∀ c : Dyadic, IsFaithfulRound F.unbounded z c → c = u ∨ c = u' := by
-    rintro c (⟨hc, hcz, hmax⟩ | ⟨hc, hzc, hmin⟩)
-    · rcases (hcz.trans hzu').lt_or_eq with h | h
-      · exact Or.inl (Dyadic.ext_real (le_antisymm (hadj c hc h) (hmax u hu hzu)))
-      · exact Or.inr (Dyadic.ext_real h)
-    · rcases (hmin u' hu' hzu').lt_or_eq with h | h
-      · exact Or.inl (Dyadic.ext_real (le_antisymm (hadj c hc h) (hzu.trans hzc)))
-      · exact Or.inr (Dyadic.ext_real h)
-  have hfy : IsFaithfulRound F.unbounded z y := by
-    rcases hy with rfl | rfl
-    · refine Or.inl ⟨hu, hzu, fun v hv hvz => ?_⟩
-      rcases (hvz.trans hzu').lt_or_eq with h | h
-      · exact hadj v hv h
-      · -- `z = u'` would make `u'` strictly nearer, contradicting `hclose`.
-        have hz : z = u' := le_antisymm hzu' (h ▸ hvz)
-        have := hclose.2
-        rw [hz, sub_self, abs_zero, abs_nonpos_iff, sub_eq_zero] at this
-        linarith
-    · refine Or.inr ⟨hu', hzu', fun v hv hzv => not_lt.mp fun h => ?_⟩
-      have hz : z = u := le_antisymm (hzv.trans (hadj v hv h)) hzu
-      have := hclose.1
-      rw [hz, sub_self, abs_zero, abs_nonpos_iff, sub_eq_zero] at this
-      linarith
-  refine ⟨hfy.elim (·.1) (·.1), hfy, fun c _ hc => ?_, fun ⟨c, _, hc, hne, heq⟩ => htie ?_⟩
-  · rcases hfaith c hc with rfl | rfl
-    exacts [hclose.1, hclose.2]
-  · rcases hfaith c hc with rfl | rfl <;> rcases hy with rfl | rfl
-    · exact absurd rfl hne
-    · exact heq.symm
-    · exact heq
-    · exact absurd rfl hne
+  -- At an end, `hclose` pins `y` to `z`.
+  have hend : ∀ {a b : Dyadic}, (a : ℝ) ≠ b → |(a : ℝ) - b| ≤ |(a : ℝ) - a| → False :=
+    fun hab h => hab (sub_eq_zero.mp (abs_nonpos_iff.mp (by simpa using h)))
+  rcases hzu.lt_or_eq with hzu | rfl
+  · rcases hzu'.lt_or_eq with hzu' | rfl
+    · exact RoundsFinite.nearest_toEven_of_bracket
+        ⟨hu, hzu.le, fun v hv hvz => hadj v hv (hvz.trans_lt hzu')⟩
+        ⟨hu', hzu'.le, fun v hv hzv => not_lt.mp fun h => (hzu.trans_le hzv).not_ge (hadj v hv h)⟩
+        hy hclose fun h _ => htie h
+    · rcases hy with rfl | rfl
+      · exact (hend hlt.ne' hclose.2).elim
+      · exact RoundsFinite.self _ hu'
+  · rcases hy with rfl | rfl
+    · exact RoundsFinite.self _ hu
+    · exact (hend hlt.ne hclose.1).elim
 
 end Cex
 

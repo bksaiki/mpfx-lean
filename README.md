@@ -34,7 +34,7 @@ rules carry that conjunct.
 | --- | --- | --- |
 | Lemma 5.1 (digit position is a function of `(p, exp, x)`) | `FiniteFormat.numDigits` | `Mpfx/Format/Defs.lean` |
 | Lemma 5.2 (`w₂ = w₁ + k`) | `FiniteFormat.numDigits_extend` | `Mpfx/Format/Containment.lean` |
-| Lemma 5.3 (RTO padding preserves representability) | `IsOdd.transfer_of_subset` | `Mpfx/Format/Digits.lean` |
+| Lemma 5.3 (RTO padding preserves representability) | `IsOdd.transfer_of_subset` | `Mpfx/Format/Parity.lean` |
 
 ### §5.2 — Correct double rounding (Fig. 9)
 
@@ -42,15 +42,15 @@ All positive rules, in `Mpfx/DoubleRounding/`, at three levels:
 
 - **Finite form**: given `RoundsFinite F₂ rm₂ x z` and `RoundsFinite F₁ rm₁ z w`
   (with the stated containment of `F₁` in `F₂`), then `RoundsFinite F₁ rm₁ x w`.
-  RTO → RTZ/RAZ/RN also have a `…_finite_of_extend` form taking the plain
+  RTO → RTN/RTP/RTZ/RAZ/RN also have a `…_finite_of_extend` form taking the plain
   containment `F₁.extend k ⊆ F₂` and `2 ≤ F₂.p`.
 - **Total form**, with bounds: either rounding `x` directly in `F₁` overflows
   (`Overflows`), or rounding `x` into `F₂` and the result into `F₁` stays in
   bound and agrees with it (`RoundsInBound`).
-- **With tables**, on `rnd` over every input (real, `±Inf`, NaN):
+- **With maps**, on `rnd` over every input (real, `±Inf`, NaN):
   `rnd₁ (rnd₂ v) = rnd₁ v`. See below.
 
-| Paper | Finite form | Total form | With tables |
+| Paper | Finite form | Total form | With maps |
 | --- | --- | --- | --- |
 | `rnd-RTZ-RTZ` | `roundsRTZ_RTZ_finite` | `roundsRTZ_RTZ_inBound` | `rndRTZ_RTZ` |
 | `rnd-RAZ-RAZ` | `roundsRAZ_RAZ_finite` | `roundsRAZ_RAZ_inBound` | `rndRAZ_RAZ` |
@@ -59,26 +59,27 @@ All positive rules, in `Mpfx/DoubleRounding/`, at three levels:
 | `rnd-RTO-RAZ` | `roundsRTO_RAZ_finite` | `roundsRTO_RAZ_inBound` | `rndRTO_RAZ` |
 | `rnd-RTO-RNE` / `rnd-RTO-RNA` | `roundsRTO_RN_finite` (both tie-breaks) | `roundsRTO_RN_inBound` | `rndRTO_RN` |
 | RTP→RTP, RTN→RTN (IEEE directed) | `roundsRTP_RTP_finite`, `roundsRTN_RTN_finite` | — | — |
+| RTO→RTP, RTO→RTN | `roundsRTO_RTP_finite`, `roundsRTO_RTN_finite` | — | — |
 
 ### Double rounding with special values
 
-`rnd F S O rm : WithSpecial ℝ → RoundResult` rounds with two tables of `F`:
+`rnd F S O rm : WithSpecial ℝ → RoundResult` rounds with two maps of `F`:
 `S : SpecialMap` says where `±Inf` and NaN inputs go, `O : OverflowMap` where
-overflow goes, by sign. The table-level rules (`rndRTZ_RTZ`, …, in
-`Mpfx/DoubleRounding/Special.lean`) take the plain containment and three table
+overflow goes, by sign. The map-level rules (`rndRTZ_RTZ`, …, in
+`Mpfx/DoubleRounding/Special.lean`) take the plain containment and three map
 conditions:
 
 | Condition | Meaning |
 | --- | --- |
-| `SpecialMap.Composes`, `OverflowMap.Composes` | `F₁` rounds each `F₂` table entry to the matching `F₁` entry |
-| `OverflowAgrees` | where exactly one side overflows, the overflow tables give the other side's in-bound value |
+| `SpecialMap.Composes`, `OverflowMap.Composes` | `F₁` rounds each `F₂` map entry to the matching `F₁` entry |
+| `OverflowAgrees` | where exactly one side overflows, the overflow maps give the other side's in-bound value |
 
-`OverflowAgrees` holds for any tables under the paper's relaxed containment
+`OverflowAgrees` holds for any maps under the paper's relaxed containment
 (`OverflowAgrees.of_bound`; the rules in that form are `rndRTZ_RTZ_of_bound`,
-…), and for saturating tables on both sides under the plain one
-(`OverflowAgrees.of_saturate`). Standard tables that compose:
+…), and for saturating maps on both sides under the plain one
+(`OverflowAgrees.of_saturate`). Standard maps that compose:
 `SpecialMap.exact_composes`, `OverflowMap.composes_of_inf` (`±Inf`),
-`OverflowMap.saturate_composes`. The IEEE 754 tables
+`OverflowMap.saturate_composes`. The IEEE 754 maps
 (`OverflowMap.ieee`) compose for every rule but RTO → RTZ, where RTO
 overflows to `±Inf` and RTZ saturates. `MpfxTest/DoubleRounding.lean` shows
 that failure, and full IEEE instances of RTO → RN and RTZ → RTZ.
@@ -87,9 +88,10 @@ that failure, and full IEEE instances of RTO → RN and RTZ → RTZ.
 
 The ten mode pairings that are *not* correct double rounding, in
 `namespace Mpfx.Cex` (`Mpfx/DoubleRounding/Counterexample.lean`). For every
-parity format `F₁`, bounded or not, and every `F₂` satisfying the containment,
-each exhibits a real `x` whose chained rounding disagrees with the direct
-rounding, with no rounding overflowing (`Disagrees`: `∃ x z w y,
+format `F₁` (a parity format when the target is RTO or RNE), bounded or not,
+and every `F₂` satisfying the containment, each exhibits a real `x` whose
+double rounding disagrees with the direct rounding, with no rounding
+overflowing (`Disagrees`: `∃ x z w y,
 RoundsInBound F₂ rm₂ x z ∧ RoundsInBound F₁ rm₁ z w ∧ RoundsInBound F₁ rm₁ x y ∧
 w ≠ y`). `Disagrees.rnd_ne` turns the witness into a failure of
 `rnd₁ ∘ rnd₂ = rnd₁` for any `SpecialMap` and `OverflowMap`, at a finite input
@@ -177,30 +179,27 @@ Every theorem listed above depends on exactly these three standard axioms.
 | `Mpfx/Utils.lean` | Project-agnostic `ℝ`/integer helpers. |
 | `Mpfx/Dyadic.lean` | `Dyadic` (subring of `ℚ`), `precisionAtMost`/`quantumAtLeast` (and quantum alignment under `±`, `×`), `IsRepresentableAtP`. |
 | `Mpfx/Format/Defs.lean` | `Format`/`FiniteFormat`, membership, `canonicalExp`, `numDigits`; `Special`, `WithSpecial`, `Format.values`. |
-| `Mpfx/Format/Parity.lean` | `ParityFormat`, `IsOdd`/`IsEven`, transport across formats. |
-| `Mpfx/Format/Parity/Alternate.lean` | Parity alternation between adjacent canonical values. |
-| `Mpfx/Format/Containment.lean` | §5.1 containment and completeness; `extend`, `numDigits_extend`. |
+| `Mpfx/Format/Parity.lean` | `ParityFormat`, `IsOdd`/`IsEven`; even values as the shrink `𝒜(p − 1, exp + 1)`, alternation at the canonical step, RTO-padding lemma (`IsOdd.transfer_of_subset`). |
+| `Mpfx/Format/Containment.lean` | §5.1 containment and completeness; `extend`, `numDigits_extend`, `shrink`. |
 | `Mpfx/Format/Next.lean` | `withBound`, `next`, `boundAfterNext`; containment with a relaxed bound. |
-| `Mpfx/Format/Digits.lean` | Digit-count lemma; RTO-padding lemma (`IsOdd.transfer_of_subset`). |
-| `Mpfx/Format/Discrete.lean` | Canonical representation, F-adjacency, midpoint membership. |
-| `Mpfx/Format/CanonicalExp.lean` | Closed forms of the canonical exponent. |
+| `Mpfx/Format/Discrete.lean` | Canonical representation, midpoint of adjacent values in `F.extend 1`. |
+| `Mpfx/Format/CanonicalExp.lean` | Floor and ceiling at the canonical exponent: `floor_minimality`, `ofIntZpow_mem_unbounded`, `floor_mantissa_lt`. |
 | `Mpfx/Format/Inference.lean` | §6.1 inference. |
 | `Mpfx/Rounding/Defs.lean` | Rounding modes, `SpecialMap`/`OverflowMap`, the `Rounds`/`RoundsFinite` spec, `Overflows`, `IsFaithfulRound`. |
-| `Mpfx/Rounding/Basic.lean` | Consequences of the spec: sign symmetry, uniqueness, faithfulness, monotonicity. |
+| `Mpfx/Rounding/Basic.lean` | Consequences of the spec: sign symmetry, uniqueness, faithfulness. |
 | `Mpfx/Rounding/Restrict.lean` | Restrict/lift between bounded and unbounded rounding. |
-| `Mpfx/Rounding/Parity.lean` | Adjacent grid points alternate in parity. |
+| `Mpfx/Rounding/Parity.lean` | Adjacent values alternate in parity. |
 | `Mpfx/Rounding/Op.lean`, `Op/` | The rounding function `rnd` and the bridge `rnd_iff_rounds`. |
-| `Mpfx/Rounding/Special.lean` | `maxFinite` and the standard tables: `SpecialMap.exact`/`saturate`/`toNaN`, `OverflowMap.ieee`/`saturate`/`toNaN`. |
-| `Mpfx/Rounding/Ulp.lean` | `ulp`, `rndDown`/`rndUp`/`midp`, `succ`/`pred`. |
+| `Mpfx/Rounding/Special.lean` | `maxFinite` and the standard maps: `SpecialMap.exact`/`saturate`/`toNaN`, `OverflowMap.ieee`/`saturate`/`toNaN`. |
+| `Mpfx/Rounding/Ulp.lean` | `ulp`, `rndDown`/`rndUp`/`midp`, nearest rounding around the midpoint. |
 | `Mpfx/DoubleRounding/Basic.lean` | §5.2 positive rules (finite form), except RTO→RN; `rndExact`. |
 | `Mpfx/DoubleRounding/Nearest.lean` | `roundsRTO_RN_finite`. |
-| `Mpfx/DoubleRounding/Propagation.lean` | Per-rule overflow propagation between direct, `F₂` and chained rounding. |
-| `Mpfx/DoubleRounding/Total.lean` | §5.2 positive rules (total form); agreement in bound under plain containment. |
-| `Mpfx/DoubleRounding/Special.lean` | §5.2 rules with tables; `Composes`, `OverflowAgrees`, standard tables. |
+| `Mpfx/DoubleRounding/Total.lean` | §5.2 positive rules (total form) from one locality theorem, `LocalDoubleRounding`; agreement in bound under plain containment. |
+| `Mpfx/DoubleRounding/Special.lean` | §5.2 rules with maps; `Composes`, `OverflowAgrees`, standard maps. |
 | `Mpfx/DoubleRounding/Counterexample.lean`, `Counterexample/` | §5.2 counterexamples. |
 | `Mpfx/DoubleRounding/NearestMidpoint.lean` | Nearest double rounding below the midpoint (Roux Lemma 16). |
 | `Mpfx/DoubleRounding/{Mul,Add,Sqrt,Div}.lean` | Roux: `×`, `+`/`−`, `√`, `/`. |
-| `MpfxTest/` | `lake test` examples: the tables against IEEE 754 §7.4, IEEE double rounding. |
+| `MpfxTest/` | `lake test` examples: the maps against IEEE 754 §7.4, IEEE double rounding. |
 
 Formalization design notes are in [`docs/DESIGN.md`](docs/DESIGN.md); status and
 remaining work in [`docs/agents/TODO.md`](docs/agents/TODO.md).

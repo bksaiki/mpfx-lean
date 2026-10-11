@@ -24,13 +24,6 @@ for `opNeg`) are exactly those the operation produces
 are the numeric containments over `Format.toSet`. With negation-closed
 specials, `opNeg F = F` (`opNeg_of_negClosed`), but `|F|` can gain `+∞`.
 
-## Result formats are plain `Format`s
-
-`Format` carries only its fields `(p, exp, b, specials)` with **no** validity
-invariants (those live in `FiniteFormat`/`ParityFormat`). So `opMul`/`opAdd`
-produce a plain `Format` with no proof obligations, and need no `F.exp ≠ ⊥`
-preconditions.
-
 For the `⊕`-precision we use a *slightly tighter* formula than the paper:
 `opAddPrec` returns `⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉` (floor inside),
 matching the actual integer bound on `|c|`.
@@ -39,16 +32,6 @@ matching the actual integer bound on `|c|`.
 namespace Mpfx
 
 namespace Format
-
-/-! ## `abs` preserves format -/
-
-/-- `Dyadic.abs x ∈ F` whenever `x ∈ F`. -/
-theorem abs_mem {F : Format} {x : Dyadic} (hx : x ∈ F) :
-    Dyadic.abs x ∈ F := by
-  unfold Dyadic.abs
-  by_cases h : 0 ≤ (x : ℚ)
-  · rw [if_pos h]; exact hx
-  · rw [if_neg h]; exact neg_mem hx
 
 open scoped Pointwise
 
@@ -246,117 +229,15 @@ def opNeg (F : Format) : Format := { F with specials := {s | s.neg ∈ F.special
 `absSpecials`. -/
 def opAbs (F : Format) : Format := { F with specials := absSpecials F }
 
-/-! ## Predicate-level helpers (private) -/
-
-/-- For `x ∈ F₁, y ∈ F₂`, the product `x · y` satisfies the inferred
-multiplicative precision and quantum parameters. -/
-private theorem mul_inferred_pq {F₁ F₂ : Format} {x y : Dyadic}
-    (hx : x ∈ F₁) (hy : y ∈ F₂) :
-    Dyadic.precisionAtMost (F₁.p + F₂.p) (x * y) ∧
-    Dyadic.quantumAtLeast (F₁.exp + F₂.exp) (x * y) := by
-  obtain ⟨hpx, hqx, _⟩ := hx
-  obtain ⟨hpy, hqy, _⟩ := hy
-  refine ⟨?_, ?_⟩
-  · -- precisionAtMost (p₁ + p₂) (x * y)
-    by_cases hF1_p : F₁.p = ⊤
-    · have : F₁.p + F₂.p = (⊤ : Prec) := by rw [hF1_p]; rfl
-      rw [this]; trivial
-    by_cases hF2_p : F₂.p = ⊤
-    · have : F₁.p + F₂.p = (⊤ : Prec) := by rw [hF2_p]; cases F₁.p <;> rfl
-      rw [this]; trivial
-    obtain ⟨p1, hp1⟩ := WithTop.ne_top_iff_exists.mp hF1_p
-    obtain ⟨p2, hp2⟩ := WithTop.ne_top_iff_exists.mp hF2_p
-    simp only [Prec.some_eq_coe] at hp1 hp2
-    rw [← hp1] at hpx
-    rw [← hp2] at hpy
-    rw [Dyadic.precisionAtMost_coe] at hpx hpy
-    obtain ⟨c1, e1, hxeq, hc1⟩ := hpx
-    obtain ⟨c2, e2, hyeq, hc2⟩ := hpy
-    have h_p_eq : F₁.p + F₂.p = ((p1 + p2 : ℕ) : Prec) := by
-      rw [← hp1, ← hp2]; rfl
-    rw [h_p_eq, Dyadic.precisionAtMost_coe]
-    refine ⟨c1 * c2, e1 + e2, ?_, ?_⟩
-    · change ((x * y : Dyadic) : ℚ) = _
-      push_cast
-      rw [hxeq, hyeq, zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0)]
-      ring
-    · rw [pow_add, abs_mul]
-      exact mul_lt_mul'' hc1 hc2 (abs_nonneg _) (abs_nonneg _)
-  · -- quantumAtLeast (exp₁ + exp₂) (x * y)
-    by_cases hF1_exp : F₁.exp = ⊥
-    · have : F₁.exp + F₂.exp = (⊥ : QExp) := by rw [hF1_exp]; rfl
-      rw [this]; trivial
-    by_cases hF2_exp : F₂.exp = ⊥
-    · have : F₁.exp + F₂.exp = (⊥ : QExp) := by rw [hF2_exp]; cases F₁.exp <;> rfl
-      rw [this]; trivial
-    obtain ⟨e1, he1⟩ := WithBot.ne_bot_iff_exists.mp hF1_exp
-    obtain ⟨e2, he2⟩ := WithBot.ne_bot_iff_exists.mp hF2_exp
-    have hqx' : Dyadic.quantumAtLeast (e1 : QExp) x := by rw [he1]; exact hqx
-    have hqy' : Dyadic.quantumAtLeast (e2 : QExp) y := by rw [he2]; exact hqy
-    rw [Dyadic.quantumAtLeast_coe] at hqx' hqy'
-    obtain ⟨c1, hxeq⟩ := hqx'
-    obtain ⟨c2, hyeq⟩ := hqy'
-    have h_exp_eq : F₁.exp + F₂.exp = ((e1 + e2 : ℤ) : QExp) := by
-      rw [← he1, ← he2]; push_cast; rfl
-    rw [h_exp_eq, Dyadic.quantumAtLeast_coe]
-    refine ⟨c1 * c2, ?_⟩
-    change ((x * y : Dyadic) : ℚ) = _
-    push_cast
-    rw [hxeq, hyeq, zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0)]
-    ring
-
-/-- For `x ∈ F₁, y ∈ F₂`, the sum `x + y` satisfies the inferred additive
-quantum parameter `min(exp₁, exp₂)`. -/
-private theorem add_inferred_q {F₁ F₂ : Format} {x y : Dyadic}
-    (hx : x ∈ F₁) (hy : y ∈ F₂) :
-    Dyadic.quantumAtLeast (min F₁.exp F₂.exp) (x + y) := by
-  obtain ⟨_, hqx, _⟩ := hx
-  obtain ⟨_, hqy, _⟩ := hy
-  by_cases hF1_exp : F₁.exp = ⊥
-  · have : min F₁.exp F₂.exp = (⊥ : QExp) := by
-      rw [hF1_exp]; exact min_eq_left bot_le
-    rw [this]; trivial
-  by_cases hF2_exp : F₂.exp = ⊥
-  · have : min F₁.exp F₂.exp = (⊥ : QExp) := by
-      rw [hF2_exp]; exact min_eq_right bot_le
-    rw [this]; trivial
-  obtain ⟨e1, he1⟩ := WithBot.ne_bot_iff_exists.mp hF1_exp
-  obtain ⟨e2, he2⟩ := WithBot.ne_bot_iff_exists.mp hF2_exp
-  have hqx' : Dyadic.quantumAtLeast (e1 : QExp) x := by rw [he1]; exact hqx
-  have hqy' : Dyadic.quantumAtLeast (e2 : QExp) y := by rw [he2]; exact hqy
-  rw [Dyadic.quantumAtLeast_coe] at hqx' hqy'
-  obtain ⟨c1, hxeq⟩ := hqx'
-  obtain ⟨c2, hyeq⟩ := hqy'
-  have h_min_eq : min F₁.exp F₂.exp = ((min e1 e2 : ℤ) : QExp) := by
-    rw [← he1, ← he2, ← WithBot.coe_min]
-  rw [h_min_eq, Dyadic.quantumAtLeast_coe]
-  set m := min e1 e2 with hm
-  have he1_ge : m ≤ e1 := min_le_left _ _
-  have he2_ge : m ≤ e2 := min_le_right _ _
-  refine ⟨c1 * 2 ^ (e1 - m).toNat + c2 * 2 ^ (e2 - m).toNat, ?_⟩
-  -- split 2^e1 = 2^(e1-m).toNat · 2^m (and likewise for e2) over ℚ.
-  have hsplit1 : (2 : ℚ) ^ e1 = (2 : ℚ) ^ (e1 - m).toNat * (2 : ℚ) ^ m := by
-    rw [← zpow_natCast (2 : ℚ) (e1 - m).toNat, ← zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0),
-        Int.toNat_of_nonneg (by omega : (0 : ℤ) ≤ e1 - m)]
-    congr 1; ring
-  have hsplit2 : (2 : ℚ) ^ e2 = (2 : ℚ) ^ (e2 - m).toNat * (2 : ℚ) ^ m := by
-    rw [← zpow_natCast (2 : ℚ) (e2 - m).toNat, ← zpow_add₀ (by norm_num : (2 : ℚ) ≠ 0),
-        Int.toNat_of_nonneg (by omega : (0 : ℤ) ≤ e2 - m)]
-    congr 1; ring
-  change ((x + y : Dyadic) : ℚ) = _
-  push_cast
-  rw [hxeq, hyeq, hsplit1, hsplit2]
-  ring
-
 /-! ## Public `⊆`-level API -/
 
 /-- Finite form of `mul_subset`: `{x · y | x ∈ F₁, y ∈ F₂} ⊆ opMul F₁ F₂`. -/
 theorem mul_subset_finite (F₁ F₂ : Format) :
     F₁.toSet * F₂.toSet ⊆ (opMul F₁ F₂).toSet := by
   rintro z ⟨x, hx, y, hy, rfl⟩
-  obtain ⟨h_prec, h_quant⟩ := mul_inferred_pq (mem_toSet.mp hx) (mem_toSet.mp hy)
+  have h_prec := Dyadic.precisionAtMost_mul (mem_toSet.mp hx).1 (mem_toSet.mp hy).1
+  have h_quant := Dyadic.quantumAtLeast_mul (mem_toSet.mp hx).2.1 (mem_toSet.mp hy).2.1
   refine ⟨h_prec, h_quant, ?_⟩
-  -- boundOK of the matched product bound
   change boundOK
       (match F₁.b, F₂.b with
         | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic) => _
@@ -369,7 +250,6 @@ theorem mul_subset_finite (F₁ F₂ : Format) :
     cases hF2_b : F₂.b using Bound.recTopCoe with
     | top => trivial
     | coe b₂ =>
-      -- goal: |(x*y : ℚ)| ≤ ((b₁.1 * b₂.1 : Dyadic) : ℚ)
       rw [hF1_b] at hbx
       rw [hF2_b] at hby
       change |(x : ℚ)| ≤ ((b₁.1 : Dyadic) : ℚ) at hbx
@@ -405,9 +285,9 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
   obtain ⟨c2, hyeq⟩ := hqy
   -- bridge bounds to ℝ
   have hbxR : |(x : ℝ)| ≤ ((b1.1 : Dyadic) : ℝ) := by
-    rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]; exact_mod_cast hbx
+    exact_mod_cast hbx
   have hbyR : |(y : ℝ)| ≤ ((b2.1 : Dyadic) : ℝ) := by
-    rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]; exact_mod_cast hby
+    exact_mod_cast hby
   have hxeqR : (x : ℝ) = (c1 : ℝ) * (2 : ℝ) ^ e1 := by
     rw [Dyadic.coe_real_eq_ratCast, hxeq]; push_cast; ring
   have hyeqR : (y : ℝ) = (c2 : ℝ) * (2 : ℝ) ^ e2 := by
@@ -423,9 +303,9 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
     ring
   have h2m_pos : (0 : ℝ) < (2 : ℝ) ^ m := zpow_pos (by norm_num) _
   have h_b1_nn : 0 ≤ ((b1.1 : Dyadic) : ℝ) := by
-    rw [Dyadic.coe_real_eq_ratCast]; exact_mod_cast b1.2
+    exact_mod_cast b1.2
   have h_b2_nn : 0 ≤ ((b2.1 : Dyadic) : ℝ) := by
-    rw [Dyadic.coe_real_eq_ratCast]; exact_mod_cast b2.2
+    exact_mod_cast b2.2
   have h_c_bound : |(c : ℝ)| * (2 : ℝ) ^ m ≤ ((b1.1 : Dyadic) : ℝ) + ((b2.1 : Dyadic) : ℝ) := by
     calc |(c : ℝ)| * (2 : ℝ) ^ m
         = |((x + y : Dyadic) : ℝ)| := by rw [h_xy_eqR, abs_mul_two_zpow]
@@ -448,12 +328,10 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
   -- Build the precisionAtMost witness (over ℚ).
   rw [Dyadic.precisionAtMost_coe]
   refine ⟨c, m, ?_, ?_⟩
-  · -- (x+y : ℚ) = c * 2^m
-    have hq : (((x + y : Dyadic) : ℚ) : ℝ) = (((c : ℚ) * (2 : ℚ) ^ m : ℚ) : ℝ) := by
+  · have hq : (((x + y : Dyadic) : ℚ) : ℝ) = (((c : ℚ) * (2 : ℚ) ^ m : ℚ) : ℝ) := by
       rw [← Dyadic.coe_real_eq_ratCast, h_xy_eqR]; push_cast; ring
     exact_mod_cast hq
-  · -- |c| < 2 ^ clog 2 (N+1)
-    have h_natAbs_le : c.natAbs ≤ N := by
+  · have h_natAbs_le : c.natAbs ≤ N := by
       have : (c.natAbs : ℤ) ≤ (N : ℤ) := by rw [Int.natCast_natAbs]; exact h_abs_c_le
       exact_mod_cast this
     have h_clog : N + 1 ≤ 2 ^ Nat.clog 2 (N + 1) :=
@@ -465,12 +343,13 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
 theorem add_subset_finite (F₁ F₂ : Format) :
     F₁.toSet + F₂.toSet ⊆ (opAdd F₁ F₂).toSet := by
   rintro z ⟨x, hx, y, hy, rfl⟩
-  have h_quant := add_inferred_q (mem_toSet.mp hx) (mem_toSet.mp hy)
+  have h_quant := Dyadic.quantumAtLeast_add
+    (Dyadic.quantumAtLeast_anti (min_le_left _ _) (mem_toSet.mp hx).2.1)
+    (Dyadic.quantumAtLeast_anti (min_le_right _ _) (mem_toSet.mp hy).2.1)
   obtain ⟨_, _, hbx⟩ := mem_toSet.mp hx
   obtain ⟨_, _, hby⟩ := mem_toSet.mp hy
   refine ⟨?_, h_quant, ?_⟩
-  · -- precisionAtMost (opAddPrec F₁ F₂) (x + y)
-    change Dyadic.precisionAtMost (opAddPrec F₁ F₂) (x + y)
+  · change Dyadic.precisionAtMost (opAddPrec F₁ F₂) (x + y)
     unfold opAddPrec
     cases hF1_b : F₁.b using Bound.recTopCoe with
     | top => trivial
@@ -493,8 +372,7 @@ theorem add_subset_finite (F₁ F₂ : Format) :
             have := add_prec_finite hF1_b hF2_b hF1_exp hF2_exp
               (mem_toSet.mp hx) (mem_toSet.mp hy)
             convert this using 3
-  · -- boundOK of the matched sum bound
-    change boundOK
+  · change boundOK
         (match F₁.b, F₂.b with
           | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic) => _
           | _, _ => ⊤) (x + y)

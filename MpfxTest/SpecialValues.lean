@@ -1,9 +1,9 @@
 import Mpfx.Rounding.Special
 
 /-!
-# Special-value and overflow tables
+# Special-value and overflow maps
 
-The standard tables against IEEE 754 §7.4, and specials through `rnd`.
+The standard maps against IEEE 754 §7.4, and specials through `rnd`.
 -/
 
 namespace Mpfx

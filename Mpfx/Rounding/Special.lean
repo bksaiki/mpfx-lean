@@ -1,12 +1,12 @@
 import Mpfx.Rounding.Op
 
 /-!
-# Standard special-value and overflow tables
+# Standard special-value and overflow maps
 
 `FiniteFormat.maxFinite`, the largest finite value of a bounded format, and the
 standard `SpecialMap` / `OverflowMap` instances: `SpecialMap.exact`, `.saturate`,
 `.toNaN`; `OverflowMap.ieee` (IEEE 754 §7.4), `.saturate`, `.toNaN`. The
-saturating tables need a finite bound.
+saturating maps need a finite bound.
 -/
 
 namespace Mpfx
@@ -15,7 +15,7 @@ namespace Mpfx
 
 namespace FiniteFormat
 
-/-- The largest value of a bounded `F`: the round-down of `b` on `F`'s grid. -/
+/-- The largest value of a bounded `F`: the round-down of `b` in `F`. -/
 noncomputable def maxFinite (F : FiniteFormat) (hb : F.b ≠ ⊤) : Dyadic :=
   rndUnbounded F .toNegative (((F.b.untop hb).val : Dyadic) : ℝ) (not_isUndefined_toNegative F)
 
@@ -25,11 +25,8 @@ private theorem maxFinite_spec (F : FiniteFormat) (hb : F.b ≠ ⊤) :
   rndUnbounded_satisfies _ _ _ _
 
 theorem maxFinite_nonneg (F : FiniteFormat) (hb : F.b ≠ ⊤) :
-    (0 : ℝ) ≤ (F.maxFinite hb : ℝ) := by
-  obtain ⟨-, -, hmax⟩ := F.maxFinite_spec hb
-  have h := hmax 0 F.unbounded.zero_mem
-    (by rw [Dyadic.coe_real_zero]; exact nonneg_coe_real _)
-  rwa [Dyadic.coe_real_zero] at h
+    (0 : ℝ) ≤ (F.maxFinite hb : ℝ) :=
+  RoundsFinite.toNegative_nonneg (nonneg_coe_real _) (F.maxFinite_spec hb)
 
 theorem maxFinite_mem (F : FiniteFormat) (hb : F.b ≠ ⊤) : F.maxFinite hb ∈ F := by
   obtain ⟨hmem, hle, -⟩ := F.maxFinite_spec hb
@@ -86,7 +83,7 @@ theorem saturated_eq_finite (F : FiniteFormat) (hb : F.b ≠ ⊤) {negative : Bo
 
 end FiniteFormat
 
-/-! ### Standard tables -/
+/-! ### Standard maps -/
 
 namespace SpecialMap
 
@@ -134,7 +131,7 @@ noncomputable def ieee (F : FiniteFormat) (rm : RoundingMode) (hb : F.b ≠ ⊤)
 noncomputable def saturate (F : FiniteFormat) (hb : F.b ≠ ⊤) : OverflowMap F.toFormat :=
   ⟨F.saturated hb, F.saturated_mem hb⟩
 
-/-- The IEEE RTZ table is the saturating one. -/
+/-- The IEEE RTZ map is the saturating one. -/
 theorem ieee_toZero (F : FiniteFormat) (hb : F.b ≠ ⊤) (hinf) :
     OverflowMap.ieee F .toZero hb hinf = OverflowMap.saturate F hb := rfl
 

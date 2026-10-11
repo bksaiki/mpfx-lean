@@ -6,7 +6,6 @@ import Mpfx.DoubleRounding.Div
 import Mpfx.DoubleRounding.Mul
 import Mpfx.DoubleRounding.Nearest
 import Mpfx.DoubleRounding.NearestMidpoint
-import Mpfx.DoubleRounding.Propagation
 import Mpfx.DoubleRounding.Special
 import Mpfx.DoubleRounding.Sqrt
 import Mpfx.DoubleRounding.Total
@@ -14,12 +13,10 @@ import Mpfx.Dyadic
 import Mpfx.Format.CanonicalExp
 import Mpfx.Format.Containment
 import Mpfx.Format.Defs
-import Mpfx.Format.Digits
 import Mpfx.Format.Discrete
 import Mpfx.Format.Inference
 import Mpfx.Format.Next
 import Mpfx.Format.Parity
-import Mpfx.Format.Parity.Alternate
 import Mpfx.Rounding.Basic
 import Mpfx.Rounding.Defs
 import Mpfx.Rounding.Op

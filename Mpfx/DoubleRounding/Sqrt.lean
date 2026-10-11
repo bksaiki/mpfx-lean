@@ -6,22 +6,20 @@ import Mpfx.DoubleRounding.Basic
 # Operation-specific double rounding: square root (Roux 2014, Theorem 25)
 
 Roux's Theorem 25 (radix 2, no minimum quantum): double rounding of `√x` is
-innocuous when
-`p₂ ≥ 2p₁ + 2`. Unlike `×`/`+`, the result `√x` is generally irrational — but
-`RoundsFinite` rounds a *real*, so the statement simply takes `Real.sqrt x` as
-the value and leans on the two-sided midpoint engine (`round_round_mid_cases`).
-The new mathematical content is the *separation lemma* `round_round_sqrt_aux`:
-`√x` is never within `½·ulp₂` of an `F₁`-midpoint. `rndSqrt_expBot` and `rndSqrt_expFinite`
-assemble it (via the shared `rndSqrt_core`) for the two format configurations.
+innocuous when `p₂ ≥ 2p₁ + 2`. Unlike `×`/`+`, the result `√x` is generally
+irrational — but `RoundsFinite` rounds a *real*, so the statement simply takes
+`Real.sqrt x` as the value and leans on the two-sided midpoint engine
+(`round_round_mid_cases`). The core is the *separation lemma*
+`round_round_sqrt_aux`: `√x` is never within `½·ulp₂` of an `F₁`-midpoint.
+`rndSqrt_expBot` and `rndSqrt_expFinite` assemble it (via the shared
+`rndSqrt_core`) for the two format configurations.
 -/
 
 namespace Mpfx
 
 /-- **Binade of a square root** (Flocq `mag_sqrt_disj`). For `0 < x`, writing
 `L = Int.log 2 (√x)`, the binade of `x` is `2L` or `2L+1`:
-`2L ≤ Int.log 2 x ≤ 2L+1`. Equivalently `Int.log 2 (√x) = ⌊(Int.log 2 x)/2⌋`.
-Proof: square the defining bounds `2^L ≤ √x < 2^(L+1)` to get
-`2^(2L) ≤ x < 2^(2L+2)`, then read off `Int.log 2 x`. -/
+`2L ≤ Int.log 2 x ≤ 2L+1`. -/
 private theorem log_sqrt_bounds {x : ℝ} (hx : 0 < x) :
     2 * Int.log 2 (Real.sqrt x) ≤ Int.log 2 x ∧
       Int.log 2 x ≤ 2 * Int.log 2 (Real.sqrt x) + 1 := by
@@ -84,9 +82,6 @@ private theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 
   have hu1_pos : (0 : ℝ) < (2 : ℝ) ^ e₁ := zpow_pos (by norm_num) _
   have hu2_pos : (0 : ℝ) < (2 : ℝ) ^ e₂ := zpow_pos (by norm_num) _
   -- binade of `s`
-  have hk_lo : (2 : ℝ) ^ k ≤ s := by
-    have := Int.zpow_log_le_self (b := 2) (by norm_num) hs_pos
-    rw [← hk] at this; exact_mod_cast this
   have hk_hi : s < (2 : ℝ) ^ (k + 1) := by
     have := Int.lt_zpow_succ_log_self (b := 2) (by norm_num) s
     rw [← hk] at this; exact_mod_cast this
@@ -104,23 +99,8 @@ private theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 
   clear_value ma a
   -- `a + u₁ ≤ 2^(k+1)` (the round-down plus its ulp stays under the binade top)
   have ha_top : a + (2 : ℝ) ^ e₁ ≤ (2 : ℝ) ^ (k + 1) := by
-    have hd : (0 : ℤ) ≤ k + 1 - e₁ := by omega
-    have hmaR : (ma : ℝ) < (2 : ℝ) ^ (k + 1 - e₁) := by
-      have hlt : (ma : ℝ) * (2 : ℝ) ^ e₁ < (2 : ℝ) ^ (k + 1 - e₁) * (2 : ℝ) ^ e₁ := by
-        rw [← zpow_add₀ hne, show (k + 1 - e₁) + e₁ = k + 1 from by ring, ← ha]; exact hk_hi_a
-      exact lt_of_mul_lt_mul_right hlt hu1_pos.le
-    have hcast : ((2 : ℤ) ^ (k + 1 - e₁).toNat : ℝ) = (2 : ℝ) ^ (k + 1 - e₁) := by
-      rw [← zpow_natCast]; congr 1; rw [Int.toNat_of_nonneg hd]
-    have hmaZ : ma + 1 ≤ (2 : ℤ) ^ (k + 1 - e₁).toNat := by
-      have : (ma : ℝ) < ((2 : ℤ) ^ (k + 1 - e₁).toNat : ℝ) := by rw [hcast]; exact hmaR
-      have : ma < (2 : ℤ) ^ (k + 1 - e₁).toNat := by exact_mod_cast this
-      omega
-    have hulp : ((ma : ℝ) + 1) ≤ (2 : ℝ) ^ (k + 1 - e₁) := by
-      rw [← hcast]; exact_mod_cast hmaZ
-    calc a + (2 : ℝ) ^ e₁ = ((ma : ℝ) + 1) * (2 : ℝ) ^ e₁ := by rw [ha]; ring
-      _ ≤ (2 : ℝ) ^ (k + 1 - e₁) * (2 : ℝ) ^ e₁ :=
-          mul_le_mul_of_nonneg_right hulp hu1_pos.le
-      _ = (2 : ℝ) ^ (k + 1) := by rw [← zpow_add₀ hne]; congr 1; ring
+    have h := rndDown_add_ulp_le F₁ hs_pos hle
+    rwa [ha_eq, ulp_of_ne_zero F₁ hs_pos.ne'] at h
   -- `u₂ ≤ u₁/2`
   have hu2_le_half : (2 : ℝ) ^ e₂ ≤ (2 : ℝ) ^ e₁ / 2 := by
     have h1 : (2 : ℝ) ^ e₂ ≤ (2 : ℝ) ^ (e₁ - 1) := zpow_le_zpow_right₀ (by norm_num) (by omega)
@@ -229,20 +209,30 @@ private theorem rndSqrt_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
   round_round_mid_cases hundef₁ (Real.sqrt_pos.mpr hx) (by omega) hle hz hw
     (fun hmid => absurd hmid (not_le.mpr (round_round_sqrt_aux hx hxrep hf1 hle hquant)))
 
-/-- Degenerate radicand `x = 0`: `√0 = 0` rounds to `0` in both formats, so double
-rounding is trivially innocuous. -/
-private theorem rndSqrt_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : Dyadic}
-    (hx0 : (0 : ℝ) = (x : ℝ))
+/-- **rnd-sqrt from the exponent relations.** For a radicand `x ∈ F₁`, `x ≥ 0`:
+at `x = 0` both roundings are `0`; otherwise `x` is exact in `F₁`, and the three
+canonical-exponent relations at `√x` (supplied per format configuration) feed
+`rndSqrt_core`. -/
+private theorem rndSqrt_of {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ : ℕ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
+    {x : Dyadic} (hx : x ∈ F₁) (hxnn : 0 ≤ (x : ℝ))
+    (hexps : 0 < (x : ℝ) →
+      2 * F₁.canonicalExp (Real.sqrt x) ≤ F₁.canonicalExp x ∧
+      F₁.canonicalExp (Real.sqrt x) ≤ Int.log 2 (Real.sqrt x) + 1 ∧
+      F₂.canonicalExp (Real.sqrt x) + Int.log 2 (Real.sqrt x) + 1
+        ≤ 2 * F₁.canonicalExp (Real.sqrt x) - 2)
     {z w : Dyadic}
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (Real.sqrt (x : ℝ)) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) (Real.sqrt (x : ℝ)) w := by
-  rw [← hx0, Real.sqrt_zero, show (0 : ℝ) = ((0 : Dyadic) : ℝ) from by simp] at hz ⊢
-  exact rndExact (F₁ := F₁.unbounded) (F₂ := F₂.unbounded)
-    (FiniteFormat.zero_mem F₂.unbounded) hz hw
+  rcases eq_or_lt_of_le hxnn with hx0 | hxpos
+  · rw [← hx0, Real.sqrt_zero, show (0 : ℝ) = ((0 : Dyadic) : ℝ) from by simp] at hz ⊢
+    exact rndExact (FiniteFormat.zero_mem F₂.unbounded) hz hw
+  obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ hx hxpos
+  obtain ⟨h1, h2, h3⟩ := hexps hxpos
+  exact rndSqrt_core hxpos hundef₁ ⟨c, hc⟩ h1 h2 h3 hz hw
 
-/-- **rnd-sqrt, no minimum quantum** (Roux Theorem 25, radix 2). With `exp = ⊥`
-formats
+/-- **rnd-sqrt, no minimum quantum** (Roux Theorem 25, radix 2). With `exp = ⊥` formats
 `F₁ = 𝒜(p₁, ⊥, b₁)` and `F₂ = 𝒜(p₂, ⊥, b₂)`, double rounding to nearest of `√x`
 (`x ∈ F₁`, `0 ≤ x`) is innocuous when
 
@@ -263,15 +253,12 @@ theorem rndSqrt_expBot {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (Real.sqrt (x : ℝ)) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) (Real.sqrt (x : ℝ)) w := by
-  rcases eq_or_lt_of_le hxpos with hx0 | hxpos
-  · exact rndSqrt_zero hx0 hz hw
+  refine rndSqrt_of hp₁ hundef₁ hx hxpos (fun hxpos => ?_) hz hw
   have hs_pos : 0 < Real.sqrt (x : ℝ) := Real.sqrt_pos.mpr hxpos
   have habs : |Real.sqrt (x : ℝ)| = Real.sqrt (x : ℝ) := abs_of_pos hs_pos
   have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   have hpp' : 2 * (p₁ : ℤ) + 2 ≤ (p₂ : ℤ) := by omega
   obtain ⟨hloglo, hloghi⟩ := log_sqrt_bounds hxpos
-  have hxrep : ∃ mx : ℤ, (x : ℝ) = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp (x : ℝ)) := by
-    obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ hx hxpos; exact ⟨c, hc⟩
   have hcE1s : F₁.canonicalExp (Real.sqrt (x : ℝ))
       = Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₁ : ℤ) := by
     rw [canonicalExp_expBot hp₁ hexp₁ (ne_of_gt hs_pos), habs]
@@ -280,13 +267,9 @@ theorem rndSqrt_expBot {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁
     rw [canonicalExp_expBot hp₂ hexp₂ (ne_of_gt hs_pos), habs]
   have hcE1x : F₁.canonicalExp (x : ℝ) = Int.log 2 (x : ℝ) + 1 - (p₁ : ℤ) := by
     rw [canonicalExp_expBot hp₁ hexp₁ (ne_of_gt hxpos), abs_of_pos hxpos]
-  refine rndSqrt_core hxpos hundef₁ hxrep ?_ ?_ ?_ hz hw
-  · rw [hcE1s, hcE1x]; omega
-  · rw [hcE1s]; omega
-  · rw [hcE1s, hcE2s]; omega
+  exact ⟨by rw [hcE1s, hcE1x]; omega, by rw [hcE1s]; omega, by rw [hcE1s, hcE2s]; omega⟩
 
-/-- **rnd-sqrt, minimum quantum** (Roux Theorem 25, radix 2). With `exp = emin`
-formats
+/-- **rnd-sqrt, minimum quantum** (Roux Theorem 25, radix 2). With `exp = emin` formats
 `F₁ = 𝒜(p₁, emin₁, b₁)` and `F₂ = 𝒜(p₂, emin₂, b₂)`, double rounding to nearest of
 `√x` (`x ∈ F₁`, `0 ≤ x`) is innocuous when
 
@@ -310,29 +293,15 @@ theorem rndSqrt_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (Real.sqrt (x : ℝ)) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) (Real.sqrt (x : ℝ)) w := by
-  rcases eq_or_lt_of_le hxpos with hx0 | hxpos
-  · exact rndSqrt_zero hx0 hz hw
+  refine rndSqrt_of hp₁ hundef₁ hx hxpos (fun hxpos => ?_) hz hw
   have hs_pos : 0 < Real.sqrt (x : ℝ) := Real.sqrt_pos.mpr hxpos
   have habs : |Real.sqrt (x : ℝ)| = Real.sqrt (x : ℝ) := abs_of_pos hs_pos
   have hp₁ℤ : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   have hpp' : 2 * (p₁ : ℤ) + 2 ≤ (p₂ : ℤ) := by omega
   obtain ⟨hloglo, hloghi⟩ := log_sqrt_bounds hxpos
-  have hxrep : ∃ mx : ℤ, (x : ℝ) = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp (x : ℝ)) := by
-    obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ hx hxpos; exact ⟨c, hc⟩
-  have hx_ge : (2 : ℝ) ^ emin₁ ≤ (x : ℝ) := by
-    obtain ⟨c, hc⟩ := (Dyadic.quantumAtLeast_coe_real emin₁ x).mp (hexp₁ ▸ hx.2.1)
-    have h2 : (0 : ℝ) < (2 : ℝ) ^ emin₁ := zpow_pos (by norm_num) _
-    have hc_pos : 0 < c := by
-      rcases lt_or_ge 0 c with h | h
-      · exact h
-      · exfalso
-        have : (x : ℝ) ≤ 0 := by
-          rw [hc]; exact mul_nonpos_of_nonpos_of_nonneg (by exact_mod_cast h) h2.le
-        linarith [hxpos]
-    have hc1 : (1 : ℝ) ≤ (c : ℝ) := by exact_mod_cast hc_pos
-    rw [hc]; nlinarith [h2, hc1]
-  have hLge : emin₁ ≤ Int.log 2 (x : ℝ) :=
-    (Int.zpow_le_iff_le_log (b := 2) (by norm_num) hxpos).mp (by exact_mod_cast hx_ge)
+  have hLge : emin₁ ≤ Int.log 2 (x : ℝ) := by
+    have := Dyadic.le_log_of_quantum (hexp₁ ▸ hx.2.1) hxpos.ne'
+    rwa [abs_of_pos hxpos] at this
   have hcE1s : F₁.canonicalExp (Real.sqrt (x : ℝ))
       = max (Int.log 2 (Real.sqrt (x : ℝ)) + 1 - (p₁ : ℤ)) emin₁ := by
     rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hs_pos), habs]
@@ -341,9 +310,7 @@ theorem rndSqrt_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p
     rw [canonicalExp_expFinite hp₂ hexp₂ (ne_of_gt hs_pos), habs]
   have hcE1x : F₁.canonicalExp (x : ℝ) = max (Int.log 2 (x : ℝ) + 1 - (p₁ : ℤ)) emin₁ := by
     rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hxpos), abs_of_pos hxpos]
-  refine rndSqrt_core hxpos hundef₁ hxrep ?_ ?_ ?_ hz hw
-  · rw [hcE1s, hcE1x]; omega
-  · rw [hcE1s]; omega
-  · rw [hcE1s, hcE2s]; rcases hE with h | h <;> omega
+  exact ⟨by rw [hcE1s, hcE1x]; omega, by rw [hcE1s]; omega,
+    by rw [hcE1s, hcE2s]; rcases hE with h | h <;> omega⟩
 
 end Mpfx

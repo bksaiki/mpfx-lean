@@ -151,14 +151,16 @@ theorem neg_mem {F : Format} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F := by
 theorem mem_neg_iff (F : Format) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
   ⟨fun h => by simpa using neg_mem h, neg_mem⟩
 
+/-- `Dyadic.abs x ∈ F` whenever `x ∈ F`. -/
+theorem abs_mem {F : Format} {x : Dyadic} (hx : x ∈ F) :
+    Dyadic.abs x ∈ F := by
+  unfold Dyadic.abs
+  by_cases h : 0 ≤ (x : ℚ)
+  · rw [if_pos h]; exact hx
+  · rw [if_neg h]; exact neg_mem hx
+
 /-- `F`'s specials are closed under negation. -/
 def NegClosed (F : Format) : Prop := ∀ s ∈ F.specials, s.neg ∈ F.specials
-
-theorem neg_mem_values {F : Format} (hF : F.NegClosed) {v : WithSpecial Dyadic}
-    (hv : v ∈ F.values) : v.neg ∈ F.values := by
-  cases v with
-  | finite d => exact neg_mem (F := F) hv
-  | special s => exact hF s hv
 
 /-- `F` contains at least one nonzero value. §4.2's non-triviality restriction. -/
 def Nontrivial (F : Format) : Prop :=
@@ -197,7 +199,7 @@ theorem Nontrivial.exists_sign {F : Format} (h : F.Nontrivial) (b : Bool) :
   obtain ⟨f, -, hf⟩ := hasPositive_one_iff.mpr h
   obtain ⟨ha, ha_pos⟩ := hf 0
   have hq : (0 : ℚ) < (f 0 : ℚ) := by
-    rw [Dyadic.coe_real_eq_ratCast] at ha_pos; exact_mod_cast ha_pos
+    exact_mod_cast ha_pos
   have hne : f 0 ≠ 0 := fun h => by rw [h] at hq; simp at hq
   cases b
   · exact ⟨f 0, ha, hne, by simpa using hq.le⟩
@@ -214,7 +216,7 @@ theorem ofIntZpow_mem {F : Format} {c k : ℤ}
     (hp : Dyadic.precisionAtMost F.p (Dyadic.ofIntZpow c k))
     (he : F.exp ≤ (k : QExp)) (hb : boundOK F.b (Dyadic.ofIntZpow c k)) :
     Dyadic.ofIntZpow c k ∈ F :=
-  ⟨hp, Dyadic.quantumAtLeast_anti he ⟨c, by rw [Dyadic.coe_rat_ofIntZpow]⟩, hb⟩
+  ⟨hp, Dyadic.quantumAtLeast_ofIntZpow he, hb⟩
 
 /-- A `BoundRep` format's finite bound is one of its values. -/
 theorem bound_mem {F : Format} (hb : BoundRep F) {bv : NonNegDyadic}
@@ -224,12 +226,6 @@ theorem bound_mem {F : Format} (hb : BoundRep F) {bv : NonNegDyadic}
   rw [hF]
   change |((bv.val : Dyadic) : ℚ)| ≤ ((bv.val : Dyadic) : ℚ)
   rw [abs_of_nonneg bv.property]
-
-/-- Numeric membership depends only on `p`, `exp` and `b`. -/
-theorem mem_congr {F G : Format} (hp : F.p = G.p) (he : F.exp = G.exp) (hb : F.b = G.b)
-    {d : Dyadic} : d ∈ F ↔ d ∈ G := by
-  change Mem F d ↔ Mem G d
-  unfold Mem; rw [hp, he, hb]
 
 /-- Zero is in every format. -/
 theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
@@ -242,12 +238,7 @@ theorem zero_mem (F : Format) : (0 : Dyadic) ∈ F := by
     cases F.exp using QExp.recBotCoe with
     | bot => trivial
     | coe e => exact ⟨0, by simp⟩
-  · change boundOK F.b (0 : Dyadic)
-    cases F.b using Bound.recTopCoe with
-    | top => trivial
-    | coe b =>
-      change |((0 : Dyadic) : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-      simpa using b.property
+  · exact boundOK_zero F.b
 
 end Format
 
@@ -260,15 +251,11 @@ invariant required by a downstream API:
   least one of `p`, `exp` is finite. This is the minimum needed for
   `rnd` to compute a canonical exponent for nonzero `x`, since
   dyadics are dense in `ℝ` but not closed under limits.
-* `ParityFormat` (`Mpfx/Format/Parity.lean`) — adds the *parity-anchor*
-  invariant: `p ≠ 1` whenever `exp = ⊥`. Combined with `FiniteFormat`, this
-  is `(p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥`. Required for `IsOdd` / `IsEven` (and hence
-  `rnd .toOdd`, `rnd (.nearest _)`) to be semantically meaningful — without
-  it, the exponent-parity fallback for `p = 1` has no anchor (since the
-  format has no quantum to count indices from).
-
-State theorems on the *weakest* tier whose proof actually destructures
-the invariant. Promote only when needed. -/
+* `ParityFormat` (`Mpfx/Format/Parity.lean`) — adds `p ≠ 1` whenever
+  `exp = ⊥`, the formats where `rnd .toOdd` and `rnd (.nearest .toEven)` are
+  defined. Combined with `FiniteFormat`, this is `(p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥`.
+  `IsOdd` / `IsEven` are on `FiniteFormat`; at `(1, ⊥)` they count exponents
+  from `0`, and the parity modes are undefined there by convention. -/
 
 /-- A `Format` where `rnd` is well-defined for directed modes: at least
 one of `p`, `exp` is finite (equivalently `¬ (p = ⊤ ∧ exp = ⊥)`), and the
@@ -298,6 +285,19 @@ theorem neg_mem {F : FiniteFormat} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F :=
 theorem mem_neg_iff (F : FiniteFormat) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
   Format.mem_neg_iff F.toFormat d
 
+/-- Quantifying over `F` is quantifying over its negations: two predicates that
+agree up to negation hold for all of `F` together. -/
+theorem forall_mem_congr_neg (F : FiniteFormat) {P Q : Dyadic → Prop}
+    (h : ∀ z, P z ↔ Q (-z)) : (∀ z, z ∈ F → P z) ↔ ∀ z, z ∈ F → Q z :=
+  ⟨fun hP z hz => by simpa using (h (-z)).mp (hP _ (neg_mem hz)),
+    fun hQ z hz => (h z).mpr (hQ _ (neg_mem hz))⟩
+
+/-- The `∃` twin of `forall_mem_congr_neg`. -/
+theorem exists_mem_congr_neg (F : FiniteFormat) {P Q : Dyadic → Prop}
+    (h : ∀ z, P z ↔ Q (-z)) : (∃ z, z ∈ F ∧ P z) ↔ ∃ z, z ∈ F ∧ Q z :=
+  ⟨fun ⟨z, hz, hP⟩ => ⟨-z, neg_mem hz, (h z).mp hP⟩,
+    fun ⟨z, hz, hQ⟩ => ⟨-z, neg_mem hz, (h (-z)).mpr (by simpa using hQ)⟩⟩
+
 /-- Canonical exponent for representing `x` in `F`. The `(⊤, ⊥)` branch is
 unreachable by `F.finite`; we list it to make the `match` total. -/
 noncomputable def canonicalExp (F : FiniteFormat) (x : ℝ) : ℤ :=
@@ -309,6 +309,25 @@ noncomputable def canonicalExp (F : FiniteFormat) (x : ℝ) : ℤ :=
   | (p : ℕ), (e : ℤ) =>
       if x = 0 then e
       else max (Int.log 2 |x| + 1 - (p : ℤ)) e
+
+/-- **Upper bounds on `canonicalExp`.** Away from `0`, `canonicalExp x ≤ k` says
+exactly that both constraints the format imposes — the precision exponent
+`⌊log₂|x|⌋ + 1 − p` and the minimum quantum — are at most `k`. -/
+theorem canonicalExp_le_iff (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {k : ℤ} :
+    F.canonicalExp x ≤ k ↔
+      (∀ p : ℕ, F.p = p → Int.log 2 |x| + 1 - p ≤ k) ∧ (∀ e : ℤ, F.exp = e → e ≤ k) := by
+  unfold canonicalExp
+  cases hp : F.p using ENat.recTopCoe with
+  | top =>
+    cases he : F.exp using QExp.recBotCoe with
+    | bot => exact (F.finite.elim (· hp) (· he)).elim
+    | coe e =>
+      refine ⟨fun h => ⟨fun _ hp' => absurd hp' (by simp), fun e' he' => ?_⟩, fun h => h.2 e rfl⟩
+      cases WithBot.coe_injective he'; exact h
+  | coe p =>
+    cases he : F.exp using QExp.recBotCoe with
+    | bot => simp [hx]
+    | coe e => simp [hx]
 
 /-- The canonical exponent dominates `F.exp` whenever `F.exp` is finite.
 Needed to discharge `quantumAtLeast F.exp` for the rounded value. -/
@@ -338,7 +357,8 @@ theorem log_sub_p_le_canonicalExp (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
 `x`): the canonical exponent does not exceed `x`'s binade. Equivalently, for
 `x ≠ 0`, `F.exp ≤ ⌊log₂ |x|⌋` — the precision term `⌊log₂ |x|⌋ + 1 − p` is never
 the binding one — and equivalently again, `x` does not round down to `0`
-(`rndDown_pos_iff`). Reducible, so arithmetic tactics see through it. -/
+(`rndDown_pos_of_isAboveQuantum`, `isAboveQuantum_of_rndDown_pos`). Reducible,
+so arithmetic tactics see through it. -/
 abbrev IsAboveQuantum (F : FiniteFormat) (x : ℝ) : Prop :=
   F.canonicalExp x ≤ Int.log 2 |x|
 
@@ -353,21 +373,6 @@ theorem isAboveQuantum_of_le_log {F : FiniteFormat} {x : ℝ} (hx : 0 < x)
   have : Int.log 2 |x| = Int.log 2 x := by rw [abs_of_pos hx]
   omega
 
-/-- `F.exp ≤ ⌊log₂ |x|⌋` is the whole content of `IsAboveQuantum`. -/
-theorem isAboveQuantum_of_exp_le (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
-    (hexp : ∀ e : ℤ, F.exp = (e : QExp) → e ≤ Int.log 2 |x|) : F.IsAboveQuantum x := by
-  unfold IsAboveQuantum canonicalExp
-  cases hp : F.p using ENat.recTopCoe with
-  | top =>
-    cases hexp' : F.exp using QExp.recBotCoe with
-    | bot => exact (F.finite.elim (fun h => h hp) (fun h => h hexp')).elim
-    | coe e => exact hexp e hexp'
-  | coe p =>
-    have hpp : 0 < p := F.p_pos hp
-    cases hexp' : F.exp using QExp.recBotCoe with
-    | bot => simp only [if_neg hx]; omega
-    | coe e => simp only [if_neg hx]; exact max_le (by omega) (hexp e hexp')
-
 /-- `canonicalExp` is monotone in magnitude. -/
 theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)
     (hyz : |y| ≤ |z|) : F.canonicalExp y ≤ F.canonicalExp z := by
@@ -375,13 +380,9 @@ theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)
   have hz : z ≠ 0 := by
     rintro rfl; rw [abs_zero] at hyz; exact absurd hyz (not_le.mpr hy_pos)
   have hlog : Int.log 2 |y| ≤ Int.log 2 |z| := Int.log_mono_right hy_pos hyz
-  unfold FiniteFormat.canonicalExp
-  cases F.p using ENat.recTopCoe with
-  | top => cases F.exp using QExp.recBotCoe <;> simp <;> rfl
-  | coe p =>
-    cases F.exp using QExp.recBotCoe with
-    | bot => simp only [hy, hz, if_false]; omega
-    | coe e => simp only [hy, hz, if_false]; omega
+  refine (F.canonicalExp_le_iff hy).mpr ⟨fun p hp => ?_, fun e he => F.exp_le_canonicalExp z he⟩
+  have := F.log_sub_p_le_canonicalExp hz hp
+  omega
 
 /-- `F` with the magnitude bound removed (`b := ⊤`). Used by
 `Rounds`/`RoundsFinite` to define the unbounded rounding. The `finite` invariant
@@ -401,60 +402,174 @@ def unbounded (F : FiniteFormat) : FiniteFormat where
 @[simp] theorem unbounded_unbounded (F : FiniteFormat) :
     F.unbounded.unbounded = F.unbounded := rfl
 
-/-- Number of binary digits the format rounds `x` to. Case analysis on `(F.p, F.exp)`:
+end FiniteFormat
 
-- `(⊤, e')`: fixed-point with quantum `2^e'`. Digits = `⌊log₂|x|⌋ − e' + 1`.
-- `(p, ⊥)`: floating-point with precision `p` and no quantum. Digits = `p`.
-- `(p, e')`: floating-point with precision `p` and min quantum `2^e'`.
-  Digits = `min(p, ⌊log₂|x|⌋ − e' + 1)`.
+/-! ### Closed forms of `canonicalExp` -/
 
-The `(⊤, ⊥)` branch is unreachable by `FiniteFormat.finite`.
+/-- **Closed form of `canonicalExp` in the normal range**, uniform over both
+exponent regimes. When `v` is nonzero and its precision exponent
+`log₂|v| + 1 − p` is at least `F.exp` (the *normal* regime — vacuous for
+`exp = ⊥`), `canonicalExp` takes that form. -/
+theorem canonicalExp_closed {F : FiniteFormat} {p : ℕ}
+    (hp : F.p = (p : Prec)) {v : ℝ} (hv : v ≠ 0)
+    (hnorm : F.exp ≤ ((Int.log 2 |v| + 1 - (p : ℤ) : ℤ) : QExp)) :
+    F.canonicalExp v = Int.log 2 |v| + 1 - (p : ℤ) := by
+  unfold FiniteFormat.canonicalExp
+  cases hexp : F.exp using QExp.recBotCoe with
+  | bot => simp only [hp, hv, if_false]
+  | coe e =>
+    simp only [hp, hv, if_false]
+    rw [hexp] at hnorm
+    exact max_eq_left (by exact_mod_cast hnorm)
 
-For `x = 0` returns `0` by convention. -/
+/-- Closed form of `canonicalExp` with no minimum quantum (`exp = ⊥`):
+`log₂|v| + 1 − p` (the vacuous-normality case of `canonicalExp_closed`). -/
+theorem canonicalExp_expBot {F : FiniteFormat} {p : ℕ}
+    (hp : F.p = (p : Prec)) (hexp : F.exp = ⊥)
+    {v : ℝ} (hv : v ≠ 0) : F.canonicalExp v = Int.log 2 |v| + 1 - (p : ℤ) :=
+  canonicalExp_closed hp hv (by rw [hexp]; exact bot_le)
+
+/-- Closed form of `canonicalExp` with a minimum quantum (`exp = emin` finite):
+`max(log₂|v| + 1 − p, emin)`. -/
+theorem canonicalExp_expFinite {F : FiniteFormat} {p : ℕ} {emin : ℤ}
+    (hp : F.p = (p : Prec)) (hexp : F.exp = (emin : QExp))
+    {v : ℝ} (hv : v ≠ 0) :
+    F.canonicalExp v = max (Int.log 2 |v| + 1 - (p : ℤ)) emin := by
+  unfold FiniteFormat.canonicalExp; simp only [hp, hexp, hv, if_false]
+
+/-- `F.exp ≤ (F.canonicalExp x : QExp)`, uniformly over `exp = ⊥`/finite. -/
+theorem exp_le_canonicalExp_coe (F : FiniteFormat) (x : ℝ) :
+    F.exp ≤ ((F.canonicalExp x : ℤ) : QExp) := by
+  cases hexp : F.exp using QExp.recBotCoe with
+  | bot => exact bot_le
+  | coe e => exact_mod_cast F.exp_le_canonicalExp x hexp
+
+/-- Closed form with unrestricted precision: `canonicalExp` is the quantum
+everywhere (`F.finite` rules out `exp = ⊥` here). -/
+theorem canonicalExp_pTop {F : FiniteFormat} {emin : ℤ}
+    (hp : F.p = ⊤) (hexp : F.exp = (emin : QExp)) (v : ℝ) : F.canonicalExp v = emin := by
+  unfold FiniteFormat.canonicalExp; rw [hp, hexp]; rfl
+
+/-- Closed form in the **subnormal** range: when the precision exponent falls
+below the quantum, `canonicalExp` *is* the quantum. -/
+theorem canonicalExp_subnormal {F : FiniteFormat} {p : ℕ} {emin : ℤ}
+    (hp : F.p = (p : Prec)) (hexp : F.exp = (emin : QExp)) {v : ℝ} (hv : v ≠ 0)
+    (h : Int.log 2 |v| + 1 - (p : ℤ) ≤ emin) : F.canonicalExp v = emin := by
+  rw [canonicalExp_expFinite hp hexp hv]; exact max_eq_right h
+
+/-- `canonicalExp` depends only on the binade `Int.log 2 |·|` (away from `0`):
+equal logs give equal canonical exponents. -/
+theorem canonicalExp_eq_of_log_eq (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0) (hz : z ≠ 0)
+    (h : Int.log 2 |y| = Int.log 2 |z|) : F.canonicalExp y = F.canonicalExp z := by
+  unfold FiniteFormat.canonicalExp
+  cases F.p <;> cases F.exp <;> simp only [if_neg hy, if_neg hz, h]
+
+/-- `canonicalExp` depends only on `|·|`, hence is negation-invariant. -/
+theorem canonicalExp_neg (F : FiniteFormat) (x : ℝ) :
+    F.canonicalExp (-x) = F.canonicalExp x := by
+  unfold FiniteFormat.canonicalExp
+  cases F.p <;> cases F.exp <;> simp only [abs_neg, neg_eq_zero]
+
+/-- A positive `F`-value is at least the format's quantum, so `F.exp ≤ ⌊log₂ z⌋`. -/
+theorem exp_le_log_of_mem (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp))
+    {z : Dyadic} (hz : z ∈ F.unbounded) (hz0 : 0 < ((z : Dyadic) : ℝ)) :
+    e ≤ Int.log 2 ((z : Dyadic) : ℝ) := by
+  obtain ⟨-, hq, -⟩ := hz
+  rw [FiniteFormat.unbounded_exp, hexp] at hq
+  simpa [abs_of_pos hz0] using Dyadic.le_log_of_quantum hq hz0.ne'
+
+/-- With a minimum quantum, `canonicalExp` at `0` is that quantum. -/
+theorem canonicalExp_zero (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp)) :
+    F.canonicalExp 0 = e := by
+  unfold FiniteFormat.canonicalExp
+  cases F.p using ENat.recTopCoe with
+  | top => simp only [hexp]; rfl
+  | coe p => simp [hexp]
+
+/-- **Every value is a multiple of `2^canonicalExp`**: `z = m · 2^cexp z`.
+Each constraint of the format makes `z` a multiple of its own exponent — the
+precision term `⌊log₂|z|⌋ + 1 − p` and the minimum quantum — and `canonicalExp`
+is the larger of the two. -/
+theorem FiniteFormat.exists_mul_zpow_canonicalExp (F : FiniteFormat) {z : Dyadic}
+    (hz : z ∈ F.unbounded) : ∃ m : ℤ, (z : ℝ) = m * (2 : ℝ) ^ F.canonicalExp z := by
+  by_cases hz0 : (z : ℝ) = 0
+  · exact ⟨0, by simp [hz0]⟩
+  have hquant : ∀ e : ℤ, F.exp = e → ∃ m : ℤ, (z : ℝ) = m * (2 : ℝ) ^ e := fun e he =>
+    (Dyadic.quantumAtLeast_coe_real e z).mp (he ▸ hz.2.1)
+  have hprec : ∀ p : ℕ, F.p = p →
+      ∃ m : ℤ, (z : ℝ) = m * (2 : ℝ) ^ (Int.log 2 |(z : ℝ)| + 1 - p) := fun p hp => by
+    obtain ⟨c, e, hce, hc⟩ := (Dyadic.precisionAtMost_coe_real p z).mp (hp ▸ hz.1)
+    -- `2^⌊log₂|z|⌋ ≤ |z| = |c|·2^e < 2^(p+e)`, so the precision term is at most `e`.
+    have hlo : (2 : ℝ) ^ Int.log 2 |(z : ℝ)| ≤ |(z : ℝ)| := by
+      have := Int.zpow_log_le_self (b := 2) (by norm_num) (abs_pos.mpr hz0)
+      exact_mod_cast this
+    have hhi : |(z : ℝ)| < (2 : ℝ) ^ ((p : ℤ) + e) := by
+      rw [hce, abs_mul_two_zpow, zpow_add₀ two_ne_zero, zpow_natCast]
+      exact mul_lt_mul_of_pos_right (by exact_mod_cast hc) (zpow_pos two_pos e)
+    have hle : Int.log 2 |(z : ℝ)| + 1 - p ≤ e := by
+      have := (zpow_lt_zpow_iff_right₀ (by norm_num : (1 : ℝ) < 2)).mp (hlo.trans_lt hhi)
+      omega
+    exact ⟨_, hce.trans (two_zpow_shift c hle)⟩
+  cases hp : F.p using ENat.recTopCoe with
+  | top =>
+    cases he : F.exp using QExp.recBotCoe with
+    | bot => exact (F.finite.elim (· hp) (· he)).elim
+    | coe e => rw [canonicalExp_pTop hp he]; exact hquant e he
+  | coe p =>
+    cases he : F.exp using QExp.recBotCoe with
+    | bot => rw [canonicalExp_expBot hp he hz0]; exact hprec p hp
+    | coe e =>
+      rw [canonicalExp_expFinite hp he hz0]
+      rcases le_total (Int.log 2 |(z : ℝ)| + 1 - p) e with h | h
+      · rw [max_eq_right h]; exact hquant e he
+      · rw [max_eq_left h]; exact hprec p hp
+
+/-- A multiple `m · 2^canonicalExp x` of a nonzero `x` has `|m| < 2^p`:
+`|x| < 2^(⌊log₂|x|⌋ + 1) ≤ 2^(p + canonicalExp x)`. -/
+theorem FiniteFormat.abs_lt_of_mul_zpow_canonicalExp (F : FiniteFormat) {p : ℕ}
+    (hp : F.p = (p : Prec)) {x : ℝ} (hx : x ≠ 0) {m : ℤ}
+    (h : x = m * (2 : ℝ) ^ F.canonicalExp x) : |m| < 2 ^ p := by
+  have hc := F.log_sub_p_le_canonicalExp hx hp
+  have hlt : |x| < (2 : ℝ) ^ (Int.log 2 |x| + 1) := Int.lt_zpow_succ_log_self (by norm_num) _
+  have h1 : |(m : ℝ)| * (2 : ℝ) ^ F.canonicalExp x
+      < (2 : ℝ) ^ (p : ℤ) * (2 : ℝ) ^ F.canonicalExp x := by
+    rw [← abs_mul_two_zpow, ← h, ← zpow_add₀ two_ne_zero]
+    exact hlt.trans_le (zpow_le_zpow_right₀ (by norm_num) (by omega))
+  have h2 := lt_of_mul_lt_mul_right h1 (zpow_pos two_pos _).le
+  rw [zpow_natCast] at h2
+  exact_mod_cast h2
+
+/-- Conversely, a multiple of `2^canonicalExp x` is a value of `F`: the step
+meets the minimum quantum, and the coefficient fits the precision. -/
+theorem FiniteFormat.mem_unbounded_of_mul_zpow_canonicalExp (F : FiniteFormat) {x : Dyadic}
+    {m : ℤ} (h : (x : ℝ) = m * (2 : ℝ) ^ F.canonicalExp x) : x ∈ F.unbounded := by
+  refine ⟨?_, ?_, trivial⟩
+  · change Dyadic.precisionAtMost F.p x
+    cases hp : F.p using ENat.recTopCoe with
+    | top => trivial
+    | coe p =>
+      by_cases hx : (x : ℝ) = 0
+      · exact (Dyadic.precisionAtMost_coe_real p x).mpr ⟨0, 0, by simp [hx], by simp⟩
+      exact (Dyadic.precisionAtMost_coe_real p x).mpr
+        ⟨m, _, h, F.abs_lt_of_mul_zpow_canonicalExp hp hx h⟩
+  · change Dyadic.quantumAtLeast F.exp x
+    cases he : F.exp using QExp.recBotCoe with
+    | bot => trivial
+    | coe e =>
+      exact (Dyadic.quantumAtLeast_coe_real e x).mpr
+        ⟨_, h.trans (two_zpow_shift m (F.exp_le_canonicalExp _ he))⟩
+
+namespace FiniteFormat
+
+/-- Number of binary digits `F` keeps for `x`: from `x`'s leading bit down to its
+canonical exponent, `⌊log₂|x|⌋ + 1 − canonicalExp x`, and `0` at `x = 0`. The
+precision at which `IsOdd` reads the significand. -/
 noncomputable def numDigits (F : FiniteFormat) (x : ℝ) : ℤ :=
-  if x = 0 then 0
-  else
-    let e : ℤ := Int.log 2 |x|
-    match F.p, F.exp with
-    | ⊤, ⊥ => 0  -- unreachable by `F.finite`, but pattern-match must be total
-    | ⊤, (e' : ℤ) => e - e' + 1
-    | (p : ℕ), ⊥ => (p : ℤ)
-    | (p : ℕ), (e' : ℤ) => min (p : ℤ) (e - e' + 1)
-
-@[simp] theorem numDigits_zero (F : FiniteFormat) : F.numDigits 0 = 0 := by
-  unfold numDigits; simp
+  if x = 0 then 0 else Int.log 2 |x| + 1 - F.canonicalExp x
 
 theorem numDigits_neg (F : FiniteFormat) (x : ℝ) :
     F.numDigits (-x) = F.numDigits x := by
-  unfold numDigits
-  by_cases hx : x = 0
-  · subst hx; simp
-  · have hxne' : -x ≠ 0 := neg_ne_zero.mpr hx
-    have habs : |(-x)| = |x| := abs_neg x
-    simp only [hx, hxne', ↓reduceIte, habs]
-
-/-- `numDigits` evaluator: `F.p = ⊤`, `F.exp = (e' : ℤ)`, `x ≠ 0`. -/
-theorem numDigits_top_coe (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {e' : ℤ}
-    (hexp : F.exp = (e' : QExp)) (hp : F.p = ⊤) :
-    F.numDigits x = Int.log 2 |x| - e' + 1 := by
-  unfold numDigits
-  simp only [hx, ↓reduceIte, hp, hexp]
-  rfl
-
-/-- `numDigits` evaluator: `F.p = p`, `F.exp = ⊥`, `x ≠ 0`. -/
-theorem numDigits_coe_bot (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {p : ℕ}
-    (hp : F.p = (p : Prec)) (hexp : F.exp = ⊥) :
-    F.numDigits x = (p : ℤ) := by
-  unfold numDigits
-  simp only [hx, ↓reduceIte, hp, hexp]
-
-/-- `numDigits` evaluator: `F.p = p`, `F.exp = (e' : ℤ)`, `x ≠ 0`. -/
-theorem numDigits_coe_coe (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {p : ℕ} {e' : ℤ}
-    (hp : F.p = (p : Prec))
-    (hexp : F.exp = (e' : QExp)) :
-    F.numDigits x = min (p : ℤ) (Int.log 2 |x| - e' + 1) := by
-  unfold numDigits
-  simp only [hx, ↓reduceIte, hp, hexp]
+  simp [numDigits, canonicalExp_neg]
 
 end FiniteFormat
 
@@ -468,8 +583,6 @@ theorem boundOK_of_abs_le {b : Bound} {g h : Dyadic}
   | top => trivial
   | coe b =>
     have hle' : |(g : ℚ)| ≤ |(h : ℚ)| := by
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast,
-        ← Rat.cast_abs, ← Rat.cast_abs] at hle
       exact_mod_cast hle
     have hb' : |(h : ℚ)| ≤ ((b.val : Dyadic) : ℚ) := hb
     change |(g : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
@@ -480,7 +593,6 @@ bound over `ℝ`. -/
 theorem abs_coe_real_le_of_boundOK {b₁ : NonNegDyadic} {y : Dyadic}
     (h : Format.boundOK ((b₁ : Bound)) y) :
     |(y : ℝ)| ≤ ((b₁.val : Dyadic) : ℝ) := by
-  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
   exact_mod_cast h
 
 /-- Converse of `abs_coe_real_le_of_boundOK`. -/
@@ -488,18 +600,7 @@ theorem boundOK_coe_of_abs_le {b : NonNegDyadic} {y : Dyadic}
     (h : |(y : ℝ)| ≤ ((b.val : Dyadic) : ℝ)) :
     Format.boundOK ((b : Bound)) y := by
   change |(y : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
-  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs] at h
   exact_mod_cast h
-
-/-- A failed bound check, transferred to a strict absolute-value bound
-over `ℝ`. -/
-theorem lt_abs_coe_real_of_not_boundOK {b₁ : NonNegDyadic} {y : Dyadic}
-    (h : ¬ Format.boundOK ((b₁ : Bound)) y) :
-    ((b₁.val : Dyadic) : ℝ) < |(y : ℝ)| := by
-  have h1 : ¬ |(y : ℚ)| ≤ ((b₁.val : Dyadic) : ℚ) := h
-  push Not at h1
-  rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs]
-  exact_mod_cast h1
 
 /-- A dyadic between two in-bound dyadics is in-bound. -/
 theorem boundOK_of_between {b : Bound} {lo hi g : Dyadic}
@@ -510,10 +611,8 @@ theorem boundOK_of_between {b : Bound} {lo hi g : Dyadic}
   | top => trivial
   | coe b =>
     have h1' : (lo : ℚ) ≤ (g : ℚ) := by
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h1
       exact_mod_cast h1
     have h2' : (g : ℚ) ≤ (hi : ℚ) := by
-      rw [Dyadic.coe_real_eq_ratCast, Dyadic.coe_real_eq_ratCast] at h2
       exact_mod_cast h2
     change |(g : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
     exact abs_le.mpr ⟨by linarith [(abs_le.mp hblo).1], by linarith [(abs_le.mp hbhi).2]⟩
@@ -550,11 +649,5 @@ theorem exists_p_coe_of_exp_bot {F : FiniteFormat} (he : F.exp = ⊥) :
   cases hc : F.p using ENat.recTopCoe with
   | top => exact absurd F.finite (by push Not; exact ⟨hc, he⟩)
   | coe p => exact ⟨p, rfl⟩
-
-/-- `numDigits` only reads `(p, exp)`. -/
-theorem numDigits_congr {F G : FiniteFormat} (hp : F.p = G.p)
-    (he : F.exp = G.exp) (x : ℝ) : F.numDigits x = G.numDigits x := by
-  unfold FiniteFormat.numDigits
-  rw [hp, he]
 
 end Mpfx

@@ -9,7 +9,7 @@ Defines:
   (`.value v` or `.undefined`).
 * `FiniteFormat.IsUndefined` — when `.undefined` fires.
 * `SpecialMap`, `OverflowMap` — where special inputs and overflow go.
-* `IsFaithfulRound` — RoundDown or RoundUp.
+* `IsFaithfulRound` — the round-down or the round-up.
 * `RoundsFinite`, `RoundsInBound`, `Overflows` — the numeric spec.
 * `Rounds F S O rm : WithSpecial ℝ → RoundResult → Prop` — the
   specification relation, all seven modes.
@@ -30,12 +30,12 @@ deriving DecidableEq, Repr
 
 /-- IEEE-754 + paper-extended rounding modes.
 
-* `ToNegative` (RTN) — round toward `-∞`.
-* `ToPositive` (RTP) — round toward `+∞`.
-* `ToZero` (RTZ) — round toward `0`.
-* `AwayZero` (RAZ) — round away from `0`.
-* `ToOdd` (RTO; not IEEE) — round to the F-adjacent with odd significand.
-* `Nearest tb` — round to nearest; ties broken by `tb`. -/
+* `toNegative` (RTN) — round toward `-∞`.
+* `toPositive` (RTP) — round toward `+∞`.
+* `toZero` (RTZ) — round toward `0`.
+* `awayZero` (RAZ) — round away from `0`.
+* `toOdd` (RTO; not IEEE) — round to the neighbour with odd significand.
+* `nearest tb` — round to nearest; ties broken by `tb`. -/
 inductive RoundingMode where
   | toNegative : RoundingMode
   | toPositive : RoundingMode
@@ -48,36 +48,16 @@ deriving DecidableEq, Repr
 /-- The result of rounding in a `Format` with some `RoundingMode`.
 
 * `.value v` — the rounded value, numeric or special.
-* `.undefined` — the `(Format, RoundingMode)` combination is degenerate
-  and rounding has no semantic meaning. Fires only on
-  `(p = 1, exp = ⊥, rm ∈ {.toOdd, .nearest .toEven})`. -/
+* `.undefined` — the parity modes at `(p = 1, exp = ⊥)`, left undefined by
+  convention (`FiniteFormat.IsUndefined`). -/
 inductive RoundResult where
   | value (v : WithSpecial Dyadic) : RoundResult
   | undefined : RoundResult
 
-namespace RoundResult
-
-/-- Negation through the value; `.undefined` is a fixed point. -/
-def neg : RoundResult → RoundResult
-  | .value v   => .value v.neg
-  | .undefined => .undefined
-
-@[simp] theorem neg_value (v : WithSpecial Dyadic) :
-    (RoundResult.value v).neg = .value v.neg := rfl
-@[simp] theorem neg_undefined : RoundResult.undefined.neg = .undefined := rfl
-
-@[simp] theorem neg_neg (r : RoundResult) : r.neg.neg = r := by
-  cases r <;> simp [neg]
-
-end RoundResult
-
-/-- The format/mode pair is degenerate (no meaningful rounding):
-`(1, ⊥, rm)` for `rm ∈ {.toOdd, .nearest .toEven}` — precision `1` with
-no quantum has no anchor for parity, so the modes that consult
-`IsOdd`/`IsEven` are meaningless.
-
-The `(⊤, ⊥)` case (fully unconstrained) is structurally excluded by
-`FiniteFormat`'s `finite` invariant. -/
+/-- The parity modes `.toOdd` and `.nearest .toEven` at precision `1` with no
+minimum quantum, which `rnd` leaves undefined by convention. `IsOdd` still
+counts exponents from `0` there, but alternation and uniqueness are proved only
+away from `(1, ⊥)`. The `(⊤, ⊥)` case is excluded by `FiniteFormat`. -/
 def FiniteFormat.IsUndefined (F : FiniteFormat) (rm : RoundingMode) : Prop :=
   F.p = (1 : ℕ) ∧ F.exp = ⊥ ∧
     (rm = .toOdd ∨ rm = .nearest .toEven)
@@ -88,22 +68,7 @@ def FiniteFormat.IsUndefined (F : FiniteFormat) (rm : RoundingMode) : Prop :=
     (rm : RoundingMode) :
     F.unbounded.IsUndefined rm = F.IsUndefined rm := rfl
 
-/-- Promote to `ParityFormat` from a `¬ IsUndefined .toOdd` witness. -/
-def FiniteFormat.toParityFormatOfToOdd
-    (F : FiniteFormat) (h : ¬ F.IsUndefined .toOdd) : ParityFormat := by
-  refine ⟨F, ?_⟩
-  by_contra h_neg; push Not at h_neg
-  exact h ⟨h_neg.1, h_neg.2, Or.inl rfl⟩
-
-/-- Promote to `ParityFormat` from a `¬ IsUndefined (.nearest .toEven)`
-witness. Proof-irrelevantly the same value as `toParityFormatOfToOdd`. -/
-def FiniteFormat.toParityFormatOfNearestEven
-    (F : FiniteFormat) (h : ¬ F.IsUndefined (.nearest .toEven)) : ParityFormat := by
-  refine ⟨F, ?_⟩
-  by_contra h_neg; push Not at h_neg
-  exact h ⟨h_neg.1, h_neg.2, Or.inr rfl⟩
-
-/-! ### Special-value and overflow tables -/
+/-! ### Special-value and overflow maps -/
 
 /-- Where special inputs go. -/
 structure SpecialMap (F : Format) where
@@ -115,12 +80,6 @@ structure OverflowMap (F : Format) where
   map : Bool → WithSpecial Dyadic
   mem : ∀ negative, map negative ∈ F.values
 
-/-- The table for the negated input: `(O.neg hF).map b = (O.map !b).neg`. -/
-def OverflowMap.neg {F : Format} (hF : F.NegClosed) (O : OverflowMap F) : OverflowMap F :=
-  ⟨fun negative => (O.map !negative).neg, fun _ => Format.neg_mem_values hF (O.mem _)⟩
-
-@[simp] theorem OverflowMap.neg_map {F : Format} (hF : F.NegClosed) (O : OverflowMap F)
-    (negative : Bool) : (O.neg hF).map negative = (O.map !negative).neg := rfl
 
 /-! ### The specification relation `Rounds`
 
@@ -165,15 +124,13 @@ def RoundsFinite (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (y : Dyadic) :
         |(y : ℝ)| ≤ |(z : ℝ)|
   | .toOdd =>
       IsFaithfulRound F x y ∧
-      (x ≠ (y : ℝ) →
-        ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsOdd y)
+      (x ≠ (y : ℝ) → F.IsOdd y)
   | .nearest .toEven =>
       IsFaithfulRound F x y ∧
       (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →
         |x - (y : ℝ)| ≤ |x - (z : ℝ)|) ∧
       ((∃ z : Dyadic, z ∈ F ∧ IsFaithfulRound F x z ∧
-          z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) →
-        ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsEven y)
+          z ≠ y ∧ |x - (y : ℝ)| = |x - (z : ℝ)|) → F.IsEven y)
   | .nearest .awayZero =>
       IsFaithfulRound F x y ∧
       (∀ z : Dyadic, z ∈ F → IsFaithfulRound F x z →

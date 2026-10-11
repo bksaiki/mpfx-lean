@@ -32,8 +32,9 @@ applies and mathlib's own `ENat.recTopCoe` can be used. The price is that `ENat`
 is a `def`, not a reducible wrapper around `Option`: `⊤`, `1` and numerals at
 type `ℕ∞` do **not** reduce into the `Option` matcher, so the `match`-on-`F.p`
 definitions (`canonicalExp`, `numDigits`, `next`) need an explicit `rfl` after
-`rw`/`simp` has substituted `F.p`. Their evaluator lemmas
-(`numDigits_top_coe` and friends) exist so callers rarely meet this.
+`rw`/`simp` has substituted `F.p`. The closed forms (`canonicalExp_pTop`,
+`canonicalExp_expBot`, `canonicalExp_expFinite`) exist so callers rarely meet
+this.
 
 **Always case-split these with their eliminator, never a bare `cases`.** They are
 reducible, so `cases` unfolds past `WithTop`/`WithBot` to `Option` and asks for
@@ -55,10 +56,11 @@ that invariant never needs threading. Two subtypes refine `Format`:
   Use `FiniteFormat.p_pos` to get `0 < p` from `hp : F.p = ↑p`. At `Format`
   level, `Format.Nontrivial.p_ne_zero` plays the same role.
 - `ParityFormat extends FiniteFormat` adds `parity : p ≠ 1 ∨ exp ≠ ⊥` — the
-  extra condition under which `IsOdd` / `IsEven` are well-anchored.
+  formats where the parity modes are defined. The counterexamples are stated
+  over it.
 
-Rounding (`Rounds`, `rnd`) is stated over `FiniteFormat`; parity (`IsOdd`,
-`IsEven`, RTO-padding lemma) over `ParityFormat`. Parent fields are accessed directly
+Rounding (`Rounds`, `rnd`) and parity (`IsOdd`, `IsEven`, RTO-padding lemma)
+are stated over `FiniteFormat`. Parent fields are accessed directly
 through inheritance (`F.p`, not `F.toFormat.p`); `.toFormat` appears only where
 an operator lives on `Format` itself (`⊆`, `withBound`, `boundAfterNext`).
 
@@ -113,7 +115,7 @@ since `Membership`'s element type is an `outParam` and would clash with
 
 **Specials are values; overflow is an event.** `±Inf` and NaN are inputs and
 outputs. Overflow happens to a real input and never appears as a value: what it
-produces is chosen by the format. `rnd` takes two tables of `F`, independent
+produces is chosen by the format. `rnd` takes two maps of `F`, independent
 of the rounding mode:
 
 | Table | Keyed by | Says |
@@ -121,11 +123,11 @@ of the rounding mode:
 | `SpecialMap F` | `Special` | where a special input goes |
 | `OverflowMap F` | `Bool` (`negative`) | where an overflowing real goes |
 
-Each entry must be one of `F.values`. A table follows the mode only when built
+Each entry must be one of `F.values`. A map follows the mode only when built
 to: `OverflowMap.ieee F rm` is IEEE 754 §7.4, so RTP sends `+overflow` to
-`+Inf` but `−overflow` to `−maxFinite`. The other standard tables (all in
+`+Inf` but `−overflow` to `−maxFinite`. The other standard maps (all in
 `Mpfx/Rounding/Special.lean`) are `SpecialMap.exact`/`saturate`/`toNaN` and
-`OverflowMap.saturate`/`toNaN`. Tables are arbitrary; conditions on them (e.g.
+`OverflowMap.saturate`/`toNaN`. Maps are arbitrary; conditions on them (e.g.
 `OverflowAgrees` for double rounding) are named predicates used as
 hypotheses, so OCP E4M3 or P3109 saturation fit without special cases.
 
@@ -136,13 +138,13 @@ go through `S`.
 
 **Why overflow is a predicate.** `Overflows F rm x` says the unbounded
 rounding of `x` leaves `F`'s bound; `RoundsInBound F rm x y` says it is `y`
-and fits. A saturating table maps overflow to `±maxFinite`, which is also an
+and fits. A saturating map sends overflow to `±maxFinite`, which is also an
 ordinary result, so overflow cannot be read off `rnd`'s output. Double rounding
 still depends on it: whether `F₂` and `F₁` overflow on the same inputs decides
-which table conditions the equality `rnd₁ (rnd₂ v) = rnd₁ v` needs. So
+which map conditions the equality `rnd₁ (rnd₂ v) = rnd₁ v` needs. So
 overflow is kept as a predicate on the input, not a constructor of the result.
 
-Signed zero is out of scope: `Dyadic` has one zero, and no table touches it.
+Signed zero is out of scope: `Dyadic` has one zero, and no map touches it.
 
 ## RoundingMode coverage
 

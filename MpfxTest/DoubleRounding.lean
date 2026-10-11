@@ -1,9 +1,9 @@
 import Mpfx.DoubleRounding.Special
 
 /-!
-# Double rounding with the IEEE tables
+# Double rounding with the IEEE maps
 
-The standard tables discharge the table hypotheses of the `rnd*` rules, except
+The standard maps discharge the map hypotheses of the `rnd*` rules, except
 for RTO → RTZ.
 -/
 
@@ -39,7 +39,7 @@ example (hsub : F₁.toFormat ⊆ F₂.toFormat) {v : WithSpecial ℝ} {u : With
     (SpecialMap.exact_composes h₂)
     (OverflowMap.ieee_toZero_composes hsub hb₁ hb₂ (fun _ => h₁ _) (fun _ => h₂ _)) hu
 
-/-- RTO → RTZ: the IEEE overflow tables do not compose. RTO overflows to `+Inf`,
+/-- RTO → RTZ: the IEEE overflow maps do not compose. RTO overflows to `+Inf`,
 which RTZ keeps exact, while direct RTZ saturates to `+maxFinite₁`. -/
 example : ¬ (OverflowMap.ieee F₂ .toOdd hb₂ fun _ => h₂ _).Composes
     (SpecialMap.exact _ h₁) (OverflowMap.ieee F₁ .toZero hb₁ fun _ => h₁ _) .toZero := by
@@ -69,9 +69,9 @@ example (hsub : F₁.toFormat ⊆ F₂.toFormat) (hp_F₂ : ((2 : ℕ) : Prec) �
   rndRTO_RTO hsub hp_F₂ h₁u (.of_saturate hsub hb₁ hb₂ h₁u) (SpecialMap.exact_composes h₂)
     (OverflowMap.saturate_composes hsub hb₁ hb₂ h₁u) hu
 
-/-- RTO → RN with the IEEE tables fails wherever `F₂` overflows and `F₁` does
+/-- RTO → RN with the IEEE maps fails wherever `F₂` overflows and `F₁` does
 not, a region the relaxed bound `b₂ ≥ M` of `rndRTO_RN_of_bound` rules out: the
-chain gives `±Inf`, the direct rounding a finite value. -/
+double rounding gives `±Inf`, the direct rounding a finite value. -/
 example {tb : TieBreak} (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p)
     (h₁u : ¬ F₁.IsUndefined (.nearest tb)) {x : ℝ} {y : Dyadic}
     (hov : Overflows F₂ .toOdd x) (hy : RoundsInBound F₁ (.nearest tb) x y) :

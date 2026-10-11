@@ -14,8 +14,9 @@ Both require `S₁ ⊆ S₂` on the specials, are stated for `Format`, and are p
 over `ℚ`. `F₁ ⊆ F₂` (`Subset`) covers numeric values and specials.
 
 `subset_iff_contains` is completeness: for `F₁` with `BoundRep` and
-`Nontrivial`, `F₁ ⊆ F₂` iff one rule fires. Also `extend` and the digit-shift
-lemma `numDigits_extend`.
+`Nontrivial`, `F₁ ⊆ F₂` iff one rule fires. Also `extend` with the digit-shift
+lemma `numDigits_extend`, and its inverse `shrink`, which containment preserves
+(`mem_shrink_of_subset`).
 -/
 
 namespace Mpfx
@@ -160,7 +161,7 @@ on `exp₂ ≤ exp₁`.
 Each necessity proof exhibits one value of `F₁` that `F₂` cannot represent. -/
 
 /-- Above any real there is a power of two, at an exponent above `e`. -/
-private theorem exists_zpow_gt (r : ℝ) (e : QExp) :
+theorem exists_zpow_gt (r : ℝ) (e : QExp) :
     ∃ k : ℤ, e ≤ (k : QExp) ∧ r < (2 : ℝ) ^ k := by
   refine ⟨max (e.unbotD 0) (Int.log 2 r + 1), ?_, lt_of_lt_of_le
     (Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) r)
@@ -181,6 +182,19 @@ private theorem exists_mul_zpow_le {C r : ℝ} (hC : 0 < C) (hr : 0 < r) (e : �
   calc C * (2 : ℝ) ^ (min e (Int.log 2 (r / C))) ≤ C * (r / C) := by nlinarith
     _ = r := by field_simp
 
+/-- An unbounded `F₁` has powers of two above any bound, so it fits only in an
+unbounded `F₂`. -/
+theorem b_top_of_subset {F₁ F₂ : Format} (hp : F₁.p ≠ 0) (hb : F₁.b = ⊤) (h : F₁ ⊆ F₂) :
+    F₂.b = ⊤ := by
+  by_contra hne
+  obtain ⟨b₂, hb₂⟩ := WithTop.ne_top_iff_exists.mp hne
+  obtain ⟨k, hk, hgt⟩ := exists_zpow_gt ((b₂.val : Dyadic) : ℝ) F₁.exp
+  have hv := (h _ (ofIntZpow_mem (precisionAtMost_one_zpow hp k) hk (by rw [hb]; trivial))).2.2
+  rw [← hb₂] at hv
+  have := abs_coe_real_le_of_boundOK hv
+  rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) k)] at this
+  exact absurd this (not_le_of_gt hgt)
+
 /-- **Necessity of `b₁ ≤ b₂`.** A finite `b₁` is a value of `F₁`, so it must be
 a value of `F₂`; an infinite `b₁` gives `F₁` arbitrarily large powers of two. -/
 private theorem b_le_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial)
@@ -196,14 +210,7 @@ private theorem b_le_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt :
       rw [← abs_of_nonneg (a := ((b₁.val : Dyadic) : ℝ)) (nonneg_coe_real b₁)]
       exact abs_coe_real_le_of_boundOK this
     | top =>
-      -- `F₁` is unbounded, so it contains a power of two exceeding `b₂`.
-      obtain ⟨k, hk, hgt⟩ := exists_zpow_gt ((b₂.val : Dyadic) : ℝ) F₁.exp
-      have hv := (h _ (ofIntZpow_mem (precisionAtMost_one_zpow hnt.p_ne_zero k) hk
-        (by rw [hb1]; trivial))).2.2
-      rw [hb2] at hv
-      have := abs_coe_real_le_of_boundOK hv
-      rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) k)] at this
-      exact absurd this (not_le_of_gt hgt)
+      exact absurd (b_top_of_subset hnt.p_ne_zero hb1 h) (by rw [hb2]; exact WithTop.coe_ne_top)
 
 /-- **Necessity of `exp₂ ≤ exp₁`.** `F₁` is non-trivial, so `2^exp₁` is one of
 its values (or, when `exp₁ = -∞`, so is `2^k` for arbitrarily small `k`), while
@@ -258,10 +265,6 @@ wider than `p₂` digits. -/
 /-- `2^p + 1`: odd, exactly `p+1` digits wide. -/
 def wit (p : ℕ) : ℤ := 2 ^ p + 1
 
-private theorem one_lt_two_pow {p : ℕ} (hp : 0 < p) : (1 : ℤ) < 2 ^ p := by
-  calc (1 : ℤ) = 2 ^ 0 := by norm_num
-    _ < 2 ^ p := pow_lt_pow_right₀ (by norm_num) hp
-
 private theorem wit_pos (p : ℕ) : 0 < wit p := by unfold wit; positivity
 
 private theorem odd_wit {p : ℕ} (hp : 0 < p) : Odd (wit p) :=
@@ -285,7 +288,7 @@ private theorem precisionAtMost_wit {p₁ : Prec} {p₂ : ℕ} (hp : 0 < p₂)
     have hq : p₂ + 1 ≤ q := by
       have : (p₂ : Prec) < (q : Prec) := hp' ▸ hlt
       exact_mod_cast this
-    have h1 := one_lt_two_pow hp
+    have h1 : (1 : ℤ) < 2 ^ p₂ := one_lt_pow₀ (by norm_num) hp.ne'
     calc |wit p₂| = 2 ^ p₂ + 1 := by rw [abs_of_pos (wit_pos p₂)]; rfl
       _ < 2 ^ (p₂ + 1) := by rw [pow_succ]; omega
       _ ≤ 2 ^ q := pow_le_pow_right₀ (by norm_num) hq
@@ -341,7 +344,7 @@ private theorem sub_test_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (h
     cases hb1 : F₁.b using Bound.recTopCoe with
     | top => exact absurd (key e₁ (by rw [he1]) (by rw [hb1]; trivial)) not_false
     | coe b₁ =>
-      -- `b₁` is a grid point, `b₁ = m · 2^exp₁`; if `b₁ > 2^(exp₁+p₂)` then
+      -- `b₁` is a value of `F₁`, `b₁ = m · 2^exp₁`; if `b₁ > 2^(exp₁+p₂)` then
       -- `m ≥ wit p₂`, so the witness is in bound.
       refine WithTop.coe_le_coe.mpr (NonNegDyadic.le_iff_coe_real.mpr ?_)
       by_contra hcon
@@ -412,6 +415,23 @@ def extend (F : Format) (k : ℕ) : Format where
 
 @[simp] theorem extend_b (F : Format) k : (F.extend k).b = F.b := rfl
 @[simp] theorem extend_specials (F : Format) k : (F.extend k).specials = F.specials := rfl
+@[simp] theorem extend_p (F : Format) (k : ℕ) : (F.extend k).p = F.p + k := rfl
+
+theorem extend_exp_coe {F : Format} {e : ℤ} (h : F.exp = e) (k : ℕ) :
+    (F.extend k).exp = ((e - k : ℤ) : QExp) := by
+  change F.exp.map _ = _; rw [h]; rfl
+
+theorem extend_exp_bot {F : Format} (h : F.exp = ⊥) (k : ℕ) : (F.extend k).exp = ⊥ := by
+  change F.exp.map _ = _; rw [h]; rfl
+
+/-- Extending twice is extending by the sum. -/
+theorem extend_extend (F : Format) (j k : ℕ) : (F.extend j).extend k = F.extend (j + k) := by
+  obtain ⟨p, e, b, S⟩ := F
+  simp only [extend, mk.injEq, and_true]
+  refine ⟨by push_cast; rw [add_assoc], ?_⟩
+  cases e using QExp.recBotCoe with
+  | bot => rfl
+  | coe e => simp only [WithBot.map_coe, WithBot.coe_inj]; push_cast; ring
 
 /-- `F ⊆ F.extend k`: extending only relaxes the precision and quantum
 constraints. -/
@@ -442,28 +462,10 @@ theorem extend_mono (F : Format) {j k : ℕ} (h : j ≤ k) :
   · exact le_refl _
   · exact subset_rfl
 
-/-- `(F.extend 1).extend 1 ⊆ F.extend 2` via precision/quantum equivalence.
-The core is `(p+1)+1 = p+2`, `(exp-1)-1 = exp-2`, same bound. -/
+/-- `(F.extend 1).extend 1 ⊆ F.extend 2`, by `extend_extend`. -/
 theorem extend_one_extend_one_subset_extend_two (F : Format) :
     (F.extend 1).extend 1 ⊆ F.extend 2 := by
-  refine subset_of_mem subset_rfl fun y hy => ?_
-  obtain ⟨hp, hq, hb⟩ := hy
-  refine ⟨?_, ?_, hb⟩
-  · change Dyadic.precisionAtMost (F.p + ((2 : ℕ) : Prec)) y
-    change Dyadic.precisionAtMost (F.p + ((1 : ℕ) : Prec) + ((1 : ℕ) : Prec)) y at hp
-    rwa [add_assoc, show ((1 : ℕ) : Prec) + ((1 : ℕ) : Prec) = ((2 : ℕ) : Prec) by
-      push_cast; ring] at hp
-  · -- quantumAtLeast ((F.exp.map (·-1)).map (·-1)) y → quantumAtLeast (F.exp.map (·-2)) y.
-    change Dyadic.quantumAtLeast (F.exp.map (· - (2 : ℤ))) y
-    change Dyadic.quantumAtLeast ((F.exp.map (· - (1 : ℤ))).map (· - (1 : ℤ))) y at hq
-    have h_eq : (F.exp.map (· - (1 : ℤ))).map (· - (1 : ℤ)) = F.exp.map (· - (2 : ℤ)) := by
-      cases F.exp using QExp.recBotCoe with
-      | bot => rfl
-      | coe e =>
-        rw [WithBot.map_coe, WithBot.map_coe, WithBot.map_coe]
-        congr 1
-        ring
-    rw [h_eq] at hq; exact hq
+  rw [extend_extend]
 
 /-- A `Dyadic` not representable in 1 bit cannot live in a format with
 `F.p ≤ 1`, so a precision-2 witness in `F` forces `F.p ≥ 2`. -/
@@ -512,48 +514,151 @@ def extend (F : FiniteFormat) (k : ℕ) : FiniteFormat where
 @[simp] theorem extend_toFormat (F : FiniteFormat) k :
     (F.extend k).toFormat = F.toFormat.extend k := rfl
 
+/-- Extending by `k` bits lowers the canonical exponent of every nonzero `x` by
+exactly `k`: `p ↦ p + k` and `exp ↦ exp − k` each shift their term of the `max`. -/
+theorem canonicalExp_extend (F : FiniteFormat) (k : ℕ) {x : ℝ} (hx : x ≠ 0) :
+    (F.extend k).canonicalExp x = F.canonicalExp x - k := by
+  cases hp : F.p using ENat.recTopCoe with
+  | top =>
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot => exact (F.finite.elim (· hp) (· hexp)).elim
+    | coe e =>
+      rw [canonicalExp_pTop hp hexp,
+        canonicalExp_pTop (F := F.extend k) (by simp [hp]) (Format.extend_exp_coe hexp k)]
+  | coe n =>
+    have hpe : (F.extend k).p = ((n + k : ℕ) : Prec) := by simp [hp]
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot =>
+      rw [canonicalExp_expBot hp hexp hx,
+        canonicalExp_expBot hpe (Format.extend_exp_bot hexp k) hx]
+      push_cast; ring
+    | coe e =>
+      rw [canonicalExp_expFinite hp hexp hx,
+        canonicalExp_expFinite hpe (Format.extend_exp_coe hexp k) hx]
+      push_cast; omega
+
 /-- **Digit-shift lemma** (`w₂ = w₁ + k`): extending `F` by `k` increases the digit count of every
 nonzero `x` by exactly `k`. -/
 theorem numDigits_extend (F : FiniteFormat) (k : ℕ) {x : ℝ} (hx : x ≠ 0) :
     (F.extend k).numDigits x = F.numDigits x + k := by
-  have hp_ext : (F.extend k).p = F.p + (k : Prec) := rfl
-  have he_ext : (F.extend k).exp = F.exp.map (· - (k : ℤ)) := rfl
+  simp only [numDigits, if_neg hx, F.canonicalExp_extend k hx]; ring
+
+end FiniteFormat
+
+/-! ### Shrinking
+
+`F.shrink` drops a digit of precision and raises the minimum quantum by one,
+the inverse of `extend 1`. For `p ≠ 1` its values are the even values of `F`
+(`FiniteFormat.isEven_iff_mem_shrink`). -/
+
+namespace Format
+
+/-- Drop a digit: `p ↦ p − 1` and `exp ↦ exp + 1`, with the bound and specials
+unchanged. The inverse of `extend 1` (`shrink_extend_one`). -/
+def shrink (F : Format) : Format := { F with p := F.p - 1, exp := F.exp.map (· + 1) }
+
+theorem shrink_extend_one (F : Format) : (F.extend 1).shrink = F := by
+  obtain ⟨p, e, b, S⟩ := F
+  simp only [shrink, extend, mk.injEq, and_true]
+  refine ⟨?_, ?_⟩
+  · cases p using ENat.recTopCoe with
+    | top => rfl
+    | coe p => norm_cast
+  · cases e using QExp.recBotCoe with
+    | bot => rfl
+    | coe e => simp
+
+end Format
+
+namespace FiniteFormat
+
+/-- The shrink of a format with `p ≠ 1`, which keeps a positive precision. -/
+def shrink (F : FiniteFormat) (h : F.p ≠ ((1 : ℕ) : Prec)) : FiniteFormat where
+  toFormat := F.toFormat.shrink
+  finite := by
+    rcases F.finite with hp | he
+    · left
+      change F.p - 1 ≠ ⊤
+      cases hF : F.p using ENat.recTopCoe with
+      | top => exact absurd hF hp
+      | coe n => exact_mod_cast ENat.coe_ne_top (n - 1)
+    · right
+      change F.exp.map (· + 1) ≠ ⊥
+      cases hF : F.exp using QExp.recBotCoe with
+      | bot => exact absurd hF he
+      | coe e => exact WithBot.coe_ne_bot
+  pos := by
+    change F.p - 1 ≠ 0
+    cases hF : F.p using ENat.recTopCoe with
+    | top => exact (show (⊤ : Prec) - 1 = ⊤ from rfl) ▸ ENat.top_ne_zero
+    | coe n =>
+      have h0 := F.p_pos hF
+      have h1 : n ≠ 1 := fun h1 => h (by rw [hF, h1])
+      exact_mod_cast (show n - 1 ≠ 0 by omega)
+
+theorem shrink_exp_coe {F : FiniteFormat} (h : F.p ≠ ((1 : ℕ) : Prec)) {e : ℤ}
+    (he : F.exp = (e : QExp)) : (F.shrink h).exp = ((e + 1 : ℤ) : QExp) := by
+  change F.exp.map _ = _; rw [he]; rfl
+
+theorem shrink_exp_bot {F : FiniteFormat} (h : F.p ≠ ((1 : ℕ) : Prec))
+    (he : F.exp = ⊥) : (F.shrink h).exp = ⊥ := by
+  change F.exp.map _ = _; rw [he]; rfl
+
+/-- Shrinking raises the canonical exponent of every nonzero `x` by one. -/
+theorem canonicalExp_shrink (F : FiniteFormat) (h : F.p ≠ ((1 : ℕ) : Prec)) {x : ℝ}
+    (hx : x ≠ 0) : (F.shrink h).canonicalExp x = F.canonicalExp x + 1 := by
   cases hp : F.p using ENat.recTopCoe with
   | top =>
     cases hexp : F.exp using QExp.recBotCoe with
-    | bot =>
-      exfalso; rcases F.finite with h | h
-      · exact h hp
-      · exact h hexp
-    | coe e' =>
-      have hpe : (F.extend k).p = ⊤ := by rw [hp_ext, hp]; rfl
-      have hee : (F.extend k).exp = ((e' - (k : ℤ) : ℤ) : QExp) := by
-        rw [he_ext, hexp, WithBot.map_coe]
-      rw [F.numDigits_top_coe hx hexp hp,
-          (F.extend k).numDigits_top_coe hx hee hpe]
-      ring
+    | bot => exact (F.finite.elim (· hp) (· hexp)).elim
+    | coe e =>
+      rw [canonicalExp_pTop hp hexp, canonicalExp_pTop (F := F.shrink h)
+        (by change F.p - 1 = ⊤; rw [hp]; rfl) (shrink_exp_coe h hexp)]
   | coe n =>
+    have h0 := F.p_pos hp
+    have h1 : n ≠ 1 := fun h1 => h (by rw [hp, h1])
+    have hpc : (F.shrink h).p = ((n - 1 : ℕ) : Prec) := by
+      change F.p - 1 = _; rw [hp]; norm_cast
+    have hcast : ((n - 1 : ℕ) : ℤ) = n - 1 := by omega
     cases hexp : F.exp using QExp.recBotCoe with
     | bot =>
-      have hpe : (F.extend k).p = ((n + k : ℕ) : Prec) := by
-        rw [hp_ext, hp, ← Nat.cast_add]
-      have hee : (F.extend k).exp = ⊥ := by rw [he_ext, hexp]; rfl
-      rw [F.numDigits_coe_bot hx hp hexp,
-          (F.extend k).numDigits_coe_bot hx hpe hee]
-      push_cast; ring
-    | coe e' =>
-      have hpe : (F.extend k).p = ((n + k : ℕ) : Prec) := by
-        rw [hp_ext, hp, ← Nat.cast_add]
-      have hee : (F.extend k).exp = ((e' - (k : ℤ) : ℤ) : QExp) := by
-        rw [he_ext, hexp, WithBot.map_coe]
-      rw [F.numDigits_coe_coe hx hp hexp,
-          (F.extend k).numDigits_coe_coe hx hpe hee]
-      have hnk : (((n + k : ℕ) : ℕ) : ℤ) = (n : ℤ) + (k : ℤ) := by push_cast; ring
-      rw [hnk]
-      have hlog : Int.log 2 |x| - (e' - (k : ℤ)) + 1
-          = Int.log 2 |x| - e' + 1 + (k : ℤ) := by ring
-      rw [hlog]; omega
+      rw [canonicalExp_expBot hp hexp hx, canonicalExp_expBot hpc
+        (shrink_exp_bot h hexp) hx, hcast]
+      ring
+    | coe e =>
+      rw [canonicalExp_expFinite hp hexp hx, canonicalExp_expFinite hpc
+        (shrink_exp_coe h hexp) hx, hcast]
+      omega
 
 end FiniteFormat
+
+namespace Format
+
+private theorem map_add_one_le {a b : QExp} (h : a ≤ b) : a.map (· + 1) ≤ b.map (· + 1) := by
+  cases a using QExp.recBotCoe with
+  | bot => exact bot_le
+  | coe a =>
+    cases b using QExp.recBotCoe with
+    | bot => exact absurd h (by simp)
+    | coe b =>
+      exact WithBot.coe_le_coe.mpr (show a + 1 ≤ b + 1 by have := WithBot.coe_le_coe.mp h; omega)
+
+/-- **Shrinking is monotone.** If `G ⊆ H`, with `G`'s bound one of its values
+and `G` nontrivial, then `G`'s shrink lies in `H`'s once `H.p ≥ 2`. Both
+containment rules survive the shift `(p − 1, exp + 1)`. -/
+theorem mem_shrink_of_subset {G H : Format} (hsub : G ⊆ H) (hbr : BoundRep G)
+    (hnt : G.Nontrivial) (hp : ((2 : ℕ) : Prec) ≤ H.p) {y : Dyadic} (hy : y ∈ G.shrink) :
+    y ∈ H.shrink.unbounded := by
+  rcases (subset_iff_contains hbr hnt).mp hsub with
+    ⟨hpp, he, -, -⟩ | ⟨e₁, p₂, he₁, -, hp₂, hbb, he, -, hs⟩
+  · exact mem_unbounded_of_le (tsub_le_tsub_right hpp 1) (map_add_one_le he) hy.1 hy.2.1
+  · have h2 : 2 ≤ p₂ := by rw [hp₂] at hp; exact_mod_cast hp
+    refine containsSub (F₁ := G.shrink) (F₂ := H.shrink.unbounded) (exp₁ := e₁ + 1)
+      (p₂ := p₂ - 1) (by change G.exp.map _ = _; rw [he₁]; rfl) (by omega)
+      (by change H.p - 1 = _; rw [hp₂]; norm_cast) ?_ (map_add_one_le he) le_top hs y hy
+    rw [show e₁ + 1 + ((p₂ - 1 : ℕ) : ℤ) = e₁ + p₂ by omega]
+    exact hbb
+
+end Format
 
 end Mpfx

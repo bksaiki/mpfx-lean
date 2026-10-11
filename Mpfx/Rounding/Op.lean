@@ -104,7 +104,7 @@ theorem rnd_finite_of_roundsFinite {F : FiniteFormat} {S : SpecialMap F.toFormat
     (O : OverflowMap F.toFormat) (rm : RoundingMode) (s : Special) :
     rnd F S O rm (.special s) = .value (S.map s) := rfl
 
-/-- An overflow selects the table's entry at the sign of `x`. -/
+/-- An overflow selects the map's entry at the sign of `x`. -/
 theorem rnd_of_overflows {F : FiniteFormat} {S : SpecialMap F.toFormat}
     {O : OverflowMap F.toFormat} {rm : RoundingMode} {x : ℝ}
     (h : ¬ F.IsUndefined rm) (hov : Overflows F rm x) :
