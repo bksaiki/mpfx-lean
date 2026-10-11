@@ -151,6 +151,14 @@ theorem neg_mem {F : Format} {d : Dyadic} (h : d ∈ F) : (-d) ∈ F := by
 theorem mem_neg_iff (F : Format) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
   ⟨fun h => by simpa using neg_mem h, neg_mem⟩
 
+/-- `Dyadic.abs x ∈ F` whenever `x ∈ F`. -/
+theorem abs_mem {F : Format} {x : Dyadic} (hx : x ∈ F) :
+    Dyadic.abs x ∈ F := by
+  unfold Dyadic.abs
+  by_cases h : 0 ≤ (x : ℚ)
+  · rw [if_pos h]; exact hx
+  · rw [if_neg h]; exact neg_mem hx
+
 /-- `F`'s specials are closed under negation. -/
 def NegClosed (F : Format) : Prop := ∀ s ∈ F.specials, s.neg ∈ F.specials
 

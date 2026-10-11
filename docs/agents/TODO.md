@@ -123,7 +123,8 @@ Mpfx/
 │   │                 abs_faithful_le_of_le, le_abs_faithful_of_le),
 │   │                 ne_zero_of_not_boundOK, nearest_min. Mentions no
 │   │                 construction.
-│   ├── Restrict.lean per-mode restrict/lift between RoundsFinite F and F.unbounded
+│   ├── Restrict.lean restrict/lift between RoundsFinite F and F.unbounded for
+│   │                 every mode (RoundsFinite.restrict / RoundsFinite.lift)
 │   ├── Parity.lean   neighbors_alternate: adjacent values alternate in
 │   │                 parity; the toOdd and nearest .toEven forms
 │   ├── Op.lean, Op/  function layer (noncomputable):
@@ -144,11 +145,13 @@ Mpfx/
     ├── Nearest.lean  roundsRTO_RN_finite(_of_extend) and its RN web
     │                 (rndRTO_RN_close_transfer, rndRTO_no_tie_contradiction,
     │                 rndRTO_nearest_facts)
-    ├── Propagation.lean per-rule overflow propagation on a regular bound:
-    │                 *_noOverflow_F₂, *_noOverflow_chain, *_noOverflow_direct
-    ├── Total.lean    roundsRTZ_RTZ_inBound, …, roundsRTO_RN_inBound: overflow-aware
-    │                 total forms (grid-floor reduction); *_noOverflow;
-    │                 roundsRTZ_RTZ_agree, …: agreement in bound, plain containment
+    ├── Propagation.lean the RTO → RN midpoint facts: abs_le_mid_of_nearest_inbound,
+    │                 nearest_boundOK_of_abs_lt_mid, abs_lt_mid_of_toOdd
+    ├── Total.lean    LocalDoubleRounding (+ .inBound, .not_overflows), BelowValue,
+    │                 localDoubleRounding_of_below/_of_above, exists_mem_above;
+    │                 roundsRTZ_RTZ_inBound, …, roundsRTO_RN_inBound and *_noOverflow
+    │                 from per-rule instances; roundsRTZ_RTZ_agree, …: agreement in
+    │                 bound, plain containment
     ├── Special.lean  rules with tables: rndRTZ_RTZ, …, rndRTO_RN and *_of_bound;
     │                 rnd_double, SpecialMap/OverflowMap.Composes, OverflowAgrees
     │                 (+ of_bound, of_saturate), the standard tables' composition

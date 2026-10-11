@@ -11,7 +11,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 1. [x] Quick wins (§Q) and the unused-API decision (§U).
 2. [x] A uniform `canonicalExp` and successor API (§S3). It unblocks §S1 and §S2.
 3. [x] Parity via the shrink (§S1).
-4. The generic overflow theorem (§S2), prototyped on RTO → RN.
+4. [~] The generic overflow theorem (§S2).
 5. Modes as selections between round-down and round-up (§S4), and the
    `ParityFormat` question (§S5) once the paper settles `.undefined`.
 
@@ -79,77 +79,39 @@ alternation leaf.
 
 ### S2. Overflow stated once
 
-About 1.8k lines down to about 400. Statements and names unchanged. Medium
-risk.
-
-`DoubleRounding/Propagation.lean` (908) and the rule bodies of
-`DoubleRounding/Total.lean` (898) repeat one argument per rule:
-
-1. Take `N`, the `F₁`-successor of `b₁`.
-2. Bound `|x|`, `|z|`, `|w|`, `|y|` by `N` using faithfulness alone
-   (`abs_faithful_le_of_le`, `le_abs_faithful_of_le`).
-3. Restrict to `G = F₁.withBound N`, apply the finite rule, lift, and conclude
-   `w = y` by uniqueness.
-
-`toOdd_toOdd_noOverflow_chain` and `toOdd_toOdd_noOverflow_direct` already do
-exactly this, and nothing in it depends on the modes. `F₁⁺ ⊆ F₂` is
-`F₁ ⊆ F₂ ∧ N ∈ F₂`, since no grid value lies strictly between `b₁` and `N`;
-the proofs already consume it in that form.
-
-**Proposal.** One `total_of_local` taking the finite rule and a threshold
-value `T ∈ F₂`. It gives the `_inBound` and `_noOverflow` forms and
-`OverflowAgrees.of_bound`. The threshold is mode-specific twice:
-
-* RAZ → RAZ: `T` is the largest `F₁` value, which is why plain containment
-  suffices.
-* RTO → RN: `T` is the midpoint `(F₁.extend 1).next b₁`. It needs one parity
-  fact: the midpoint is in `F₁.extend 1 ⊆ C(F₂)`, so it is `F₂`-even and an
-  inexact RTO result never lands on it (§S1).
-
-Prototype on RTO → RN first.
-
-**What it replaces.**
-
-* `Propagation.lean`: `abs_lt_next_of_toZero_inbound`, `toZero_noOverflow_F₂`,
-  `toZero_noOverflow_chain`, `toOdd_abs_le_of_awayZero`,
-  `toOdd_toZero_noOverflow_chain`, `abs_lt_next_of_toOdd_inbound`,
-  `toOdd_toOdd_noOverflow_chain`, `boundOK_of_abs_lt_next`,
-  `toZero_noOverflow_direct`, `next_mem_of_*_subset`, `toOdd_awayZero_candidate`,
-  `toOdd_toOdd_noOverflow_direct`. About 460 lines, replaced by about 70.
-* `Total.lean`: the per-rule bodies; the four copies of the
-  `suffices key` + `bound_floor_setup` + `rounds_floor_lift` block; the eight
-  copies of the `set G; hsubG := …` step; the in-bound blocks for `F₂`.
-* Possibly the grid-floor machinery itself (`bound_floor_setup`,
-  `rounds_floor_lift`, `not_overflows_of_floor`, the `hreg` arguments, about
-  320 lines). Only RN needs `b₁` on the grid; the other rules need only some
-  grid point `N` with `b₁ < N ≤ Format.next b₁` (`next b₁` on the grid,
-  `rndUp b₁` off it).
-* Most of `Rounding/Restrict.lean`, which becomes one locality lemma.
-* The second successor. `Format.next` (four arms, with placeholder values where
+* [x] One locality theorem for the total forms. `LocalDoubleRounding` bundles a
+  condition `L` on the input that every in-bound direct or double rounding
+  satisfies, under which `F₂` stays in bound and double rounding is correct;
+  `.inBound` and `.not_overflows` give the `_inBound` and `_noOverflow` forms.
+  Every rule except RTO → RN is an instance with `L` "`|x|` below a value of
+  `F₁`" (`localDoubleRounding_of_below`, `_of_above`), so the per-rule
+  propagation lemmas, the four `suffices key` bodies and the format-substitution
+  floor lift are gone. `hnt` is dropped from `roundsRTZ_RTZ_noOverflow`,
+  `roundsRTO_RTO_noOverflow` and their `rnd…_of_bound` forms; on RTO → RTZ, RAZ
+  and RN it only supplies `2 ≤ F₂.p`.
+* [ ] RTO → RN still reduces to the grid floor through `bound_floor_setup`
+  (about 95 lines) and the format `F₁.withBoundFF D`, because the three midpoint
+  lemmas in `Propagation.lean` take a bound on the grid. Restate them for a value
+  `d ∈ F₁.unbounded` with `|v| ≤ d` in place of the bound check, and the floor
+  becomes `rndDown F₁ b₁` with its two defining properties.
+* [ ] The second successor. `Format.next` (four arms, with placeholder values where
   no successor exists) sits beside `FiniteFormat.next` (`b + 2^cexp b`) only
   because `boundAfterNext` is defined on `Format`. Restate `boundAfterNext`, and
   with it the `withBound boundAfterNext` containment hypotheses, on
-  `FiniteFormat` while the rules are restated here; that removes the
-  `lt_next_of_*` helpers, the private `next_eq_bot_*`/`next_eq_p_top`
-  evaluators and `next_eq_format_next` (about 100 lines).
-
-**Check before relying on it.** The `hnt` (`Nontrivial`) hypotheses on the
-`_noOverflow` forms may become unnecessary: at `exp = ⊥` and `b₁ = 0`,
-`boundAfterNext = 1` forces `F₂.exp = ⊥`. Low confidence.
-
-**Even without the generic theorem:**
-
-* [ ] The two in-bound pin lemmas (`abs_lt_next_of_toZero_inbound`,
+  `FiniteFormat`; that removes the `lt_next_of_*` helpers, the private
+  `next_eq_bot_*`/`next_eq_p_top` evaluators and `next_eq_format_next` (about
+  100 lines).
+* [x] The two in-bound pin lemmas (`abs_lt_next_of_toZero_inbound`,
   `abs_lt_next_of_toOdd_inbound`) are six lines each: if `N ≤ |x|` then
   `le_abs_faithful_of_le` gives `N ≤ |y|`, contradicting `|y| ≤ b₁ < N`. This
   is already inlined in `toOdd_toOdd_noOverflow_direct`. About 55 lines.
-* [ ] `eq_zero_of_toZero_zero` is subsumed by `eq_zero_of_faithful_zero`
+* [x] `eq_zero_of_toZero_zero` is subsumed by `eq_zero_of_faithful_zero`
   applied to `hy.isFaithfulRound`. The degenerate branch of
   `bound_floor_setup` is the same fact for RTN. The "`ofIntZpow 1 K ∈
   F.unbounded` when `exp = ⊥`" block appears three times here. `rounds_total_of_zero_bound`'s
   `hzero₁`/`hzero₂` parameters are always the same generic facts and can go.
   About 70 lines.
-* [ ] The six `_inBound` theorems share one body. One `inBound_of` lemma
+* [x] The six `_inBound` theorems share one body. One `inBound_of` lemma
   taking the `F₂` and chain facts plus the `_agree` rule leaves each at about
   three lines. About 110 lines.
 * [ ] `abs_le_mid_of_nearest_inbound` and `nearest_boundOK_of_abs_lt_mid`
@@ -305,12 +267,8 @@ natural tier; every mode is then "`x` if representable, else a choice between
   `eq_of_mem`, the nearest `neg_*`, `unique_nearest`, `nearest_min`,
   `nearest_restrict`/`nearest_lift`, `nearest_error_le_half_ulp`,
   `nearest_eq_of_close` and `DoubleRounding/Nearest.lean`. About 120 lines.
-* [ ] One generic `RoundsFinite.restrict`/`lift` by `cases rm`, replacing
-  `toZero_restrict`, `awayZero_restrict`, `toOdd_restrict`, `nearest_restrict`
-  and the lifts. It lets `Total.lean`'s `_agree` lemmas and `eq_of_inBound`
-  drop two parameters each. `IsFaithfulRound.unbounded_lift` and
-  `nearest_close_upgrade` have mirror halves derivable by negation. About 35
-  lines in `Restrict.lean`, more downstream.
+* [ ] In `Restrict.lean`, `IsFaithfulRound.unbounded_lift` and
+  `nearest_close_upgrade` have mirror halves derivable by negation.
 
 **Larger version (high churn).** Make rounding a function `sel_rm(x, down x,
 up x)` with `RoundsFinite` characterisations as theorems. Per-mode uniqueness

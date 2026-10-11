@@ -179,14 +179,13 @@ theorem rndRTZ_RTZ_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.t
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat}
     (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
-    (hnt : F₁.toFormat.Nontrivial)
     (hS : S₂.Composes S₁ O₁ .toZero) (hO : O₂.Composes S₁ O₁ .toZero)
     {v : WithSpecial ℝ} {u : WithSpecial Dyadic}
     (hu : rnd F₂ S₂ O₂ .toZero v = .value u) :
     rnd F₁ S₁ O₁ .toZero u.toReal = rnd F₁ S₁ O₁ .toZero v :=
   rndRTZ_RTZ (F₁.subset_withBound_boundAfterNext.trans hsub)
     (.of_bound (not_isUndefined_toZero F₁) (not_isUndefined_toZero F₂)
-      (roundsRTZ_RTZ_inBound hsub) fun _ _ _ hz hw => roundsRTZ_RTZ_noOverflow hsub hnt hz hw)
+      (roundsRTZ_RTZ_inBound hsub) fun _ _ _ hz hw => roundsRTZ_RTZ_noOverflow hsub hz hw)
     hS hO hu
 
 /-- **rnd-RAZ-RAZ** with tables. -/
@@ -235,14 +234,13 @@ theorem rndRTO_RTO_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.t
     {O₂ : OverflowMap F₂.toFormat}
     (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
     (hp_F₂ : ((2 : ℕ) : Prec) ≤ F₂.p) (h₁u : ¬ F₁.IsUndefined .toOdd)
-    (hnt : F₁.toFormat.Nontrivial)
     (hS : S₂.Composes S₁ O₁ .toOdd) (hO : O₂.Composes S₁ O₁ .toOdd)
     {v : WithSpecial ℝ} {u : WithSpecial Dyadic}
     (hu : rnd F₂ S₂ O₂ .toOdd v = .value u) :
     rnd F₁ S₁ O₁ .toOdd u.toReal = rnd F₁ S₁ O₁ .toOdd v :=
   rndRTO_RTO (F₁.subset_withBound_boundAfterNext.trans hsub) hp_F₂ h₁u
     (.of_bound h₁u (not_isUndefined_of_two_le_p hp_F₂) (roundsRTO_RTO_inBound hsub hp_F₂ h₁u)
-      fun _ _ _ hz hw => roundsRTO_RTO_noOverflow hsub hp_F₂ h₁u hnt hz hw)
+      fun _ _ _ hz hw => roundsRTO_RTO_noOverflow hsub hp_F₂ h₁u hz hw)
     hS hO hu
 
 /-- **rnd-RTO-RTZ** with tables. The IEEE tables do not compose here:

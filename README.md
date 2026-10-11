@@ -193,8 +193,8 @@ Every theorem listed above depends on exactly these three standard axioms.
 | `Mpfx/Rounding/Ulp.lean` | `ulp`, `rndDown`/`rndUp`/`midp`, nearest rounding around the midpoint. |
 | `Mpfx/DoubleRounding/Basic.lean` | §5.2 positive rules (finite form), except RTO→RN; `rndExact`. |
 | `Mpfx/DoubleRounding/Nearest.lean` | `roundsRTO_RN_finite`. |
-| `Mpfx/DoubleRounding/Propagation.lean` | Per-rule overflow propagation between direct, `F₂` and chained rounding. |
-| `Mpfx/DoubleRounding/Total.lean` | §5.2 positive rules (total form); agreement in bound under plain containment. |
+| `Mpfx/DoubleRounding/Propagation.lean` | The RTO → RN midpoint facts the total form needs. |
+| `Mpfx/DoubleRounding/Total.lean` | §5.2 positive rules (total form) from one locality theorem, `LocalDoubleRounding`; agreement in bound under plain containment. |
 | `Mpfx/DoubleRounding/Special.lean` | §5.2 rules with tables; `Composes`, `OverflowAgrees`, standard tables. |
 | `Mpfx/DoubleRounding/Counterexample.lean`, `Counterexample/` | §5.2 counterexamples. |
 | `Mpfx/DoubleRounding/NearestMidpoint.lean` | Nearest double rounding below the midpoint (Roux Lemma 16). |

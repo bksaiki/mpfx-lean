@@ -40,16 +40,6 @@ namespace Mpfx
 
 namespace Format
 
-/-! ## `abs` preserves format -/
-
-/-- `Dyadic.abs x ∈ F` whenever `x ∈ F`. -/
-theorem abs_mem {F : Format} {x : Dyadic} (hx : x ∈ F) :
-    Dyadic.abs x ∈ F := by
-  unfold Dyadic.abs
-  by_cases h : 0 ≤ (x : ℚ)
-  · rw [if_pos h]; exact hx
-  · rw [if_neg h]; exact neg_mem hx
-
 open scoped Pointwise
 
 /-- Coerce a `Format` to its underlying set of representable Dyadics.  Used to
