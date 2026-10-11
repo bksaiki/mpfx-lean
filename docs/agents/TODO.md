@@ -145,10 +145,10 @@ Mpfx/
     ├── Nearest.lean  roundsRTO_RN_finite(_of_extend) and its RN web
     │                 (rndRTO_RN_close_transfer, rndRTO_no_tie_contradiction,
     │                 rndRTO_nearest_facts)
-    ├── Propagation.lean the RTO → RN midpoint facts: abs_le_mid_of_nearest_inbound,
-    │                 nearest_boundOK_of_abs_lt_mid, abs_lt_mid_of_toOdd
     ├── Total.lean    LocalDoubleRounding (+ .inBound, .not_overflows), BelowValue,
-    │                 localDoubleRounding_of_below/_of_above, exists_mem_above;
+    │                 localDoubleRounding_of_below/_of_above, exists_mem_above; the
+    │                 RTO → RN midpoint facts (abs_le_mid_of_nearest,
+    │                 abs_le_of_nearest_of_abs_lt_mid, abs_ne_of_toOdd);
     │                 roundsRTZ_RTZ_inBound, …, roundsRTO_RN_inBound and *_noOverflow
     │                 from per-rule instances; roundsRTZ_RTZ_agree, …: agreement in
     │                 bound, plain containment

@@ -89,7 +89,7 @@ alternation leaf.
   floor lift are gone. `hnt` is dropped from `roundsRTZ_RTZ_noOverflow`,
   `roundsRTO_RTO_noOverflow` and their `rnd…_of_bound` forms; on RTO → RTZ, RAZ
   and RN it only supplies `2 ≤ F₂.p`.
-* [ ] RTO → RN still reduces to the grid floor through `bound_floor_setup`
+* [x] RTO → RN still reduces to the grid floor through `bound_floor_setup`
   (about 95 lines) and the format `F₁.withBoundFF D`, because the three midpoint
   lemmas in `Propagation.lean` take a bound on the grid. Restate them for a value
   `d ∈ F₁.unbounded` with `|v| ≤ d` in place of the bound check, and the floor
@@ -114,7 +114,7 @@ alternation leaf.
 * [x] The six `_inBound` theorems share one body. One `inBound_of` lemma
   taking the `F₂` and chain facts plus the `_agree` rule leaves each at about
   three lines. About 110 lines.
-* [ ] `abs_le_mid_of_nearest_inbound` and `nearest_boundOK_of_abs_lt_mid`
+* [x] `abs_le_mid_of_nearest_inbound` and `nearest_boundOK_of_abs_lt_mid`
   each write out `x ≥ 0` and `x < 0` in full. Reduce to `x ≥ 0` with
   `RoundsFinite.neg_nearest` and `FiniteFormat.neg_mem`, as `rndNeg` in
   `NearestMidpoint.lean` already does. About 90 lines.

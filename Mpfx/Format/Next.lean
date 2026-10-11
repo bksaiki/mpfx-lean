@@ -480,21 +480,6 @@ theorem next_min' {F : FiniteFormat} {b g : Dyadic}
     obtain ⟨mg, hmg⟩ := exists_step_rep_le (F := F) hg_p hg_q hmono
     exact next_ulp_min hmb hmg hbg h_next
 
-/-- Package of basic `next` facts over an on-grid base point `b₁`:
-non-negativity of the base, strict growth, non-negativity, and grid
-membership of the successor. -/
-theorem next_facts {F₁ : FiniteFormat} {b₁ : NonNegDyadic}
-    (hb₁_mem : b₁.val ∈ F₁) :
-    0 ≤ ((b₁.val : Dyadic) : ℝ) ∧
-    ((b₁.val : Dyadic) : ℝ) < ((F₁.toFormat.next b₁.val : Dyadic) : ℝ) ∧
-    0 ≤ ((F₁.toFormat.next b₁.val : Dyadic) : ℝ) ∧
-    F₁.toFormat.next b₁.val ∈ F₁.unbounded := by
-  have hb₁_nn : 0 ≤ ((b₁.val : Dyadic) : ℝ) := nonneg_coe_real b₁
-  have hN_lt : ((b₁.val : Dyadic) : ℝ) < ((F₁.toFormat.next b₁.val : Dyadic) : ℝ) :=
-    Format.lt_next b₁.val hb₁_nn
-  exact ⟨hb₁_nn, hN_lt, le_trans hb₁_nn hN_lt.le,
-    next_mem_unbounded' (mem_unbounded_of_mem hb₁_mem) hb₁_nn⟩
-
 /-- `next` is monotone on `[0, ∞)` (for `exp = ⊥` the smaller point must be
 positive, since `next` is junk at `0` there): the step `2^canonicalExp` grows
 with the base. -/
@@ -512,17 +497,6 @@ theorem next_mono {F : FiniteFormat} {d b : Dyadic} (hd : 0 ≤ ((d : Dyadic) : 
   rw [F.format_next_eq hd hguard, F.format_next_eq hb fun he => (hguard he).trans_le hdb,
     Dyadic.coe_real_add, Dyadic.coe_real_add, coe_real_ofIntZpow_one, coe_real_ofIntZpow_one]
   linarith [zpow_le_zpow_right₀ (by norm_num : (1 : ℝ) ≤ 2) hexp]
-
-/-- An extension with `exp = ⊥` comes from a base with `exp = ⊥`. -/
-theorem exp_bot_of_extend_bot {F₁ : FiniteFormat} {k : ℕ}
-    (h : (F₁.extend k).toFormat.exp = ⊥) : F₁.exp = ⊥ := by
-  cases hc : F₁.exp using QExp.recBotCoe with
-  | bot => rfl
-  | coe e =>
-    exfalso
-    have h' : F₁.exp.map (· - (k : ℤ)) = ⊥ := h
-    rw [hc] at h'
-    exact absurd h' (by simp)
 
 /-- **`next` on `F₁.extend 1` is the midpoint**: extending by one bit halves the
 step, so the finer successor lands halfway to the coarser one. Without a minimum
@@ -594,29 +568,6 @@ theorem FiniteFormat.subset_withBound_boundAfterNext (F : FiniteFormat) :
     F.toFormat ⊆ F.toFormat.withBound F.toFormat.boundAfterNext :=
   Format.withBound_mono F.toFormat (b := F.b) fun _ => boundOK_boundAfterNext_of_boundOK
 
-/-- Antitonicity of the relaxed bound: if `G` shares `F`'s grid (so their
-`next` agree definitionally) but carries a bound `D` with
-`next(D) ≤ next(b₁)`, then `G`'s relaxed bound implies `F`'s. -/
-theorem boundOK_boundAfterNext_mono {F G : FiniteFormat} {b₁ D : NonNegDyadic}
-    {v : Dyadic} (hFb : F.b = (b₁ : Bound))
-    (hGb : G.b = (D : Bound))
-    (hnext : G.toFormat.next D.val = F.toFormat.next D.val)
-    (hmono : ((F.toFormat.next D.val : Dyadic) : ℝ)
-      ≤ ((F.toFormat.next b₁.val : Dyadic) : ℝ))
-    (hv : Format.boundOK G.toFormat.boundAfterNext v) :
-    Format.boundOK F.toFormat.boundAfterNext v := by
-  obtain ⟨hnnG, h_eqG⟩ := Format.boundAfterNext_coe hGb
-  obtain ⟨hnnF, h_eqF⟩ := Format.boundAfterNext_coe hFb
-  rw [h_eqG] at hv
-  rw [h_eqF]
-  have h1 : |(v : ℚ)| ≤ ((G.toFormat.next D.val : Dyadic) : ℚ) := hv
-  rw [hnext] at h1
-  have h2 : ((F.toFormat.next D.val : Dyadic) : ℚ)
-      ≤ ((F.toFormat.next b₁.val : Dyadic) : ℚ) := by
-    exact_mod_cast hmono
-  change |(v : ℚ)| ≤ ((F.toFormat.next b₁.val : Dyadic) : ℚ)
-  linarith
-
 /-- Membership transfer into the paper containment format: every `d ∈ F₁`
 lies in `(F₁.extend 1).withBound F₁.boundAfterNext` (one more bit of
 precision, bound relaxed from `b₁` to `next(b₁)`). -/
@@ -648,13 +599,6 @@ theorem bound_top_of_withBound_top_subset {F₁ F₂ : FiniteFormat}
   have := abs_coe_real_le_of_boundOK hv
   rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) k)] at this
   exact absurd this (not_le_of_gt hgt)
-
-/-- Specialization: the paper containment with `F₁.b = ⊤` forces `F₂.b = ⊤`. -/
-theorem b_eq_top_of_withBound_subset {F₁ F₂ : FiniteFormat}
-    (hsub : (F₁.toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat)
-    (hb_top : F₁.b = ⊤) : F₂.b = ⊤ := by
-  rw [Format.boundAfterNext_top hb_top] at hsub
-  exact bound_top_of_withBound_top_subset hsub
 
 /-! ### Containment with a relaxed bound
 
