@@ -412,6 +412,23 @@ def extend (F : Format) (k : ℕ) : Format where
 
 @[simp] theorem extend_b (F : Format) k : (F.extend k).b = F.b := rfl
 @[simp] theorem extend_specials (F : Format) k : (F.extend k).specials = F.specials := rfl
+@[simp] theorem extend_p (F : Format) (k : ℕ) : (F.extend k).p = F.p + k := rfl
+
+theorem extend_exp_coe {F : Format} {e : ℤ} (h : F.exp = e) (k : ℕ) :
+    (F.extend k).exp = ((e - k : ℤ) : QExp) := by
+  change F.exp.map _ = _; rw [h]; rfl
+
+theorem extend_exp_bot {F : Format} (h : F.exp = ⊥) (k : ℕ) : (F.extend k).exp = ⊥ := by
+  change F.exp.map _ = _; rw [h]; rfl
+
+/-- Extending twice is extending by the sum. -/
+theorem extend_extend (F : Format) (j k : ℕ) : (F.extend j).extend k = F.extend (j + k) := by
+  obtain ⟨p, e, b, S⟩ := F
+  simp only [extend, mk.injEq, and_true]
+  refine ⟨by push_cast; rw [add_assoc], ?_⟩
+  cases e using QExp.recBotCoe with
+  | bot => rfl
+  | coe e => simp only [WithBot.map_coe, WithBot.coe_inj]; push_cast; ring
 
 /-- `F ⊆ F.extend k`: extending only relaxes the precision and quantum
 constraints. -/
@@ -442,28 +459,10 @@ theorem extend_mono (F : Format) {j k : ℕ} (h : j ≤ k) :
   · exact le_refl _
   · exact subset_rfl
 
-/-- `(F.extend 1).extend 1 ⊆ F.extend 2` via precision/quantum equivalence.
-The core is `(p+1)+1 = p+2`, `(exp-1)-1 = exp-2`, same bound. -/
+/-- `(F.extend 1).extend 1 ⊆ F.extend 2`, by `extend_extend`. -/
 theorem extend_one_extend_one_subset_extend_two (F : Format) :
     (F.extend 1).extend 1 ⊆ F.extend 2 := by
-  refine subset_of_mem subset_rfl fun y hy => ?_
-  obtain ⟨hp, hq, hb⟩ := hy
-  refine ⟨?_, ?_, hb⟩
-  · change Dyadic.precisionAtMost (F.p + ((2 : ℕ) : Prec)) y
-    change Dyadic.precisionAtMost (F.p + ((1 : ℕ) : Prec) + ((1 : ℕ) : Prec)) y at hp
-    rwa [add_assoc, show ((1 : ℕ) : Prec) + ((1 : ℕ) : Prec) = ((2 : ℕ) : Prec) by
-      push_cast; ring] at hp
-  · -- quantumAtLeast ((F.exp.map (·-1)).map (·-1)) y → quantumAtLeast (F.exp.map (·-2)) y.
-    change Dyadic.quantumAtLeast (F.exp.map (· - (2 : ℤ))) y
-    change Dyadic.quantumAtLeast ((F.exp.map (· - (1 : ℤ))).map (· - (1 : ℤ))) y at hq
-    have h_eq : (F.exp.map (· - (1 : ℤ))).map (· - (1 : ℤ)) = F.exp.map (· - (2 : ℤ)) := by
-      cases F.exp using QExp.recBotCoe with
-      | bot => rfl
-      | coe e =>
-        rw [WithBot.map_coe, WithBot.map_coe, WithBot.map_coe]
-        congr 1
-        ring
-    rw [h_eq] at hq; exact hq
+  rw [extend_extend]
 
 /-- A `Dyadic` not representable in 1 bit cannot live in a format with
 `F.p ≤ 1`, so a precision-2 witness in `F` forces `F.p ≥ 2`. -/

@@ -426,20 +426,15 @@ theorem midpoint_mem_extend_one_of_adjacent_pos (F : FiniteFormat) {p : ℕ}
   change Dyadic.quantumAtLeast (F.extend 1).exp _
   cases hexp : F.exp using QExp.recBotCoe with
   | bot =>
-      have h_exp_extend : (F.extend 1).exp = ⊥ := by
-        change F.exp.map (· - ((1 : ℕ) : ℤ)) = _
-        rw [hexp]; rfl
+      have h_exp_extend : (F.extend 1).exp = ⊥ := Format.extend_exp_bot hexp 1
       rw [h_exp_extend]; trivial
   | coe e =>
       have h_mid_eq : ((Dyadic.midpoint y₁ y₂ : Dyadic) : ℝ)
           = ((2 * c + 1 : ℤ) : ℝ) * (2 : ℝ) ^ (k - 1) := by
         rw [Dyadic.coe_midpoint, hy₁_eq, hy₂_eq, zpow_sub₀ (by norm_num : (2 : ℝ) ≠ 0)]
         push_cast; field_simp; ring
-      have h_exp_extend : (F.extend 1).exp = ((e - 1 : ℤ) : QExp) := by
-        change F.exp.map (· - ((1 : ℕ) : ℤ)) = _
-        rw [hexp, WithBot.map_coe]
-        have : ((1 : ℕ) : ℤ) = 1 := rfl
-        rw [this]
+      have h_exp_extend : (F.extend 1).exp = ((e - 1 : ℤ) : QExp) :=
+        Format.extend_exp_coe hexp 1
       rw [h_exp_extend, Dyadic.quantumAtLeast_coe_real]
       refine ⟨(2 * c + 1) * (2 : ℤ) ^ (k - 1 - (e - 1)).toNat, ?_⟩
       rw [h_mid_eq]
@@ -575,11 +570,7 @@ theorem midpoint_mem_extend_one_of_p_top (F : FiniteFormat) {exp : ℤ}
     rw [h_p_top]; trivial
   · -- quantum: midpoint at quantum exp - 1.
     show Dyadic.quantumAtLeast (F.extend 1).exp _
-    have h_exp_map : (F.extend 1).exp = ((exp - 1 : ℤ) : QExp) := by
-      change F.exp.map (· - ((1 : ℕ) : ℤ)) = _
-      rw [he, WithBot.map_coe]
-      have : ((1 : ℕ) : ℤ) = 1 := rfl
-      rw [this]
+    have h_exp_map : (F.extend 1).exp = ((exp - 1 : ℤ) : QExp) := Format.extend_exp_coe he 1
     rw [h_exp_map, Dyadic.quantumAtLeast_coe]
     rw [he, Dyadic.quantumAtLeast_coe] at hq_y₁ hq_y₂
     obtain ⟨c₁, hc₁⟩ := hq_y₁

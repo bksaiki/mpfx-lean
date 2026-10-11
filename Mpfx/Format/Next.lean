@@ -635,22 +635,19 @@ private theorem extend_one_canonicalExp (F : FiniteFormat) {x : ℝ} (hx : x ≠
     cases heF : F.exp using QExp.recBotCoe with
     | bot => exact (F.finite.elim (fun h => h hpF) (fun h => h heF)).elim
     | coe e =>
-      have hxe : (F.extend 1).exp = ((e - 1 : ℤ) : QExp) := by
-        change F.exp.map (· - ((1 : ℕ) : ℤ)) = _; rw [heF]; rfl
+      have hxe : (F.extend 1).exp = ((e - 1 : ℤ) : QExp) := Format.extend_exp_coe heF 1
       rw [hxp, hxe]; rfl
   | coe p =>
     have hxp : (F.extend 1).p = ((p + 1 : ℕ) : Prec) := by
       change F.p + ((1 : ℕ) : Prec) = _; rw [hpF, ← Nat.cast_add]
     cases heF : F.exp using QExp.recBotCoe with
     | bot =>
-      have hxe : (F.extend 1).exp = ⊥ := by
-        change F.exp.map (· - ((1 : ℕ) : ℤ)) = ⊥; rw [heF]; rfl
+      have hxe : (F.extend 1).exp = ⊥ := Format.extend_exp_bot heF 1
       rw [hxp, hxe]
       simp only [if_neg hx]
       push_cast; ring
     | coe e =>
-      have hxe : (F.extend 1).exp = ((e - 1 : ℤ) : QExp) := by
-        change F.exp.map (· - ((1 : ℕ) : ℤ)) = _; rw [heF]; rfl
+      have hxe : (F.extend 1).exp = ((e - 1 : ℤ) : QExp) := Format.extend_exp_coe heF 1
       rw [hxp, hxe]
       simp only [if_neg hx]
       push_cast; omega
@@ -670,8 +667,7 @@ theorem next_extend_midpoint' {F₁ : FiniteFormat} {b : Dyadic}
     cases he : F₁.exp using QExp.recBotCoe with
     | bot => exact absurd (hguard he) (by rw [← hb0]; exact lt_irrefl 0)
     | coe e =>
-      have hex : (F₁.extend 1).exp = ((e - 1 : ℤ) : QExp) := by
-        change F₁.exp.map (· - ((1 : ℕ) : ℤ)) = _; rw [he]; rfl
+      have hex : (F₁.extend 1).exp = ((e - 1 : ℤ) : QExp) := Format.extend_exp_coe he 1
       have hzero : ∀ (G : FiniteFormat) {q : ℤ}, G.exp = (q : QExp) →
           G.toFormat.next b = Dyadic.ofIntZpow 1 q := by
         intro G q hq
@@ -842,16 +838,9 @@ The §5.2 rules take a single containment hypothesis
 (`(n+1)+1 = n+2`, `(e-1)-1 = e-2`); their bounds are both `F.b`. Used to bridge
 the RN lemmas (stated over `F₁.extend 2`) to the generic ones (stated over an
 arbitrary base extended once). -/
-private theorem extend_one_extend_one_p_exp (F : FiniteFormat) :
-    ((F.extend 1).extend 1).p = (F.extend 2).p ∧
-    ((F.extend 1).extend 1).exp = (F.extend 2).exp := by
-  refine ⟨?_, ?_⟩
-  · change F.p + ((1 : ℕ) : Prec) + ((1 : ℕ) : Prec) = F.p + ((2 : ℕ) : Prec)
-    rw [add_assoc]; norm_num
-  · change (F.exp.map (· - (1 : ℤ))).map (· - (1 : ℤ)) = F.exp.map (· - (2 : ℤ))
-    cases hF : F.exp using QExp.recBotCoe with
-    | bot => rfl
-    | coe e => rw [WithBot.map_coe, WithBot.map_coe, WithBot.map_coe]; congr 1; ring
+private theorem extend_one_extend_one_toFormat (F : FiniteFormat) :
+    ((F.extend 1).extend 1).toFormat = (F.extend 2).toFormat :=
+  Format.extend_extend F.toFormat 1 1
 
 /-- `(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂` implies
 `F₁.extend 1 ⊆ F₂`, since `next(b₁) ≥ b₁`. -/
@@ -1056,29 +1045,19 @@ private theorem extend_one_extend_one_withBound_subset {F₁ F₂ : FiniteFormat
               ⊆ F₂.toFormat) :
     (((F₁.extend 1).extend 1).toFormat.withBound
       (F₁.extend 1).toFormat.boundAfterNext) ⊆ F₂.toFormat := by
-  obtain ⟨he_p, he_exp⟩ := extend_one_extend_one_p_exp F₁
-  refine Format.subset_of_mem hsub.specials fun y hy => ?_
-  obtain ⟨hp, hq, hb⟩ := hy
-  apply hsub.mem
-  refine ⟨?_, ?_, hb⟩
-  · rw [Format.withBound_p] at hp ⊢; rwa [he_p] at hp
-  · rw [Format.withBound_exp] at hq ⊢; rwa [he_exp] at hq
+  rwa [extend_one_extend_one_toFormat]
 
 /-- RN analog (`k = 2` case) of `extend_one_subset_of_withBound_subset`: from the
 paper-aligned containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext)
 ⊆ F₂`, derive the weaker `F₁.extend 2 ⊆ F₂` form. Obtained from the generic
 `extend_one_subset_of_withBound_subset` at base `F₁.extend 1`, bridging the
-`(F₁.extend 1).extend 1` / `F₁.extend 2` mismatch via `extend_one_extend_one_p_exp`. -/
+`(F₁.extend 1).extend 1` / `F₁.extend 2` mismatch via `Format.extend_extend`. -/
 theorem extend_two_subset_of_withBound_subset {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
               ⊆ F₂.toFormat) :
     (F₁.extend 2).toFormat ⊆ F₂.toFormat := by
-  obtain ⟨he_p, he_exp⟩ := extend_one_extend_one_p_exp F₁
-  have hsub' := extend_one_extend_one_withBound_subset hsub
-  refine Format.subset_of_mem hsub.specials fun y hy => ?_
-  refine extend_one_subset_of_withBound_subset hsub' y ?_
-  obtain ⟨hp, hq, hb⟩ := hy
-  exact ⟨by rwa [he_p], by rwa [he_exp], hb⟩
+  have h := extend_one_subset_of_withBound_subset (extend_one_extend_one_withBound_subset hsub)
+  rwa [extend_one_extend_one_toFormat] at h
 
 /-- RN analog (`k = 2` case) of `two_le_p_or_trivial_of_extend_one_withBound_subset`.
 From the paper-aligned RN
@@ -1086,7 +1065,7 @@ containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext) ⊆ F₂
 `F₂.p ≥ 2` or `F₁` contains only `0`. Obtained from the generic
 `two_le_p_or_trivial_of_extend_one_withBound_subset` at base `F₁.extend 1`: the hypothesis
 is bridged from
-`F₁.extend 2` to `(F₁.extend 1).extend 1` via `extend_one_extend_one_p_exp`, and
+`F₁.extend 2` to `(F₁.extend 1).extend 1` via `Format.extend_extend`, and
 `F₁.extend 1` trivial (the conclusion at that base) implies `F₁` trivial since
 `F₁ ⊆ F₁.extend 1`. -/
 theorem two_le_p_or_trivial_of_extend_two_withBound_subset {F₁ F₂ : FiniteFormat}
