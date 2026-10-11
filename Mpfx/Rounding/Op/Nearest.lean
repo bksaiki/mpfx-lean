@@ -33,11 +33,7 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
   · -- On the grid: the fraction is `0`, both modes take the floor point, and it is `x`.
     have hδ : s - lo < 1 / 2 := by rw [← hs, sub_self]; norm_num
     have hval : rndUnbounded F (.nearest tb) x h = dlo := by
-      cases tb with
-      | awayZero =>
-        rw [rndUnbounded_of_ne (by decide) (by decide)]
-        exact congrArg (Dyadic.ofIntZpow · e) (if_pos hδ)
-      | toEven => rw [rndUnbounded_nearest_toEven]; exact if_pos hδ
+      cases tb <;> exact congrArg (Dyadic.ofIntZpow · e) (if_pos hδ)
     have hx : x = (dlo : ℝ) := by rw [Dyadic.coe_ofIntZpow, hs, hs_eq]
     have := RoundsFinite.self (F := F.unbounded) (.nearest tb) hd.1
     rw [hval]
@@ -65,7 +61,6 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
     linarith
   cases tb with
   | awayZero =>
-    rw [rndUnbounded_of_ne (by decide) (by decide)]
     change RoundsFinite _ _ x (Dyadic.ofIntZpow (if s - lo < 1 / 2 then lo
       else if 1 / 2 < s - lo then lo + 1 else if 0 ≤ x then lo + 1 else lo) e)
     split_ifs with h₁ h₂ hx
@@ -84,9 +79,8 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
       constructor <;> linarith [hmid h₁ h₂, hd.2.1, hu.2.1]
   | toEven =>
     have hodd : ¬ F.IsUndefined .toOdd := fun ⟨h₁, h₂, _⟩ => h ⟨h₁, h₂, Or.inr rfl⟩
-    rw [rndUnbounded_nearest_toEven]
-    change RoundsFinite _ _ x (if s - lo < 1 / 2 then dlo else if 1 / 2 < s - lo then dhi
-      else if F.IsEven dlo then dlo else dhi)
+    change RoundsFinite _ _ x (Dyadic.ofIntZpow (if s - lo < 1 / 2 then lo
+      else if 1 / 2 < s - lo then lo + 1 else if F.IsEven dlo then lo else lo + 1) e)
     split_ifs with h₁ h₂ hev
     · exact RoundsFinite.nearest_toEven_of_bracket hd hu (Or.inl rfl)
         ⟨le_rfl, (hlt h₁).le⟩ fun h _ => absurd h (hlt h₁).ne

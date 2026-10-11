@@ -130,8 +130,8 @@ Mpfx/
 │   ├── Parity.lean   neighbors_alternate: adjacent values alternate in
 │   │                 parity
 │   ├── Op.lean, Op/  function layer (noncomputable):
-│   │                 rndInt, rndParity, rndUnbounded (+ rndUnbounded_of_ne and
-│   │                 the parity-mode equations), rnd, per-mode soundness,
+│   │                 rndInt (all seven modes), rndUnbounded, rnd, per-mode
+│   │                 soundness,
 │   │                 rndUnbounded_satisfies/_unique, rnd_iff_rounds,
 │   │                 rnd_special, rnd_of_overflows
 │   ├── Special.lean  maxFinite (+ abs_le_maxFinite, saturated_eq_finite), the

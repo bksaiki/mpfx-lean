@@ -10,8 +10,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 1. The tie-break-uniform nearest clause (§S4), after checking the paper's
    wording.
-2. The `rndInt`/`rndDown` definitions (§S4).
-3. `.undefined` (§S5), once the paper settles it.
+2. `.undefined` (§S5), once the paper settles it.
 
 ## S4. Modes as selections between round-down and round-up
 
@@ -20,10 +19,6 @@ mode. `FiniteFormat`'s two invariants are exactly "every real has a floor and a
 ceiling in the grid", so every mode is "`x` if representable, else a choice
 between `rndDown x` and `rndUp x`".
 
-* [ ] `rndInt` and `rndParity` still carry unreachable fallback arms, and
-  `rndDown`/`rndUp` in `Ulp.lean` are defined through `rndUnbounded` rather than
-  as the floor and ceiling points (which would make `rndDown_eq` `rfl` and
-  `rndDown_spec` `toNegative_floor`).
 * [ ] One tie-break-uniform nearest clause (spec change; check the paper's
   wording first): `∀ z ∈ F, faithful z → z ≠ y → |x − y| = |x − z| →
   tb.Prefers F y z`. The `.toEven` and `.awayZero` clauses are the same shape

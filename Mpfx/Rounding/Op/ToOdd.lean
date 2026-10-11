@@ -5,7 +5,7 @@ import Mpfx.Rounding.Basic
 /-!
 # Soundness of `rndUnbounded` for `toOdd`
 
-On the grid the floor point is `x` itself. Off it, `rndParity` keeps the floor
+On the grid the floor point is `x` itself. Off it, `rndInt` keeps the floor
 point, the round-down, when it is odd, and otherwise takes its successor, the
 round-up, which is then odd by alternation (`isOdd_alternate_of_bracketing`).
 -/
@@ -17,14 +17,12 @@ attribute [local instance] Classical.propDecidable
 theorem rndUnbounded_satisfies_toOdd (F : FiniteFormat) (x : ℝ)
     (h : ¬ F.IsUndefined .toOdd) :
     RoundsFinite F.unbounded .toOdd x (rndUnbounded F .toOdd x h) := by
-  rw [rndUnbounded_toOdd]
   set e := F.canonicalExp x
   set s := x * (2 : ℝ) ^ (-e)
   have hd := RoundsFinite.toNegative_floor F x
   change RoundsFinite F.unbounded .toOdd x
-    (if (⌊s⌋ : ℝ) = s then Dyadic.ofIntZpow ⌊s⌋ e
-     else if F.IsOdd (Dyadic.ofIntZpow ⌊s⌋ e)
-       then Dyadic.ofIntZpow ⌊s⌋ e else Dyadic.ofIntZpow (⌊s⌋ + 1) e)
+    (Dyadic.ofIntZpow (if (⌊s⌋ : ℝ) = s then ⌊s⌋
+      else if F.IsOdd (Dyadic.ofIntZpow ⌊s⌋ e) then ⌊s⌋ else ⌊s⌋ + 1) e)
   split_ifs with hs hodd
   · -- On the grid: the floor point is `x`.
     have hx : x = (Dyadic.ofIntZpow ⌊s⌋ e : ℝ) := by

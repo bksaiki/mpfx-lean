@@ -21,75 +21,38 @@ namespace Mpfx
 -- `local` so this taint is scoped per file.
 attribute [local instance] Classical.propDecidable
 
-/-- Integer-rounding step for the format-agnostic modes. Picks the
-integer `c` for which `c · 2^e` is the F-grid value selected by mode
-`rm` from input `x`. Parity-aware modes (`.toOdd`, `.nearest .toEven`)
-are handled separately by `rndParity` since they need format info to
-disambiguate. -/
-noncomputable def rndInt (rm : RoundingMode) (x : ℝ) (e : ℤ) : ℤ :=
+/-- Integer-rounding step. Picks the integer `c` for which `c · 2^e` is the
+value that mode `rm` selects for `x`: the floor or ceiling of the scaled
+mantissa `s`, or, for the parity and nearest modes, `⌊s⌋` or `⌊s⌋ + 1` by the
+fraction `s − ⌊s⌋`, the sign of `x`, and the parity of the floor point in `F`. -/
+noncomputable def rndInt (F : FiniteFormat) (rm : RoundingMode) (x : ℝ) (e : ℤ) : ℤ :=
   let s := x * (2 : ℝ) ^ (-e)
+  let lo := ⌊s⌋
+  let δ := s - (lo : ℝ)
   match rm with
   | .toZero    => if 0 ≤ x then ⌊s⌋ else ⌈s⌉
   | .toNegative => ⌊s⌋
   | .toPositive => ⌈s⌉
   | .awayZero   => if 0 ≤ x then ⌈s⌉ else ⌊s⌋
+  | .toOdd =>
+      if (lo : ℝ) = s then lo                   -- x is exactly on lo
+      else if F.IsOdd (Dyadic.ofIntZpow lo e) then lo else lo + 1
   | .nearest .awayZero =>
-      let lo := ⌊s⌋
-      let δ := s - (lo : ℝ)
       if δ < 1/2 then lo
       else if 1/2 < δ then lo + 1
-      else if 0 ≤ x then lo + 1 else lo   -- tie: away from zero
-  -- .toOdd and .nearest .toEven are handled by `rndParity` (need parity).
-  | _ => ⌊s⌋   -- unreachable: filtered out before `rndInt` is called
-
-/-- Parity-aware integer-rounding step. Identifies the two F-adjacents
-to `x` at exponent `e` (via floor and ceiling of the scaled mantissa),
-then picks the one whose parity satisfies the mode's rule. -/
-noncomputable def rndParity (F : FiniteFormat) (rm : RoundingMode)
-    (x : ℝ) (e : ℤ) : Dyadic :=
-  let s := x * (2 : ℝ) ^ (-e)
-  let lo : ℤ := ⌊s⌋
-  let dlo : Dyadic := Dyadic.ofIntZpow lo e
-  let dhi : Dyadic := Dyadic.ofIntZpow (lo + 1) e
-  match rm with
-  | .toOdd =>
-      if (lo : ℝ) = s then dlo                  -- x is exactly on lo
-      else if F.IsOdd dlo then dlo else dhi
+      else if 0 ≤ x then lo + 1 else lo         -- tie: away from zero
   | .nearest .toEven =>
-      let δ := s - (lo : ℝ)
-      if δ < 1/2 then dlo
-      else if 1/2 < δ then dhi
-      else if F.IsEven dlo then dlo else dhi    -- tie → even
-  | _ => dlo   -- unreachable: `rndParity` only called for parity modes
+      if δ < 1/2 then lo
+      else if 1/2 < δ then lo + 1
+      else if F.IsEven (Dyadic.ofIntZpow lo e) then lo else lo + 1   -- tie: even
 
-/-- The unbounded rounding step: produce a `Dyadic` per `rm`, *without*
-checking `F.b`. Used by `rnd` as the candidate value that the bound check
-filters. The body does not consult `_h_undef`; it restricts `rndUnbounded` to
-the pairs where `rnd` calls it. -/
+/-- The unbounded rounding step: the integer step at the canonical exponent,
+*without* checking `F.b`. Used by `rnd` as the candidate value that the bound
+check filters. The body does not consult `_h_undef`; it restricts
+`rndUnbounded` to the pairs where `rnd` calls it. -/
 noncomputable def rndUnbounded (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
     (_h_undef : ¬ F.IsUndefined rm) : Dyadic :=
-  if rm = .toOdd ∨ rm = .nearest .toEven then rndParity F rm x (F.canonicalExp x)
-  else
-    Dyadic.ofIntZpow (rndInt rm x (F.canonicalExp x)) (F.canonicalExp x)
-
-/-- Away from the parity modes, `rndUnbounded` is the integer step at the
-canonical exponent. -/
-theorem rndUnbounded_of_ne {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
-    {h : ¬ F.IsUndefined rm} (h₁ : rm ≠ .toOdd) (h₂ : rm ≠ .nearest .toEven) :
-    rndUnbounded F rm x h =
-      Dyadic.ofIntZpow (rndInt rm x (F.canonicalExp x)) (F.canonicalExp x) := by
-  unfold rndUnbounded; rw [if_neg (by rintro (h | h) <;> contradiction)]
-
-theorem rndUnbounded_toOdd {F : FiniteFormat} {x : ℝ} {h : ¬ F.IsUndefined .toOdd} :
-    rndUnbounded F .toOdd x h =
-      rndParity F .toOdd x (F.canonicalExp x) := by
-  unfold rndUnbounded; rw [if_pos (Or.inl rfl)]
-
-theorem rndUnbounded_nearest_toEven {F : FiniteFormat} {x : ℝ}
-    {h : ¬ F.IsUndefined (.nearest .toEven)} :
-    rndUnbounded F (.nearest .toEven) x h =
-      rndParity F (.nearest .toEven) x (F.canonicalExp x) := by
-  unfold rndUnbounded; rw [if_pos (Or.inr rfl)]
+  Dyadic.ofIntZpow (rndInt F rm x (F.canonicalExp x)) (F.canonicalExp x)
 
 /-- Rounding into `F` under mode `rm`, with special inputs sent through `S`.
 A real input goes to `rndUnbounded`, then the bound is checked: the rounded

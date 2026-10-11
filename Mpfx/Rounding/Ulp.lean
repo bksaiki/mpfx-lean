@@ -40,18 +40,16 @@ theorem ulp_pos (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) : 0 < ulp F x := by
 /-- **Round-down** — the round-toward-`−∞` value of `x` in `F`, always finite
 (Flocq `round … Zfloor`). -/
 noncomputable def rndDown (F : FiniteFormat) (x : ℝ) : Dyadic :=
-  rndUnbounded F .toNegative x (not_isUndefined_toNegative F)
+  Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-(F.canonicalExp x))⌋ (F.canonicalExp x)
 
 /-- `⌊x·2^(−e)⌋·2^e` at `e = canonicalExp x`. -/
 theorem rndDown_eq (F : FiniteFormat) (x : ℝ) :
     rndDown F x =
-      Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-(F.canonicalExp x))⌋ (F.canonicalExp x) :=
-  RoundsFinite.toNegative_eq_floor F x
-    (rndUnbounded_satisfies_toNegative F x (not_isUndefined_toNegative F))
+      Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-(F.canonicalExp x))⌋ (F.canonicalExp x) := rfl
 
 theorem rndDown_spec (F : FiniteFormat) (x : ℝ) :
     RoundsFinite F.unbounded .toNegative x (rndDown F x) :=
-  rndUnbounded_satisfies_toNegative F x (not_isUndefined_toNegative F)
+  RoundsFinite.toNegative_floor F x
 
 theorem rndDown_le (F : FiniteFormat) (x : ℝ) : (rndDown F x : ℝ) ≤ x :=
   (rndDown_spec F x).2.1
@@ -117,11 +115,11 @@ theorem ulp_guard_of_midp_ne {F : FiniteFormat} {ξ : ℝ} (h : ξ ≠ midp F ξ
 
 /-- **Round-up** — round-toward-`+∞` value of `x` in `F` (Flocq `round … Zceil`). -/
 noncomputable def rndUp (F : FiniteFormat) (x : ℝ) : Dyadic :=
-  rndUnbounded F .toPositive x (not_isUndefined_toPositive F)
+  Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x)
 
 theorem rndUp_spec (F : FiniteFormat) (x : ℝ) :
     RoundsFinite F.unbounded .toPositive x (rndUp F x) :=
-  rndUnbounded_satisfies_toPositive F x (not_isUndefined_toPositive F)
+  RoundsFinite.toPositive_ceil F x
 
 theorem le_rndUp (F : FiniteFormat) (x : ℝ) : x ≤ (rndUp F x : ℝ) :=
   (rndUp_spec F x).2.1
@@ -213,29 +211,16 @@ theorem nearest_eq_of_close (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
       rw [hfloor]; push_cast; linarith [h.1]
     have hδ_not : ¬ v * (2 : ℝ) ^ (-e) - (⌊v * (2 : ℝ) ^ (-e)⌋ : ℝ) < 1 / 2 :=
       not_lt.mpr (le_of_lt hδ)
-    cases tb with
-    | awayZero =>
-      rw [rndUnbounded_of_ne (by decide) (by decide)]
-      simp only [rndInt, ← he, if_neg hδ_not, if_pos hδ]
-      rw [hfloor]; congr 1; omega
-    | toEven =>
-      rw [rndUnbounded_nearest_toEven]
-      simp only [rndParity, ← he, if_neg hδ_not, if_pos hδ]
-      rw [hfloor]; congr 1; omega
+    unfold rndUnbounded
+    cases tb <;> simp only [rndInt, ← he, if_neg hδ_not, if_pos hδ] <;> rw [hfloor] <;>
+      congr 1 <;> omega
   · -- `s ≥ m`: floor is `m`, fraction `< ½`, both modes select the floor `m`.
     have hfloor : ⌊v * (2 : ℝ) ^ (-e)⌋ = m := by
       rw [Int.floor_eq_iff]; exact ⟨hsm, by linarith [h.2]⟩
     have hδ : v * (2 : ℝ) ^ (-e) - (⌊v * (2 : ℝ) ^ (-e)⌋ : ℝ) < 1 / 2 := by
       rw [hfloor]; linarith [h.2]
-    cases tb with
-    | awayZero =>
-      rw [rndUnbounded_of_ne (by decide) (by decide)]
-      simp only [rndInt, ← he, if_pos hδ]
-      rw [hfloor]
-    | toEven =>
-      rw [rndUnbounded_nearest_toEven]
-      simp only [rndParity, ← he, if_pos hδ]
-      rw [hfloor]
+    unfold rndUnbounded
+    cases tb <;> simp only [rndInt, ← he, if_pos hδ] <;> rw [hfloor]
 
 /-- Dyadic-grid-point form of `nearest_eq_of_close`: if `g ∈ F`-grid at `v`'s
 scale (`quantumAtLeast (canonicalExp v) g`) and `|v − g| < ½·ulp F v`, then `g`
@@ -285,9 +270,7 @@ theorem nearest_eq_rndDown_of_lt_midp (F : FiniteFormat) (tb : TieBreak) (ξ : �
 /-- `⌈x·2^(−e)⌉·2^e`. -/
 theorem rndUp_eq (F : FiniteFormat) (x : ℝ) :
     rndUp F x =
-      Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x) :=
-  RoundsFinite.toPositive_eq_ceil F x
-    (rndUnbounded_satisfies_toPositive F x (not_isUndefined_toPositive F))
+      Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x) := rfl
 
 /-- **Above-midpoint ⟹ nearest rounds up**, mirroring
 `nearest_eq_rndDown_of_lt_midp`. -/

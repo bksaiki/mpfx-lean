@@ -107,17 +107,11 @@ inbetween_float m e x l   (* x ∈ [m·β^e, (m+1)·β^e), l says where vs. the 
 round_N (p : bool) l      (* each mode is just: location -> bool *)
 ```
 
-Three consequences:
+Two consequences:
 
 1. Each mode becomes `Location → Bool` rather than a bespoke floor/ceil/midpoint
    comparison. Our `rndInt` (`RoundOp/Defs.lean:71`) inlines all of that per mode.
-2. **It removes the `rndParity` asymmetry.** `rndParity`
-   (`RoundOp/Defs.lean:97`) must take the whole format because `IsOdd` is
-   format-relative; Flocq passes one bool, `negb (Z.even mx)`, the parity of the
-   canonical mantissa. If parity were "parity of the grid coefficient at
-   `canonicalExp`", a single `rndInt : RoundingMode → Bool → Location → ℤ → ℤ`
-   would cover all seven modes.
-3. It is the prerequisite for `Calc/{Div,Sqrt,Plus}.v` — actually *computing*
+2. It is the prerequisite for `Calc/{Div,Sqrt,Plus}.v` — actually *computing*
    correctly-rounded operations, the obvious extension after format inference.
    It also gives a computable mirror of `rnd` on dyadic inputs, which is what
    the "smoke tests" item in `TODO.md` wants.
