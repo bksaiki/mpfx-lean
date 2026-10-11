@@ -229,38 +229,21 @@ theorem roundsRNE_of_bracket {F : FiniteFormat} {u u' y : Dyadic} {z : ℝ}
       ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsEven y) :
     RoundsFinite F.unbounded (.nearest .toEven) z y := by
   obtain ⟨hu, hu', hlt, hadj⟩ := h
-  -- The faithful roundings of `z` are `u` and `u'`.
-  have hfaith : ∀ c : Dyadic, IsFaithfulRound F.unbounded z c → c = u ∨ c = u' := by
-    rintro c (⟨hc, hcz, hmax⟩ | ⟨hc, hzc, hmin⟩)
-    · rcases (hcz.trans hzu').lt_or_eq with h | h
-      · exact Or.inl (Dyadic.ext_real (le_antisymm (hadj c hc h) (hmax u hu hzu)))
-      · exact Or.inr (Dyadic.ext_real h)
-    · rcases (hmin u' hu' hzu').lt_or_eq with h | h
-      · exact Or.inl (Dyadic.ext_real (le_antisymm (hadj c hc h) (hzu.trans hzc)))
-      · exact Or.inr (Dyadic.ext_real h)
-  have hfy : IsFaithfulRound F.unbounded z y := by
-    rcases hy with rfl | rfl
-    · refine Or.inl ⟨hu, hzu, fun v hv hvz => ?_⟩
-      rcases (hvz.trans hzu').lt_or_eq with h | h
-      · exact hadj v hv h
-      · -- `z = u'` would make `u'` strictly nearer, contradicting `hclose`.
-        have hz : z = u' := le_antisymm hzu' (h ▸ hvz)
-        have := hclose.2
-        rw [hz, sub_self, abs_zero, abs_nonpos_iff, sub_eq_zero] at this
-        linarith
-    · refine Or.inr ⟨hu', hzu', fun v hv hzv => not_lt.mp fun h => ?_⟩
-      have hz : z = u := le_antisymm (hzv.trans (hadj v hv h)) hzu
-      have := hclose.1
-      rw [hz, sub_self, abs_zero, abs_nonpos_iff, sub_eq_zero] at this
-      linarith
-  refine ⟨hfy.elim (·.1) (·.1), hfy, fun c _ hc => ?_, fun ⟨c, _, hc, hne, heq⟩ => htie ?_⟩
-  · rcases hfaith c hc with rfl | rfl
-    exacts [hclose.1, hclose.2]
-  · rcases hfaith c hc with rfl | rfl <;> rcases hy with rfl | rfl
-    · exact absurd rfl hne
-    · exact heq.symm
-    · exact heq
-    · exact absurd rfl hne
+  -- At an end, `hclose` pins `y` to `z`.
+  have hend : ∀ {a b : Dyadic}, (a : ℝ) ≠ b → |(a : ℝ) - b| ≤ |(a : ℝ) - a| → False :=
+    fun hab h => hab (sub_eq_zero.mp (abs_nonpos_iff.mp (by simpa using h)))
+  rcases hzu.lt_or_eq with hzu | rfl
+  · rcases hzu'.lt_or_eq with hzu' | rfl
+    · exact RoundsFinite.nearest_toEven_of_bracket
+        ⟨hu, hzu.le, fun v hv hvz => hadj v hv (hvz.trans_lt hzu')⟩
+        ⟨hu', hzu'.le, fun v hv hzv => not_lt.mp fun h => (hzu.trans_le hzv).not_ge (hadj v hv h)⟩
+        hy hclose fun h _ => htie h
+    · rcases hy with rfl | rfl
+      · exact (hend hlt.ne' hclose.2).elim
+      · exact RoundsFinite.self _ hu'
+  · rcases hy with rfl | rfl
+    · exact RoundsFinite.self _ hu
+    · exact (hend hlt.ne hclose.1).elim
 
 end Cex
 

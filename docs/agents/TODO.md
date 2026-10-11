@@ -96,7 +96,7 @@ Mpfx/
 │   │                 midpoint_mem_extend_one_of_adjacent(_pos), half_mem_extend_one,
 │   │                 midpoint_in_F₁_extend_one_of_F_adjacent; quantum_floor/ceil_of_mem,
 │   │                 binade_quantum
-│   ├── CanonicalExp.lean floor_minimality / ceil_minimality,
+│   ├── CanonicalExp.lean floor_minimality,
 │   │                 ofIntZpow_mem_unbounded, floor_mantissa_lt
 │   └── Inference.lean §6.1: ⊗/⊕ format inference. IEEE 754 *, +, -, abs on
 │                     WithSpecial Dyadic; Format.toSet, opMul/opAdd/opAddPrec,
@@ -116,8 +116,8 @@ Mpfx/
 │   │                 Mode-vs-sign: RTP/RTN ↔ RTZ/RAZ by sign of x.
 │   │                 RoundsFinite.self (every mode), uniqueness per mode and
 │   │                 generic, isFaithfulRound, eq_of_mem, eq_zero_of_zero,
-│   │                 IsFaithfulRound.eq_or_eq, opposite_sides_of_ne, same_side,
-│   │                 iff_of_between (shared neighbours), the grid
+│   │                 IsFaithfulRound.eq_or_eq, opposite_sides_of_ne, of_subset,
+│   │                 same_side, iff_of_between (shared neighbours), the grid
 │   │                 bridges toNegative_floor/toPositive_ceil/
 │   │                 toPositive_floor_add_one (+ equation forms), the nearest
 │   │                 modes between round-down and round-up

@@ -125,20 +125,7 @@ theorem roundsRTO_RTO_finite {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat �
     · -- z = w': w' is x's F₁-rounding directly via hz's faithfulness, and
       -- its F₁-oddness comes from F₂-oddness via RTO-padding transfer.
       subst hzw
-      refine ⟨hw'F₁, ?_, ?_⟩
-      · -- Faithfulness: z is x's F₁-faithful rounding because z ∈ F₁ ⊆ F₂
-        -- and z is x's F₂-faithful rounding.
-        rcases hz_faithful with hRD | hRU
-        · left
-          obtain ⟨_, hzx_le, hz_max⟩ := hRD
-          refine ⟨hw'F₁, hzx_le, ?_⟩
-          intro v hvF₁ hvx
-          exact hz_max v (hsub _ hvF₁) hvx
-        · right
-          obtain ⟨_, hxz, hz_min⟩ := hRU
-          refine ⟨hw'F₁, hxz, ?_⟩
-          intro v hvF₁ hxv
-          exact hz_min v (hsub _ hvF₁) hxv
+      refine ⟨hw'F₁, hz_faithful.of_subset hsub hw'F₁, ?_⟩
       · -- Parity: produce a `ParityFormat` over `F₁.toFormat` and transfer
         -- F₂-oddness of z into F₁-oddness of z.
         intro _

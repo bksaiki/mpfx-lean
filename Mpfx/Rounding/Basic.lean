@@ -403,6 +403,13 @@ theorem RoundsFinite.nearest_awayZero_of_bracket {F : FiniteFormat} {x : ℝ} {d
     rcases hz.eq_or_eq hd hu with rfl | rfl
     exacts [(htie h₁ h₂).1, (htie h₁ h₂).2]
 
+/-- A faithful rounding that lies in a smaller format is faithful there: the
+smaller format has fewer candidates. -/
+theorem IsFaithfulRound.of_subset {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)
+    {x : ℝ} {y : Dyadic} (h : IsFaithfulRound F₂ x y) (hy : y ∈ F₁) : IsFaithfulRound F₁ x y :=
+  h.imp (fun ⟨_, h₁, h₂⟩ => ⟨hy, h₁, fun v hv => h₂ v (hsub _ hv)⟩)
+    (fun ⟨_, h₁, h₂⟩ => ⟨hy, h₁, fun v hv => h₂ v (hsub _ hv)⟩)
+
 /-- A faithful rounding stays on its input's side of any value `m` of the format
 that neither equals. -/
 theorem IsFaithfulRound.same_side {F : FiniteFormat} {x : ℝ} {z m : Dyadic}
@@ -472,24 +479,11 @@ theorem RoundsFinite.toNegative_floor (F : FiniteFormat) (x : ℝ) :
 theorem RoundsFinite.toPositive_ceil (F : FiniteFormat) (x : ℝ) :
     RoundsFinite F.unbounded .toPositive x
       (Dyadic.ofIntZpow ⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ (F.canonicalExp x)) := by
-  set e := F.canonicalExp x
-  set c := ⌈x * (2 : ℝ) ^ (-e)⌉
-  set y : Dyadic := Dyadic.ofIntZpow c e
-  have h_y_real : (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e := Dyadic.coe_ofIntZpow c e
-  have h_2e_pos : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-  have h_c_bound : ∀ {p : ℕ}, F.p = (p : Prec) →
-      |c| ≤ (2 : ℤ) ^ p := fun hp => by
-    apply abs_ceil_le_of_abs_lt
-    push_cast; exact floor_mantissa_lt hp
-  obtain ⟨h_prec, h_quant, h_bnd⟩ :=
-    ofIntZpow_mem_unbounded F (fun hexp => F.exp_le_canonicalExp x hexp) h_c_bound
-  refine ⟨⟨h_prec, h_quant, h_bnd⟩, ?_, ?_⟩
-  · rw [h_y_real, ← mul_zpow_neg_self x e]
-    exact mul_le_mul_of_nonneg_right (Int.le_ceil _) h_2e_pos.le
-  · intro z hz_mem hx_le_z
-    obtain ⟨hz_prec, hz_quant, _⟩ := hz_mem
-    rw [h_y_real]
-    exact ceil_minimality F x hz_prec hz_quant hx_le_z
+  have h := (RoundsFinite.neg_toNegative_iff_toPositive _ _ _).mp
+    (RoundsFinite.toNegative_floor F (-x))
+  rw [neg_neg, canonicalExp_neg, neg_mul, Int.floor_neg] at h
+  convert h using 1
+  exact Dyadic.ext_real (by simp)
 
 /-- Off the grid, the round-up is the successor of the floor point: the ceiling
 is the floor plus one. -/

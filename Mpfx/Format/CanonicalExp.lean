@@ -3,8 +3,8 @@ import Mpfx.Format.Discrete
 /-!
 # Floor and ceiling at the canonical exponent
 
-Values at the canonical exponent: floor and ceiling minimality
-(`floor_minimality`, `ceil_minimality`), membership of `k · 2^e` once `e` is at
+Values at the canonical exponent: floor minimality (`floor_minimality`; the
+ceiling follows by negation), membership of `k · 2^e` once `e` is at
 least the quantum (`ofIntZpow_mem_unbounded`), and the mantissa bound
 `floor_mantissa_lt`. The closed forms of `canonicalExp` itself are in
 `Format/Defs.lean`.
@@ -75,20 +75,6 @@ theorem floor_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
     rw [two_zpow_split_toNat heL]; push_cast; ring
   have h := hmul _ (by rw [hpow]; exact hLx)
   rw [hpow] at h
-  linarith
-
-/-- Mirror of `floor_minimality`: ceil-projection is the smallest F-element
-≥ x. Used by `_toPositive` (directly) and by `_toZero` (`x ≤ 0` branch). -/
-theorem ceil_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
-    (hz_prec : Dyadic.precisionAtMost F.p z)
-    (hz_quant : Dyadic.quantumAtLeast F.exp z) (hx_le_z : x ≤ (z : ℝ)) :
-    (⌈x * (2 : ℝ) ^ (-(F.canonicalExp x))⌉ : ℝ) *
-      (2 : ℝ) ^ (F.canonicalExp x) ≤ (z : ℝ) := by
-  have hh := floor_minimality F (-x) (Dyadic.precisionAtMost_neg hz_prec)
-    (Dyadic.quantumAtLeast_neg hz_quant) (by push_cast; linarith)
-  rw [canonicalExp_neg, show (-x) * (2 : ℝ) ^ (-F.canonicalExp x)
-    = -(x * (2 : ℝ) ^ (-F.canonicalExp x)) by ring, Int.floor_neg] at hh
-  push_cast at hh
   linarith
 
 /-- `Dyadic.ofIntZpow k e` is in `F.unbounded` provided `e ≥ F.exp` and (when

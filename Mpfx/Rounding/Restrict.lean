@@ -106,60 +106,32 @@ private theorem RoundsFinite.awayZero_lift {F : FiniteFormat} {x : ℝ}
 that lies in `F` is faithful in `F` (the bounded format has fewer candidates). -/
 private theorem IsFaithfulRound.restrict {F : FiniteFormat} {x : ℝ} {y : Dyadic}
     (h : IsFaithfulRound F.unbounded x y) (hb : Format.boundOK F.b y) :
-    IsFaithfulRound F x y := by
-  rcases h with ⟨hmem, hle, hmax⟩ | ⟨hmem, hge, hmin⟩
-  · exact Or.inl ⟨mem_of_mem_unbounded_of_boundOK hmem hb, hle,
-      fun v hv => hmax v (mem_unbounded_of_mem hv)⟩
-  · exact Or.inr ⟨mem_of_mem_unbounded_of_boundOK hmem hb, hge,
-      fun v hv => hmin v (mem_unbounded_of_mem hv)⟩
+    IsFaithfulRound F x y :=
+  h.of_subset F.subset_unbounded
+    (mem_of_mem_unbounded_of_boundOK (h.elim (·.1) (·.1)) hb)
 
 /-- **Lift** for `IsFaithfulRound`: a faithful rounding `w` of `x` in `F` is
 faithful in `F.unbounded`, provided *some* in-bound `y` is faithful in
-`F.unbounded` (no-overflow witness). Key step: the directed unbounded
-rounding on `w`'s side is squeezed between `w` and `y` (or equals `y`), hence
-in-bound, hence dominated by `w`'s maximality in `F`. -/
+`F.unbounded` (no-overflow witness). The unbounded neighbour on `w`'s side lies
+between `w` and `y`, so it is in bound, and the directed lift applies. -/
 private theorem IsFaithfulRound.unbounded_lift {F : FiniteFormat} {x : ℝ}
     {w y : Dyadic} (hw : IsFaithfulRound F x w)
     (hy : IsFaithfulRound F.unbounded x y) (hb : Format.boundOK F.b y) :
     IsFaithfulRound F.unbounded x w := by
-  rcases hw with ⟨hwmem, hw_le, hw_max⟩ | ⟨hwmem, hw_ge, hw_min⟩
-  · -- RD side: w = max {v ∈ F : v ≤ x}. Show it is also the unbounded max.
-    left
-    refine ⟨mem_unbounded_of_mem hwmem, hw_le, ?_⟩
-    intro c hc hc_le
-    -- The unbounded RD rounding `g` of `x`.
-    obtain ⟨hgmem, hg_le, hg_max⟩ :=
-      rndUnbounded_satisfies F .toNegative x (not_isUndefined_toNegative F)
-    set g := rndUnbounded F .toNegative x (not_isUndefined_toNegative F)
-    have hc_g : (c : ℝ) ≤ (g : ℝ) := hg_max c hc hc_le
-    have hw_g : (w : ℝ) ≤ (g : ℝ) := hg_max w (mem_unbounded_of_mem hwmem) hw_le
-    -- `g` is in-bound: either `g = y` (y on the RD side) or `w ≤ g ≤ x ≤ y`.
-    have hg_bnd : Format.boundOK F.b g := by
-      rcases hy with ⟨hymem, hy_le, hy_max⟩ | ⟨hymem, hy_ge, _⟩
-      · have h1 : (g : ℝ) ≤ (y : ℝ) := hy_max g hgmem hg_le
-        exact boundOK_of_between hwmem.2.2 hb hw_g h1
-      · exact boundOK_of_between hwmem.2.2 hb hw_g (le_trans hg_le hy_ge)
-    -- So `g ∈ F`, hence `g ≤ w` by `w`'s maximality in `F`.
-    have hg_w : (g : ℝ) ≤ (w : ℝ) :=
-      hw_max g (mem_of_mem_unbounded_of_boundOK hgmem hg_bnd) hg_le
-    exact le_trans hc_g hg_w
-  · -- RU side: symmetric, with the unbounded RU rounding.
-    right
-    refine ⟨mem_unbounded_of_mem hwmem, hw_ge, ?_⟩
-    intro c hc hc_ge
-    obtain ⟨humem, hu_ge, hu_min⟩ :=
-      rndUnbounded_satisfies F .toPositive x (not_isUndefined_toPositive F)
-    set u := rndUnbounded F .toPositive x (not_isUndefined_toPositive F)
-    have hu_c : (u : ℝ) ≤ (c : ℝ) := hu_min c hc hc_ge
-    have hu_w : (u : ℝ) ≤ (w : ℝ) := hu_min w (mem_unbounded_of_mem hwmem) hw_ge
-    have hu_bnd : Format.boundOK F.b u := by
-      rcases hy with ⟨hymem, hy_le, _⟩ | ⟨hymem, hy_ge, hy_min⟩
-      · exact boundOK_of_between hb hwmem.2.2 (le_trans hy_le hu_ge) hu_w
-      · have h1 : (y : ℝ) ≤ (u : ℝ) := hy_min u humem hu_ge
-        exact boundOK_of_between hb hwmem.2.2 h1 hu_w
-    have hw_u : (w : ℝ) ≤ (u : ℝ) :=
-      hw_min u (mem_of_mem_unbounded_of_boundOK humem hu_bnd) hu_ge
-    exact le_trans hw_u hu_c
+  have hd := RoundsFinite.toNegative_floor F x
+  have hu := RoundsFinite.toPositive_ceil F x
+  have hwF : w ∈ F := hw.elim (·.1) (·.1)
+  rcases hw with hw | hw
+  · refine Or.inl (RoundsFinite.toNegative_lift hw hd ?_)
+    rcases hy.eq_or_eq hd hu with rfl | rfl
+    · exact hb
+    · exact boundOK_of_between hwF.2.2 hb (hd.2.2 w (mem_unbounded_of_mem hwF) hw.2.1)
+        (hd.2.1.trans hu.2.1)
+  · refine Or.inr (RoundsFinite.toPositive_lift hw hu ?_)
+    rcases hy.eq_or_eq hd hu with rfl | rfl
+    · exact boundOK_of_between hb hwF.2.2 (hd.2.1.trans hu.2.1)
+        (hu.2.2 w (mem_unbounded_of_mem hwF) hw.2.1)
+    · exact hb
 
 /-! ## Restrict / lift for `.toOdd` -/
 
@@ -214,41 +186,24 @@ private theorem nearest_close_upgrade {F : FiniteFormat} {x : ℝ} {y c : Dyadic
     (hc : c ∈ F) (hc_faithful : IsFaithfulRound F x c) :
     |x - (y : ℝ)| ≤ |x - (c : ℝ)| ∧
       (|x - (y : ℝ)| = |x - (c : ℝ)| → IsFaithfulRound F.unbounded x c) := by
-  rcases hc_faithful with ⟨hc_mem, hc_le, hc_max⟩ | ⟨hc_mem, hc_ge, hc_min⟩
-  · -- RD side: squeeze against the unbounded RD rounding `g`.
-    obtain ⟨hg_mem, hg_le, hg_max⟩ :=
-      rndUnbounded_satisfies F .toNegative x (not_isUndefined_toNegative F)
-    set g := rndUnbounded F .toNegative x (not_isUndefined_toNegative F) with hg_def
-    have hg_faithful : IsFaithfulRound F.unbounded x g := Or.inl ⟨hg_mem, hg_le, hg_max⟩
-    have h1 : |x - (y : ℝ)| ≤ |x - (g : ℝ)| := hy_close g hg_mem hg_faithful
-    have hcg : (c : ℝ) ≤ (g : ℝ) := hg_max c (mem_unbounded_of_mem hc) hc_le
-    have h2 : |x - (g : ℝ)| ≤ |x - (c : ℝ)| := by
-      rw [abs_of_nonneg (by linarith), abs_of_nonneg (by linarith)]
-      linarith
-    refine ⟨le_trans h1 h2, fun heq => ?_⟩
-    have h3 : |x - (g : ℝ)| = |x - (c : ℝ)| := le_antisymm h2 (heq ▸ h1)
-    have hgc_eq : (g : ℝ) = (c : ℝ) := by
-      rw [abs_of_nonneg (by linarith), abs_of_nonneg (by linarith)] at h3
-      linarith
-    rw [(Dyadic.coe_real_inj g c).mp hgc_eq] at hg_faithful
-    exact hg_faithful
-  · -- RU side: squeeze against the unbounded RU rounding `u`.
-    obtain ⟨hu_mem, hu_ge, hu_min⟩ :=
-      rndUnbounded_satisfies F .toPositive x (not_isUndefined_toPositive F)
-    set u := rndUnbounded F .toPositive x (not_isUndefined_toPositive F) with hu_def
-    have hu_faithful : IsFaithfulRound F.unbounded x u := Or.inr ⟨hu_mem, hu_ge, hu_min⟩
-    have h1 : |x - (y : ℝ)| ≤ |x - (u : ℝ)| := hy_close u hu_mem hu_faithful
-    have huc : (u : ℝ) ≤ (c : ℝ) := hu_min c (mem_unbounded_of_mem hc) hc_ge
-    have h2 : |x - (u : ℝ)| ≤ |x - (c : ℝ)| := by
-      rw [abs_of_nonpos (by linarith), abs_of_nonpos (by linarith)]
-      linarith
-    refine ⟨le_trans h1 h2, fun heq => ?_⟩
-    have h3 : |x - (u : ℝ)| = |x - (c : ℝ)| := le_antisymm h2 (heq ▸ h1)
-    have huc_eq : (u : ℝ) = (c : ℝ) := by
-      rw [abs_of_nonpos (by linarith), abs_of_nonpos (by linarith)] at h3
-      linarith
-    rw [(Dyadic.coe_real_inj u c).mp huc_eq] at hu_faithful
-    exact hu_faithful
+  -- The unbounded neighbour `g` on `c`'s side lies between `c` and `x`.
+  obtain ⟨g, hg, hgc, hgc_eq⟩ : ∃ g : Dyadic, IsFaithfulRound F.unbounded x g ∧
+      |x - (g : ℝ)| ≤ |x - (c : ℝ)| ∧ (|x - (g : ℝ)| = |x - (c : ℝ)| → g = c) := by
+    rcases hc_faithful with ⟨-, hcx, -⟩ | ⟨-, hxc, -⟩
+    · have hd := RoundsFinite.toNegative_floor F x
+      have hcd := hd.2.2 c (mem_unbounded_of_mem hc) hcx
+      have e₁ := abs_of_nonneg (sub_nonneg.mpr hd.2.1)
+      have e₂ := abs_of_nonneg (sub_nonneg.mpr hcx)
+      exact ⟨_, Or.inl hd, by rw [e₁, e₂]; linarith,
+        fun h => Dyadic.ext_real (by rw [e₁, e₂] at h; linarith)⟩
+    · have hu := RoundsFinite.toPositive_ceil F x
+      have huc := hu.2.2 c (mem_unbounded_of_mem hc) hxc
+      have e₁ := abs_of_nonpos (sub_nonpos.mpr hu.2.1)
+      have e₂ := abs_of_nonpos (sub_nonpos.mpr hxc)
+      exact ⟨_, Or.inr hu, by rw [e₁, e₂]; linarith,
+        fun h => Dyadic.ext_real (by rw [e₁, e₂] at h; linarith)⟩
+  have h₁ := hy_close g (hg.elim (·.1) (·.1)) hg
+  exact ⟨h₁.trans hgc, fun h => hgc_eq (le_antisymm hgc (h.symm.le.trans h₁)) ▸ hg⟩
 
 /-- **Restrict** (`.nearest tb`): an in-bound unbounded RN rounding is also
 the bounded RN rounding. -/
