@@ -140,7 +140,8 @@ follows; none contradicts the paper:
 - A guard that does not give a boolean, and an operator outside its
   domain, are stuck.
 
-- `Fpy/Syntax.lean`: `Num`, `Val`, `Signature`, `Expr`, `Stmt`, `Program`.
+- `Fpy/Value.lean`: `Num`, `Label`, `Val`.
+- `Fpy/Syntax.lean`: `Signature`, `Expr`, `Stmt`, `Program`.
 - `Fpy/Semantics.lean`: `Store` (`single`, `update`), `Outcome`, `Val.rnd`,
   the mutual `Eval`/`EvalList`/`EvalFields`/`Exec`, `Run` (E-Program).
 - `Fpy.lean` root; `lakefile.toml` gains `[[lean_lib]] name = "Fpy"`, and

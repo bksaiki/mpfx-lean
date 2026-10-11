@@ -1,35 +1,18 @@
-import Mpfx.Format.Defs
+import Fpy.Value
 
 /-!
 # FPy syntax (Figure 2)
 
-Expressions, statements and programs of the core language, and its values
-(Figure 10). The operators are left abstract: a `Signature` names the
-rounded (`Arith`) and unrounded (`Exact`) operators, gives their meaning, and
-gives the map `ρ` from records to rounding functions. Each theorem about FPy
-holds for every signature.
+Expressions, statements and programs of the core language. The operators are
+left abstract: a `Signature` names the rounded (`Arith`) and unrounded
+(`Exact`) operators, gives their meaning, and gives the map `ρ` from records to
+rounding functions. Each theorem about FPy holds for every signature.
 -/
 
 namespace Fpy
 
-open Mpfx
-
-/-- Numbers: the extended reals `ℝ ∪ {±∞, NaN}`. -/
-abbrev Num := WithSpecial ℝ
-
 abbrev Var := String
 abbrev Fn := String
-abbrev Label := String
-
-/-- Values. `real` is the real context `R`, and `ctx fs` is the context built
-from the record with fields `fs`. -/
-inductive Val where
-  | bool (b : Bool)
-  | num (n : Num)
-  | list (vs : List Val)
-  | record (fs : List (Label × Val))
-  | real
-  | ctx (fs : List (Label × Val))
 
 /-- The operators of FPy and the rounding functions of its contexts. -/
 structure Signature where
