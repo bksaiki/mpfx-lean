@@ -285,32 +285,46 @@ private theorem round_round_div_aux {F₁ F₂ : FiniteFormat} {x y v : ℝ}
     zpow_le_zpow_right₀ (by norm_num) (by omega)
   linarith [hlow, hupp, hmono]
 
-/-- **rnd-div core** (format-agnostic). For a quotient `v = a / b` with `a, b ∈ F₁`
-(`0 < a, b`), double rounding is innocuous once the canonical-exponent data a
-valid precision/underflow choice supplies is in hand: `hA`/`hB` (the two
-separation bounds of `round_round_div_aux`), `hle` (`v` inside its binade), and
-Roux's `hquant` (`cexp₂ v ≤ cexp₁ v − p₁`, i.e. `p₂ ≥ 2p₁`). `round_round_mid_cases`
+/-- **The separation bounds** of `round_round_div_aux` for a quotient `v = a/b` of
+positive `a, b ∈ F₁`: they follow from `cexp₁ ≥ ⌊log₂⌋ + 1 − p₁` at `a` and `b`
+and the quotient's binade (`log_div_bounds`), once `F₂`'s step at `v` is at most
+`2^(⌊log₂ v⌋ + 1 − p₁)` and `2^(cexp₁ v − p₁)`. -/
+private theorem div_sep_bounds {F₁ F₂ : FiniteFormat} {p₁ : ℕ} (hp₁ : F₁.p = (p₁ : Prec))
+    {a b : Dyadic} (hapos : 0 < (a : ℝ)) (hbpos : 0 < (b : ℝ))
+    (hq₁ : F₂.canonicalExp ((a : ℝ) / b) ≤ Int.log 2 ((a : ℝ) / b) + 1 - p₁)
+    (hq₂ : F₂.canonicalExp ((a : ℝ) / b) ≤ F₁.canonicalExp ((a : ℝ) / b) - p₁) :
+    F₂.canonicalExp ((a : ℝ) / b) + Int.log 2 (b : ℝ) ≤ F₁.canonicalExp (a : ℝ) ∧
+      F₂.canonicalExp ((a : ℝ) / b) + Int.log 2 (b : ℝ)
+        ≤ F₁.canonicalExp ((a : ℝ) / b) - 1 + F₁.canonicalExp (b : ℝ) := by
+  have hca := F₁.log_sub_p_le_canonicalExp (ne_of_gt hapos) hp₁
+  have hcb := F₁.log_sub_p_le_canonicalExp (ne_of_gt hbpos) hp₁
+  rw [abs_of_pos hapos] at hca
+  rw [abs_of_pos hbpos] at hcb
+  have := log_div_bounds hapos hbpos
+  constructor <;> omega
+
+/-- **rnd-div core.** For a quotient `v = a / b` of positive `a, b ∈ F₁`, double
+rounding is innocuous once `v` is inside its binade (`hle`) and `F₂` is `p₁` bits
+finer than `F₁` at `v` (`hquant`, Roux's `p₂ ≥ 2p₁`). `round_round_mid_cases`
 reduces to the near-midpoint case, which splits: `v = m` is handled exactly by
 `midp_mem_F₂` (even radix), and `v ≠ m` is impossible by `round_round_div_aux`. -/
-private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {a b v : ℝ} {p₁ p₂ : ℕ}
-    (hp₁pos : 0 < p₁) (hp₂ : F₂.p = (p₂ : Prec))
+private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
+    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
-    (ha : 0 < a) (hb : 0 < b) (hab : a = v * b)
-    (hxrep : ∃ mx : ℤ, a = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp a))
-    (hyrep : ∃ my : ℤ, b = (my : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp b))
-    (hA : F₂.canonicalExp v + Int.log 2 b ≤ F₁.canonicalExp a)
-    (hB : F₂.canonicalExp v + Int.log 2 b ≤ F₁.canonicalExp v - 1 + F₁.canonicalExp b)
-    (hle : F₁.canonicalExp v ≤ Int.log 2 v + 1)
-    (hquant : F₂.canonicalExp v ≤ F₁.canonicalExp v - (p₁ : ℤ))
+    {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁)
+    (hapos : 0 < (a : ℝ)) (hbpos : 0 < (b : ℝ))
+    (hle : F₁.canonicalExp ((a : ℝ) / b) ≤ Int.log 2 ((a : ℝ) / b) + 1)
+    (hquant : F₂.canonicalExp ((a : ℝ) / b) ≤ F₁.canonicalExp ((a : ℝ) / b) - (p₁ : ℤ))
     {z w : Dyadic}
-    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) v z)
+    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) ((a : ℝ) / b) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
-    RoundsFinite F₁.unbounded (.nearest tb₁) v w := by
-  have hv_pos : 0 < v := by
-    rcases mul_pos_iff.mp (hab ▸ ha) with ⟨h, _⟩ | ⟨_, h⟩
-    · exact h
-    · linarith [hb]
-  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast hp₁pos
+    RoundsFinite F₁.unbounded (.nearest tb₁) ((a : ℝ) / b) w := by
+  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
+  obtain ⟨hA, hB⟩ := div_sep_bounds hp₁ hapos hbpos (by omega) hquant
+  set v := (a : ℝ) / (b : ℝ) with hv_def
+  have hv_pos : 0 < v := div_pos hapos hbpos
+  have hab : (a : ℝ) = v * (b : ℝ) := by
+    rw [hv_def]; exact (div_mul_cancel₀ (a : ℝ) (ne_of_gt hbpos)).symm
   have h21 : F₂.canonicalExp v < F₁.canonicalExp v := by omega
   refine round_round_mid_cases hundef₁ hv_pos h21 hle hz hw (fun hmid_le => ?_)
   by_cases heqmid : v = midp F₁ v
@@ -320,14 +334,14 @@ private theorem rndDiv_core {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} 
     have hzv : (z : ℝ) = v := by rw [hzg, hgv]
     rw [← hzv]; exact hw
   · -- otherwise the separation lemma contradicts `hmid_le`
+    obtain ⟨mx, _, hmx⟩ := exists_canonical_rep F₁ hp₁ ha hapos
+    obtain ⟨my, _, hmy⟩ := exists_canonical_rep F₁ hp₁ hb hbpos
     exact absurd hmid_le (not_le.mpr
-      (round_round_div_aux hb hab hxrep hyrep hA hB heqmid))
+      (round_round_div_aux hbpos hab ⟨mx, hmx⟩ ⟨my, hmy⟩ hA hB heqmid))
 
-/-- **rnd-div, positive case** (Roux Theorem 29, radix 2, no minimum quantum).
-For `a, b ∈ F₁`
-with `0 < a`, `0 < b` and `p₂ ≥ 2p₁`, double rounding of `a / b` is innocuous.
-The `rndDiv_core` hypotheses are discharged from the `exp = ⊥` closed form
-`canonicalExp = log₂|·| + 1 − p` and the quotient binade bounds `log_div_bounds`. -/
+/-- **rnd-div, positive case** (Roux Theorem 29, radix 2, no minimum quantum):
+the closed form `canonicalExp = ⌊log₂|·|⌋ + 1 − p` gives `rndDiv_core`'s
+hypotheses. -/
 private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
     (hpp : 2 * p₁ ≤ p₂) (hexp₁ : F₁.exp = ⊥) (hexp₂ : F₂.exp = ⊥)
@@ -338,81 +352,13 @@ private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) ((a : ℝ) / (b : ℝ)) z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) ((a : ℝ) / (b : ℝ)) w := by
-  set v := (a : ℝ) / (b : ℝ) with hv_def
-  have hbne : (b : ℝ) ≠ 0 := ne_of_gt hbpos
-  have hv_pos : 0 < v := div_pos hapos hbpos
-  have hab : (a : ℝ) = v * (b : ℝ) := by rw [hv_def]; exact (div_mul_cancel₀ (a : ℝ) hbne).symm
+  have hv_pos : 0 < (a : ℝ) / b := div_pos hapos hbpos
   have hppZ : 2 * (p₁ : ℤ) ≤ (p₂ : ℤ) := by exact_mod_cast hpp
-  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
-  -- `exp = ⊥` closed forms
-  have hcv : F₁.canonicalExp v = Int.log 2 v + 1 - (p₁ : ℤ) := by
-    rw [canonicalExp_expBot hp₁ hexp₁ (ne_of_gt hv_pos), abs_of_pos hv_pos]
-  have hca : F₁.canonicalExp (a : ℝ) = Int.log 2 (a : ℝ) + 1 - (p₁ : ℤ) := by
-    rw [canonicalExp_expBot hp₁ hexp₁ (ne_of_gt hapos), abs_of_pos hapos]
-  have hcb : F₁.canonicalExp (b : ℝ) = Int.log 2 (b : ℝ) + 1 - (p₁ : ℤ) := by
-    rw [canonicalExp_expBot hp₁ hexp₁ (ne_of_gt hbpos), abs_of_pos hbpos]
-  have hcv2 : F₂.canonicalExp v = Int.log 2 v + 1 - (p₂ : ℤ) := by
-    rw [canonicalExp_expBot hp₂ hexp₂ (ne_of_gt hv_pos), abs_of_pos hv_pos]
-  have hlog := log_div_bounds hapos hbpos
-  rw [← hv_def] at hlog
-  refine rndDiv_core (p₁ := p₁) (F₁.p_pos hp₁) hp₂ hundef₁ hapos hbpos hab ?_ ?_ ?_ ?_ ?_ ?_ hz hw
-  · obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ ha hapos; exact ⟨c, hc⟩
-  · obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ hb hbpos; exact ⟨c, hc⟩
-  · rw [hcv2, hca]; omega
-  · rw [hcv2, hcv, hcb]; omega
-  · rw [hcv]; omega
-  · rw [hcv2, hcv]; omega
-
-/-- **rnd-div, positive normal-quotient case** (Roux Theorem 29, radix 2,
-minimum quantum). For `a, b ∈ F₁` (`exp = emin`) with `0 < a, b`, `p₂ ≥ 2p₁`,
-Roux's underflow
-bound `emin₂ ≤ emin₁ − p₁ − 2`, and the quotient in the **normal regime**
-(`hle : cexp₁ (a/b) ≤ mag (a/b)`), double rounding of `a/b` is innocuous. The
-bounds `hA`/`hB` of `round_round_div_aux` follow by `omega` from `hquant`, `hle`,
-`log_div_bounds` and `cexp₁ ≥ mag − p₁`. -/
-private theorem rndDiv_pos_normal_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
-    {emin₁ emin₂ : ℤ}
-    (hp₁ : F₁.p = (p₁ : Prec)) (hp₂ : F₂.p = (p₂ : Prec))
-    (hpp : 2 * p₁ ≤ p₂)
-    (hexp₁ : F₁.exp = (emin₁ : QExp)) (hexp₂ : F₂.exp = (emin₂ : QExp))
-    (hemin : emin₂ ≤ emin₁ - (p₁ : ℤ) - 2)
-    (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
-    {a b : Dyadic} (ha : a ∈ F₁) (hb : b ∈ F₁)
-    (hapos : 0 < (a : ℝ)) (hbpos : 0 < (b : ℝ))
-    (hle : F₁.canonicalExp ((a : ℝ) / (b : ℝ)) ≤ Int.log 2 ((a : ℝ) / (b : ℝ)) + 1)
-    {z w : Dyadic}
-    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) ((a : ℝ) / (b : ℝ)) z)
-    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
-    RoundsFinite F₁.unbounded (.nearest tb₁) ((a : ℝ) / (b : ℝ)) w := by
-  set v := (a : ℝ) / (b : ℝ) with hv_def
-  have hbne : (b : ℝ) ≠ 0 := ne_of_gt hbpos
-  have hv_pos : 0 < v := div_pos hapos hbpos
-  have hab : (a : ℝ) = v * (b : ℝ) := by rw [hv_def]; exact (div_mul_cancel₀ (a : ℝ) hbne).symm
-  have hppZ : 2 * (p₁ : ℤ) ≤ (p₂ : ℤ) := by exact_mod_cast hpp
-  have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
-  have hlogpair := log_div_bounds hapos hbpos
-  rw [← hv_def] at hlogpair
-  obtain ⟨hlog1, hlog2⟩ := hlogpair
-  -- `exp = emin` closed form of `cexp₁ v` and lower bounds `cexp ≥ mag − p₁`
-  have hcv : F₁.canonicalExp v = max (Int.log 2 v + 1 - (p₁ : ℤ)) emin₁ := by
-    rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hv_pos), abs_of_pos hv_pos]
-  have hcv2 : F₂.canonicalExp v = max (Int.log 2 v + 1 - (p₂ : ℤ)) emin₂ := by
-    rw [canonicalExp_expFinite hp₂ hexp₂ (ne_of_gt hv_pos), abs_of_pos hv_pos]
-  have hca_lo : Int.log 2 (a : ℝ) + 1 - (p₁ : ℤ) ≤ F₁.canonicalExp (a : ℝ) := by
-    rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hapos), abs_of_pos hapos]; exact le_max_left _ _
-  have hcb_lo : Int.log 2 (b : ℝ) + 1 - (p₁ : ℤ) ≤ F₁.canonicalExp (b : ℝ) := by
-    rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hbpos), abs_of_pos hbpos]; exact le_max_left _ _
-  -- Roux's `hquant`, from the two arms of `cexp₂ v = max …`
-  have h1 : emin₁ ≤ F₁.canonicalExp v := by rw [hcv]; exact le_max_right _ _
-  have h2 : Int.log 2 v + 1 - (p₁ : ℤ) ≤ F₁.canonicalExp v := by rw [hcv]; exact le_max_left _ _
-  have hquant : F₂.canonicalExp v ≤ F₁.canonicalExp v - (p₁ : ℤ) := by
-    rw [hcv2]; exact max_le (by omega) (by omega)
-  refine rndDiv_core (p₁ := p₁) (F₁.p_pos hp₁) hp₂ hundef₁ hapos hbpos hab
-    ?_ ?_ ?_ ?_ hle hquant hz hw
-  · obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ ha hapos; exact ⟨c, hc⟩
-  · obtain ⟨c, _, hc⟩ := exists_canonical_rep F₁ hp₁ hb hbpos; exact ⟨c, hc⟩
-  · omega
-  · omega
+  have hcv := canonicalExp_expBot hp₁ hexp₁ (ne_of_gt hv_pos)
+  have hcv2 := canonicalExp_expBot hp₂ hexp₂ (ne_of_gt hv_pos)
+  rw [abs_of_pos hv_pos] at hcv hcv2
+  exact rndDiv_core hp₁ hp₂ hundef₁ ha hb hapos hbpos (by rw [hcv]; omega)
+    (by rw [hcv2, hcv]; omega) hz hw
 
 /-- **rnd-div, positive case** (Roux Theorem 29, radix 2, minimum quantum). For
 `a, b ∈ F₁` (`exp = emin`) with `0 < a, b`, `p₂ ≥ 2p₁`, and
@@ -443,8 +389,14 @@ private theorem rndDiv_pos_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : T
   have hp1pos : (1 : ℤ) ≤ (p₁ : ℤ) := by exact_mod_cast F₁.p_pos hp₁
   have hppZ : 2 * (p₁ : ℤ) ≤ (p₂ : ℤ) := by exact_mod_cast hpp
   by_cases hle : F₁.canonicalExp v ≤ Int.log 2 v + 1
-  · exact rndDiv_pos_normal_expFinite hp₁ hp₂ hpp hexp₁ hexp₂ hemin hundef₁ ha hb hapos hbpos
-      hle hz hw
+  · -- normal: `F₂`'s step at `v` is `p₁` bits below `F₁`'s in either arm of the `max`
+    refine rndDiv_core hp₁ hp₂ hundef₁ ha hb hapos hbpos hle ?_ hz hw
+    rw [show (a : ℝ) / b = v from rfl]
+    have h1 : emin₁ ≤ F₁.canonicalExp v := F₁.exp_le_canonicalExp v hexp₁
+    have h2 := F₁.log_sub_p_le_canonicalExp (ne_of_gt hv_pos) hp₁
+    rw [abs_of_pos hv_pos] at h2
+    rw [canonicalExp_expFinite hp₂ hexp₂ (ne_of_gt hv_pos), abs_of_pos hv_pos]
+    exact max_le (by omega) (by omega)
   · -- underflow regime: `cexp₁ v = emin₁ > mag v`
     rw [not_le] at hle
     have hhalf : ∀ k : ℤ, (2 : ℝ) ^ (k - 1) = (2 : ℝ) ^ k / 2 := fun k => (two_zpow_half k).symm
@@ -503,18 +455,9 @@ private theorem rndDiv_pos_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : T
       obtain ⟨my, _, hmy⟩ := exists_canonical_rep F₁ hp₁ hb hbpos
       have hab : (a : ℝ) = v * (b : ℝ) := by
         rw [hv_def]; exact (div_mul_cancel₀ (a : ℝ) hbne).symm
-      have hca_lo : Int.log 2 (a : ℝ) + 1 - (p₁ : ℤ) ≤ F₁.canonicalExp (a : ℝ) := by
-        rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hapos), abs_of_pos hapos]
-        exact le_max_left _ _
-      have hcb_lo : Int.log 2 (b : ℝ) + 1 - (p₁ : ℤ) ≤ F₁.canonicalExp (b : ℝ) := by
-        rw [canonicalExp_expFinite hp₁ hexp₁ (ne_of_gt hbpos), abs_of_pos hbpos]
-        exact le_max_left _ _
-      have hlogpair := log_div_bounds hapos hbpos
-      rw [← hv_def] at hlogpair
-      obtain ⟨hlog1, hlog2⟩ := hlogpair
-      have hA : F₂.canonicalExp v + Int.log 2 (b : ℝ) ≤ F₁.canonicalExp (a : ℝ) := by omega
-      have hB : F₂.canonicalExp v + Int.log 2 (b : ℝ)
-          ≤ F₁.canonicalExp v - 1 + F₁.canonicalExp (b : ℝ) := by omega
+      obtain ⟨hA, hB⟩ := div_sep_bounds (F₂ := F₂) hp₁ hapos hbpos
+        (by rw [show (a : ℝ) / b = v from rfl]; omega)
+        (by rw [show (a : ℝ) / b = v from rfl]; omega)
       have hsep := round_round_div_aux hbpos hab ⟨mx, hmx⟩ ⟨my, hmy⟩ hA hB hne_mid
       linarith [hsep, hclose]
 

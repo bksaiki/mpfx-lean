@@ -79,6 +79,26 @@ theorem lt_rndDown_add_ulp (F : FiniteFormat) {x : ℝ}
   rw [hulp]
   nlinarith [hlt]
 
+/-- Below its binade top, the round-down plus one step stays at most `2^(⌊log₂ x⌋+1)`:
+the floor point's successor at the canonical exponent is still a multiple of the
+step. -/
+theorem rndDown_add_ulp_le (F : FiniteFormat) {x : ℝ} (hx : 0 < x)
+    (hle : F.canonicalExp x ≤ Int.log 2 x + 1) :
+    (rndDown F x : ℝ) + ulp F x ≤ 2 ^ (Int.log 2 x + 1) := by
+  rw [ulp_of_ne_zero F hx.ne', rndDown_eq, Dyadic.coe_ofIntZpow]
+  set e := F.canonicalExp x
+  set N : ℤ := 2 ^ (Int.log 2 x + 1 - e).toNat with hN_def
+  have hN : (N : ℝ) * 2 ^ e = 2 ^ (Int.log 2 x + 1) := by
+    rw [two_zpow_split_toNat (K := ℝ) hle, hN_def]; push_cast; ring
+  have hlt : ⌊x * 2 ^ (-e)⌋ < N := by
+    refine Int.floor_lt.mpr ((mul_lt_mul_iff_of_pos_right (zpow_pos two_pos e)).mp ?_)
+    rw [mul_zpow_neg_self, hN]
+    exact Int.lt_zpow_succ_log_self (by norm_num) x
+  calc (⌊x * 2 ^ (-e)⌋ : ℝ) * 2 ^ e + 2 ^ e = ((⌊x * 2 ^ (-e)⌋ + 1 : ℤ) : ℝ) * 2 ^ e := by
+        push_cast; ring
+    _ ≤ (N : ℝ) * 2 ^ e := int_mul_two_zpow_le_iff.mpr (by omega)
+    _ = _ := hN
+
 /-- **Midpoint** bracketing `x`: `rndDown F x + ulp F x / 2` (Flocq `midp`). -/
 noncomputable def midp (F : FiniteFormat) (x : ℝ) : ℝ :=
   (rndDown F x : ℝ) + ulp F x / 2

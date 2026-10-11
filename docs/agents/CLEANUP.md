@@ -360,7 +360,7 @@ through `unbotD 0`), and it alternates. `(1, ⊥)` is only special in that no
 
 About 300 lines, mostly medium confidence.
 
-* [ ] `Add.lean`: `rndAdd_pos` and `rndSub_pos` are the same three-way
+* [x] `Add.lean`: `rndAdd_pos` and `rndSub_pos` are the same three-way
   dispatcher (small gap exact, subnormal exact, normal to midpoint);
   `sum_precisionAtMost` and `diff_precisionAtMost` differ only in the sign of
   `cy`; `rndAdd_pos_normal` and `rndSub_pos_normal` repeat about 45 lines of
@@ -369,17 +369,19 @@ About 300 lines, mostly medium confidence.
   should be `log_eq_of_zpow_bounds`. About 120 lines.
 * [ ] `Mul.lean`: `mul_mem_F₂_unbounded` already takes `F₂.exp ≤ F₁.exp +
   F₁.exp`, so `rndMul_expBot` and `rndMul_expFinite` are two instantiations of
-  one theorem, as in `Add.lean`. About 20 lines.
-* [ ] `Sqrt.lean`: `rndSqrt_expBot` and `_expFinite` share about 15 lines of
+  one theorem, as in `Add.lean`. Merging renames README-listed theorems, and each
+  is already a one-line `rndExact`; it saves only a docstring.
+* [x] `Sqrt.lean`: `rndSqrt_expBot` and `_expFinite` share about 15 lines of
   setup. About 40 lines.
-* [ ] `Div.lean`: `rndDiv_pos` and `rndDiv_pos_normal_expFinite` are nearly
+* [x] `Div.lean`: `rndDiv_pos` and `rndDiv_pos_normal_expFinite` are nearly
   identical given `log_sub_p_le_canonicalExp` and an upper bound on `cexp₂`;
   the sliver case in `rndDiv_pos_expFinite` recomputes `hca_lo`, `hcb_lo`,
   `hlogpair`, `hab`. About 50 lines.
-* [ ] "`rndDown F x + ulp F x ≤ 2^(log x + 1)` when `cexp x ≤ log x + 1`" is
+* [x] "`rndDown F x + ulp F x ≤ 2^(log x + 1)` when `cexp x ≤ log x + 1`" is
   proved in `NearestMidpoint.canonicalExp_eq_of_lt_mid` and in
-  `Sqrt.round_round_sqrt_aux`; move it to `Ulp.lean`. `rnd_gt_mid` redoes
-  `rndNeg` inline. About 30 lines.
+  `Sqrt.round_round_sqrt_aux`; move it to `Ulp.lean`. About 30 lines. (`rnd_gt_mid`
+  cannot use `rndNeg`: its `hcexp` is about the given intermediate, while
+  `rndNeg` quantifies over every intermediate.)
 
 ## U. Unused API
 

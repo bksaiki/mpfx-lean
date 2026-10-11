@@ -188,32 +188,8 @@ private theorem canonicalExp_eq_of_lt_mid {F₁ F₂ : FiniteFormat} {tb₂ : Ti
   have hz_err := abs_le.mp (nearest_error_le_half_ulp hz)
   have hz_lt_midp : (z : ℝ) < midp F₁ x := by linarith [hz_err.2, hmid]
   have hmidp_lt : midp F₁ x < (2 : ℝ) ^ (k + 1) := by
-    set m : ℤ := ⌊x * (2 : ℝ) ^ (-e₁)⌋ with hm
-    have hA : (rndDown F₁ x : ℝ) = (m : ℝ) * (2 : ℝ) ^ e₁ := by
-      rw [rndDown_eq, Dyadic.coe_ofIntZpow, ← he₁, ← hm]
-    have hxs : x * (2 : ℝ) ^ (-e₁) < (2 : ℝ) ^ (k + 1 - e₁) := by
-      have key : (2 : ℝ) ^ (k + 1 - e₁) = (2 : ℝ) ^ (k + 1) * (2 : ℝ) ^ (-e₁) := by
-        rw [show k + 1 - e₁ = (k + 1) + (-e₁) from by ring,
-            zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-      rw [key]; exact mul_lt_mul_of_pos_right h_xhi (zpow_pos (by norm_num) _)
-    set N : ℤ := (2 : ℤ) ^ (k + 1 - e₁).toNat with hN
-    have hN_real : (N : ℝ) = (2 : ℝ) ^ (k + 1 - e₁) := by
-      rw [hN]; push_cast
-      rw [← zpow_natCast (2 : ℝ) ((k + 1 - e₁).toNat),
-          Int.toNat_of_nonneg (by omega : (0 : ℤ) ≤ k + 1 - e₁)]
-    have hm_lt_N : m < N := by
-      have hmfl : (m : ℝ) ≤ x * (2 : ℝ) ^ (-e₁) := Int.floor_le _
-      have : (m : ℝ) < (N : ℝ) := by rw [hN_real]; linarith [hmfl, hxs]
-      exact_mod_cast this
-    have hNe₁ : (N : ℝ) * (2 : ℝ) ^ e₁ = (2 : ℝ) ^ (k + 1) := by
-      rw [hN_real, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]; congr 1; ring
-    have hA_le : (rndDown F₁ x : ℝ) ≤ (2 : ℝ) ^ (k + 1) - (2 : ℝ) ^ e₁ := by
-      rw [hA]
-      have hmN : (m : ℝ) ≤ (N : ℝ) - 1 := by
-        have : (m : ℤ) ≤ N - 1 := by omega
-        exact_mod_cast this
-      nlinarith [hmN, h2e₁, hNe₁]
-    rw [midp, ulp_of_ne_zero F₁ hx.ne', ← he₁]; linarith [hA_le, h2e₁]
+    have h := rndDown_add_ulp_le F₁ hx hle
+    rw [midp]; rw [ulp_of_ne_zero F₁ hx.ne'] at h ⊢; linarith
   exact canonicalExp_eq_of_binade_top hx h21 hle (hk ▸ lt_trans hz_lt_midp hmidp_lt) hz
 
 /-- **Lemma 16 (Roux `round_round_lt_mid_further_place`).** The hypothesis-free
