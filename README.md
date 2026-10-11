@@ -92,16 +92,26 @@ each exhibits a real `x` whose chained rounding disagrees with the direct
 rounding, with no rounding overflowing (`Disagrees`: `∃ x z w y,
 RoundsInBound F₂ rm₂ x z ∧ RoundsInBound F₁ rm₁ z w ∧ RoundsInBound F₁ rm₁ x y ∧
 w ≠ y`). `Disagrees.rnd_ne` turns the witness into a failure of
-`rnd₁ ∘ rnd₂ = rnd₁` for any special and overflow tables.
+`rnd₁ ∘ rnd₂ = rnd₁` for any `SpecialMap` and `OverflowMap`, at a finite input
+with a finite intermediate; `no_rnd<rm₂>_<rm₁>` state that for each pairing
+(with an RNE intermediate, given `¬ F₂.IsUndefined (.nearest .toEven)`), and
+`no_rounds<rm₂>_<rm₁>` give the `Disagrees` witness itself.
 
 The only hypothesis on `F₁` is a count of its positive values
-(`Format.HasPositive`):
+(`Format.HasPositive`; one is `Nontrivial`):
 
-| Positive values of `F₁` | Pairings |
-|---|---|
-| 1 (`Nontrivial`) | `no_rndRNE_RTZ`, `no_rndRAZ_RTZ`, `no_rndRTZ_RNE`, `no_rndRNE_RNE` |
-| 2 | `no_rndRTZ_RAZ`, `no_rndRNE_RAZ`, `no_rndRAZ_RTO`, `no_rndRNE_RTO`, `no_rndRAZ_RNE` |
-| 3 | `no_rndRTZ_RTO` |
+| Pairing | Positive values of `F₁` | In bound (`Disagrees`) | On `rnd` |
+| --- | --- | --- | --- |
+| RNE → RTZ | 1 | `no_roundsRNE_RTZ` | `no_rndRNE_RTZ` |
+| RAZ → RTZ | 1 | `no_roundsRAZ_RTZ` | `no_rndRAZ_RTZ` |
+| RTZ → RNE | 1 | `no_roundsRTZ_RNE` | `no_rndRTZ_RNE` |
+| RNE → RNE | 1 | `no_roundsRNE_RNE` | `no_rndRNE_RNE` |
+| RTZ → RAZ | 2 | `no_roundsRTZ_RAZ` | `no_rndRTZ_RAZ` |
+| RNE → RAZ | 2 | `no_roundsRNE_RAZ` | `no_rndRNE_RAZ` |
+| RAZ → RTO | 2 | `no_roundsRAZ_RTO` | `no_rndRAZ_RTO` |
+| RNE → RTO | 2 | `no_roundsRNE_RTO` | `no_rndRNE_RTO` |
+| RAZ → RNE | 2 | `no_roundsRAZ_RNE` | `no_rndRAZ_RNE` |
+| RTZ → RTO | 3 | `no_roundsRTZ_RTO` | `no_rndRTZ_RTO` |
 
 An unbounded `F₁` has every count (`FiniteFormat.hasPositive_of_b_top`). The
 counts are believed least, since with one fewer an `F₂` without a minimum quantum

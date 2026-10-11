@@ -149,7 +149,8 @@ Mpfx/
     ├── Special.lean  rules with tables: rndRTZ_RTZ, …, rndRTO_RN and *_of_bound;
     │                 rnd_double, SpecialMap/OverflowMap.Composes, OverflowAgrees
     │                 (+ of_bound, of_saturate), the standard tables' composition
-    ├── Counterexample.lean the ten Cex.no_rnd* theorems, Disagrees (+ rnd_ne)
+    ├── Counterexample.lean Cex.no_rounds* (Disagrees witnesses), Cex.no_rnd*
+    │                 (on rnd, via Disagrees.rnd_ne)
     ├── Counterexample/ Basic: format-generic grid facts (Isolated,
     │                 exists_isolated, Adjacent, exists_pred, alternate_of_adjacent,
     │                 roundings near an isolated value, roundsRNE_of_bracket)
