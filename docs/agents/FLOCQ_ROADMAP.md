@@ -39,7 +39,8 @@ spec, none of which mention the `rnd` construction:
 * uniqueness per mode and generic (`RoundsFinite.unique`, Flocq `round_unique`);
 * faithfulness (`RoundsFinite.isFaithfulRound`);
 * `eq_zero_of_zero`, `toNegative_nonneg`, `toPositive_nonpos`;
-* monotonicity per mode and generic (`RoundsFinite.monotone`, Flocq `round_le`);
+* monotonicity per mode and generic (`RoundsFinite.monotone`, Flocq `round_le`)
+  was proved and later removed as unused; recover it from commit `2293cbc`;
 * the grid bridges `toNegative_floor` / `toPositive_ceil` and their equation
   forms, plus `isOdd_alternate_of_bracketing`.
 
@@ -66,6 +67,12 @@ half; these are cheap and get used constantly.
 ## 4. `Mpfx/Ulp.lean` — `Core/Ulp.v` — **done**
 
 *Residual notes in [`ULP_TODO.md`](ULP_TODO.md).*
+
+`succ`/`pred`/`predPos`, the error bounds below and the bracket
+characterisations were later removed as unused (nothing outside `Ulp.lean`
+called them); recover them from commit `2293cbc`. What remains is `ulp`,
+`rndDown`/`rndUp`/`midp`, `nearest_error_le_half_ulp` and the midpoint
+characterisations of nearest rounding.
 
 `ulp` (Goldberg's convention, `0` at zero when there is no minimum quantum),
 `rndDown`/`rndUp`/`midp`, `succ`/`pred`/`predPos` as total format functions with

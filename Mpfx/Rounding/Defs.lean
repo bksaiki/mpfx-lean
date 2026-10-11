@@ -55,22 +55,6 @@ inductive RoundResult where
   | value (v : WithSpecial Dyadic) : RoundResult
   | undefined : RoundResult
 
-namespace RoundResult
-
-/-- Negation through the value; `.undefined` is a fixed point. -/
-def neg : RoundResult → RoundResult
-  | .value v   => .value v.neg
-  | .undefined => .undefined
-
-@[simp] theorem neg_value (v : WithSpecial Dyadic) :
-    (RoundResult.value v).neg = .value v.neg := rfl
-@[simp] theorem neg_undefined : RoundResult.undefined.neg = .undefined := rfl
-
-@[simp] theorem neg_neg (r : RoundResult) : r.neg.neg = r := by
-  cases r <;> simp [neg]
-
-end RoundResult
-
 /-- The format/mode pair is degenerate (no meaningful rounding):
 `(1, ⊥, rm)` for `rm ∈ {.toOdd, .nearest .toEven}` — precision `1` with
 no quantum has no anchor for parity, so the modes that consult
@@ -115,12 +99,6 @@ structure OverflowMap (F : Format) where
   map : Bool → WithSpecial Dyadic
   mem : ∀ negative, map negative ∈ F.values
 
-/-- The table for the negated input: `(O.neg hF).map b = (O.map !b).neg`. -/
-def OverflowMap.neg {F : Format} (hF : F.NegClosed) (O : OverflowMap F) : OverflowMap F :=
-  ⟨fun negative => (O.map !negative).neg, fun _ => Format.neg_mem_values hF (O.mem _)⟩
-
-@[simp] theorem OverflowMap.neg_map {F : Format} (hF : F.NegClosed) (O : OverflowMap F)
-    (negative : Bool) : (O.neg hF).map negative = (O.map !negative).neg := rfl
 
 /-! ### The specification relation `Rounds`
 

@@ -246,8 +246,7 @@ end Format
 
 namespace FiniteFormat
 
-/-- The next representable value at or above a non-negative `b` — the `Dyadic`
-counterpart of `succ`, whose real value it carries (`next_coe`).
+/-- The next representable value above a non-negative `b`: `b + 2^canonicalExp b`.
 
 Unlike `Format.next` this has no junk branches: without a minimum quantum `0`
 has no successor, and `next F 0 = 0` records that rather than inventing one. -/

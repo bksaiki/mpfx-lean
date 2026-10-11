@@ -1,5 +1,9 @@
 # ulp, succ and pred
 
+`succ`, `pred` and `predPos` were removed as unused after this work landed;
+they are recoverable from commit `2293cbc`. The convention notes below still
+govern `ulp` and `FiniteFormat.next`.
+
 Item 4 of [`FLOCQ_ROADMAP.md`](FLOCQ_ROADMAP.md) is done: `ulp` at zero,
 `Mpfx/Ulp.lean`, `succ`/`pred` with their involutions, `FiniteFormat.next`,
 adjacency through `succ`, the `Discrete.lean` merge, the error bounds and the

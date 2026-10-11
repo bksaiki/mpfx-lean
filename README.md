@@ -186,12 +186,12 @@ Every theorem listed above depends on exactly these three standard axioms.
 | `Mpfx/Format/CanonicalExp.lean` | Closed forms of the canonical exponent. |
 | `Mpfx/Format/Inference.lean` | §6.1 inference. |
 | `Mpfx/Rounding/Defs.lean` | Rounding modes, `SpecialMap`/`OverflowMap`, the `Rounds`/`RoundsFinite` spec, `Overflows`, `IsFaithfulRound`. |
-| `Mpfx/Rounding/Basic.lean` | Consequences of the spec: sign symmetry, uniqueness, faithfulness, monotonicity. |
+| `Mpfx/Rounding/Basic.lean` | Consequences of the spec: sign symmetry, uniqueness, faithfulness. |
 | `Mpfx/Rounding/Restrict.lean` | Restrict/lift between bounded and unbounded rounding. |
 | `Mpfx/Rounding/Parity.lean` | Adjacent grid points alternate in parity. |
 | `Mpfx/Rounding/Op.lean`, `Op/` | The rounding function `rnd` and the bridge `rnd_iff_rounds`. |
 | `Mpfx/Rounding/Special.lean` | `maxFinite` and the standard tables: `SpecialMap.exact`/`saturate`/`toNaN`, `OverflowMap.ieee`/`saturate`/`toNaN`. |
-| `Mpfx/Rounding/Ulp.lean` | `ulp`, `rndDown`/`rndUp`/`midp`, `succ`/`pred`. |
+| `Mpfx/Rounding/Ulp.lean` | `ulp`, `rndDown`/`rndUp`/`midp`, nearest rounding around the midpoint. |
 | `Mpfx/DoubleRounding/Basic.lean` | §5.2 positive rules (finite form), except RTO→RN; `rndExact`. |
 | `Mpfx/DoubleRounding/Nearest.lean` | `roundsRTO_RN_finite`. |
 | `Mpfx/DoubleRounding/Propagation.lean` | Per-rule overflow propagation between direct, `F₂` and chained rounding. |

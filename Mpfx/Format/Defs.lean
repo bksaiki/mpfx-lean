@@ -154,12 +154,6 @@ theorem mem_neg_iff (F : Format) (d : Dyadic) : (-d) ∈ F ↔ d ∈ F :=
 /-- `F`'s specials are closed under negation. -/
 def NegClosed (F : Format) : Prop := ∀ s ∈ F.specials, s.neg ∈ F.specials
 
-theorem neg_mem_values {F : Format} (hF : F.NegClosed) {v : WithSpecial Dyadic}
-    (hv : v ∈ F.values) : v.neg ∈ F.values := by
-  cases v with
-  | finite d => exact neg_mem (F := F) hv
-  | special s => exact hF s hv
-
 /-- `F` contains at least one nonzero value. §4.2's non-triviality restriction. -/
 def Nontrivial (F : Format) : Prop :=
   ∃ d : Dyadic, d ∈ F ∧ d ≠ 0

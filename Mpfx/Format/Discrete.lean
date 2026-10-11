@@ -12,7 +12,7 @@ place members on the quantum grid (`quantum_floor_of_mem`/`quantum_ceil_of_mem`)
 and on the local binade step (`binade_quantum`).
 
 `canonicalExp` carries the spacing, so the two exponent regimes need no separate
-treatment. `Mpfx/Rounding/Ulp.lean` restates adjacency through `succ`.
+treatment.
 -/
 
 namespace Mpfx

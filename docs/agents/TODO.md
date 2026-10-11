@@ -104,14 +104,14 @@ Mpfx/
 ├── Rounding/
 │   ├── Defs.lean     relational layer:
 │   │                 TieBreak, RoundingMode,
-│   │                 RoundResult (value | undefined), RoundResult.neg,
-│   │                 FiniteFormat.IsUndefined, SpecialMap, OverflowMap (+ neg),
+│   │                 RoundResult (value | undefined),
+│   │                 FiniteFormat.IsUndefined, SpecialMap, OverflowMap,
 │   │                 IsFaithfulRound, RoundsFinite, RoundsInBound, Overflows,
 │   │                 Rounds,
 │   │                 FiniteFormat.toParityFormatOf{ToOdd,NearestEven}
 │   ├── Basic.lean    relational consequences of the spec. Sign symmetry:
-│   │                 IsFaithfulRound.neg_iff, per-mode RoundsFinite.neg_*,
-│   │                 Rounds.neg_*. Mode-vs-sign: RTP/RTN ↔ RTZ/RAZ by sign of x.
+│   │                 IsFaithfulRound.neg_iff, per-mode RoundsFinite.neg_*.
+│   │                 Mode-vs-sign: RTP/RTN ↔ RTZ/RAZ by sign of x.
 │   │                 RoundsFinite.{toZero,awayZero,toOdd}_self, uniqueness per
 │   │                 mode and generic, isFaithfulRound, eq_zero_of_zero,
 │   │                 opposite_sides_of_ne, the grid bridges
@@ -119,8 +119,8 @@ Mpfx/
 │   │                 isOdd_alternate_of_bracketing, sign and magnitude of a
 │   │                 faithful rounding (decide_lt_zero, mul_nonneg,
 │   │                 abs_faithful_le_of_le, le_abs_faithful_of_le),
-│   │                 ne_zero_of_not_boundOK, monotonicity per mode
-│   │                 and generic. Mentions no construction.
+│   │                 ne_zero_of_not_boundOK, nearest_min. Mentions no
+│   │                 construction.
 │   ├── Restrict.lean per-mode restrict/lift between RoundsFinite F and F.unbounded
 │   ├── Parity.lean   neighbors_alternate: adjacent grid points alternate in
 │   │                 parity; the toOdd and nearest .toEven forms
@@ -132,8 +132,7 @@ Mpfx/
 │   │                 standard tables: SpecialMap.exact/saturate/toNaN,
 │   │                 OverflowMap.ieee/saturate/toNaN
 │   └── Ulp.lean      ulp/rndDown/rndUp/midp, the nearest error bound and the
-│                     below/above-midpoint characterisations, succ/pred/predPos
-│                     and their membership + adjacency lemmas
+│                     below/above-midpoint characterisations
 └── DoubleRounding/
     ├── Basic.lean    §5.2 rules, spec-relational over RoundsFinite:
     │                 roundsRTZ_RTZ_finite, roundsRAZ_RAZ_finite(_pos), roundsRTO_RTO_finite,
@@ -199,6 +198,9 @@ MpfxTest/             `lake test` examples
       1.26 differs from direct E2M1 RNE rounding (paper §3.5).
 
 ## Open: Refactoring / cleanup (low-priority)
+
+The full cleanup plan, from a review of the whole development, is in
+[`CLEANUP.md`](CLEANUP.md).
 
 - [ ] **Optional `Coe FiniteFormat Format` instance** — would let `⊆`/
       `withBound`/`boundAfterNext` drop their explicit `.toFormat` too. Add
