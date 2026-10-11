@@ -507,47 +507,34 @@ def extend (F : FiniteFormat) (k : ℕ) : FiniteFormat where
 @[simp] theorem extend_toFormat (F : FiniteFormat) k :
     (F.extend k).toFormat = F.toFormat.extend k := rfl
 
+/-- Extending by `k` bits lowers the canonical exponent of every nonzero `x` by
+exactly `k`: `p ↦ p + k` and `exp ↦ exp − k` each shift their term of the `max`. -/
+theorem canonicalExp_extend (F : FiniteFormat) (k : ℕ) {x : ℝ} (hx : x ≠ 0) :
+    (F.extend k).canonicalExp x = F.canonicalExp x - k := by
+  cases hp : F.p using ENat.recTopCoe with
+  | top =>
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot => exact (F.finite.elim (· hp) (· hexp)).elim
+    | coe e =>
+      rw [canonicalExp_pTop hp hexp,
+        canonicalExp_pTop (F := F.extend k) (by simp [hp]) (Format.extend_exp_coe hexp k)]
+  | coe n =>
+    have hpe : (F.extend k).p = ((n + k : ℕ) : Prec) := by simp [hp]
+    cases hexp : F.exp using QExp.recBotCoe with
+    | bot =>
+      rw [canonicalExp_expBot hp hexp hx,
+        canonicalExp_expBot hpe (Format.extend_exp_bot hexp k) hx]
+      push_cast; ring
+    | coe e =>
+      rw [canonicalExp_expFinite hp hexp hx,
+        canonicalExp_expFinite hpe (Format.extend_exp_coe hexp k) hx]
+      push_cast; omega
+
 /-- **Digit-shift lemma** (`w₂ = w₁ + k`): extending `F` by `k` increases the digit count of every
 nonzero `x` by exactly `k`. -/
 theorem numDigits_extend (F : FiniteFormat) (k : ℕ) {x : ℝ} (hx : x ≠ 0) :
     (F.extend k).numDigits x = F.numDigits x + k := by
-  have hp_ext : (F.extend k).p = F.p + (k : Prec) := rfl
-  have he_ext : (F.extend k).exp = F.exp.map (· - (k : ℤ)) := rfl
-  cases hp : F.p using ENat.recTopCoe with
-  | top =>
-    cases hexp : F.exp using QExp.recBotCoe with
-    | bot =>
-      exfalso; rcases F.finite with h | h
-      · exact h hp
-      · exact h hexp
-    | coe e' =>
-      have hpe : (F.extend k).p = ⊤ := by rw [hp_ext, hp]; rfl
-      have hee : (F.extend k).exp = ((e' - (k : ℤ) : ℤ) : QExp) := by
-        rw [he_ext, hexp, WithBot.map_coe]
-      rw [F.numDigits_top_coe hx hexp hp,
-          (F.extend k).numDigits_top_coe hx hee hpe]
-      ring
-  | coe n =>
-    cases hexp : F.exp using QExp.recBotCoe with
-    | bot =>
-      have hpe : (F.extend k).p = ((n + k : ℕ) : Prec) := by
-        rw [hp_ext, hp, ← Nat.cast_add]
-      have hee : (F.extend k).exp = ⊥ := by rw [he_ext, hexp]; rfl
-      rw [F.numDigits_coe_bot hx hp hexp,
-          (F.extend k).numDigits_coe_bot hx hpe hee]
-      push_cast; ring
-    | coe e' =>
-      have hpe : (F.extend k).p = ((n + k : ℕ) : Prec) := by
-        rw [hp_ext, hp, ← Nat.cast_add]
-      have hee : (F.extend k).exp = ((e' - (k : ℤ) : ℤ) : QExp) := by
-        rw [he_ext, hexp, WithBot.map_coe]
-      rw [F.numDigits_coe_coe hx hp hexp,
-          (F.extend k).numDigits_coe_coe hx hpe hee]
-      have hnk : (((n + k : ℕ) : ℕ) : ℤ) = (n : ℤ) + (k : ℤ) := by push_cast; ring
-      rw [hnk]
-      have hlog : Int.log 2 |x| - (e' - (k : ℤ)) + 1
-          = Int.log 2 |x| - e' + 1 + (k : ℤ) := by ring
-      rw [hlog]; omega
+  simp only [numDigits, if_neg hx, F.canonicalExp_extend k hx]; ring
 
 end FiniteFormat
 

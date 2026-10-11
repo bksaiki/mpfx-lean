@@ -342,9 +342,8 @@ private theorem toOdd_notMem_of_lower_numDigits {F₁ F₂ : FiniteFormat}
     rw [Dyadic.precisionAtMost_coe_real]
     exact ⟨c, e, hz_rep_real, hc_bound⟩
   -- `numDigits F₂' z = numDigits F₂ z` (same underlying format), and it exceeds `w`.
-  have hF₂'_nd : F₂'.toFiniteFormat.numDigits (z : ℝ) = F₂.numDigits (z : ℝ) := by
-    unfold FiniteFormat.numDigits
-    rw [show F₂'.toFiniteFormat.toFormat = F₂'.toFormat from rfl, hF₂'eq]
+  have hF₂'_nd : F₂'.toFiniteFormat.numDigits (z : ℝ) = F₂.numDigits (z : ℝ) :=
+    numDigits_congr (congrArg Format.p hF₂'eq :) (congrArg Format.exp hF₂'eq :) _
   have hgt : (n : ℤ) < F₂'.toFiniteFormat.numDigits (z : ℝ) := by
     rw [hF₂'_nd, hn_eq]; exact hlt
   exact F₂'.precisionAtMost_not_IsOdd hn_pos hgt h_prec hodd
@@ -381,9 +380,8 @@ theorem toOdd_notMem_of_extend_subset {F₁ F₂ : FiniteFormat}
     numDigits_eq_of_subset_of_isOdd hsub' hp_F₂' hzF₁_ext hF₂'odd
   rw [F₁.numDigits_extend 1 hz_ne_real] at h_eq
   -- `numDigits F₂' z = numDigits F₂ z`.
-  have hF₂'_nd : F₂'.toFiniteFormat.numDigits (z : ℝ) = F₂.numDigits (z : ℝ) := by
-    unfold FiniteFormat.numDigits
-    rw [show F₂'.toFiniteFormat.toFormat = F₂'.toFormat from rfl, hF₂'eq]
+  have hF₂'_nd : F₂'.toFiniteFormat.numDigits (z : ℝ) = F₂.numDigits (z : ℝ) :=
+    numDigits_congr (congrArg Format.p hF₂'eq :) (congrArg Format.exp hF₂'eq :) _
   rw [hF₂'_nd] at h_eq
   -- `numDigits F₁ z + 1 = numDigits F₂ z`, so the strict inequality holds.
   have hlt : F₁.numDigits (z : ℝ) < F₂.numDigits (z : ℝ) := by

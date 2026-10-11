@@ -3,71 +3,14 @@ import Mpfx.Format.Discrete
 /-!
 # Canonical exponent: closed forms and grid representation
 
-Format-generic facts about `FiniteFormat.canonicalExp` (Flocq `cexp`), shared by
-the operation-specific double-rounding proofs (addition, square root, …):
-
-* `canonicalExp_closed` / `canonicalExp_expBot` / `canonicalExp_expFinite` — the
-  closed forms of `cexp` in the normal range, with no minimum quantum
-  (`exp = ⊥`), and with one (`exp = emin` finite);
-* `exp_le_canonicalExp_coe` — `F.exp ≤ cexp` uniformly over `exp = ⊥`/finite;
-* `exp_le_log_of_mem` / `isAboveQuantum_of_mem` — a positive member lies above
-  the quantum; `canonicalExp_binade_below_le`, `canonicalExp_zero`.
+Grid representation at the canonical exponent: floor and ceiling minimality
+(`floor_minimality`, `ceil_minimality`), membership of `k · 2^e` once `e` is at
+least the quantum (`ofIntZpow_mem_unbounded`), and the mantissa bound
+`floor_mantissa_lt`. The closed forms of `canonicalExp` itself are in
+`Format/Defs.lean`.
 -/
 
 namespace Mpfx
-
-/-- **Closed form of `canonicalExp` in the normal range**, uniform over both
-exponent regimes. When `v` is nonzero and its precision exponent
-`log₂|v| + 1 − p` is at least `F.exp` (the *normal* regime — vacuous for
-`exp = ⊥`), `canonicalExp` takes that form. This is the single lemma that lets
-the `exp = ⊥` proofs run unchanged for finite `exp`: in the genuine-midpoint
-case all values are normal. -/
-theorem canonicalExp_closed {F : FiniteFormat} {p : ℕ}
-    (hp : F.p = (p : Prec)) {v : ℝ} (hv : v ≠ 0)
-    (hnorm : F.exp ≤ ((Int.log 2 |v| + 1 - (p : ℤ) : ℤ) : QExp)) :
-    F.canonicalExp v = Int.log 2 |v| + 1 - (p : ℤ) := by
-  unfold FiniteFormat.canonicalExp
-  cases hexp : F.exp using QExp.recBotCoe with
-  | bot => simp only [hp, hv, if_false]
-  | coe e =>
-    simp only [hp, hv, if_false]
-    rw [hexp] at hnorm
-    exact max_eq_left (by exact_mod_cast hnorm)
-
-/-- Closed form of `canonicalExp` with no minimum quantum (`exp = ⊥`):
-`log₂|v| + 1 − p` (the vacuous-normality case of `canonicalExp_closed`). -/
-theorem canonicalExp_expBot {F : FiniteFormat} {p : ℕ}
-    (hp : F.p = (p : Prec)) (hexp : F.exp = ⊥)
-    {v : ℝ} (hv : v ≠ 0) : F.canonicalExp v = Int.log 2 |v| + 1 - (p : ℤ) :=
-  canonicalExp_closed hp hv (by rw [hexp]; exact bot_le)
-
-/-- Closed form of `canonicalExp` with a minimum quantum (`exp = emin` finite):
-`max(log₂|v| + 1 − p, emin)`. -/
-theorem canonicalExp_expFinite {F : FiniteFormat} {p : ℕ} {emin : ℤ}
-    (hp : F.p = (p : Prec)) (hexp : F.exp = (emin : QExp))
-    {v : ℝ} (hv : v ≠ 0) :
-    F.canonicalExp v = max (Int.log 2 |v| + 1 - (p : ℤ)) emin := by
-  unfold FiniteFormat.canonicalExp; simp only [hp, hexp, hv, if_false]
-
-/-- `F.exp ≤ (F.canonicalExp x : QExp)`, uniformly over `exp = ⊥`/finite. -/
-theorem exp_le_canonicalExp_coe (F : FiniteFormat) (x : ℝ) :
-    F.exp ≤ ((F.canonicalExp x : ℤ) : QExp) := by
-  cases hexp : F.exp using QExp.recBotCoe with
-  | bot => exact bot_le
-  | coe e => exact_mod_cast F.exp_le_canonicalExp x hexp
-
-/-- Closed form with unrestricted precision: `canonicalExp` is the quantum
-everywhere (`F.finite` rules out `exp = ⊥` here). -/
-theorem canonicalExp_pTop {F : FiniteFormat} {emin : ℤ}
-    (hp : F.p = ⊤) (hexp : F.exp = (emin : QExp)) (v : ℝ) : F.canonicalExp v = emin := by
-  unfold FiniteFormat.canonicalExp; rw [hp, hexp]; rfl
-
-/-- Closed form in the **subnormal** range: when the precision exponent falls
-below the quantum, `canonicalExp` *is* the quantum. -/
-theorem canonicalExp_subnormal {F : FiniteFormat} {p : ℕ} {emin : ℤ}
-    (hp : F.p = (p : Prec)) (hexp : F.exp = (emin : QExp)) {v : ℝ} (hv : v ≠ 0)
-    (h : Int.log 2 |v| + 1 - (p : ℤ) ≤ emin) : F.canonicalExp v = emin := by
-  rw [canonicalExp_expFinite hp hexp hv]; exact max_eq_right h
 
 /-! ### Format-dependent scaled-mantissa facts
 
@@ -309,58 +252,5 @@ theorem floor_mantissa_lt {F : FiniteFormat} {x : ℝ}
           rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
       _ ≤ (2 : ℝ) ^ (p : ℤ) := zpow_le_zpow_right₀ (by norm_num) hle
       _ = (2 : ℝ) ^ p := by rw [zpow_natCast]
-
-/-- `canonicalExp` depends only on the binade `Int.log 2 |·|` (away from `0`):
-equal logs give equal canonical exponents. -/
-theorem canonicalExp_eq_of_log_eq (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0) (hz : z ≠ 0)
-    (h : Int.log 2 |y| = Int.log 2 |z|) : F.canonicalExp y = F.canonicalExp z := by
-  unfold FiniteFormat.canonicalExp
-  cases F.p <;> cases F.exp <;> simp only [if_neg hy, if_neg hz, h]
-
-/-- `canonicalExp` depends only on `|·|`, hence is negation-invariant. -/
-theorem canonicalExp_neg (F : FiniteFormat) (x : ℝ) :
-    F.canonicalExp (-x) = F.canonicalExp x := by
-  unfold FiniteFormat.canonicalExp
-  cases F.p <;> cases F.exp <;> simp only [abs_neg, neg_eq_zero]
-
-/-- A positive `F`-value is at least the format's quantum, so `F.exp ≤ ⌊log₂ z⌋`. -/
-theorem exp_le_log_of_mem (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp))
-    {z : Dyadic} (hz : z ∈ F.unbounded) (hz0 : 0 < ((z : Dyadic) : ℝ)) :
-    e ≤ Int.log 2 ((z : Dyadic) : ℝ) := by
-  obtain ⟨-, hq, -⟩ := hz
-  rw [FiniteFormat.unbounded_exp, hexp] at hq
-  simpa [abs_of_pos hz0] using Dyadic.le_log_of_quantum hq hz0.ne'
-
-/-- The spacing of the binade below a positive `F`-value is no coarser than that
-value's own binade. -/
-theorem canonicalExp_binade_below_le (F : FiniteFormat) {p : ℕ} (hp : F.p = (p : Prec))
-    {z : Dyadic} (hz : z ∈ F.unbounded) (hz0 : 0 < ((z : Dyadic) : ℝ)) :
-    F.canonicalExp ((2 : ℝ) ^ (Int.log 2 ((z : Dyadic) : ℝ) - 1))
-      ≤ Int.log 2 ((z : Dyadic) : ℝ) := by
-  have hpp : 0 < p := FiniteFormat.p_pos hp
-  set k := Int.log 2 ((z : Dyadic) : ℝ) with hk
-  have hpos : (0 : ℝ) < (2 : ℝ) ^ (k - 1) := zpow_pos (by norm_num) _
-  have hlog : Int.log 2 |((2 : ℝ) ^ (k - 1))| = k - 1 := by
-    rw [abs_of_pos hpos]; exact log_two_zpow (k - 1)
-  unfold FiniteFormat.canonicalExp
-  cases hexp : F.exp using QExp.recBotCoe with
-  | bot => simp only [hp, hlog, if_neg (ne_of_gt hpos)]; omega
-  | coe e =>
-    simp only [hp, hlog, if_neg (ne_of_gt hpos)]
-    exact max_le (by omega) (by rw [hk]; exact exp_le_log_of_mem F hexp hz hz0)
-
-/-- Every positive `F`-value is above `F`'s coarsest step. -/
-theorem isAboveQuantum_of_mem (F : FiniteFormat) {z : Dyadic} (hz : z ∈ F.unbounded)
-    (hz0 : 0 < ((z : Dyadic) : ℝ)) : F.IsAboveQuantum ((z : Dyadic) : ℝ) :=
-  FiniteFormat.isAboveQuantum_of_exp_le F (ne_of_gt hz0)
-    (fun _ hexp => by rw [abs_of_pos hz0]; exact exp_le_log_of_mem F hexp hz hz0)
-
-/-- With a minimum quantum, `canonicalExp` at `0` is that quantum. -/
-theorem canonicalExp_zero (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp)) :
-    F.canonicalExp 0 = e := by
-  unfold FiniteFormat.canonicalExp
-  cases F.p using ENat.recTopCoe with
-  | top => simp only [hexp]; rfl
-  | coe p => simp [hexp]
 
 end Mpfx

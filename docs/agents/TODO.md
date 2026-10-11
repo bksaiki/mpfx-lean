@@ -45,15 +45,17 @@ and `docs/DESIGN.md` for how it is put together.
 
 ```
 Mpfx/
-├── Utils.lean        project-agnostic helpers: two_zpow_* power-of-two lemmas,
-│                     Int.two_pow_succ_pred, sign helpers, format-free
-│                     scaled-mantissa arithmetic
+├── Utils.lean        project-agnostic helpers: two_zpow_* power-of-two lemmas
+│                     (the shift lemmas two_zpow_shift / coeff_eq_of_shift over
+│                     any field of characteristic zero), Int.two_pow_succ_pred,
+│                     sign helpers, format-free scaled-mantissa arithmetic
 ├── Dyadic.lean       IsDyadic (ℚ), Dyadic := subring of ℚ, ofIntZpow (computable),
 │                     coe_real_* / coe_rat_ofIntZpow / ext_real bridge lemmas,
 │                     DecidableEq instance,
 │                     precisionAtMost, quantumAtLeast (both ℚ-valued) + mono/anti,
 │                     precisionAtMost_coe_real / quantumAtLeast_coe_real (ℝ bridges),
-│                     quantumAtLeast_neg/add/sub/mul, Dyadic.abs,
+│                     quantumAtLeast_neg/add/sub/mul/ofIntZpow, precisionAtMost_mul,
+│                     abs_ge_two_zpow_of_quantum / le_log_of_quantum, Dyadic.abs,
 │                     IsRepresentableAtP (ℚ) + unique + ne_zero,
 │                     precisionAtMost_of_abs_le (saturation renormalization),
 │                     isRepresentableAtP_of_saturation
@@ -75,6 +77,7 @@ Mpfx/
 │   │                 boundOK_mono, nnPow, containsPrec, containsSub,
 │   │                 subset_iff_contains (completeness),
 │   │                 Format.extend + self_subset_extend + extend_mono,
+│   │                 extend_p / extend_exp_coe / extend_exp_bot, extend_extend,
 │   │                 FiniteFormat.extend + numDigits_extend (digit-shift lemma)
 │   ├── Next.lean     withBound (+ withBound_mono), next (+ next lemmas), boundAfterNext — §5.2
 │   │                 bound API; containment with a relaxed bound:

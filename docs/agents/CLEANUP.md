@@ -15,8 +15,11 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 ## Suggested order
 
-1. Quick wins (§Q) and the unused-API decision (§U). Independent, low risk,
-   about 1–1.5k lines.
+1. **Done** (commits `1193eb2`..`59fd80a`, about 1.5k lines): the unused API
+   (§U) and the format-layer and small double-rounding quick wins (§Q). Open in
+   §Q: the `mem_def`/`boundOK`-iff sweep over the remaining `change` lines, and
+   the items superseded by §S1/§S2 (`Parity.lean` pair factoring,
+   `Rounding/Parity.lean` leaves).
 2. A uniform `canonicalExp` and successor API (§S3). It unblocks §S1 and §S2.
 3. Parity via coarsening (§S1). The largest remaining block of size and case
    splitting.
@@ -175,26 +178,27 @@ lemma, and the import order (`CanonicalExp` after `Discrete`, `Next` not
 importing `CanonicalExp`) hides the generic lemmas that do exist, so files
 re-unfold the definitions.
 
-* [ ] Move the pure `canonicalExp` algebra (`canonicalExp_eq_of_log_eq`,
+* [x] Move the pure `canonicalExp` algebra (`canonicalExp_eq_of_log_eq`,
   `_neg`, `_closed`) to `Format/Defs.lean` or an early file.
-* [ ] Add `canonicalExp_le_iff (hx : x ≠ 0) : F.canonicalExp x ≤ k ↔ (∀ p,
+* [x] Add `canonicalExp_le_iff (hx : x ≠ 0) : F.canonicalExp x ≤ k ↔ (∀ p,
   F.p = p → log|x| + 1 − p ≤ k) ∧ (∀ e, F.exp = e → e ≤ k)`.
   `canonicalExp_mono`, `isAboveQuantum_of_exp_le`,
   `canonicalExp_binade_below_le` and the inline bounds in `Discrete.lean` and
   `Next.lean` become one-liners.
-* [ ] Generalise `extend_one_canonicalExp` to `(F.extend k).canonicalExp x =
+* [x] Generalise `extend_one_canonicalExp` to `(F.extend k).canonicalExp x =
   F.canonicalExp x − k`.
-* [ ] Define `numDigits x := if x = 0 then 0 else Int.log 2 |x| + 1 −
+* [x] Define `numDigits x := if x = 0 then 0 else Int.log 2 |x| + 1 −
   F.canonicalExp x`. Checked equal to the current definition in all three
   branches. This removes `numDigits_top_coe`/`_coe_bot`/`_coe_coe`,
   `numDigits_neg`, `numDigits_congr`, `numDigits_extend` (40 lines to 2),
   `numDigits_le_one_of_p_one` and `numDigits_nonneg`. About 250 lines.
-* [ ] One generic representation lemma: `z ∈ F.unbounded → ∃ m, z = m ·
+* [x] One generic representation lemma: `z ∈ F.unbounded → ∃ m, z = m ·
   2^cexp z`, with the converse "`m · 2^k` with `k ≥ cexp z` is in
   `F.unbounded`". It replaces `Next.exists_step_rep(_le)` and
   `Discrete.exists_canonical_rep_of_parts` with its private helpers
   `canonical_rep_reconstruct` and `log_le_of_canonical_rep`. The `|m| < 2^p`
-  bound comes from `floor_mantissa_lt`. About 120 lines.
+  bound comes from `floor_mantissa_lt`. About 120 lines. Landed as
+  `FiniteFormat.exists_mul_zpow_canonicalExp`; the converse is still open.
 * [ ] Keep one successor. Three exist: `Format.next` (four-arm match with junk
   arms), `FiniteFormat.next` (via `canonicalExp`) and `Ulp.succ` (real-valued),
   bridged by `next_eq_format_next` and `next_coe`. Define `boundAfterNext` from

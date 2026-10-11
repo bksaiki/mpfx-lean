@@ -31,30 +31,9 @@ namespace FiniteFormat
 /-- `numDigits` is non-negative for nonzero `y ∈ F`. -/
 theorem numDigits_nonneg (F : FiniteFormat) (y : Dyadic) (hy : y ∈ F.toFormat)
     (hy_ne : (y : ℝ) ≠ 0) : 1 ≤ F.numDigits (y : ℝ) := by
-  obtain ⟨hP, hQ, _⟩ := hy
-  cases hp : F.p using ENat.recTopCoe with
-  | top =>
-    cases hexp : F.exp using QExp.recBotCoe with
-    | bot =>
-      exfalso; rcases F.finite with h_p_ne | h_exp_ne
-      · exact h_p_ne hp
-      · exact h_exp_ne hexp
-    | coe e' =>
-      rw [numDigits_top_coe F hy_ne hexp hp]
-      rw [hexp] at hQ
-      have h_log_ge := Dyadic.le_log_of_quantum hQ hy_ne
-      omega
-  | coe p =>
-    cases hexp : F.exp using QExp.recBotCoe with
-    | bot =>
-      rw [numDigits_coe_bot F hy_ne hp hexp]
-      exact_mod_cast F.p_pos hp
-    | coe e' =>
-      rw [numDigits_coe_coe F hy_ne hp hexp]
-      rw [hexp] at hQ
-      have h_log_ge := Dyadic.le_log_of_quantum hQ hy_ne
-      have hpp : 1 ≤ (p : ℤ) := by exact_mod_cast F.p_pos hp
-      exact le_min hpp (by omega)
+  have h : F.IsAboveQuantum (y : ℝ) := F.isAboveQuantum_of_exp_le hy_ne
+    fun e he => Dyadic.le_log_of_quantum (he ▸ hy.2.1) hy_ne
+  rw [numDigits, if_neg hy_ne]; omega
 
 /-- For nonzero `y ∈ F`, some `(c, e)` represents `y` with
 `|c| < 2^numDigits F y`. -/
@@ -62,86 +41,18 @@ theorem mem_imp_precisionAtMost_numDigits {F : FiniteFormat} {y : Dyadic}
     (hy : y ∈ F.toFormat) (hy_ne : (y : ℝ) ≠ 0) :
     ∃ c e : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e ∧
                 |c| < (2 : ℤ) ^ (F.numDigits (y : ℝ)).toNat := by
-  obtain ⟨hP, hQ, _⟩ := hy
-  change Dyadic.precisionAtMost F.p y at hP
-  change Dyadic.quantumAtLeast F.exp y at hQ
-  set e_y : ℤ := Int.log 2 |(y : ℝ)| with he_y_def
-  have habs_pos : 0 < |(y : ℝ)| := abs_pos.mpr hy_ne
-  have he_y_hi : |(y : ℝ)| < (2 : ℝ) ^ (e_y + 1) :=
-    Int.lt_zpow_succ_log_self (by norm_num : (1 : ℕ) < 2) _
-  -- "Quantum case": from y = c·2^e' (with e' ≤ e_y), derive |c| < 2^(e_y - e' + 1).
-  have quantum_case : ∀ e' : ℤ,
-      (∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') →
-      e' ≤ e_y →
-      ∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e' ∧
-                |c| < (2 : ℤ) ^ (e_y - e' + 1).toNat := by
-    intro e' ⟨c, hyeq⟩ he_y_ge
-    refine ⟨c, hyeq, ?_⟩
-    have h_real : (|c| : ℝ) < (2 : ℝ) ^ (e_y - e' + 1) := by
-      have h_y_eq : |(y : ℝ)| = |(c : ℝ)| * (2 : ℝ) ^ e' := by
-        rw [hyeq, abs_mul, abs_of_pos (zpow_pos (by norm_num : (0 : ℝ) < 2) _)]
-      have hsplit : (2 : ℝ) ^ (e_y + 1) =
-          (2 : ℝ) ^ (e_y - e' + 1) * (2 : ℝ) ^ e' := by
-        rw [← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0)]
-        congr 1; ring
-      have key : |(c : ℝ)| * (2 : ℝ) ^ e' < (2 : ℝ) ^ (e_y - e' + 1) * (2 : ℝ) ^ e' := by
-        rw [← hsplit, ← h_y_eq]; exact he_y_hi
-      exact lt_of_mul_lt_mul_right key (le_of_lt (zpow_pos (by norm_num) _))
-    have h_nat : ((e_y - e' + 1).toNat : ℤ) = e_y - e' + 1 :=
-      Int.toNat_of_nonneg (by omega)
-    have h_cast : ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) =
-        (2 : ℝ) ^ (e_y - e' + 1) := by
-      rw [show ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) =
-          (2 : ℝ) ^ ((e_y - e' + 1).toNat : ℤ) from by push_cast; rfl, h_nat]
-    have : (|c| : ℝ) < ((2 : ℤ) ^ (e_y - e' + 1).toNat : ℝ) := by
-      rw [h_cast]; exact h_real
-    exact_mod_cast this
-  -- For any e' with y = c·2^e' (c ≠ 0), we have e' ≤ e_y.
-  have e'_le_e_y : ∀ e' : ℤ,
-      (∃ c : ℤ, (y : ℝ) = (c : ℝ) * (2 : ℝ) ^ e') → e' ≤ e_y := by
-    intro e' ⟨c, hyeq⟩
-    exact Dyadic.le_log_of_quantum ((Dyadic.quantumAtLeast_coe_real e' y).mpr ⟨c, hyeq⟩) hy_ne
-  -- Case analysis on (F.p, F.exp).
-  cases hp : F.p using ENat.recTopCoe with
-  | top =>
-    cases hexp : F.exp using QExp.recBotCoe with
-    | bot =>
-      exfalso; rcases F.finite with h_p_ne | h_exp_ne
-      · exact h_p_ne hp
-      · exact h_exp_ne hexp
-    | coe e' =>
-      rw [numDigits_top_coe F hy_ne hexp hp]
-      rw [hexp] at hQ
-      obtain ⟨c, hyeq, hc_lt⟩ :=
-        quantum_case e' ((Dyadic.quantumAtLeast_coe_real _ _).mp hQ)
-          (e'_le_e_y e' ((Dyadic.quantumAtLeast_coe_real _ _).mp hQ))
-      exact ⟨c, e', hyeq, hc_lt⟩
-  | coe p =>
-    cases hexp : F.exp using QExp.recBotCoe with
-    | bot =>
-      rw [numDigits_coe_bot F hy_ne hp hexp]
-      rw [hp] at hP
-      obtain ⟨c, e, hyeq, hc_lt⟩ := (Dyadic.precisionAtMost_coe_real _ _).mp hP
-      refine ⟨c, e, hyeq, ?_⟩
-      have h_toNat : (p : ℤ).toNat = p := by simp
-      rw [h_toNat]
-      exact hc_lt
-    | coe e' =>
-      rw [numDigits_coe_coe F hy_ne hp hexp]
-      rw [hp] at hP
-      rw [hexp] at hQ
-      rcases le_or_gt (p : ℤ) (e_y - e' + 1) with hcase | hcase
-      · rw [show min (p : ℤ) (e_y - e' + 1) = (p : ℤ) from
-              min_eq_left hcase]
-        have h_toNat : (p : ℤ).toNat = p := by simp
-        rw [h_toNat]
-        exact (Dyadic.precisionAtMost_coe_real _ _).mp hP
-      · rw [show min (p : ℤ) (e_y - e' + 1)
-              = e_y - e' + 1 from min_eq_right (le_of_lt hcase)]
-        obtain ⟨c, hyeq, hc_lt⟩ :=
-          quantum_case e' ((Dyadic.quantumAtLeast_coe_real _ _).mp hQ)
-            (e'_le_e_y e' ((Dyadic.quantumAtLeast_coe_real _ _).mp hQ))
-        exact ⟨c, e', hyeq, hc_lt⟩
+  obtain ⟨m, hm⟩ := F.exists_mul_zpow_canonicalExp (mem_unbounded_of_mem hy)
+  refine ⟨m, _, hm, ?_⟩
+  have hnd := numDigits_nonneg F y hy hy_ne
+  rw [numDigits, if_neg hy_ne] at hnd ⊢
+  set c := F.canonicalExp (y : ℝ)
+  -- `|m|·2^c = |y| < 2^(⌊log₂|y|⌋ + 1)`, so `|m| < 2^(⌊log₂|y|⌋ + 1 − c)`.
+  have h : |(m : ℝ)| * (2 : ℝ) ^ c < (2 : ℝ) ^ (Int.log 2 |(y : ℝ)| + 1 - c) * (2 : ℝ) ^ c := by
+    rw [← abs_mul_two_zpow, ← hm, ← zpow_add₀ two_ne_zero, sub_add_cancel]
+    exact Int.lt_zpow_succ_log_self (by norm_num) _
+  have h' := lt_of_mul_lt_mul_right h (zpow_pos two_pos c).le
+  rw [← Int.toNat_of_nonneg (by omega : 0 ≤ Int.log 2 |(y : ℝ)| + 1 - c), zpow_natCast] at h'
+  exact_mod_cast h'
 
 end FiniteFormat
 
@@ -152,19 +63,11 @@ theorem FiniteFormat.numDigits_le_one_of_p_one {F : FiniteFormat}
     (hp1 : F.p = ((1 : ℕ) : Prec)) (x : ℝ) :
     F.numDigits x ≤ 1 := by
   unfold FiniteFormat.numDigits
-  by_cases hx : x = 0
-  · simp [hx]
-  · simp only [hx, ↓reduceIte]
-    -- `F.p = 1`, so only the `(p, ⊥)` and `(p, e')` branches apply.
-    cases hexp : F.exp using QExp.recBotCoe with
-    | bot =>
-      rw [hp1]
-      change ((1 : ℕ) : ℤ) ≤ 1
-      norm_num
-    | coe e' =>
-      rw [hp1]
-      change min ((1 : ℕ) : ℤ) (Int.log 2 |x| - e' + 1) ≤ 1
-      exact min_le_left _ _
+  split_ifs with hx
+  · norm_num
+  · have := F.log_sub_p_le_canonicalExp hx hp1
+    push_cast at this
+    omega
 
 /-- **RTO-padding corollary** (format-parameterized form): If `y` has precision
 at most `w` and the rounding precision in `F` (= `numDigits F y`) strictly
