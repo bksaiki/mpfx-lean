@@ -262,16 +262,37 @@ Test: `~/.elan/bin/lake build Fpy.Ops Fpy.FormatInference.Domain FpyTest`.
 
 #### Phase 3b - Table 1
 
-- `Fpy/FormatInference/Table1.lean`: `op♯` for every arith row, and a proof
-  of soundness for each row.
-  - `×`, `+`, `−`, `neg` and `abs` reduce to `Format.mul_subset`,
-    `add_subset`, `neg_subset` and `abs_subset`, through `toReal`
-    bridges between the `Num` and `Dyadic` operators.
-  - `logb`, `exp2`, `min`, `max` and `round`/`cast` are new.
-  - `exact♯` for the comparisons, `len`, `isNaN`/`isInf` and the boolean
-    operators.
+**Done.** As built:
 
-Test: `~/.elan/bin/lake build Fpy.FormatInference.Table1 FpyTest`.
+- `Fpy/FormatInference/Ops.lean`, the abstract counterpart of `Fpy/Ops.lean`.
+  The plan called it `Table1.lean`. It holds:
+  - `ArithOp.fmt`, which is `op♯`, with `ArithOp.fmt_sound`;
+  - `ExactOp.aval`, which is `exact♯`, with `ExactOp.aval_sound`;
+  - the `toReal` bridges between the `Num` operators and Mpfx's `Dyadic`
+    ones;
+  - the rows `addFmt`, `mulFmt` (`p̂₁ ⊞ p̂₂` through `precMul` and
+    `Format.pHat`), `logbFmt` and `exp2Fmt`;
+  - `lift2`, `lift1` and `liftCeil`, which act element-wise on sets and use
+    `⌈S⌉` where a set meets an abstract format.
+- `Mpfx/Format/Inference.lean` gains `Format.bitsFor` and
+  `precisionAtMost_bitsFor`, the precision a value needs given its quantum and
+  a bound. `add_prec_finite` now goes through it.
+- `FpyTest/FormatInference/Ops.lean` checks `bitsFor` and `precMul`.
+
+It diverged from the plan in these places:
+
+- Each row also states the specials its operator can produce:
+  - `logbSpecials` and `exp2Specials` for the new rows;
+  - Mpfx's `mulSpecials`, `addSpecials` and `absSpecials`, and negation, for
+    the rest.
+
+  Table 1 has none, which is unsound for `logb` (`ROADMAP.md`).
+- `−` is `addFmt F₁ (opNeg F₂)`: Table 1's "same as `x + y`", with the
+  specials of `−F₂`.
+- `min` and `max` use the join `fmtJoin`, as Table 1's `A₁ ⊔ A₂`.
+- `len` gives the integers `𝒜(∞, 0, ∞)`. The draft gives list lengths
+  finite sets, but a list's abstract value does not track its length.
+- `÷`, `√` and `fma` are `R*` on sets too, as in Table 1.
 
 #### Phase 3c - Condition refinement
 

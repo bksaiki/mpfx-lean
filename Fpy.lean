@@ -1,5 +1,6 @@
 import Fpy.FormatInference
 import Fpy.FormatInference.Domain
+import Fpy.FormatInference.Ops
 import Fpy.Ops
 import Fpy.Semantics
 import Fpy.Syntax

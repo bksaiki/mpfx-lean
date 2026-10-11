@@ -95,3 +95,10 @@ mechanize them are in `docs/agents/FPY_PLAN.md`.
   `F_C` unchanged": an Mpfx context meets it only when its special map
   fixes the format's specials (e.g. `SpecialMap.exact`). State that
   hypothesis on contexts.
+- [ ] Table 1 states no special values, but FPy's numbers include `±∞` and
+  NaN. The `logb` row is unsound: every format contains `0`, `logb 0` is
+  `−∞` (IEEE `logB`; the draft leaves it undefined), and the row's format has
+  no infinities. The other rows say nothing about `∞ × 0`, `∞ − ∞`,
+  `2^(+∞)` or NaN operands. Fix: each row carries the specials its operator
+  produces (`logbSpecials`, `exp2Specials`, and Mpfx's `mulSpecials`,
+  `addSpecials`, `absSpecials`; `Fpy/FormatInference/Ops.lean`).
