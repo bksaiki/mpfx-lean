@@ -39,8 +39,8 @@ private theorem exists_mul_zpow_of_le (c : ℤ) {a K : ℤ} (h : K ≤ a) :
   push_cast; ring
 
 /-- **Discreteness away from zero.** Every format is isolated at every nonzero
-dyadic `m`: its values of magnitude at least `|m|/2` share a quantum, fixed by
-the precision or else by the minimum quantum, and `m` has one too. -/
+dyadic `m`: its values of magnitude at least `|m|/2` are multiples of the step
+there (`exists_mul_zpow_canonicalExp`, `canonicalExp_mono`), and so is `m`. -/
 theorem exists_isolated (F : FiniteFormat) {m : Dyadic} (hm : (m : ℝ) ≠ 0) :
     ∃ K : ℤ, Isolated F m K := by
   obtain ⟨cm, j, hcm⟩ := m.property
@@ -50,34 +50,14 @@ theorem exists_isolated (F : FiniteFormat) {m : Dyadic} (hm : (m : ℝ) ≠ 0) :
   have hmE : (2 : ℝ) ^ (E + 1) ≤ |(m : ℝ)| := by
     rw [hE, sub_add_cancel]
     exact Int.zpow_log_le_self (b := 2) (by norm_num) (abs_pos.mpr hm)
-  -- Values of magnitude at least `2^E` are multiples of a common `2^k`.
+  -- Values of magnitude at least `2^E` are multiples of `2^k`, the step at `2^E`.
   obtain ⟨k, hk⟩ : ∃ k : ℤ, ∀ v ∈ F.unbounded, (2 : ℝ) ^ E ≤ |(v : ℝ)| →
       ∃ c : ℤ, (v : ℝ) = (c : ℝ) * (2 : ℝ) ^ k := by
-    cases hp : F.p using ENat.recTopCoe with
-    | top =>
-      cases he : F.exp using QExp.recBotCoe with
-      | bot => exact (F.finite.elim (· hp) (· he)).elim
-      | coe e =>
-        refine ⟨e, fun v hv _ => ?_⟩
-        have hq : Dyadic.quantumAtLeast F.exp v := hv.2.1
-        rw [he] at hq
-        exact (Dyadic.quantumAtLeast_coe_real e v).mp hq
-    | coe q =>
-      refine ⟨E - q + 1, fun v hv hvE => ?_⟩
-      have hpv : Dyadic.precisionAtMost F.p v := hv.1
-      rw [hp] at hpv
-      obtain ⟨c, e, hce, hc⟩ := (Dyadic.precisionAtMost_coe_real q v).mp hpv
-      -- `|v| < 2^(q + e)`, so `E < q + e`.
-      have h_lt : (2 : ℝ) ^ E < (2 : ℝ) ^ ((q : ℤ) + e) := by
-        refine hvE.trans_lt ?_
-        rw [hce, abs_mul, abs_of_pos (zpow_pos two_pos e : (0 : ℝ) < 2 ^ e), zpow_add₀ two_ne_zero,
-          zpow_natCast]
-        exact mul_lt_mul_of_pos_right (by exact_mod_cast hc) (zpow_pos two_pos e)
-      have he : E - q + 1 ≤ e := by
-        have := (zpow_lt_zpow_iff_right₀ (by norm_num : (1 : ℝ) < 2)).mp h_lt
-        omega
-      rw [hce]
-      exact exists_mul_zpow_of_le c he
+    refine ⟨F.canonicalExp ((2 : ℝ) ^ E), fun v hv hvE => ?_⟩
+    obtain ⟨c, hc⟩ := F.exists_mul_zpow_canonicalExp hv
+    have hmono : F.canonicalExp ((2 : ℝ) ^ E) ≤ F.canonicalExp (v : ℝ) :=
+      F.canonicalExp_mono (zpow_pos two_pos E).ne' (by rwa [abs_of_pos (zpow_pos two_pos E)])
+    exact ⟨_, hc.trans (two_zpow_shift c hmono)⟩
   refine ⟨min (min j k) E, fun v hv hlt => ?_⟩
   set K := min (min j k) E
   have hKE : (2 : ℝ) ^ K ≤ (2 : ℝ) ^ E := zpow_le_zpow_right₀ (by norm_num) (min_le_right _ _)

@@ -139,9 +139,11 @@ All the `_exp_bot` twins are gone, merged on `canonicalExp`:
 `exists_canonical_rep_of_parts` absorbed their consumers. `Grid.lean` 753 →
 `Discrete.lean` 626.
 
-`midpoint_mem_extend_one_of_p_top` remains separate and should: with
-unrestricted precision it needs no adjacency at all, so it is a different
-argument rather than a case of the same one.
+Later the adjacency lemmas and `midpoint_mem_extend_one_of_p_top` went too: the
+midpoint of adjacent positive values is a multiple of half their common step,
+which `FiniteFormat.exists_mul_zpow_canonicalExp`, its converse
+`mem_unbounded_of_mul_zpow_canonicalExp` and `canonicalExp_extend` turn into
+membership in `F.extend 1` for every format shape at once.
 
 ## 7. Operation-level error lemmas — `Prop/`
 

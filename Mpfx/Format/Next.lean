@@ -352,15 +352,12 @@ private theorem next_ulp_min {F : Format} {b g : Dyadic} {mb mg s : ℤ}
     (hbg : ((b : Dyadic) : ℝ) < ((g : Dyadic) : ℝ))
     (h_next : F.next b = b + Dyadic.ofIntZpow 1 s) :
     ((F.next b : Dyadic) : ℝ) ≤ ((g : Dyadic) : ℝ) := by
-  have h2s_pos : (0 : ℝ) < (2 : ℝ) ^ s := zpow_pos (by norm_num) _
-  have hm_lt : mb < mg := by
-    have h1 : (mb : ℝ) < (mg : ℝ) := by
-      rw [hmb, hmg] at hbg
-      exact lt_of_mul_lt_mul_right hbg h2s_pos.le
-    exact_mod_cast h1
+  rw [hmb, hmg] at hbg
+  have hm_lt := int_mul_two_zpow_lt_iff.mp hbg
   rw [h_next, Dyadic.coe_real_add, coe_real_ofIntZpow_one s, hmb, hmg]
-  have h1 : (mb : ℝ) + 1 ≤ (mg : ℝ) := by exact_mod_cast hm_lt
-  nlinarith
+  have h := int_mul_two_zpow_le_iff (k := s).mpr (show mb + 1 ≤ mg by omega)
+  push_cast at h
+  linarith
 
 /-- Halving the grid step lands on the midpoint:
 `b + 2^(t−1) = (b + (b + 2^t)) / 2` over `ℝ`. -/
@@ -378,7 +375,7 @@ private theorem next_pos_eq (F : FiniteFormat) {b : Dyadic} (hb : 0 < ((b : Dyad
   rw [FiniteFormat.next_eq_format_next F hb,
     FiniteFormat.next_of_ne F (by simp [ne_of_gt hb])]
 
-/-- A grid point is an integer multiple of any step at most its own `2 ^ cexp g`. -/
+/-- A value is a multiple of `2^s` for every `s` at most its canonical exponent. -/
 private theorem exists_step_rep_le {F : FiniteFormat} {g : Dyadic}
     (hg_p : Dyadic.precisionAtMost F.p g) (hg_q : Dyadic.quantumAtLeast F.exp g) {s : ℤ}
     (hs : s ≤ F.canonicalExp ((g : Dyadic) : ℝ)) :
@@ -683,8 +680,8 @@ theorem extend_one_subset_of_withBound_subset {F₁ F₂ : FiniteFormat}
 /-- From the paper-aligned containment
 `(F₁.extend 1).withBound F₁.boundAfterNext ⊆ F₂`, either `F₂.p ≥ 2` (the
 auxiliary needed for the RTO-padding lemma) or `F₁` contains only `0`. A positive
-`d ∈ F₁` gives the precision-2 witness `3 · 2^(cexp d − 1)`: it is on the
-extended grid, and at most `next d ≤ next b`, so `F₂` must hold it
+`d ∈ F₁` gives the precision-2 witness `3 · 2^(cexp d − 1)`: it is a value of
+`F₁.extend 1`, and at most `next d ≤ next b`, so `F₂` must hold it
 (`two_le_p_of_precision_two_witness`). -/
 theorem two_le_p_or_trivial_of_extend_one_withBound_subset {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) ⊆ F₂.toFormat) :

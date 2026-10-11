@@ -63,8 +63,12 @@ Mpfx/
 │   ├── Defs.lean     Special, WithSpecial (+ neg, toReal), Format (with
 │   │                 specials) / FiniteFormat, Mem, Format.values, NegClosed,
 │   │                 boundOK, Format.unbounded, FiniteFormat.unbounded,
-│   │                 FiniteFormat.zero_mem, FiniteFormat.canonicalExp,
-│   │                 numDigits + evaluators
+│   │                 FiniteFormat.zero_mem, FiniteFormat.canonicalExp with
+│   │                 canonicalExp_le_iff and the closed forms (canonicalExp_closed,
+│   │                 _expBot, _expFinite, _pTop, _neg, …), the representation
+│   │                 exists_mul_zpow_canonicalExp and its converse
+│   │                 mem_unbounded_of_mul_zpow_canonicalExp,
+│   │                 numDigits (= ⌊log₂|x|⌋ + 1 − canonicalExp x) + evaluators
 │   ├── Parity.lean   ParityFormat, IsOdd, IsEven, negation, canonical-rep
 │   │                 characterizations, transport (IsOdd/IsEven.congr,
 │   │                 *_iff_of_toFormat_eq, parity_witness_congr)
@@ -89,16 +93,13 @@ Mpfx/
 │   │                 numDigits_eq_of_subset_of_isOdd(_aux),
 │   │                 odd_index_of_p_one_corner, IsOdd.transfer_of_numDigits_eq,
 │   │                 IsOdd.transfer_of_subset (RTO-padding lemma)
-│   ├── Discrete.lean canonical representation / adjacency / midpoint-membership
-│   │                 (prereq for roundsRTO_RN_finite): log_le_of_canonical_rep,
-│   │                 exists_canonical_rep(_of_parts), canonical_rep_pos,
-│   │                 not_mem_between_adjacent, adjacent_canonical_form,
-│   │                 midpoint_mem_extend_one_of_adjacent(_pos/_of_p_top),
-│   │                 half_mem_extend_one, midpoint_in_F₁_extend_one_of_F_adjacent.
-│   │                 grid facts (quantum_floor/ceil_of_mem, binade_quantum).
-│   │                 Built over the ℚ substrate.
-│   ├── CanonicalExp.lean canonicalExp closed forms, format-dependent
-│   │                 scaled-mantissa facts
+│   ├── Discrete.lean canonical representation and midpoint membership
+│   │                 (prereq for roundsRTO_RN_finite): exists_canonical_rep(_of_parts),
+│   │                 midpoint_mem_extend_one_of_adjacent(_pos), half_mem_extend_one,
+│   │                 midpoint_in_F₁_extend_one_of_F_adjacent; quantum_floor/ceil_of_mem,
+│   │                 binade_quantum
+│   ├── CanonicalExp.lean floor_minimality / ceil_minimality,
+│   │                 ofIntZpow_mem_unbounded, floor_mantissa_lt
 │   └── Inference.lean §6.1: ⊗/⊕ format inference. IEEE 754 *, +, -, abs on
 │                     WithSpecial Dyadic; Format.toSet, opMul/opAdd/opAddPrec,
 │                     opNeg/opAbs, mul/add/absSpecials (+ special_mem_op*_iff:

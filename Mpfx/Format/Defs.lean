@@ -486,7 +486,7 @@ theorem canonicalExp_zero (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp
   | top => simp only [hexp]; rfl
   | coe p => simp [hexp]
 
-/-- **Every value sits on the grid at its canonical exponent**: `z = m · 2^cexp z`.
+/-- **Every value is a multiple of `2^canonicalExp`**: `z = m · 2^cexp z`.
 Each constraint of the format makes `z` a multiple of its own exponent — the
 precision term `⌊log₂|z|⌋ + 1 − p` and the minimum quantum — and `canonicalExp`
 is the larger of the two. -/
@@ -523,6 +523,36 @@ theorem FiniteFormat.exists_mul_zpow_canonicalExp (F : FiniteFormat) {z : Dyadic
       rcases le_total (Int.log 2 |(z : ℝ)| + 1 - p) e with h | h
       · rw [max_eq_right h]; exact hquant e he
       · rw [max_eq_left h]; exact hprec p hp
+
+/-- Conversely, a multiple of `2^canonicalExp x` is a value of `F`: the step
+meets the minimum quantum, and the coefficient fits the precision. -/
+theorem FiniteFormat.mem_unbounded_of_mul_zpow_canonicalExp (F : FiniteFormat) {x : Dyadic}
+    {m : ℤ} (h : (x : ℝ) = m * (2 : ℝ) ^ F.canonicalExp x) : x ∈ F.unbounded := by
+  refine ⟨?_, ?_, trivial⟩
+  · change Dyadic.precisionAtMost F.p x
+    cases hp : F.p using ENat.recTopCoe with
+    | top => trivial
+    | coe p =>
+      by_cases hx : (x : ℝ) = 0
+      · exact (Dyadic.precisionAtMost_coe_real p x).mpr ⟨0, 0, by simp [hx], by simp⟩
+      refine (Dyadic.precisionAtMost_coe_real p x).mpr ⟨m, _, h, ?_⟩
+      -- `|m|·2^c = |x| < 2^(⌊log₂|x|⌋ + 1) ≤ 2^(p + c)`.
+      have hc := F.log_sub_p_le_canonicalExp hx hp
+      have hlt : |(x : ℝ)| < (2 : ℝ) ^ (Int.log 2 |(x : ℝ)| + 1) :=
+        Int.lt_zpow_succ_log_self (by norm_num) _
+      have h1 : |(m : ℝ)| * (2 : ℝ) ^ F.canonicalExp x
+          < (2 : ℝ) ^ (p : ℤ) * (2 : ℝ) ^ F.canonicalExp x := by
+        rw [← abs_mul_two_zpow, ← h, ← zpow_add₀ two_ne_zero]
+        exact hlt.trans_le (zpow_le_zpow_right₀ (by norm_num) (by omega))
+      have h2 := lt_of_mul_lt_mul_right h1 (zpow_pos two_pos _).le
+      rw [zpow_natCast] at h2
+      exact_mod_cast h2
+  · change Dyadic.quantumAtLeast F.exp x
+    cases he : F.exp using QExp.recBotCoe with
+    | bot => trivial
+    | coe e =>
+      exact (Dyadic.quantumAtLeast_coe_real e x).mpr
+        ⟨_, h.trans (two_zpow_shift m (F.exp_le_canonicalExp _ he))⟩
 
 namespace FiniteFormat
 

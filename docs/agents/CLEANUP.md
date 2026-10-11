@@ -198,7 +198,8 @@ re-unfold the definitions.
   `Discrete.exists_canonical_rep_of_parts` with its private helpers
   `canonical_rep_reconstruct` and `log_le_of_canonical_rep`. The `|m| < 2^p`
   bound comes from `floor_mantissa_lt`. About 120 lines. Landed as
-  `FiniteFormat.exists_mul_zpow_canonicalExp`; the converse is still open.
+  `FiniteFormat.exists_mul_zpow_canonicalExp`, with the converse
+  `mem_unbounded_of_mul_zpow_canonicalExp`.
 * [~] Keep one successor. Three exist: `Format.next` (four-arm match with junk
   arms), `FiniteFormat.next` (via `canonicalExp`) and `Ulp.succ` (real-valued),
   bridged by `next_eq_format_next` and `next_coe`. Define `boundAfterNext` from
@@ -218,25 +219,28 @@ re-unfold the definitions.
   (`next_extend_midpoint'`), which is in the extended grid, at most
   `next b`, and has odd significand, so `¬ precisionAtMost 1`. About 130
   lines.
-* [ ] Grid discreteness is proved four times: `Discrete.adjacent_canonical_form`
+* [x] Grid discreteness is proved four times: `Discrete.adjacent_canonical_form`
   (needs finite `p`), `Next.next_min'`, `Ulp.succ_le_of_lt`, and
   `Cex.exists_isolated` with `Cex.Adjacent`. Make one canonical; the
-  `Cex.exists_isolated` form needs no shape split.
-* [ ] `floor_minimality` repeats "`z = k · 2^e`, `z ≤ x` implies `k ≤ ⌊x ·
+  `Cex.exists_isolated` form needs no shape split. Done: `adjacent_canonical_form`
+  and `succ_le_of_lt` are deleted, and `exists_isolated` and `next_min'` both
+  rest on `exists_mul_zpow_canonicalExp` (they state different facts: an
+  isolation radius, and the successor bound).
+* [x] `floor_minimality` repeats "`z = k · 2^e`, `z ≤ x` implies `k ≤ ⌊x ·
   2^-e⌋`" three times. Generically: if `cexp z ≥ e` then `z` is a multiple of
   `2^e`, else `|z| < 2^log|x|`, which is on the grid. This removes
   `binade_le_floor` and `abs_lt_two_pow_log_of_precision` (`Utils.lean`, about
   90 lines). `ceil_minimality` re-proves `canonicalExp_neg`,
   `precisionAtMost_neg` and `quantumAtLeast_neg`; three lines instead. About
   150 lines.
-* [ ] `Discrete.lean`'s midpoint lemmas (`half_mem_extend_one`,
+* [x] `Discrete.lean`'s midpoint lemmas (`half_mem_extend_one`,
   `midpoint_mem_extend_one_of_p_top`, the quantum part of
   `midpoint_mem_extend_one_of_adjacent_pos`, the dispatch in
   `midpoint_in_F₁_extend_one_of_F_adjacent`) re-split on `exp` and sign. With
   the generalised `extend` lemma and the converse above, the midpoint
   `(2c + 1) · 2^(k−1)` lands in `F.extend 1` without splitting. About 100
   lines.
-* [ ] "No multiple of `2^f` lies strictly between `t · 2^f` and `(t + 1) ·
+* [x] "No multiple of `2^f` lies strictly between `t · 2^f` and `(t + 1) ·
   2^f`" is proved five times: `quantum_floor_of_mem`, `quantum_ceil_of_mem`
   (floor under negation), `ulp_interval_squeeze_absurd`, `next_ulp_min`, and
   inline in `floor_minimality`. One `Int` lemma. About 50 lines.
