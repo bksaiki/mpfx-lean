@@ -297,16 +297,6 @@ theorem isOdd_ofIntZpow_of_p_one (F : FiniteFormat) (hp : F.p = ((1 : ℕ) : Pre
   exact ⟨fun ⟨_, _, _, h⟩ => h,
     fun h => ⟨Dyadic.coe_ofIntZpow_ne_zero hk0 j, k, Dyadic.coe_ofIntZpow k j, h⟩⟩
 
-/-- At precision `1`, `±2^j` is even when `j` has odd index above `exp`. -/
-theorem isEven_ofIntZpow_of_p_one (F : FiniteFormat) (hp : F.p = ((1 : ℕ) : Prec))
-    {e₀ : ℤ} (he : F.exp = (e₀ : QExp)) {k j : ℤ} (hk : |k| = 1) (hj : e₀ ≤ j) :
-    F.IsEven (Dyadic.ofIntZpow k j) ↔ Odd (j - e₀) := by
-  unfold IsEven
-  rw [F.isOdd_ofIntZpow_of_p_one hp he hk hj, Int.not_even_iff_odd]
-  refine and_iff_right (ofIntZpow_mem_unbounded F (fun {e'} he' => ?_) fun _ => ?_)
-  · rw [he, WithBot.coe_inj] at he'; omega
-  · rw [hk]; exact one_le_pow₀ (by norm_num)
-
 /-! ### Containment -/
 
 /-- `2 ≤ p` rules out `p = 1`. -/

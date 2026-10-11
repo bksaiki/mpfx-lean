@@ -639,8 +639,7 @@ private theorem eq_of_inBound {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : Rounding
       RoundsFinite F₁ rm₁ (z : ℝ) w → RoundsFinite F₁ rm₁ x w)
     {x : ℝ} {z w y : Dyadic} (hz : RoundsInBound F₂ rm₂ x z)
     (hw : RoundsInBound F₁ rm₁ (z : ℝ) w) (hy : RoundsInBound F₁ rm₁ x y) : w = y :=
-  RoundsFinite.unique h₁u
-    (RoundsFinite.lift (rule hz.1 (RoundsFinite.restrict hw.1 hw.2)) hy.1 hy.2) hy.1
+  eq_of_rule (B := F₁.b) h₁u rule hz.1 hw.1 hy.1 hw.2 hy.2
 
 /-- **rnd-RTZ-RTZ**, in bound: the double rounding agrees with the direct rounding. -/
 theorem roundsRTZ_RTZ_agree {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat ⊆ F₂.toFormat)

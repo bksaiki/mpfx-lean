@@ -21,11 +21,6 @@ lemma two_zpow_split_toNat {K : Type*} [Field K] [CharZero K] {e₁ e₂ : ℤ} 
   rw [← zpow_natCast, ← zpow_add₀ two_ne_zero, Int.toNat_of_nonneg (by omega)]
   congr 1; ring
 
-/-- `2^e = ((2:ℤ)^n : K) * 2^f` where `n = (e - f).toNat`, when `f ≤ e`. -/
-lemma two_zpow_split {K : Type*} [Field K] [CharZero K] (e f : ℤ) (h : f ≤ e) :
-    (2 : K) ^ e = ((2 : ℤ) ^ (e - f).toNat : K) * (2 : K) ^ f := by
-  rw [two_zpow_split_toNat h]; push_cast; rfl
-
 /-- Read off `Int.log 2 x = k` from the binade bounds `2^k ≤ x < 2^(k+1)`. -/
 theorem log_eq_of_zpow_bounds {x : ℝ} {k : ℤ} (hx : 0 < x)
     (hlo : (2 : ℝ) ^ k ≤ x) (hhi : x < (2 : ℝ) ^ (k + 1)) : Int.log 2 x = k := by
@@ -69,7 +64,7 @@ theorem two_zpow_half (a : ℤ) : (2 : ℝ) ^ a / 2 = (2 : ℝ) ^ (a - 1) := by
 `k ≤ e`, folding the extra powers of two into an integer coefficient. -/
 lemma two_zpow_shift {K : Type*} [Field K] [CharZero K] (c : ℤ) {e k : ℤ} (h : k ≤ e) :
     (c : K) * (2 : K) ^ e = ((c * (2 : ℤ) ^ (e - k).toNat : ℤ) : K) * (2 : K) ^ k := by
-  rw [two_zpow_split e k h]; push_cast; ring
+  rw [two_zpow_split_toNat h]; push_cast; ring
 
 /-- Inverse of the shift: if two canonical reps of the same value agree with
 `e₁ ≤ e₂`, the finer coefficient is the coarser one scaled by `2^(e₂-e₁)`. -/
@@ -79,7 +74,7 @@ lemma coeff_eq_of_shift {K : Type*} [Field K] [CharZero K] {c₁ c₂ e₁ e₂ 
   rw [two_zpow_shift c₂ h] at heq
   exact_mod_cast mul_right_cancel₀ (zpow_ne_zero _ two_ne_zero) heq
 
-/-! ### Sign and power helpers (used by the double-rounding development) -/
+/-! ### Sign and power helpers -/
 
 /-- `|1| < 2^p` for any positive precision. -/
 theorem abs_one_lt_two_pow {p : ℕ} (hp : 0 < p) : |(1 : ℤ)| < 2 ^ p := by
@@ -119,23 +114,6 @@ theorem abs_floor_le_of_abs_lt {r : ℝ} {N : ℤ} (h : |r| < (N : ℝ)) :
       lt_of_le_of_lt (Int.floor_le r) h_pos
     exact_mod_cast h_lt.le
 
-/-- Mirror of `abs_floor_le_of_abs_lt` for the ceiling: positive ceilings
-can saturate (e.g. `⌈1.5⌉ = 2` with `|1.5| < 2` but `|⌈1.5⌉| = 2`). -/
-theorem abs_ceil_le_of_abs_lt {r : ℝ} {N : ℤ} (h : |r| < (N : ℝ)) :
-    |⌈r⌉| ≤ N := by
-  obtain ⟨h_neg, h_pos⟩ := abs_lt.mp h
-  rw [abs_le]
-  refine ⟨?_, ?_⟩
-  · have h_lt : (-N : ℝ) < (⌈r⌉ : ℝ) :=
-      lt_of_lt_of_le h_neg (Int.le_ceil r)
-    have : (-N : ℤ) < ⌈r⌉ := by exact_mod_cast h_lt
-    omega
-  · have h_lt : (⌈r⌉ : ℝ) < (N : ℝ) + 1 := by
-      have := Int.ceil_lt_add_one r
-      linarith
-    have : (⌈r⌉ : ℤ) < N + 1 := by exact_mod_cast h_lt
-    omega
-
 /-- Integer multiples of `2^k` compare as their coefficients. -/
 theorem int_mul_two_zpow_lt_iff {a b k : ℤ} :
     (a : ℝ) * (2 : ℝ) ^ k < (b : ℝ) * (2 : ℝ) ^ k ↔ a < b := by
@@ -145,16 +123,14 @@ theorem int_mul_two_zpow_le_iff {a b k : ℤ} :
     (a : ℝ) * (2 : ℝ) ^ k ≤ (b : ℝ) * (2 : ℝ) ^ k ↔ a ≤ b := by
   rw [mul_le_mul_iff_of_pos_right (zpow_pos two_pos k)]; exact Int.cast_le
 
-/-- The "rescale back" identity: `x · 2^(-e) · 2^e = x`. Used pervasively
-to lift `c ≤ x · 2^(-e)` to `c · 2^e ≤ x` (and similar). -/
+/-- The "rescale back" identity: `x · 2^(-e) · 2^e = x`. -/
 theorem mul_zpow_neg_self (x : ℝ) (e : ℤ) :
     x * (2 : ℝ) ^ (-e) * (2 : ℝ) ^ e = x := by
   rw [mul_assoc, ← zpow_add₀ (by norm_num : (2 : ℝ) ≠ 0),
       neg_add_cancel, zpow_zero, mul_one]
 
-/-- `|⌊x · 2^(-e)⌋ + 1| ≤ 2^p` when `|x · 2^(-e)| < 2^p` (the canonical bound
-applied to the upper-grid mantissa). Used in parity-mode proofs where `dhi`'s
-mantissa is `lo + 1`. -/
+/-- `|⌊r⌋ + 1| ≤ 2^p` when `|r| < 2^p`: the canonical bound for the ceiling
+mantissa off the floor. -/
 theorem abs_floor_add_one_le_of_abs_lt {r : ℝ} {p : ℕ}
     (h : |r| < (2 : ℝ) ^ p) :
     |⌊r⌋ + 1| ≤ (2 : ℤ) ^ p := by

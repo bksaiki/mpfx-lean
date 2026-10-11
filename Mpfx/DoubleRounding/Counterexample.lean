@@ -13,23 +13,21 @@ side condition on `F₂` can validate these pairings.
 The witness is in bound throughout (`Disagrees`): no rounding overflows, so
 it refutes the rule whatever the special-value and overflow maps
 (`Disagrees.rnd_ne`). The `no_rnd<rm₂>_<rm₁>` forms state this for the
-total `rnd`: a finite input whose chained rounding differs from the direct
+total `rnd`: a finite input whose double rounding differs from the direct
 one, for every `SpecialMap` and `OverflowMap`.
 
 `F₁` may be bounded. Each theorem asks only for a few positive values of `F₁`
-(`Format.HasPositive`), and with the anchors placed at the bottom of `F₁`
-those counts are, we believe, the least that work for every `F₂`:
+(`Format.HasPositive`), with the anchors placed at the bottom of `F₁`:
 
 * one positive value (`Nontrivial`, `hasPositive_one_iff`): RNE → RTZ,
   RAZ → RTZ, RTZ → RNE, RNE → RNE;
 * two: RTZ → RAZ, RNE → RAZ, RAZ → RTO, RNE → RTO, RAZ → RNE;
 * three: RTZ → RTO.
 
-With one value fewer, an `F₂` without a minimum quantum seems to agree on
-every input that stays in bound, so only the overflow maps could make it fail.
-That minimality is not proved. With no minimum quantum in `F₁`
-any positive bound gives infinitely many values, and an unbounded `F₁` has
-all of them (`FiniteFormat.hasPositive_of_b_top`).
+With no minimum quantum in `F₁` any positive bound gives infinitely many
+values, and an unbounded `F₁` has all of them (`FiniteFormat.hasPositive_of_b_top`).
+The RTZ and RAZ targets take any `FiniteFormat`; the RTO and RNE targets take a
+`ParityFormat`, where those modes are defined.
 -/
 
 namespace Mpfx
@@ -156,7 +154,7 @@ private theorem disagrees_toZero {F₁ F₂ : FiniteFormat} {rm₂ : RoundingMod
   have hy := rndDown_spec F₁ x
   have hy_le := rndDown_le F₁ x
   refine ⟨x, a, a, rndDown F₁ x, hz,
-    ⟨RoundsFinite.toZero_self (mem_unbounded_of_mem ha), ha.2.2⟩,
+    ⟨RoundsFinite.self .toZero (mem_unbounded_of_mem ha), ha.2.2⟩,
     ⟨(RoundsFinite.toNegative_iff_toZero_of_nonneg _ hx0 _).mp hy,
       boundOK_of_le ha (RoundsFinite.toNegative_nonneg hx0 hy) (by linarith)⟩,
     fun h => ?_⟩
@@ -171,7 +169,7 @@ private theorem disagrees_awayZero {F₁ F₂ : FiniteFormat} {rm₂ : RoundingM
   have hy := rndUp_spec F₁ x
   have hy_ge := le_rndUp F₁ x
   refine ⟨x, a, a, rndUp F₁ x, hz,
-    ⟨RoundsFinite.awayZero_self (mem_unbounded_of_mem ha), ha.2.2⟩,
+    ⟨RoundsFinite.self .awayZero (mem_unbounded_of_mem ha), ha.2.2⟩,
     ⟨(RoundsFinite.toPositive_iff_awayZero_of_nonneg _ hx0 _).mp hy,
       boundOK_of_le hb (by linarith) (rndUp_min F₁ x (mem_unbounded_of_mem hb) hxb)⟩,
     fun h => ?_⟩
@@ -187,7 +185,7 @@ private theorem disagrees_toOdd {F₁ : ParityFormat} {F₂ : FiniteFormat} {rm�
   have hy := rndUnbounded_satisfies F₁.toFiniteFormat .toOdd x (F₁.not_isUndefined _)
   have hy_le := abs_faithful_le_of_le (mem_unbounded_of_mem hc)
     (by rwa [abs_of_nonneg hx0]) hy.isFaithfulRound
-  refine ⟨x, h, h, _, hz, ⟨RoundsFinite.toOdd_self (mem_unbounded_of_mem hh), hh.2.2⟩,
+  refine ⟨x, h, h, _, hz, ⟨RoundsFinite.self .toOdd (mem_unbounded_of_mem hh), hh.2.2⟩,
     ⟨hy, boundOK_of_abs_le (by rwa [abs_of_nonneg (hx0.trans hxc)]) hc.2.2⟩, fun he => ?_⟩
   rw [← he] at hy
   exact hh_odd (hy.2.2 hxh)
@@ -201,9 +199,9 @@ quarter of it from the anchor. -/
 /-- **RNE → RTZ.** `x = a − δ` below a positive value `a`: the intermediate RNE
 carries `x` up onto `a`, which RTZ fixes, but the direct RTZ falls below
 `a`. -/
-theorem no_roundsRNE_RTZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive 1)
+theorem no_roundsRNE_RTZ (F₁ : FiniteFormat) (h₁ : F₁.toFormat.HasPositive 1)
     (F₂ : FiniteFormat) (hsub : F₁.toFormat ⊆ F₂.toFormat) :
-    Disagrees F₂ (.nearest .toEven) F₁.toFiniteFormat .toZero := by
+    Disagrees F₂ (.nearest .toEven) F₁ .toZero := by
   obtain ⟨a, ha, ha_pos⟩ := exists_one h₁
   obtain ⟨K, hK, hK_le⟩ := exists_isolated_le F₂ ha_pos
   have hK_pos : (0 : ℝ) < (2 : ℝ) ^ K := zpow_pos two_pos K
@@ -213,9 +211,9 @@ theorem no_roundsRNE_RTZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
 
 /-- **RAZ → RTZ.** `x = a − δ`: the intermediate RAZ pushes `x` up onto `a`,
 which RTZ fixes, but the direct RTZ falls below `a`. -/
-theorem no_roundsRAZ_RTZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive 1)
+theorem no_roundsRAZ_RTZ (F₁ : FiniteFormat) (h₁ : F₁.toFormat.HasPositive 1)
     (F₂ : FiniteFormat) (hsub : F₁.toFormat ⊆ F₂.toFormat) :
-    Disagrees F₂ .awayZero F₁.toFiniteFormat .toZero := by
+    Disagrees F₂ .awayZero F₁ .toZero := by
   obtain ⟨a, ha, ha_pos⟩ := exists_one h₁
   obtain ⟨K, hK, hK_le⟩ := exists_isolated_le F₂ ha_pos
   have hK_pos : (0 : ℝ) < (2 : ℝ) ^ K := zpow_pos two_pos K
@@ -227,11 +225,11 @@ theorem no_roundsRAZ_RTZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
 /-- **RTZ → RAZ.** `x = a + δ` above the smaller of two positive values
 `a < b`: the intermediate RTZ truncates onto `a`, which RAZ fixes, but the
 direct RAZ reaches past `a`, to at most `b`. -/
-theorem no_roundsRTZ_RAZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive 2)
+theorem no_roundsRTZ_RAZ (F₁ : FiniteFormat) (h₁ : F₁.toFormat.HasPositive 2)
     (F₂ : FiniteFormat) (hsub : F₁.toFormat ⊆ F₂.toFormat) :
-    Disagrees F₂ .toZero F₁.toFiniteFormat .awayZero := by
+    Disagrees F₂ .toZero F₁ .awayZero := by
   obtain ⟨a, b, ha, hb, ha_pos, hab⟩ := exists_two h₁
-  obtain ⟨K, hK₂, hK₁, -⟩ := exists_isolated₂ F₂ F₁.toFiniteFormat ha_pos
+  obtain ⟨K, hK₂, hK₁, -⟩ := exists_isolated₂ F₂ F₁ ha_pos
   have hK_pos : (0 : ℝ) < (2 : ℝ) ^ K := zpow_pos two_pos K
   have hKb : (2 : ℝ) ^ K ≤ b - a := by
     have := hK₁.le_abs_sub (mem_unbounded_of_mem hb) (fun h => by rw [h] at hab; linarith)
@@ -243,11 +241,11 @@ theorem no_roundsRTZ_RAZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
 
 /-- **RNE → RAZ.** `x = a + δ`: the intermediate RNE rounds down onto `a`, which
 RAZ fixes, but the direct RAZ reaches past `a`, to at most `b`. -/
-theorem no_roundsRNE_RAZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive 2)
+theorem no_roundsRNE_RAZ (F₁ : FiniteFormat) (h₁ : F₁.toFormat.HasPositive 2)
     (F₂ : FiniteFormat) (hsub : F₁.toFormat ⊆ F₂.toFormat) :
-    Disagrees F₂ (.nearest .toEven) F₁.toFiniteFormat .awayZero := by
+    Disagrees F₂ (.nearest .toEven) F₁ .awayZero := by
   obtain ⟨a, b, ha, hb, ha_pos, hab⟩ := exists_two h₁
-  obtain ⟨K, hK₂, hK₁, -⟩ := exists_isolated₂ F₂ F₁.toFiniteFormat ha_pos
+  obtain ⟨K, hK₂, hK₁, -⟩ := exists_isolated₂ F₂ F₁ ha_pos
   have hK_pos : (0 : ℝ) < (2 : ℝ) ^ K := zpow_pos two_pos K
   have hKb : (2 : ℝ) ^ K ≤ b - a := by
     have := hK₁.le_abs_sub (mem_unbounded_of_mem hb) (fun h => by rw [h] at hab; linarith)
@@ -405,7 +403,7 @@ theorem no_roundsRNE_RNE (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
   have hm : (m : ℝ) = ((u : ℝ) + u') / 2 := Dyadic.coe_midpoint u u'
   -- `m` is a value of `F₁` with one extra digit, hence of `F₂`.
   have hm₂ : m ∈ F₂.toFormat := by
-    have h := midpoint_in_F₁_extend_one_of_F_adjacent (F₁ := F₁.unbounded) hadj.1 hadj.2.1 hlt
+    have h := midpoint_in_F₁_extend_one_of_F_adjacent (F := F₁.unbounded) hadj.1 hadj.2.1 hlt
       fun v hv hv' => not_lt.mp fun h => by linarith [hadj.2.2.2 v hv h]
     have hb : Format.boundOK F₁.b m :=
       boundOK_of_le hu' (by rw [hm]; linarith) (by rw [hm]; linarith)
@@ -454,50 +452,50 @@ With a nearest-even intermediate, `F₂` must make that mode defined, which only
 `𝒜(1, ⊥, ·)` fails. -/
 
 /-- `no_roundsRNE_RTZ` on `rnd`. -/
-theorem no_rndRNE_RTZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive 1)
+theorem no_rndRNE_RTZ (F₁ : FiniteFormat) (h₁ : F₁.toFormat.HasPositive 1)
     (F₂ : FiniteFormat) (hsub : F₁.toFormat ⊆ F₂.toFormat)
     (h₂ : ¬ F₂.IsUndefined (.nearest .toEven))
     (S₂ : SpecialMap F₂.toFormat) (O₂ : OverflowMap F₂.toFormat)
     (S₁ : SpecialMap F₁.toFormat) (O₁ : OverflowMap F₁.toFormat) :
     ∃ (x : ℝ) (z : Dyadic), rnd F₂ S₂ O₂ (.nearest .toEven) (.finite x) = .value (.finite z) ∧
-      rnd F₁.toFiniteFormat S₁ O₁ .toZero (.finite (z : ℝ)) ≠
-        rnd F₁.toFiniteFormat S₁ O₁ .toZero (.finite x) :=
+      rnd F₁ S₁ O₁ .toZero (.finite (z : ℝ)) ≠
+        rnd F₁ S₁ O₁ .toZero (.finite x) :=
   (no_roundsRNE_RTZ F₁ h₁ F₂ hsub).rnd_ne h₂
-    (F₁.not_isUndefined _) S₂ O₂ S₁ O₁
+    (not_isUndefined_toZero F₁) S₂ O₂ S₁ O₁
 
 /-- `no_roundsRAZ_RTZ` on `rnd`. -/
-theorem no_rndRAZ_RTZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive 1)
+theorem no_rndRAZ_RTZ (F₁ : FiniteFormat) (h₁ : F₁.toFormat.HasPositive 1)
     (F₂ : FiniteFormat) (hsub : F₁.toFormat ⊆ F₂.toFormat)
     (S₂ : SpecialMap F₂.toFormat) (O₂ : OverflowMap F₂.toFormat)
     (S₁ : SpecialMap F₁.toFormat) (O₁ : OverflowMap F₁.toFormat) :
     ∃ (x : ℝ) (z : Dyadic), rnd F₂ S₂ O₂ .awayZero (.finite x) = .value (.finite z) ∧
-      rnd F₁.toFiniteFormat S₁ O₁ .toZero (.finite (z : ℝ)) ≠
-        rnd F₁.toFiniteFormat S₁ O₁ .toZero (.finite x) :=
+      rnd F₁ S₁ O₁ .toZero (.finite (z : ℝ)) ≠
+        rnd F₁ S₁ O₁ .toZero (.finite x) :=
   (no_roundsRAZ_RTZ F₁ h₁ F₂ hsub).rnd_ne (not_isUndefined_awayZero F₂)
-    (F₁.not_isUndefined _) S₂ O₂ S₁ O₁
+    (not_isUndefined_toZero F₁) S₂ O₂ S₁ O₁
 
 /-- `no_roundsRTZ_RAZ` on `rnd`. -/
-theorem no_rndRTZ_RAZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive 2)
+theorem no_rndRTZ_RAZ (F₁ : FiniteFormat) (h₁ : F₁.toFormat.HasPositive 2)
     (F₂ : FiniteFormat) (hsub : F₁.toFormat ⊆ F₂.toFormat)
     (S₂ : SpecialMap F₂.toFormat) (O₂ : OverflowMap F₂.toFormat)
     (S₁ : SpecialMap F₁.toFormat) (O₁ : OverflowMap F₁.toFormat) :
     ∃ (x : ℝ) (z : Dyadic), rnd F₂ S₂ O₂ .toZero (.finite x) = .value (.finite z) ∧
-      rnd F₁.toFiniteFormat S₁ O₁ .awayZero (.finite (z : ℝ)) ≠
-        rnd F₁.toFiniteFormat S₁ O₁ .awayZero (.finite x) :=
+      rnd F₁ S₁ O₁ .awayZero (.finite (z : ℝ)) ≠
+        rnd F₁ S₁ O₁ .awayZero (.finite x) :=
   (no_roundsRTZ_RAZ F₁ h₁ F₂ hsub).rnd_ne (not_isUndefined_toZero F₂)
-    (F₁.not_isUndefined _) S₂ O₂ S₁ O₁
+    (not_isUndefined_awayZero F₁) S₂ O₂ S₁ O₁
 
 /-- `no_roundsRNE_RAZ` on `rnd`. -/
-theorem no_rndRNE_RAZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive 2)
+theorem no_rndRNE_RAZ (F₁ : FiniteFormat) (h₁ : F₁.toFormat.HasPositive 2)
     (F₂ : FiniteFormat) (hsub : F₁.toFormat ⊆ F₂.toFormat)
     (h₂ : ¬ F₂.IsUndefined (.nearest .toEven))
     (S₂ : SpecialMap F₂.toFormat) (O₂ : OverflowMap F₂.toFormat)
     (S₁ : SpecialMap F₁.toFormat) (O₁ : OverflowMap F₁.toFormat) :
     ∃ (x : ℝ) (z : Dyadic), rnd F₂ S₂ O₂ (.nearest .toEven) (.finite x) = .value (.finite z) ∧
-      rnd F₁.toFiniteFormat S₁ O₁ .awayZero (.finite (z : ℝ)) ≠
-        rnd F₁.toFiniteFormat S₁ O₁ .awayZero (.finite x) :=
+      rnd F₁ S₁ O₁ .awayZero (.finite (z : ℝ)) ≠
+        rnd F₁ S₁ O₁ .awayZero (.finite x) :=
   (no_roundsRNE_RAZ F₁ h₁ F₂ hsub).rnd_ne h₂
-    (F₁.not_isUndefined _) S₂ O₂ S₁ O₁
+    (not_isUndefined_awayZero F₁) S₂ O₂ S₁ O₁
 
 /-- `no_roundsRAZ_RTO` on `rnd`. -/
 theorem no_rndRAZ_RTO (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive 2)

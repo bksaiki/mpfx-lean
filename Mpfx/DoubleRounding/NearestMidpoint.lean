@@ -192,7 +192,7 @@ private theorem canonicalExp_eq_of_lt_mid {F₁ F₂ : FiniteFormat} {tb₂ : Ti
     rw [midp]; rw [ulp_of_ne_zero F₁ hx.ne'] at h ⊢; linarith
   exact canonicalExp_eq_of_binade_top hx h21 hle (hk ▸ lt_trans hz_lt_midp hmidp_lt) hz
 
-/-- **Lemma 16 (Roux `round_round_lt_mid_further_place`).** The hypothesis-free
+/-- **Lemma 16 (Flocq `round_round_lt_mid_further_place`).** The hypothesis-free
 form: binade consistency is derived from `hle` via `canonicalExp_eq_of_lt_mid`. -/
 theorem rnd_lt_mid' {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
     {z w : Dyadic}
@@ -214,22 +214,19 @@ positivity, so the "above the midpoint ⟹ rounds up" double-rounding theorem
 
 /-- **Double-rounding negation transport.** Both roundings being to-nearest,
 double rounding commutes with negation: to double-round `v` it suffices to
-double-round `-v` — feed the negated intermediate/result data `(-z, -w)` to
-`hbase` and the result negates back. Factors the `RoundsFinite.neg_nearest` dance
-shared by the sign-case reductions of `rndDiff`, `rndAdd`, and `rndDiv`. -/
+double-round `-v` with the negated intermediate and result `(-z, -w)`. -/
 theorem rndNeg {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {v : ℝ} {z w : Dyadic}
     (hz : RoundsFinite F₂.unbounded (.nearest tb₂) v z)
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w)
-    (hbase : ∀ (z' w' : Dyadic),
-      RoundsFinite F₂.unbounded (.nearest tb₂) (-v) z' →
-      RoundsFinite F₁.unbounded (.nearest tb₁) (z' : ℝ) w' →
-      RoundsFinite F₁.unbounded (.nearest tb₁) (-v) w') :
+    (hbase : RoundsFinite F₂.unbounded (.nearest tb₂) (-v) (-z) →
+      RoundsFinite F₁.unbounded (.nearest tb₁) ((-z : Dyadic) : ℝ) (-w) →
+      RoundsFinite F₁.unbounded (.nearest tb₁) (-v) (-w)) :
     RoundsFinite F₁.unbounded (.nearest tb₁) v w := by
   have hz' : RoundsFinite F₂.unbounded (.nearest tb₂) (-v) (-z) :=
     (RoundsFinite.neg_nearest F₂.unbounded tb₂ v z).mp hz
   have hw' : RoundsFinite F₁.unbounded (.nearest tb₁) ((-z : Dyadic) : ℝ) (-w) := by
     rw [Dyadic.coe_real_neg]; exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ (z : ℝ) w).mp hw
-  exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ v w).mpr (hbase (-z) (-w) hz' hw')
+  exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ v w).mpr (hbase hz' hw')
 
 /-- **Above-midpoint double rounding** (mirror of `rnd_lt_mid`, given binade
 consistency). If `x` sits more than `½·ulp₂` above its upper `F₁`-midpoint
@@ -251,16 +248,10 @@ theorem rnd_gt_mid {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
     unfold midp; rw [rndDown_neg_real, ulp_neg, ulp_neg]; linarith [hmid]
   have hcexp' : F₁.canonicalExp ((-z : Dyadic) : ℝ) = F₁.canonicalExp (-x) := by
     rw [Dyadic.coe_real_neg, canonicalExp_neg, canonicalExp_neg]; exact hcexp
-  have hz' : RoundsFinite F₂.unbounded (.nearest tb₂) (-x) (-z) :=
-    (RoundsFinite.neg_nearest F₂.unbounded tb₂ x z).mp hz
-  have hw' : RoundsFinite F₁.unbounded (.nearest tb₁) ((-z : Dyadic) : ℝ) (-w) := by
-    rw [Dyadic.coe_real_neg]
-    exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ (z : ℝ) w).mp hw
-  have hres := rnd_lt_mid hundef₁ (neg_ne_zero.mpr hx) h21' hmid' hcexp' hz' hw'
-  exact (RoundsFinite.neg_nearest F₁.unbounded tb₁ x w).mpr hres
+  exact rndNeg hz hw (rnd_lt_mid hundef₁ (neg_ne_zero.mpr hx) h21' hmid' hcexp')
 
 /-- **Above-midpoint double rounding, crossing-robust** (Flocq
-`round_round_gt_mid_further_place`, including the `x'' = bpow(mag x)` branch).
+`round_round_gt_mid_further_place`).
 Needs *no* away-from-top hypothesis: if the intermediate `z` stays in `x`'s
 binade, binade consistency (`canonicalExp_eq_of_binade_top`) applies;
 otherwise `z` crosses to `2^(mag x)`. In the crossing case `z` is the round-up of
@@ -340,9 +331,7 @@ can never land (so the caller discharges it, typically by `exfalso`). -/
 double rounding of `x` is innocuous *provided the near-midpoint case is handled*:
 if `|x − midp₁ x| ≤ ½·ulp₂` the caller supplies `hcmid`; otherwise `x` sits more
 than `½·ulp₂` below the midpoint (→ `rnd_lt_mid'`) or above it
-(→ `rnd_gt_mid_robust`, which needs no away-from-top hypothesis). The `√`/`÷`
-proofs discharge `hcmid` by showing the result is never within `½·ulp₂` of a
-midpoint. -/
+(→ `rnd_gt_mid_robust`). -/
 theorem round_round_mid_cases {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
     {z w : Dyadic}
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))

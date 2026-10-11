@@ -10,13 +10,7 @@ rounding ⟹ unbounded spec`), per mode and for every mode at once
 
 namespace Mpfx
 
-/-! ## Restrict / lift for the directed modes -/
-
-/-- **Restrict** (`.toNegative`): the bounded format has fewer candidates. -/
-private theorem RoundsFinite.toNegative_restrict {F : FiniteFormat} {x : ℝ}
-    {y : Dyadic} (h : RoundsFinite F.unbounded .toNegative x y)
-    (hb : Format.boundOK F.b y) : RoundsFinite F .toNegative x y :=
-  ⟨mem_of_mem_unbounded_of_boundOK h.1 hb, h.2.1, fun v hv => h.2.2 v (mem_unbounded_of_mem hv)⟩
+/-! ## Lift for the directed modes -/
 
 /-- **Lift** (`.toNegative`): an unbounded candidate is below `y`, itself a
 bounded candidate. -/
@@ -27,12 +21,6 @@ private theorem RoundsFinite.toNegative_lift {F : FiniteFormat} {x : ℝ}
   ⟨mem_unbounded_of_mem hw.1, hw.2.1, fun v hv hvx =>
     (hy.2.2 v hv hvx).trans (hw.2.2 y (mem_of_mem_unbounded_of_boundOK hy.1 hb) hy.2.1)⟩
 
-/-- **Restrict** (`.toPositive`): the bounded format has fewer candidates. -/
-private theorem RoundsFinite.toPositive_restrict {F : FiniteFormat} {x : ℝ}
-    {y : Dyadic} (h : RoundsFinite F.unbounded .toPositive x y)
-    (hb : Format.boundOK F.b y) : RoundsFinite F .toPositive x y :=
-  ⟨mem_of_mem_unbounded_of_boundOK h.1 hb, h.2.1, fun v hv => h.2.2 v (mem_unbounded_of_mem hv)⟩
-
 /-- **Lift** (`.toPositive`): an unbounded candidate is above `y`, itself a
 bounded candidate. -/
 private theorem RoundsFinite.toPositive_lift {F : FiniteFormat} {x : ℝ}
@@ -42,62 +30,24 @@ private theorem RoundsFinite.toPositive_lift {F : FiniteFormat} {x : ℝ}
   ⟨mem_unbounded_of_mem hw.1, hw.2.1, fun v hv hxv =>
     (hw.2.2 y (mem_of_mem_unbounded_of_boundOK hy.1 hb) hy.2.1).trans (hy.2.2 v hv hxv)⟩
 
-/-! ## Restrict / lift for `.toZero` -/
-
-/-- **Restrict** (`.toZero`): an in-bound unbounded rounding is also the
-bounded rounding (the bounded format has fewer candidates). -/
-private theorem RoundsFinite.toZero_restrict {F : FiniteFormat} {x : ℝ}
-    {y : Dyadic} (h : RoundsFinite F.unbounded .toZero x y)
-    (hb : Format.boundOK F.b y) : RoundsFinite F .toZero x y := by
-  obtain ⟨hmem, hbnd, hsign, hmax⟩ := h
-  exact ⟨mem_of_mem_unbounded_of_boundOK hmem hb, hbnd, hsign,
-    fun v hv => hmax v (mem_unbounded_of_mem hv)⟩
-
-/-- **Lift** (`.toZero`): if `w` is the bounded rounding of `x` and the
-unbounded rounding `y` of `x` happens to be in-bound, then `w` is also the
-unbounded rounding (any unbounded candidate is dominated by `y`, which is
-itself a bounded candidate). -/
+/-- **Lift** (`.toZero`): any unbounded candidate is dominated by `y`, itself a
+bounded candidate. -/
 private theorem RoundsFinite.toZero_lift {F : FiniteFormat} {x : ℝ}
     {w y : Dyadic} (hw : RoundsFinite F .toZero x w)
     (hy : RoundsFinite F.unbounded .toZero x y)
-    (hb : Format.boundOK F.b y) : RoundsFinite F.unbounded .toZero x w := by
-  obtain ⟨hwmem, hwbnd, hwsign, hwmax⟩ := hw
-  obtain ⟨hymem, hybnd, hysign, hymax⟩ := hy
-  refine ⟨mem_unbounded_of_mem hwmem, hwbnd, hwsign, ?_⟩
-  intro v hv hvbnd hvsign
-  have h1 : |(v : ℝ)| ≤ |(y : ℝ)| := hymax v hv hvbnd hvsign
-  have h2 : |(y : ℝ)| ≤ |(w : ℝ)| :=
-    hwmax y (mem_of_mem_unbounded_of_boundOK hymem hb) hybnd hysign
-  exact le_trans h1 h2
+    (hb : Format.boundOK F.b y) : RoundsFinite F.unbounded .toZero x w :=
+  ⟨mem_unbounded_of_mem hw.1, hw.2.1, hw.2.2.1, fun v hv hvb hvs => (hy.2.2.2 v hv hvb hvs).trans
+    (hw.2.2.2 y (mem_of_mem_unbounded_of_boundOK hy.1 hb) hy.2.1 hy.2.2.1)⟩
 
-/-! ## Restrict / lift for `.awayZero` -/
-
-/-- **Restrict** (`.awayZero`): an in-bound unbounded rounding is also the
-bounded rounding (the bounded format has fewer candidates). -/
-private theorem RoundsFinite.awayZero_restrict {F : FiniteFormat} {x : ℝ}
-    {y : Dyadic} (h : RoundsFinite F.unbounded .awayZero x y)
-    (hb : Format.boundOK F.b y) : RoundsFinite F .awayZero x y := by
-  obtain ⟨hmem, hbnd, hsign, hmin⟩ := h
-  exact ⟨mem_of_mem_unbounded_of_boundOK hmem hb, hbnd, hsign,
-    fun v hv => hmin v (mem_unbounded_of_mem hv)⟩
-
-/-- **Lift** (`.awayZero`): if `w` is the bounded rounding of `x` and the
-unbounded rounding `y` of `x` happens to be in-bound, then `w` is also the
-unbounded rounding (any unbounded candidate dominates `y`, which is itself
-a bounded candidate). -/
+/-- **Lift** (`.awayZero`): any unbounded candidate dominates `y`, itself a
+bounded candidate. -/
 private theorem RoundsFinite.awayZero_lift {F : FiniteFormat} {x : ℝ}
     {w y : Dyadic} (hw : RoundsFinite F .awayZero x w)
     (hy : RoundsFinite F.unbounded .awayZero x y)
-    (hb : Format.boundOK F.b y) : RoundsFinite F.unbounded .awayZero x w := by
-  obtain ⟨hwmem, hwbnd, hwsign, hwmin⟩ := hw
-  obtain ⟨hymem, hybnd, hysign, hymin⟩ := hy
-  refine ⟨mem_unbounded_of_mem hwmem, hwbnd, hwsign, ?_⟩
-  intro v hv hvbnd hvsign
-  have h1 : |(w : ℝ)| ≤ |(y : ℝ)| :=
-    hwmin y (mem_of_mem_unbounded_of_boundOK hymem hb) hybnd hysign
-  have h2 : |(y : ℝ)| ≤ |(v : ℝ)| := hymin v hv hvbnd hvsign
-  exact le_trans h1 h2
-
+    (hb : Format.boundOK F.b y) : RoundsFinite F.unbounded .awayZero x w :=
+  ⟨mem_unbounded_of_mem hw.1, hw.2.1, hw.2.2.1, fun v hv hvb hvs =>
+    (hw.2.2.2 y (mem_of_mem_unbounded_of_boundOK hy.1 hb) hy.2.1 hy.2.2.1).trans
+      (hy.2.2.2 v hv hvb hvs)⟩
 
 /-! ## Faithful-round restrict / lift -/
 
@@ -133,17 +83,7 @@ private theorem IsFaithfulRound.unbounded_lift {F : FiniteFormat} {x : ℝ}
         (hu.2.2 w (mem_unbounded_of_mem hwF) hw.2.1)
     · exact hb
 
-/-! ## Restrict / lift for `.toOdd` -/
-
-/-- **Restrict** (`.toOdd`): an in-bound unbounded RTO rounding is also the
-bounded RTO rounding. -/
-private theorem RoundsFinite.toOdd_restrict {F : FiniteFormat} {x : ℝ}
-    {y : Dyadic} (h : RoundsFinite F.unbounded .toOdd x y)
-    (hb : Format.boundOK F.b y) : RoundsFinite F .toOdd x y := by
-  obtain ⟨hmem, hfaithful, hparity⟩ := h
-  exact ⟨mem_of_mem_unbounded_of_boundOK hmem hb,
-    IsFaithfulRound.restrict hfaithful hb,
-    hparity⟩
+/-! ## Lift for `.toOdd` -/
 
 /-- **Lift** (`.toOdd`): if `w` is the bounded RTO rounding of `x` and the
 unbounded RTO rounding `y` of `x` happens to be in-bound, then `w` is also
@@ -284,12 +224,12 @@ private theorem RoundsFinite.nearest_lift {F : FiniteFormat} {tb : TieBreak}
 theorem RoundsFinite.restrict {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
     {y : Dyadic} (h : RoundsFinite F.unbounded rm x y)
     (hb : Format.boundOK F.b y) : RoundsFinite F rm x y := by
+  have hm := mem_of_mem_unbounded_of_boundOK h.1 hb
   cases rm with
-  | toNegative => exact toNegative_restrict h hb
-  | toPositive => exact toPositive_restrict h hb
-  | toZero => exact toZero_restrict h hb
-  | awayZero => exact awayZero_restrict h hb
-  | toOdd => exact toOdd_restrict h hb
+  | toNegative | toPositive => exact ⟨hm, h.2.1, fun v hv => h.2.2 v (mem_unbounded_of_mem hv)⟩
+  | toZero | awayZero =>
+    exact ⟨hm, h.2.1, h.2.2.1, fun v hv => h.2.2.2 v (mem_unbounded_of_mem hv)⟩
+  | toOdd => exact ⟨hm, IsFaithfulRound.restrict h.2.1 hb, h.2.2⟩
   | nearest _ => exact nearest_restrict h hb
 
 /-- **Lift**: if `w` is the bounded rounding of `x` and the unbounded rounding

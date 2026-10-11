@@ -6,22 +6,20 @@ import Mpfx.DoubleRounding.Basic
 # Operation-specific double rounding: square root (Roux 2014, Theorem 25)
 
 Roux's Theorem 25 (radix 2, no minimum quantum): double rounding of `√x` is
-innocuous when
-`p₂ ≥ 2p₁ + 2`. Unlike `×`/`+`, the result `√x` is generally irrational — but
-`RoundsFinite` rounds a *real*, so the statement simply takes `Real.sqrt x` as
-the value and leans on the two-sided midpoint engine (`round_round_mid_cases`).
-The new mathematical content is the *separation lemma* `round_round_sqrt_aux`:
-`√x` is never within `½·ulp₂` of an `F₁`-midpoint. `rndSqrt_expBot` and `rndSqrt_expFinite`
-assemble it (via the shared `rndSqrt_core`) for the two format configurations.
+innocuous when `p₂ ≥ 2p₁ + 2`. Unlike `×`/`+`, the result `√x` is generally
+irrational — but `RoundsFinite` rounds a *real*, so the statement simply takes
+`Real.sqrt x` as the value and leans on the two-sided midpoint engine
+(`round_round_mid_cases`). The core is the *separation lemma*
+`round_round_sqrt_aux`: `√x` is never within `½·ulp₂` of an `F₁`-midpoint.
+`rndSqrt_expBot` and `rndSqrt_expFinite` assemble it (via the shared
+`rndSqrt_core`) for the two format configurations.
 -/
 
 namespace Mpfx
 
 /-- **Binade of a square root** (Flocq `mag_sqrt_disj`). For `0 < x`, writing
 `L = Int.log 2 (√x)`, the binade of `x` is `2L` or `2L+1`:
-`2L ≤ Int.log 2 x ≤ 2L+1`. Equivalently `Int.log 2 (√x) = ⌊(Int.log 2 x)/2⌋`.
-Proof: square the defining bounds `2^L ≤ √x < 2^(L+1)` to get
-`2^(2L) ≤ x < 2^(2L+2)`, then read off `Int.log 2 x`. -/
+`2L ≤ Int.log 2 x ≤ 2L+1`. -/
 private theorem log_sqrt_bounds {x : ℝ} (hx : 0 < x) :
     2 * Int.log 2 (Real.sqrt x) ≤ Int.log 2 x ∧
       Int.log 2 x ≤ 2 * Int.log 2 (Real.sqrt x) + 1 := by
@@ -84,9 +82,6 @@ private theorem round_round_sqrt_aux {F₁ F₂ : FiniteFormat} {x : ℝ} (hx : 
   have hu1_pos : (0 : ℝ) < (2 : ℝ) ^ e₁ := zpow_pos (by norm_num) _
   have hu2_pos : (0 : ℝ) < (2 : ℝ) ^ e₂ := zpow_pos (by norm_num) _
   -- binade of `s`
-  have hk_lo : (2 : ℝ) ^ k ≤ s := by
-    have := Int.zpow_log_le_self (b := 2) (by norm_num) hs_pos
-    rw [← hk] at this; exact_mod_cast this
   have hk_hi : s < (2 : ℝ) ^ (k + 1) := by
     have := Int.lt_zpow_succ_log_self (b := 2) (by norm_num) s
     rw [← hk] at this; exact_mod_cast this
@@ -237,8 +232,7 @@ private theorem rndSqrt_of {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
   obtain ⟨h1, h2, h3⟩ := hexps hxpos
   exact rndSqrt_core hxpos hundef₁ ⟨c, hc⟩ h1 h2 h3 hz hw
 
-/-- **rnd-sqrt, no minimum quantum** (Roux Theorem 25, radix 2). With `exp = ⊥`
-formats
+/-- **rnd-sqrt, no minimum quantum** (Roux Theorem 25, radix 2). With `exp = ⊥` formats
 `F₁ = 𝒜(p₁, ⊥, b₁)` and `F₂ = 𝒜(p₂, ⊥, b₂)`, double rounding to nearest of `√x`
 (`x ∈ F₁`, `0 ≤ x`) is innocuous when
 
@@ -275,8 +269,7 @@ theorem rndSqrt_expBot {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁
     rw [canonicalExp_expBot hp₁ hexp₁ (ne_of_gt hxpos), abs_of_pos hxpos]
   exact ⟨by rw [hcE1s, hcE1x]; omega, by rw [hcE1s]; omega, by rw [hcE1s, hcE2s]; omega⟩
 
-/-- **rnd-sqrt, minimum quantum** (Roux Theorem 25, radix 2). With `exp = emin`
-formats
+/-- **rnd-sqrt, minimum quantum** (Roux Theorem 25, radix 2). With `exp = emin` formats
 `F₁ = 𝒜(p₁, emin₁, b₁)` and `F₂ = 𝒜(p₂, emin₂, b₂)`, double rounding to nearest of
 `√x` (`x ∈ F₁`, `0 ≤ x`) is innocuous when
 

@@ -15,10 +15,6 @@ this directory.
 
 namespace Mpfx
 
--- FLoPS-style: noncomputable definitions rely on Mathlib's
--- `Real.decidableLT`/`decidableEq` plus the classical `propDecidable`
--- fallback for `if-then-else` on undecidable real comparisons. Marked
--- `local` so this taint is scoped per file.
 attribute [local instance] Classical.propDecidable
 
 /-- Integer-rounding step. Picks the integer `c` for which `c · 2^e` is the
@@ -56,7 +52,7 @@ noncomputable def rndUnbounded (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
 
 /-- Rounding into `F` under mode `rm`, with special inputs sent through `S`.
 A real input goes to `rndUnbounded`, then the bound is checked: the rounded
-value if it fits, otherwise the overflow table `O` at the value's sign. -/
+value if it fits, otherwise the overflow map `O` at the value's sign. -/
 noncomputable def rnd (F : FiniteFormat) (S : SpecialMap F.toFormat)
     (O : OverflowMap F.toFormat) (rm : RoundingMode) : WithSpecial ℝ → RoundResult
   | .special s => .value (S.map s)

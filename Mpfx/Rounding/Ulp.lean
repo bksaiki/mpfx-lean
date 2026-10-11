@@ -190,8 +190,8 @@ theorem nearest_error_le_half_ulp {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
   rw [abs_sub_comm]
   linarith
 
-/-- **Nearest of a value close to a grid point.** If `v`'s scaled mantissa is
-within `½` of an integer `m`, then the grid point `m · 2^(canonicalExp v)` is the
+/-- **Nearest of a value close to a multiple of the step.** If `v`'s scaled mantissa
+is within `½` of an integer `m`, then `m · 2^(canonicalExp v)` is the
 nearest rounding of `v` (either tie-break), whichever side of `m` the scaled
 mantissa falls on. -/
 theorem nearest_eq_of_close (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
@@ -222,8 +222,8 @@ theorem nearest_eq_of_close (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
     unfold rndUnbounded
     cases tb <;> simp only [rndInt, ← he, if_pos hδ] <;> rw [hfloor]
 
-/-- Dyadic-grid-point form of `nearest_eq_of_close`: if `g ∈ F`-grid at `v`'s
-scale (`quantumAtLeast (canonicalExp v) g`) and `|v − g| < ½·ulp F v`, then `g`
+/-- Dyadic form of `nearest_eq_of_close`: if `g` is a multiple of `v`'s step
+(`quantumAtLeast (canonicalExp v) g`) and `|v − g| < ½·ulp F v`, then `g`
 is the nearest rounding of `v`. -/
 theorem nearest_eq_of_close' (F : FiniteFormat) (tb : TieBreak) (v : ℝ)
     (hundef : ¬ F.IsUndefined (.nearest tb)) {g : Dyadic}
@@ -309,26 +309,14 @@ theorem rndDown_neg_real (F : FiniteFormat) (x : ℝ) :
 theorem zpow_log_le_rndDown (F : FiniteFormat) {x : ℝ} (hx : 0 < x)
     (hq : F.IsAboveQuantum x) :
     (2 : ℝ) ^ (Int.log 2 x) ≤ ((rndDown F x : Dyadic) : ℝ) := by
-  have hq := hq.le_log hx
-  set e := F.canonicalExp x with he
-  set k := Int.log 2 x with hk
-  have h2e : (0 : ℝ) < (2 : ℝ) ^ e := zpow_pos (by norm_num) _
-  have h2e' : (0 : ℝ) < (2 : ℝ) ^ (-e) := zpow_pos (by norm_num) _
-  have hklo : (2 : ℝ) ^ k ≤ x := Int.zpow_log_le_self (by norm_num) hx
-  have hcast : (((2 : ℤ) ^ (k - e).toNat : ℤ) : ℝ) = (2 : ℝ) ^ (k - e) := by
-    push_cast; rw [← zpow_natCast, Int.toNat_of_nonneg (by omega)]
-  have hsplit : (2 : ℝ) ^ (k - e) = (2 : ℝ) ^ k * (2 : ℝ) ^ (-e) := by
-    rw [zpow_sub₀ (by norm_num : (2 : ℝ) ≠ 0), zpow_neg, div_eq_mul_inv]
-  have hnat : ((2 : ℤ) ^ (k - e).toNat : ℤ) ≤ ⌊x * (2 : ℝ) ^ (-e)⌋ := by
-    rw [Int.le_floor, hcast, hsplit]
-    exact mul_le_mul_of_nonneg_right hklo h2e'.le
-  have hfl : (2 : ℝ) ^ (k - e) ≤ (⌊x * (2 : ℝ) ^ (-e)⌋ : ℝ) := by
-    rw [← hcast]; exact_mod_cast hnat
-  rw [rndDown_eq, Dyadic.coe_ofIntZpow, ← he]
-  calc (2 : ℝ) ^ k = (2 : ℝ) ^ (k - e) * (2 : ℝ) ^ e := by
-        rw [zpow_sub₀ (by norm_num : (2 : ℝ) ≠ 0),
-          div_mul_cancel₀ _ (zpow_ne_zero _ (by norm_num : (2 : ℝ) ≠ 0))]
-    _ ≤ (⌊x * (2 : ℝ) ^ (-e)⌋ : ℝ) * (2 : ℝ) ^ e := mul_le_mul_of_nonneg_right hfl h2e.le
+  -- `2^⌊log₂ x⌋` is a value of `F` at most `x`.
+  have hmem : Dyadic.ofIntZpow 1 (Int.log 2 x) ∈ F.unbounded :=
+    ofIntZpow_mem_unbounded F (fun he' => (F.exp_le_canonicalExp x he').trans (hq.le_log hx))
+      fun _ => by rw [abs_one]; exact one_le_pow₀ (by norm_num)
+  have hle : ((Dyadic.ofIntZpow 1 (Int.log 2 x) : Dyadic) : ℝ) ≤ x := by
+    rw [Dyadic.coe_ofIntZpow, Int.cast_one, one_mul]; exact Int.zpow_log_le_self (by norm_num) hx
+  have h := rndDown_max F x hmem hle
+  rwa [Dyadic.coe_ofIntZpow, Int.cast_one, one_mul] at h
 
 theorem rndDown_pos_of_isAboveQuantum (F : FiniteFormat) {x : ℝ} (hx : 0 < x)
     (hq : F.IsAboveQuantum x) : 0 < ((rndDown F x : Dyadic) : ℝ) :=
@@ -353,9 +341,5 @@ theorem isAboveQuantum_of_rndDown_pos (F : FiniteFormat) {x : ℝ}
   have hfl : ⌊x * (2 : ℝ) ^ (-e)⌋ = 0 := Int.floor_eq_zero_iff.mpr ⟨by positivity, hxe⟩
   rw [rndDown_eq, Dyadic.coe_ofIntZpow, ← he, hfl] at h
   norm_num at h
-
-theorem rndDown_pos_iff (F : FiniteFormat) {x : ℝ} (hx : 0 < x) :
-    0 < ((rndDown F x : Dyadic) : ℝ) ↔ F.IsAboveQuantum x :=
-  ⟨isAboveQuantum_of_rndDown_pos F, rndDown_pos_of_isAboveQuantum F hx⟩
 
 end Mpfx

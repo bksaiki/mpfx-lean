@@ -15,7 +15,7 @@ development:
    rules out `(p = 1, exp = ⊥)`, where the parity modes are undefined.
 2. **Explicit rounding.** Alongside the spec relation
    `Rounds F S O rm v r : Prop`, a function `rnd F S O rm v : RoundResult`
-   (`S`, `O`: the special-value and overflow tables) computes the rounded value via `Int.log` + `Int.floor`/`Int.ceil`
+   (`S`, `O`: the special-value and overflow maps) computes the rounded value via `Int.log` + `Int.floor`/`Int.ceil`
    (FLoPS-style). No `Classical.choose` in the definition; it is
    `noncomputable` because real comparisons aren't computably
    decidable. Proofs are classical throughout (see `docs/DESIGN.md`).
@@ -56,7 +56,7 @@ Mpfx/
 │                     precisionAtMost_coe_real / quantumAtLeast_coe_real (ℝ bridges),
 │                     quantumAtLeast_neg/add/sub/mul/ofIntZpow, precisionAtMost_mul,
 │                     abs_ge_two_zpow_of_quantum / le_log_of_quantum, Dyadic.abs,
-│                     IsRepresentableAtP (ℚ) + unique + ne_zero,
+│                     IsRepresentableAtP (ℚ) + ne_zero,
 │                     precisionAtMost_of_abs_le (saturation renormalization),
 │                     isRepresentableAtP_of_log
 ├── Format/
@@ -91,10 +91,9 @@ Mpfx/
 │   │                 extend_{one,two}_subset_of_withBound_subset,
 │   │                 two_le_p_or_trivial_of_extend_{one,two}_withBound_subset
 │   ├── Discrete.lean canonical representation and midpoint membership
-│   │                 (prereq for roundsRTO_RN_finite): exists_canonical_rep(_of_parts),
-│   │                 midpoint_mem_extend_one_of_adjacent(_pos), half_mem_extend_one,
-│   │                 midpoint_in_F₁_extend_one_of_F_adjacent; quantum_floor/ceil_of_mem,
-│   │                 binade_quantum
+│   │                 (prereq for roundsRTO_RN_finite): exists_canonical_rep,
+│   │                 midpoint_mem_extend_one_of_adjacent_pos, half_mem_extend_one,
+│   │                 midpoint_in_F₁_extend_one_of_F_adjacent
 │   ├── CanonicalExp.lean floor_minimality,
 │   │                 ofIntZpow_mem_unbounded, floor_mantissa_lt
 │   └── Inference.lean §6.1: ⊗/⊕ format inference. IEEE 754 *, +, -, abs on
@@ -135,7 +134,7 @@ Mpfx/
 │   │                 rndUnbounded_satisfies/_unique, rnd_iff_rounds,
 │   │                 rnd_special, rnd_of_overflows
 │   ├── Special.lean  maxFinite (+ abs_le_maxFinite, saturated_eq_finite), the
-│   │                 standard tables: SpecialMap.exact/saturate/toNaN,
+│   │                 standard maps: SpecialMap.exact/saturate/toNaN,
 │   │                 OverflowMap.ieee/saturate/toNaN
 │   └── Ulp.lean      ulp/rndDown/rndUp/midp, the nearest error bound and the
 │                     below/above-midpoint characterisations
@@ -155,9 +154,9 @@ Mpfx/
     │                 roundsRTZ_RTZ_inBound, …, roundsRTO_RN_inBound and *_noOverflow
     │                 from per-rule instances; roundsRTZ_RTZ_agree, …: agreement in
     │                 bound, plain containment
-    ├── Special.lean  rules with tables: rndRTZ_RTZ, …, rndRTO_RN and *_of_bound;
+    ├── Special.lean  rules with maps: rndRTZ_RTZ, …, rndRTO_RN and *_of_bound;
     │                 rnd_double, SpecialMap/OverflowMap.Composes, OverflowAgrees
-    │                 (+ of_bound, of_saturate), the standard tables' composition
+    │                 (+ of_bound, of_saturate), the standard maps' composition
     ├── Counterexample.lean Cex.no_rounds* (Disagrees witnesses), Cex.no_rnd*
     │                 (on rnd, via Disagrees.rnd_ne)
     ├── Counterexample/ Basic: format-generic grid facts (Isolated,
@@ -169,8 +168,8 @@ Mpfx/
     ├── Sqrt.lean     Roux √: rndSqrt_expBot/_expFinite
     └── Div.lean      Roux /: rndDiv_expBot/_expFinite
 MpfxTest/             `lake test` examples
-├── SpecialValues.lean the tables against IEEE 754 §7.4, special inputs
-└── DoubleRounding.lean IEEE double rounding with tables; RTO → RTZ and
+├── SpecialValues.lean the maps against IEEE 754 §7.4, special inputs
+└── DoubleRounding.lean IEEE double rounding with maps; RTO → RTZ and
                       RTO → RN failures
 ```
 
@@ -268,16 +267,16 @@ smoke tests and external use:
 Each stands until its reopen condition holds.
 
 - [ ] **Names** in `DoubleRounding/Special.lean`: `OverflowAgrees` and its
-      fields `direct`/`chain`/`inner`, `of_bound`, `of_saturate`, the
+      fields `direct`/`double`/`inner`, `of_bound`, `of_saturate`, the
       `…_agree` and `…_of_bound` families.
 - [ ] **IEEE RTO overflow** goes to `±Inf` (`OverflowMap.ieee`), which is what
       makes RTO → RTZ fail to compose. Saturating it would make RTO → RTZ
       compose (`MpfxTest/DoubleRounding.lean`).
-- [ ] **Unchecked:** RTO → RN with a saturating RTO table and the IEEE RN
-      table. By hand, `b₂ ≥ M` is still needed.
+- [ ] **Unchecked:** RTO → RN with a saturating RTO map and the IEEE RN
+      map. By hand, `b₂ ≥ M` is still needed.
 - **`.undefined` is numeric-only**: special inputs always go through `S`.
   Reopen if a double-rounding statement becomes awkward because of it.
-- **Tables are arbitrary**, with constraints as named predicates. Reopen if
+- **Maps are arbitrary**, with constraints as named predicates. Reopen if
   the same predicate appears on most theorems.
 - **`S` and `O` are separate parameters**, not a bundled policy. Reopen if
   call sites are noisy.
@@ -288,7 +287,7 @@ Each stands until its reopen condition holds.
 
 ## Documented non-theorems / possible extensions
 
-- `rndRNA_RNA` is **not** correct double rounding — RNA→RNA chains can fail at
+- `rndRNA_RNA` is **not** correct double rounding — RNA→RNA double rounding can fail at
   binade-boundary inputs (pen-and-paper). A counterexample analogous to
   `no_rndRNE_RNE` could be formalized.
 - `rndRTE_RTE` (round-to-even, the dual of RTO) is **not** a theorem either.
@@ -296,7 +295,7 @@ Each stands until its reopen condition holds.
 ## Long-term / out of scope
 
 - Subnormal flushing and signed zero (paper §9). `±Inf`, NaN and overflow
-  tables are done (`Format.specials`, `SpecialMap`, `OverflowMap`).
+  maps are done (`Format.specials`, `SpecialMap`, `OverflowMap`).
 - Posits, P3109 unsigned floats.
 - Stochastic rounding modes (FLoPS does these; not needed for
   *When Double Rounding is Correct*).

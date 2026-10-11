@@ -5,12 +5,13 @@ import Mpfx.Rounding.Basic
 /-!
 # Soundness of `rndUnbounded` for the `nearest tb` modes
 
-On the grid the floor point is `x` itself. Off it, the floor point `dlo` and its
-successor `dhi` are the round-down and the round-up, at distances `δ · 2^e` and
-`(1 − δ) · 2^e` for the fraction `δ` of the scaled mantissa. Both modes take the
-nearer one, so `RoundsFinite.nearest_*_of_bracket` applies; on a tie (`δ = ½`)
-RNA takes the one of larger magnitude and RNE the even one, which alternation
-supplies (`alternate_of_bracketing`).
+When the scaled mantissa is an integer the floor point is `x` itself. Otherwise
+the floor point `dlo` and its successor `dhi` are the round-down and the
+round-up, at distances `δ · 2^e` and `(1 − δ) · 2^e` for the fraction `δ` of the
+scaled mantissa. Both modes take the nearer one, so
+`RoundsFinite.nearest_*_of_bracket` applies; on a tie (`δ = ½`) RNA takes the one
+of larger magnitude and RNE the even one, which alternation supplies
+(`neighbors_alternate`).
 -/
 
 namespace Mpfx
@@ -30,7 +31,7 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
   have hs_eq : s * 2 ^ e = x := mul_zpow_neg_self x e
   have hlo := Int.floor_le s
   by_cases hs : (lo : ℝ) = s
-  · -- On the grid: the fraction is `0`, both modes take the floor point, and it is `x`.
+  · -- The fraction is `0`: both modes take the floor point, and it is `x`.
     have hδ : s - lo < 1 / 2 := by rw [← hs, sub_self]; norm_num
     have hval : rndUnbounded F (.nearest tb) x h = dlo := by
       cases tb <;> exact congrArg (Dyadic.ofIntZpow · e) (if_pos hδ)
@@ -39,10 +40,6 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
     rw [hval]
     rwa [← hx] at this
   have hu : RoundsFinite F.unbounded .toPositive x dhi := RoundsFinite.toPositive_floor_add_one F hs
-  have hne : x ≠ (dlo : ℝ) := fun hx => hs (by
-    rw [Dyadic.coe_ofIntZpow] at hx
-    change _ = x * _
-    rw [hx, mul_assoc, ← zpow_add₀ two_ne_zero, add_neg_cancel, zpow_zero, mul_one])
   -- Distances to the two neighbours, in units of the step.
   have hdlo : |x - (dlo : ℝ)| = (s - lo) * 2 ^ e := by
     rw [abs_of_nonneg (by linarith [hd.2.1]), Dyadic.coe_ofIntZpow, ← hs_eq]; ring
@@ -89,6 +86,7 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
     · exact RoundsFinite.nearest_toEven_of_bracket hd hu (Or.inl rfl)
         ⟨le_rfl, (htie h₁ h₂).le⟩ fun _ _ => hev
     · exact RoundsFinite.nearest_toEven_of_bracket hd hu (Or.inr rfl)
-        ⟨(htie h₁ h₂).ge, le_rfl⟩ fun _ _ => (alternate_of_bracketing (F := F) hodd hd hu hne).2 hev
+        ⟨(htie h₁ h₂).ge, le_rfl⟩ fun _ _ =>
+          ⟨hu.1, fun ho => hev ⟨hd.1, (neighbors_alternate x hodd hs).mp ho⟩⟩
 
 end Mpfx

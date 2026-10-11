@@ -115,7 +115,7 @@ since `Membership`'s element type is an `outParam` and would clash with
 
 **Specials are values; overflow is an event.** `±Inf` and NaN are inputs and
 outputs. Overflow happens to a real input and never appears as a value: what it
-produces is chosen by the format. `rnd` takes two tables of `F`, independent
+produces is chosen by the format. `rnd` takes two maps of `F`, independent
 of the rounding mode:
 
 | Table | Keyed by | Says |
@@ -123,11 +123,11 @@ of the rounding mode:
 | `SpecialMap F` | `Special` | where a special input goes |
 | `OverflowMap F` | `Bool` (`negative`) | where an overflowing real goes |
 
-Each entry must be one of `F.values`. A table follows the mode only when built
+Each entry must be one of `F.values`. A map follows the mode only when built
 to: `OverflowMap.ieee F rm` is IEEE 754 §7.4, so RTP sends `+overflow` to
-`+Inf` but `−overflow` to `−maxFinite`. The other standard tables (all in
+`+Inf` but `−overflow` to `−maxFinite`. The other standard maps (all in
 `Mpfx/Rounding/Special.lean`) are `SpecialMap.exact`/`saturate`/`toNaN` and
-`OverflowMap.saturate`/`toNaN`. Tables are arbitrary; conditions on them (e.g.
+`OverflowMap.saturate`/`toNaN`. Maps are arbitrary; conditions on them (e.g.
 `OverflowAgrees` for double rounding) are named predicates used as
 hypotheses, so OCP E4M3 or P3109 saturation fit without special cases.
 
@@ -138,13 +138,13 @@ go through `S`.
 
 **Why overflow is a predicate.** `Overflows F rm x` says the unbounded
 rounding of `x` leaves `F`'s bound; `RoundsInBound F rm x y` says it is `y`
-and fits. A saturating table maps overflow to `±maxFinite`, which is also an
+and fits. A saturating map sends overflow to `±maxFinite`, which is also an
 ordinary result, so overflow cannot be read off `rnd`'s output. Double rounding
 still depends on it: whether `F₂` and `F₁` overflow on the same inputs decides
-which table conditions the equality `rnd₁ (rnd₂ v) = rnd₁ v` needs. So
+which map conditions the equality `rnd₁ (rnd₂ v) = rnd₁ v` needs. So
 overflow is kept as a predicate on the input, not a constructor of the result.
 
-Signed zero is out of scope: `Dyadic` has one zero, and no table touches it.
+Signed zero is out of scope: `Dyadic` has one zero, and no map touches it.
 
 ## RoundingMode coverage
 

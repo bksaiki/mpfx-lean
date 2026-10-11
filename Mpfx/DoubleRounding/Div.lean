@@ -12,7 +12,7 @@ directed tie-break and are out of scope for this format.
 
 Like `√`, the quotient is generally irrational, so the statement takes `x / y`
 as a real and leans on the two-sided midpoint engine (`round_round_mid_cases`).
-The new subtlety vs `√`: `x / y` **can** land exactly on an `F₁`-midpoint `m`.
+Unlike `√`, `x / y` **can** land exactly on an `F₁`-midpoint `m`.
 The near-midpoint obligation therefore splits:
 
 * `x / y ≠ m` but within `½·ulp₂` of it — *impossible*, by the separation lemma
@@ -30,9 +30,7 @@ namespace Mpfx
 
 /-- **Binade of a quotient** (Flocq `mag_div_disj`). For `0 < x`, `0 < y`, the
 binade of `x / y` is `Int.log 2 x − Int.log 2 y` or one less:
-`Lx − Ly − 1 ≤ Int.log 2 (x / y) ≤ Lx − Ly`. Proof: divide the defining bounds
-`2^Lx ≤ x < 2^(Lx+1)` and `2^Ly ≤ y < 2^(Ly+1)` to trap
-`2^(Lx−Ly−1) ≤ x/y < 2^(Lx−Ly+1)`, then read off `Int.log 2 (x/y)`. -/
+`Lx − Ly − 1 ≤ Int.log 2 (x / y) ≤ Lx − Ly`. -/
 private theorem log_div_bounds {x y : ℝ} (hx : 0 < x) (hy : 0 < y) :
     Int.log 2 x - Int.log 2 y - 1 ≤ Int.log 2 (x / y) ∧
       Int.log 2 (x / y) ≤ Int.log 2 x - Int.log 2 y := by
@@ -73,7 +71,7 @@ If `0 < v` equals its `F₁`-midpoint and `F₂` is finer at `v`
 `g = rndDown₁ v + ½·2^e₁ = (2·ma+1)·2^(e₁−1)` (`ma = ⌊v·2^(−e₁)⌋`,
 `e₁ = canonicalExp₁ v`) satisfies `(g:ℝ) = v` and `g ∈ F₂`. This is where the
 *even radix* enters: the trailing `½·ulp₁ = 2^(e₁−1)` is a whole `F₂`-quantum
-because `e₂ ≤ e₁−1`, so the exact midpoint is on the `F₂` grid. -/
+because `e₂ ≤ e₁−1`, so the exact midpoint is a value of `F₂`. -/
 private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ}
     (hp₂ : F₂.p = (p₂ : Prec)) {v : ℝ} (hv : 0 < v)
     (hcexp : F₂.canonicalExp v ≤ F₁.canonicalExp v - 1)
@@ -128,9 +126,8 @@ private theorem midp_mem_F₂ {F₁ F₂ : FiniteFormat} {p₂ : ℕ}
   exact_mod_cast hcast
 
 /-- **Small positive values round to zero** (underflow). In an `exp = emin`
-format
-(`exp = emin`), any `0 ≤ x' < 2^(emin−1)` rounds to nearest to `0`: its scaled
-mantissa is `< ½`, and the grid point selected is `0`. -/
+format, any `0 ≤ x' < 2^(emin−1)` rounds to nearest to `0`: its scaled
+mantissa is `< ½`, so the nearest multiple of the step is `0`. -/
 private theorem nearest_zero_of_small {F₁ : FiniteFormat} {tb₁ : TieBreak} {p₁ : ℕ} {emin₁ : ℤ}
     (hp₁ : F₁.p = (p₁ : Prec)) (hexp₁ : F₁.exp = (emin₁ : QExp))
     (hundef₁ : ¬ F₁.IsUndefined (.nearest tb₁))
@@ -177,11 +174,7 @@ private theorem round_round_div_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : T
   have hu2pos : (0 : ℝ) < ulp F₂ v := ulp_pos F₂ hv.ne'
   have hv0 : RoundsFinite F₁.unbounded (.nearest tb₁) v 0 :=
     nearest_zero_of_small hp₁ hexp₁ hundef₁ hv.le (by linarith)
-  have hzf : IsFaithfulRound F₂.unbounded v z := hz.isFaithfulRound
-  have hznn : 0 ≤ (z : ℝ) := by
-    rcases hzf with ⟨_, _, hmax⟩ | ⟨_, hxz, _⟩
-    · simpa using hmax 0 (FiniteFormat.zero_mem F₂.unbounded) (by simpa using hv.le)
-    · linarith [hxz, hv]
+  have hznn : 0 ≤ (z : ℝ) := hz.isFaithfulRound.nonneg hv.le
   have hzerr := abs_le.mp (nearest_error_le_half_ulp hz)
   have hzlt : (z : ℝ) < (2 : ℝ) ^ (emin₁ - 1) := by linarith [hzerr.2, hvlt]
   have hz0 : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) 0 :=
@@ -200,11 +193,8 @@ an *integer* (each operand is a multiple of `2^s`). Since `v ≠ m` and `y ≠ 0
 `K ≠ 0`, so `|x − m·y| ≥ 2^s`. But `|x − m·y| = |v−m|·y ≤ 2^(e₂−1)·y <
 2^(e₂+mag y)` (`y < 2^(mag y)`), forcing `s < e₂ + Int.log y` — contradicting the
 two hypotheses `hA` (`e₂ + Int.log y ≤ cexp₁ x`) and `hB` (`e₂ + Int.log y ≤
-e₁−1+cexp₁ y`), which together give `s ≥ e₂ + Int.log y`. The `min`-scale is what
-makes this robust for finite `exp`: unlike a fixed `cexp₁ x`-vs-`e₁−1+cexp₁ y`
-comparison,
-it needs no ordering of the operand exponents (that ordering fails when a
-subnormal operand's `cexp` is inflated to `emin₁`). -/
+e₁−1+cexp₁ y`), which together give `s ≥ e₂ + Int.log y`. Scaling by the `min`
+needs no ordering of the operand exponents. -/
 private theorem round_round_div_aux {F₁ F₂ : FiniteFormat} {x y v : ℝ}
     (hy : 0 < y) (hv : x = v * y)
     (hxrep : ∃ mx : ℤ, x = (mx : ℝ) * (2 : ℝ) ^ (F₁.canonicalExp x))
@@ -364,7 +354,7 @@ private theorem rndDiv_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
 `a, b ∈ F₁` (`exp = emin`) with `0 < a, b`, `p₂ ≥ 2p₁`, and
 `emin₂ ≤ emin₁ − p₁ − 2`, double rounding of
 `a/b` is innocuous — **all regimes**. Dispatch on `cexp₁ v` vs `mag v`:
-* **normal** (`cexp₁ v ≤ mag v`): `rndDiv_pos_normal_expFinite`;
+* **normal** (`cexp₁ v ≤ mag v`): `rndDiv_core`;
 * **underflow** (`cexp₁ v = emin₁ > mag v`, so `v < 2^(emin₁−1) = midp₁ v`): if `v`
   is far below the threshold (`< 2^(emin₁−1) − ½ulp₂`) it rounds to `0` in both
   (`round_round_div_zero`); otherwise `v` is in the boundary sliver, which
@@ -416,7 +406,6 @@ private theorem rndDiv_pos_expFinite {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : T
     · -- boundary sliver: impossible by the separation lemma
       exfalso
       rw [not_lt] at hfar
-      have hu2pos : (0 : ℝ) < ulp F₂ v := ulp_pos F₂ hv_pos.ne'
       -- `midp₁ v = 2^(emin₁−1)` (its `⌊·⌋` mantissa is `0`)
       have hma0 : ⌊v * (2 : ℝ) ^ (-(F₁.canonicalExp v))⌋ = 0 := by
         rw [hcv_emin, Int.floor_eq_zero_iff, Set.mem_Ico]
@@ -470,7 +459,7 @@ private abbrev DivPosCase (F₁ F₂ : FiniteFormat) (tb₁ tb₂ : TieBreak) : 
       RoundsFinite F₁.unbounded (.nearest tb₁) ((a : ℝ) / (b : ℝ)) w
 
 /-- Extend a both-positive division result (`hpos`) to any numerator sign, with a
-positive denominator: `a < 0` flips the quotient's sign (`RoundsFinite.neg_nearest`),
+positive denominator: `a < 0` flips the quotient's sign (`rndNeg`),
 `a = 0` gives the exactly-representable quotient `0` (`rndExact`). -/
 private theorem rndDiv_posden_of_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
     (hpos : DivPosCase F₁ F₂ tb₁ tb₂)
@@ -485,9 +474,9 @@ private theorem rndDiv_posden_of_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : T
     have hnapos : 0 < ((-a : Dyadic) : ℝ) := by rw [Dyadic.coe_real_neg]; linarith
     have hqval : ((-a : Dyadic) : ℝ) / (b : ℝ) = -((a : ℝ) / (b : ℝ)) := by
       rw [Dyadic.coe_real_neg, neg_div]
-    refine rndNeg hz hw (fun z' w' hz' hw' => ?_)
+    refine rndNeg hz hw (fun hz' hw' => ?_)
     rw [← hqval] at hz' ⊢
-    exact hpos (-a) b hna hb hnapos hbpos z' w' hz' hw'
+    exact hpos (-a) b hna hb hnapos hbpos _ _ hz' hw'
   · -- `a = 0`: the quotient is `0`, exactly representable
     have hval : (a : ℝ) / (b : ℝ) = ((0 : Dyadic) : ℝ) := by rw [hazero, zero_div]; simp
     rw [hval] at hz ⊢
@@ -515,8 +504,7 @@ private theorem rndDiv_of_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak
     exact rndDiv_posden_of_pos hpos hna hnb hnbpos hz hw
   · exact rndDiv_posden_of_pos hpos ha hb hbpos hz hw
 
-/-- **rnd-div, no minimum quantum** (Roux Theorem 29, radix 2). With `exp = ⊥`
-formats
+/-- **rnd-div, no minimum quantum** (Roux Theorem 29, radix 2). With `exp = ⊥` formats
 `F₁ = 𝒜(p₁, ⊥, b₁)` and `F₂ = 𝒜(p₂, ⊥, b₂)`, double rounding to nearest of `a / b`
 (**arbitrary** `a, b ∈ F₁`, `b ≠ 0`) is innocuous when
 
@@ -539,8 +527,7 @@ theorem rndDiv_expBot {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ 
   rndDiv_of_pos (fun _ _ ha hb hapos hbpos _ _ hz hw =>
     rndDiv_pos hp₁ hp₂ hpp hexp₁ hexp₂ hundef₁ ha hb hapos hbpos hz hw) ha hb hbne hz hw
 
-/-- **rnd-div, minimum quantum** (Roux Theorem 29, radix 2). With `exp = emin`
-formats
+/-- **rnd-div, minimum quantum** (Roux Theorem 29, radix 2). With `exp = emin` formats
 `F₁ = 𝒜(p₁, emin₁, b₁)` and `F₂ = 𝒜(p₂, emin₂, b₂)`, double rounding to nearest of
 `a / b` (**arbitrary** `a, b ∈ F₁`, `b ≠ 0`) is innocuous — including underflowing
 quotients — when

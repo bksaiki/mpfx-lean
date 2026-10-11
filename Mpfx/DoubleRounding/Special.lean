@@ -8,18 +8,18 @@ The total double-rounding rules as equalities of `rnd`: rounding `v` into `F₂`
 and the result into `F₁` gives the direct rounding of `v` into `F₁`, for every
 input, special or real, overflowing or not.
 
-Three conditions on the tables: they compose (`SpecialMap.Composes`,
+Three conditions on the maps: they compose (`SpecialMap.Composes`,
 `OverflowMap.Composes`: `F₁`'s rounding of an `F₂` entry is the matching `F₁`
 entry), and where exactly one side overflows, `F₁`'s overflow entry gives the
 other side's value (`OverflowAgrees`). The rules (`rndRTZ_RTZ`, …) take the
 plain containment and `OverflowAgrees`; the `…_of_bound` forms take the
-paper's relaxed containment, under which `OverflowAgrees` holds for any tables
-(`OverflowAgrees.of_bound`).
+paper's relaxed containment (RAZ → RAZ needs none), under which `OverflowAgrees`
+holds for any maps (`OverflowAgrees.of_bound`).
 
-The IEEE tables compose for every rule but RTO → RTZ: exact specials always
-(`SpecialMap.exact_composes`), `±Inf` overflow tables pairwise
-(`OverflowMap.composes_of_inf`), and the RTZ tables under the plain
-containment (`OverflowMap.ieee_toZero_composes`). Saturating tables compose and
+The IEEE maps compose for every rule but RTO → RTZ: exact specials always
+(`SpecialMap.exact_composes`), `±Inf` overflow maps pairwise
+(`OverflowMap.composes_of_inf`), and the RTZ maps under the plain
+containment (`OverflowMap.ieee_toZero_composes`). Saturating maps compose and
 satisfy `OverflowAgrees` for any modes under the plain containment
 (`OverflowMap.saturate_composes`, `OverflowAgrees.of_saturate`).
 -/
@@ -38,16 +38,16 @@ def OverflowMap.Composes {F₂ : FiniteFormat} (O₂ : OverflowMap F₂.toFormat
     (rm₁ : RoundingMode) : Prop :=
   ∀ negative, rnd F₁ S₁ O₁ rm₁ (O₂.map negative).toReal = .value (O₁.map negative)
 
-/-! ### Composing the standard tables -/
+/-! ### Composing the standard maps -/
 
-/-- Exact specials compose with any `F₁` table: `F₁` rounds a special by its
-own table. -/
+/-- Exact specials compose with any `F₁` map: `F₁` rounds a special by its
+own map. -/
 theorem SpecialMap.exact_composes {F₂ : FiniteFormat} (h₂ : ∀ s, s ∈ F₂.specials)
     {F₁ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat} {O₁ : OverflowMap F₁.toFormat}
     {rm₁ : RoundingMode} : (SpecialMap.exact F₂.toFormat h₂).Composes S₁ O₁ rm₁ :=
   fun _ => rnd_special _ _ _ _ _
 
-/-- Overflow tables that both send overflow to `±Inf` compose when `F₁` keeps
+/-- Overflow maps that both send overflow to `±Inf` compose when `F₁` keeps
 infinities exact. -/
 theorem OverflowMap.composes_of_inf {F₂ F₁ : FiniteFormat} {O₂ : OverflowMap F₂.toFormat}
     {S₁ : SpecialMap F₁.toFormat} {O₁ : OverflowMap F₁.toFormat} {rm₁ : RoundingMode}
@@ -55,8 +55,8 @@ theorem OverflowMap.composes_of_inf {F₂ F₁ : FiniteFormat} {O₂ : OverflowM
     (h₁ : ∀ s, O₁.map s = .special (.inf s)) : O₂.Composes S₁ O₁ rm₁ := fun s => by
   rw [h₂, WithSpecial.toReal_special, rnd_special, hS, h₁]
 
-/-- A nonzero chained rounding carries the sign of `x`. -/
-private theorem decide_lt_zero_of_chain {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode}
+/-- A nonzero double rounding carries the sign of `x`. -/
+private theorem decide_lt_zero_of_double {F₁ F₂ : FiniteFormat} {rm₁ rm₂ : RoundingMode}
     {x : ℝ} {z w : Dyadic} (hz : RoundsFinite F₂.unbounded rm₂ x z)
     (hw : RoundsFinite F₁.unbounded rm₁ (z : ℝ) w) (hw0 : (w : ℝ) ≠ 0) :
     decide ((w : ℚ) < 0) = decide (x < 0) := by
@@ -67,23 +67,23 @@ private theorem decide_lt_zero_of_chain {F₁ F₂ : FiniteFormat} {rm₁ rm₂ 
   exact decide_eq_decide.mpr (Dyadic.coe_real_lt_zero_iff z)
 
 /-- Where exactly one side of a double rounding overflows, `F₁`'s overflow
-table gives the other side's value. `s = decide (x < 0)` is the overflow sign. -/
+map gives the other side's value. `s = decide (x < 0)` is the overflow sign. -/
 structure OverflowAgrees (F₁ : FiniteFormat) (S₁ : SpecialMap F₁.toFormat)
     (O₁ : OverflowMap F₁.toFormat) (rm₁ : RoundingMode)
     (F₂ : FiniteFormat) (O₂ : OverflowMap F₂.toFormat) (rm₂ : RoundingMode) : Prop where
-  /-- The chain stays in bound and the direct rounding overflows. -/
+  /-- The double rounding stays in bound and the direct rounding overflows. -/
   direct : ∀ (x : ℝ) (z w : Dyadic), RoundsInBound F₂ rm₂ x z →
     RoundsInBound F₁ rm₁ (z : ℝ) w → Overflows F₁ rm₁ x →
     O₁.map (decide (x < 0)) = .finite w
-  /-- `F₂` stays in bound, the chain overflows, the direct rounding does not. -/
-  chain : ∀ (x : ℝ) (z y : Dyadic), RoundsInBound F₂ rm₂ x z → Overflows F₁ rm₁ (z : ℝ) →
+  /-- `F₂` stays in bound, the double rounding overflows, the direct rounding does not. -/
+  double : ∀ (x : ℝ) (z y : Dyadic), RoundsInBound F₂ rm₂ x z → Overflows F₁ rm₁ (z : ℝ) →
     RoundsInBound F₁ rm₁ x y → O₁.map (decide (x < 0)) = .finite y
   /-- `F₂` overflows and the direct rounding does not. -/
   inner : ∀ (x : ℝ) (y : Dyadic), Overflows F₂ rm₂ x → RoundsInBound F₁ rm₁ x y →
     rnd F₁ S₁ O₁ rm₁ (O₂.map (decide (x < 0))).toReal = .value (.finite y)
 
-/-- **Double rounding with tables.** Agreement in bound (`hA`), overflow
-agreement where one side overflows (`hov`), and composing tables give
+/-- **Double rounding with special and overflow maps.** Agreement in bound (`hA`), overflow
+agreement where one side overflows (`hov`), and composing maps give
 `rnd₁ ∘ rnd₂ = rnd₁` on every input. -/
 theorem rnd_double {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
@@ -126,9 +126,9 @@ theorem rnd_double {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
         by_cases hby : Format.boundOK F₁.b y
         · rw [if_pos hby, hA x z w y ⟨hz, hbz⟩ ⟨hw, hbw⟩ ⟨hy, hby⟩]
         · rw [if_neg hby, hsgn hy hby, hov.direct x z w ⟨hz, hbz⟩ ⟨hw, hbw⟩ ⟨y, hy, hby⟩]
-      · rw [if_neg hbw, decide_lt_zero_of_chain hz hw (ne_zero_of_not_boundOK hbw)]
+      · rw [if_neg hbw, decide_lt_zero_of_double hz hw (ne_zero_of_not_boundOK hbw)]
         by_cases hby : Format.boundOK F₁.b y
-        · rw [if_pos hby, hov.chain x z y ⟨hz, hbz⟩ ⟨w, hw, hbw⟩ ⟨hy, hby⟩]
+        · rw [if_pos hby, hov.double x z y ⟨hz, hbz⟩ ⟨w, hw, hbw⟩ ⟨hy, hby⟩]
         · rw [if_neg hby, hsgn hy hby]
     · rw [if_neg hbz] at hu
       obtain rfl := RoundResult.value.inj hu
@@ -138,7 +138,7 @@ theorem rnd_double {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
       · rw [hO, if_neg hby, hsgn hy hby]
 
 /-- A rule's total form (`hP`) and no-overflow form (`hC`) make every field of
-`OverflowAgrees` vacuous, for any tables. -/
+`OverflowAgrees` vacuous, for any maps. -/
 theorem OverflowAgrees.of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {O₂ : OverflowMap F₂.toFormat} {rm₁ rm₂ : RoundingMode}
     (h₁u : ¬ F₁.IsUndefined rm₁) (h₂u : ¬ F₂.IsUndefined rm₂)
@@ -149,7 +149,7 @@ theorem OverflowAgrees.of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F�
       RoundsInBound F₁ rm₁ (z : ℝ) w → ¬ Overflows F₁ rm₁ x) :
     OverflowAgrees F₁ S₁ O₁ rm₁ F₂ O₂ rm₂ where
   direct x z w hz hw hov := absurd hov (hC x z w hz hw)
-  chain x z y hz hov hy := by
+  double x z y hz hov hy := by
     rcases hP x with hov' | ⟨z', w', hz', hw', -⟩
     · exact ((overflows_iff_not_roundsInBound h₁u).mp hov' ⟨y, hy⟩).elim
     · obtain rfl := RoundsFinite.unique h₂u hz'.1 hz.1
@@ -161,8 +161,8 @@ theorem OverflowAgrees.of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F�
 
 /-! ### The rules -/
 
-/-- **rnd-RTZ-RTZ** with tables: chained round-toward-zero is direct
-round-toward-zero on every input, special or real, overflowing or not. -/
+/-- **rnd-RTZ-RTZ** with special and overflow maps: double rounding toward zero is
+direct rounding toward zero on every input, special or real, overflowing or not. -/
 theorem rndRTZ_RTZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat}
@@ -174,7 +174,7 @@ theorem rndRTZ_RTZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     rnd F₁ S₁ O₁ .toZero u.toReal = rnd F₁ S₁ O₁ .toZero v :=
   rnd_double (not_isUndefined_toZero F₁) (fun _ _ _ _ => roundsRTZ_RTZ_agree hsub) hov hS hO hu
 
-/-- **rnd-RTZ-RTZ** under the relaxed containment, for any tables. -/
+/-- **rnd-RTZ-RTZ** under the relaxed containment, for any maps. -/
 theorem rndRTZ_RTZ_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat}
@@ -188,7 +188,7 @@ theorem rndRTZ_RTZ_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.t
       (roundsRTZ_RTZ_inBound hsub) fun _ _ _ hz hw => roundsRTZ_RTZ_noOverflow hsub hz hw)
     hS hO hu
 
-/-- **rnd-RAZ-RAZ** with tables. -/
+/-- **rnd-RAZ-RAZ** with special and overflow maps. -/
 theorem rndRAZ_RAZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat}
@@ -201,7 +201,7 @@ theorem rndRAZ_RAZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
   rnd_double (not_isUndefined_awayZero F₁) (fun _ _ _ _ => roundsRAZ_RAZ_agree hsub) hov
     hS hO hu
 
-/-- **rnd-RAZ-RAZ** for any tables: `F₂` never overflows where `F₁` does not. -/
+/-- **rnd-RAZ-RAZ** for any maps: `F₂` never overflows where `F₁` does not. -/
 theorem rndRAZ_RAZ_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat}
@@ -215,7 +215,7 @@ theorem rndRAZ_RAZ_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.t
       (roundsRAZ_RAZ_inBound hsub) fun _ _ _ hz hw => roundsRAZ_RAZ_noOverflow hz hw)
     hS hO hu
 
-/-- **rnd-RTO-RTO** with tables. -/
+/-- **rnd-RTO-RTO** with special and overflow maps. -/
 theorem rndRTO_RTO {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat}
@@ -228,7 +228,7 @@ theorem rndRTO_RTO {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     rnd F₁ S₁ O₁ .toOdd u.toReal = rnd F₁ S₁ O₁ .toOdd v :=
   rnd_double h₁u (fun _ _ _ _ => roundsRTO_RTO_agree hsub hp_F₂ h₁u) hov hS hO hu
 
-/-- **rnd-RTO-RTO** under the relaxed containment, for any tables. -/
+/-- **rnd-RTO-RTO** under the relaxed containment, for any maps. -/
 theorem rndRTO_RTO_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat}
@@ -243,7 +243,7 @@ theorem rndRTO_RTO_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.t
       fun _ _ _ hz hw => roundsRTO_RTO_noOverflow hsub hp_F₂ h₁u hz hw)
     hS hO hu
 
-/-- **rnd-RTO-RTZ** with tables. The IEEE tables do not compose here:
+/-- **rnd-RTO-RTZ** with special and overflow maps. The IEEE maps do not compose here:
 RTO overflows to `±Inf`, which RTZ keeps, while direct RTZ saturates. -/
 theorem rndRTO_RTZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
@@ -257,7 +257,7 @@ theorem rndRTO_RTZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
   rnd_double (not_isUndefined_toZero F₁) (fun _ _ _ _ => roundsRTO_RTZ_agree hsub hp_F₂) hov
     hS hO hu
 
-/-- **rnd-RTO-RTZ** under the relaxed containment, for any tables. -/
+/-- **rnd-RTO-RTZ** under the relaxed containment, for any maps. -/
 theorem rndRTO_RTZ_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat}
@@ -273,7 +273,7 @@ theorem rndRTO_RTZ_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.t
       (roundsRTO_RTZ_inBound hsub hnt) fun _ _ _ hz hw => roundsRTO_RTZ_noOverflow hsub hnt hz hw)
     hS hO hu
 
-/-- **rnd-RTO-RAZ** with tables. -/
+/-- **rnd-RTO-RAZ** with special and overflow maps. -/
 theorem rndRTO_RAZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat}
@@ -286,7 +286,7 @@ theorem rndRTO_RAZ {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
   rnd_double (not_isUndefined_awayZero F₁) (fun _ _ _ _ => roundsRTO_RAZ_agree hsub hp_F₂) hov
     hS hO hu
 
-/-- **rnd-RTO-RAZ** under the relaxed containment, for any tables. -/
+/-- **rnd-RTO-RAZ** under the relaxed containment, for any maps. -/
 theorem rndRTO_RAZ_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat}
@@ -302,7 +302,7 @@ theorem rndRTO_RAZ_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.t
       (roundsRTO_RAZ_inBound hsub hnt) fun _ _ _ hz hw => roundsRTO_RAZ_noOverflow hsub hnt hz hw)
     hS hO hu
 
-/-- **rnd-RTO-RNE** / **rnd-RTO-RNA** with tables. -/
+/-- **rnd-RTO-RNE** / **rnd-RTO-RNA** with special and overflow maps. -/
 theorem rndRTO_RN {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat} {tb : TieBreak}
@@ -315,7 +315,7 @@ theorem rndRTO_RN {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     rnd F₁ S₁ O₁ (.nearest tb) u.toReal = rnd F₁ S₁ O₁ (.nearest tb) v :=
   rnd_double h₁u (fun _ _ _ _ => roundsRTO_RN_agree hsub hp_F₂ h₁u) hov hS hO hu
 
-/-- **rnd-RTO-RNE** / **rnd-RTO-RNA** under the relaxed containment, for any tables. -/
+/-- **rnd-RTO-RNE** / **rnd-RTO-RNA** under the relaxed containment, for any maps. -/
 theorem rndRTO_RN_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {O₁ : OverflowMap F₁.toFormat} {S₂ : SpecialMap F₂.toFormat}
     {O₂ : OverflowMap F₂.toFormat} {tb : TieBreak}
@@ -332,9 +332,9 @@ theorem rndRTO_RN_of_bound {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.to
       fun _ _ _ hz hw => roundsRTO_RN_noOverflow hsub hnt h₁u hz hw)
     hS hO hu
 
-/-! ### Saturating tables
+/-! ### Saturating maps
 
-Saturating overflow tables on both sides satisfy `OverflowAgrees` and compose,
+Saturating overflow maps on both sides satisfy `OverflowAgrees` and compose,
 for any pair of modes, under the plain containment: whichever side overflows
 lands on `±maxFinite₁`, which is also where any in-bound rounding of an
 input of magnitude at least `maxFinite₁` sits. -/
@@ -365,7 +365,7 @@ private theorem saturated_eq_of_roundsInBound {F : FiniteFormat} (hb : F.b ≠ �
     (hy : RoundsInBound F rm x y) : F.saturated hb (decide (x < 0)) = .finite y :=
   F.saturated_eq_finite hb (abs_eq_maxFinite hb hx hy.1 hy.2) hy.1.isFaithfulRound.decide_lt_zero
 
-/-- With a saturating table, every `|x| ≥ maxFinite` rounds to `±maxFinite`
+/-- With a saturating map, every `|x| ≥ maxFinite` rounds to `±maxFinite`
 with the sign of `x`, overflowing or not. -/
 private theorem rnd_saturate {F : FiniteFormat} (hb : F.b ≠ ⊤) {rm : RoundingMode}
     (hu : ¬ F.IsUndefined rm) (S : SpecialMap F.toFormat) {x : ℝ} {s : Bool}
@@ -384,7 +384,7 @@ private theorem rnd_saturate {F : FiniteFormat} (hb : F.b ≠ ⊤) {rm : Roundin
   · rw [hsign (ne_zero_of_not_boundOK hbr)]
     rfl
 
-/-- Saturating tables compose under the plain containment: `F₁` rounds
+/-- Saturating maps compose under the plain containment: `F₁` rounds
 `±maxFinite₂` onto `±maxFinite₁`. -/
 theorem OverflowMap.saturate_composes {F₁ F₂ : FiniteFormat}
     (hsub : F₁.toFormat ⊆ F₂.toFormat) (hb₁ : F₁.b ≠ ⊤) (hb₂ : F₂.b ≠ ⊤)
@@ -403,7 +403,7 @@ theorem OverflowMap.saturate_composes {F₁ F₂ : FiniteFormat}
     exact rnd_saturate hb₁ h₁u S₁ (by rwa [abs_neg, abs_of_nonneg hM])
       fun h0 => decide_eq_true (lt_of_le_of_ne (by linarith) h0)
 
-/-- The IEEE RTZ tables compose under the plain containment. -/
+/-- The IEEE RTZ maps compose under the plain containment. -/
 theorem OverflowMap.ieee_toZero_composes {F₁ F₂ : FiniteFormat}
     (hsub : F₁.toFormat ⊆ F₂.toFormat) (hb₁ : F₁.b ≠ ⊤) (hb₂ : F₂.b ≠ ⊤)
     (hinf₁ : ∀ s, Special.inf s ∈ F₁.specials) (hinf₂ : ∀ s, Special.inf s ∈ F₂.specials)
@@ -413,7 +413,7 @@ theorem OverflowMap.ieee_toZero_composes {F₁ F₂ : FiniteFormat}
   rw [OverflowMap.ieee_toZero, OverflowMap.ieee_toZero]
   exact OverflowMap.saturate_composes hsub hb₁ hb₂ (not_isUndefined_toZero F₁)
 
-/-- Saturating tables agree under the plain containment, for any modes. -/
+/-- Saturating maps agree under the plain containment, for any modes. -/
 theorem OverflowAgrees.of_saturate {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap F₁.toFormat}
     {rm₁ rm₂ : RoundingMode} (hsub : F₁.toFormat ⊆ F₂.toFormat) (hb₁ : F₁.b ≠ ⊤)
     (hb₂ : F₂.b ≠ ⊤) (h₁u : ¬ F₁.IsUndefined rm₁) :
@@ -424,9 +424,9 @@ theorem OverflowAgrees.of_saturate {F₁ F₂ : FiniteFormat} {S₁ : SpecialMap
     have hzM := le_abs_faithful_of_le (mem_unbounded_of_mem (hsub _ hM))
       (F₁.maxFinite_nonneg hb₁) (maxFinite_le_abs_of_overflows hb₁ hov) hz.1.isFaithfulRound
     exact F₁.saturated_eq_finite hb₁ (abs_eq_maxFinite hb₁ hzM hw.1 hw.2)
-      (decide_lt_zero_of_chain hz.1 hw.1)
-  chain x z y hz hov hy := by
-    -- `|x| < maxFinite₁` would pin the chain at or below `maxFinite₁`, in bound.
+      (decide_lt_zero_of_double hz.1 hw.1)
+  double x z y hz hov hy := by
+    -- `|x| < maxFinite₁` would pin the double rounding at or below `maxFinite₁`, in bound.
     obtain ⟨w, hw, hbw⟩ := hov
     have hM := F₁.maxFinite_mem hb₁
     refine saturated_eq_of_roundsInBound hb₁ (not_lt.mp fun hlt => hbw ?_) hy

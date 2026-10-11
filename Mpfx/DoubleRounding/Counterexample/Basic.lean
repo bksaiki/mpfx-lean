@@ -1,7 +1,7 @@
 import Mpfx.Rounding.Ulp
 
 /-!
-# Double-rounding counterexamples: grid facts
+# Double-rounding counterexamples: discreteness and parity
 
 The format-generic facts the counterexamples are built from. Every format is
 discrete away from zero (`exists_isolated`), so a positive value has an
@@ -165,17 +165,11 @@ theorem roundsRNE_of_isolated {F : FiniteFormat} {h : Dyadic} {K : ℤ} (hK : Is
     rw [abs_sub_comm (v : ℝ) x] at h₂
     linarith
   have hfy : IsFaithfulRound F.unbounded x h := by
+    have hx' := abs_lt.mp hx
+    have h2K : (0 : ℝ) < 2 ^ K := zpow_pos two_pos K
     rcases le_total (h : ℝ) x with hhx | hxh
-    · refine Or.inl ⟨hh, hhx, fun v hv hvx => not_lt.mp fun hlt => ?_⟩
-      have := hfar v hv (fun e => by rw [e] at hlt; exact lt_irrefl _ hlt)
-      rw [abs_of_nonneg (by linarith : 0 ≤ x - h), abs_of_nonneg (by linarith : 0 ≤ x - v)]
-        at this
-      linarith
-    · refine Or.inr ⟨hh, hxh, fun v hv hxv => not_lt.mp fun hlt => ?_⟩
-      have := hfar v hv (fun e => by rw [e] at hlt; exact lt_irrefl _ hlt)
-      rw [abs_of_nonpos (by linarith : x - h ≤ 0), abs_of_nonpos (by linarith : x - v ≤ 0)]
-        at this
-      linarith
+    · exact Or.inl (roundsDown_of_isolated hK hh hhx (by linarith))
+    · exact Or.inr (roundsUp_of_isolated hK hh (by linarith) hxh)
   refine ⟨hh, hfy, fun v hv _ => ?_, fun ⟨v, hv, _, hne, heq⟩ => ?_⟩
   · by_cases hne : v = h
     · rw [hne]

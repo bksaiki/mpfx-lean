@@ -9,7 +9,7 @@ Defines:
   (`.value v` or `.undefined`).
 * `FiniteFormat.IsUndefined` — when `.undefined` fires.
 * `SpecialMap`, `OverflowMap` — where special inputs and overflow go.
-* `IsFaithfulRound` — RoundDown or RoundUp.
+* `IsFaithfulRound` — the round-down or the round-up.
 * `RoundsFinite`, `RoundsInBound`, `Overflows` — the numeric spec.
 * `Rounds F S O rm : WithSpecial ℝ → RoundResult → Prop` — the
   specification relation, all seven modes.
@@ -30,12 +30,12 @@ deriving DecidableEq, Repr
 
 /-- IEEE-754 + paper-extended rounding modes.
 
-* `ToNegative` (RTN) — round toward `-∞`.
-* `ToPositive` (RTP) — round toward `+∞`.
-* `ToZero` (RTZ) — round toward `0`.
-* `AwayZero` (RAZ) — round away from `0`.
-* `ToOdd` (RTO; not IEEE) — round to the F-adjacent with odd significand.
-* `Nearest tb` — round to nearest; ties broken by `tb`. -/
+* `toNegative` (RTN) — round toward `-∞`.
+* `toPositive` (RTP) — round toward `+∞`.
+* `toZero` (RTZ) — round toward `0`.
+* `awayZero` (RAZ) — round away from `0`.
+* `toOdd` (RTO; not IEEE) — round to the neighbour with odd significand.
+* `nearest tb` — round to nearest; ties broken by `tb`. -/
 inductive RoundingMode where
   | toNegative : RoundingMode
   | toPositive : RoundingMode
@@ -48,20 +48,16 @@ deriving DecidableEq, Repr
 /-- The result of rounding in a `Format` with some `RoundingMode`.
 
 * `.value v` — the rounded value, numeric or special.
-* `.undefined` — the `(Format, RoundingMode)` combination is degenerate
-  and rounding has no semantic meaning. Fires only on
-  `(p = 1, exp = ⊥, rm ∈ {.toOdd, .nearest .toEven})`. -/
+* `.undefined` — the parity modes at `(p = 1, exp = ⊥)`, left undefined by
+  convention (`FiniteFormat.IsUndefined`). -/
 inductive RoundResult where
   | value (v : WithSpecial Dyadic) : RoundResult
   | undefined : RoundResult
 
-/-- The format/mode pair is degenerate (no meaningful rounding):
-`(1, ⊥, rm)` for `rm ∈ {.toOdd, .nearest .toEven}` — precision `1` with
-no quantum has no anchor for parity, so the modes that consult
-`IsOdd`/`IsEven` are meaningless.
-
-The `(⊤, ⊥)` case (fully unconstrained) is structurally excluded by
-`FiniteFormat`'s `finite` invariant. -/
+/-- The parity modes `.toOdd` and `.nearest .toEven` at precision `1` with no
+minimum quantum, which `rnd` leaves undefined by convention. `IsOdd` still
+counts exponents from `0` there, but alternation and uniqueness are proved only
+away from `(1, ⊥)`. The `(⊤, ⊥)` case is excluded by `FiniteFormat`. -/
 def FiniteFormat.IsUndefined (F : FiniteFormat) (rm : RoundingMode) : Prop :=
   F.p = (1 : ℕ) ∧ F.exp = ⊥ ∧
     (rm = .toOdd ∨ rm = .nearest .toEven)
@@ -72,7 +68,7 @@ def FiniteFormat.IsUndefined (F : FiniteFormat) (rm : RoundingMode) : Prop :=
     (rm : RoundingMode) :
     F.unbounded.IsUndefined rm = F.IsUndefined rm := rfl
 
-/-! ### Special-value and overflow tables -/
+/-! ### Special-value and overflow maps -/
 
 /-- Where special inputs go. -/
 structure SpecialMap (F : Format) where

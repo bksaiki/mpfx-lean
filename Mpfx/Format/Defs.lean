@@ -254,11 +254,8 @@ invariant required by a downstream API:
 * `ParityFormat` (`Mpfx/Format/Parity.lean`) — adds `p ≠ 1` whenever
   `exp = ⊥`, the formats where `rnd .toOdd` and `rnd (.nearest .toEven)` are
   defined. Combined with `FiniteFormat`, this is `(p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥`.
-  `IsOdd` / `IsEven` are on `FiniteFormat`; at `(1, ⊥)` the exponent-parity
-  fallback for `p = 1` has no quantum to count from.
-
-State theorems on the *weakest* tier whose proof actually destructures
-the invariant. Promote only when needed. -/
+  `IsOdd` / `IsEven` are on `FiniteFormat`; at `(1, ⊥)` they count exponents
+  from `0`, and the parity modes are undefined there by convention. -/
 
 /-- A `Format` where `rnd` is well-defined for directed modes: at least
 one of `p`, `exp` is finite (equivalently `¬ (p = ⊤ ∧ exp = ⊥)`), and the
@@ -360,7 +357,8 @@ theorem log_sub_p_le_canonicalExp (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
 `x`): the canonical exponent does not exceed `x`'s binade. Equivalently, for
 `x ≠ 0`, `F.exp ≤ ⌊log₂ |x|⌋` — the precision term `⌊log₂ |x|⌋ + 1 − p` is never
 the binding one — and equivalently again, `x` does not round down to `0`
-(`rndDown_pos_iff`). Reducible, so arithmetic tactics see through it. -/
+(`rndDown_pos_of_isAboveQuantum`, `isAboveQuantum_of_rndDown_pos`). Reducible,
+so arithmetic tactics see through it. -/
 abbrev IsAboveQuantum (F : FiniteFormat) (x : ℝ) : Prop :=
   F.canonicalExp x ≤ Int.log 2 |x|
 
@@ -374,11 +372,6 @@ theorem isAboveQuantum_of_le_log {F : FiniteFormat} {x : ℝ} (hx : 0 < x)
     (h : F.canonicalExp x ≤ Int.log 2 x) : F.IsAboveQuantum x := by
   have : Int.log 2 |x| = Int.log 2 x := by rw [abs_of_pos hx]
   omega
-
-/-- `F.exp ≤ ⌊log₂ |x|⌋` is the whole content of `IsAboveQuantum`. -/
-theorem isAboveQuantum_of_exp_le (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0)
-    (hexp : ∀ e : ℤ, F.exp = (e : QExp) → e ≤ Int.log 2 |x|) : F.IsAboveQuantum x :=
-  (F.canonicalExp_le_iff hx).mpr ⟨fun _ hp => by have := F.p_pos hp; omega, hexp⟩
 
 /-- `canonicalExp` is monotone in magnitude. -/
 theorem canonicalExp_mono (F : FiniteFormat) {y z : ℝ} (hy : y ≠ 0)
@@ -416,9 +409,7 @@ end FiniteFormat
 /-- **Closed form of `canonicalExp` in the normal range**, uniform over both
 exponent regimes. When `v` is nonzero and its precision exponent
 `log₂|v| + 1 − p` is at least `F.exp` (the *normal* regime — vacuous for
-`exp = ⊥`), `canonicalExp` takes that form. This is the single lemma that lets
-the `exp = ⊥` proofs run unchanged for finite `exp`: in the genuine-midpoint
-case all values are normal. -/
+`exp = ⊥`), `canonicalExp` takes that form. -/
 theorem canonicalExp_closed {F : FiniteFormat} {p : ℕ}
     (hp : F.p = (p : Prec)) {v : ℝ} (hv : v ≠ 0)
     (hnorm : F.exp ≤ ((Int.log 2 |v| + 1 - (p : ℤ) : ℤ) : QExp)) :
@@ -487,12 +478,6 @@ theorem exp_le_log_of_mem (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp
   rw [FiniteFormat.unbounded_exp, hexp] at hq
   simpa [abs_of_pos hz0] using Dyadic.le_log_of_quantum hq hz0.ne'
 
-/-- Every positive `F`-value is above `F`'s coarsest step. -/
-theorem isAboveQuantum_of_mem (F : FiniteFormat) {z : Dyadic} (hz : z ∈ F.unbounded)
-    (hz0 : 0 < ((z : Dyadic) : ℝ)) : F.IsAboveQuantum ((z : Dyadic) : ℝ) :=
-  FiniteFormat.isAboveQuantum_of_exp_le F (ne_of_gt hz0)
-    (fun _ hexp => by rw [abs_of_pos hz0]; exact exp_le_log_of_mem F hexp hz hz0)
-
 /-- With a minimum quantum, `canonicalExp` at `0` is that quantum. -/
 theorem canonicalExp_zero (F : FiniteFormat) {e : ℤ} (hexp : F.exp = (e : QExp)) :
     F.canonicalExp 0 = e := by
@@ -539,6 +524,21 @@ theorem FiniteFormat.exists_mul_zpow_canonicalExp (F : FiniteFormat) {z : Dyadic
       · rw [max_eq_right h]; exact hquant e he
       · rw [max_eq_left h]; exact hprec p hp
 
+/-- A multiple `m · 2^canonicalExp x` of a nonzero `x` has `|m| < 2^p`:
+`|x| < 2^(⌊log₂|x|⌋ + 1) ≤ 2^(p + canonicalExp x)`. -/
+theorem FiniteFormat.abs_lt_of_mul_zpow_canonicalExp (F : FiniteFormat) {p : ℕ}
+    (hp : F.p = (p : Prec)) {x : ℝ} (hx : x ≠ 0) {m : ℤ}
+    (h : x = m * (2 : ℝ) ^ F.canonicalExp x) : |m| < 2 ^ p := by
+  have hc := F.log_sub_p_le_canonicalExp hx hp
+  have hlt : |x| < (2 : ℝ) ^ (Int.log 2 |x| + 1) := Int.lt_zpow_succ_log_self (by norm_num) _
+  have h1 : |(m : ℝ)| * (2 : ℝ) ^ F.canonicalExp x
+      < (2 : ℝ) ^ (p : ℤ) * (2 : ℝ) ^ F.canonicalExp x := by
+    rw [← abs_mul_two_zpow, ← h, ← zpow_add₀ two_ne_zero]
+    exact hlt.trans_le (zpow_le_zpow_right₀ (by norm_num) (by omega))
+  have h2 := lt_of_mul_lt_mul_right h1 (zpow_pos two_pos _).le
+  rw [zpow_natCast] at h2
+  exact_mod_cast h2
+
 /-- Conversely, a multiple of `2^canonicalExp x` is a value of `F`: the step
 meets the minimum quantum, and the coefficient fits the precision. -/
 theorem FiniteFormat.mem_unbounded_of_mul_zpow_canonicalExp (F : FiniteFormat) {x : Dyadic}
@@ -550,18 +550,8 @@ theorem FiniteFormat.mem_unbounded_of_mul_zpow_canonicalExp (F : FiniteFormat) {
     | coe p =>
       by_cases hx : (x : ℝ) = 0
       · exact (Dyadic.precisionAtMost_coe_real p x).mpr ⟨0, 0, by simp [hx], by simp⟩
-      refine (Dyadic.precisionAtMost_coe_real p x).mpr ⟨m, _, h, ?_⟩
-      -- `|m|·2^c = |x| < 2^(⌊log₂|x|⌋ + 1) ≤ 2^(p + c)`.
-      have hc := F.log_sub_p_le_canonicalExp hx hp
-      have hlt : |(x : ℝ)| < (2 : ℝ) ^ (Int.log 2 |(x : ℝ)| + 1) :=
-        Int.lt_zpow_succ_log_self (by norm_num) _
-      have h1 : |(m : ℝ)| * (2 : ℝ) ^ F.canonicalExp x
-          < (2 : ℝ) ^ (p : ℤ) * (2 : ℝ) ^ F.canonicalExp x := by
-        rw [← abs_mul_two_zpow, ← h, ← zpow_add₀ two_ne_zero]
-        exact hlt.trans_le (zpow_le_zpow_right₀ (by norm_num) (by omega))
-      have h2 := lt_of_mul_lt_mul_right h1 (zpow_pos two_pos _).le
-      rw [zpow_natCast] at h2
-      exact_mod_cast h2
+      exact (Dyadic.precisionAtMost_coe_real p x).mpr
+        ⟨m, _, h, F.abs_lt_of_mul_zpow_canonicalExp hp hx h⟩
   · change Dyadic.quantumAtLeast F.exp x
     cases he : F.exp using QExp.recBotCoe with
     | bot => trivial
@@ -611,15 +601,6 @@ theorem boundOK_coe_of_abs_le {b : NonNegDyadic} {y : Dyadic}
     Format.boundOK ((b : Bound)) y := by
   change |(y : ℚ)| ≤ ((b.val : Dyadic) : ℚ)
   exact_mod_cast h
-
-/-- A failed bound check, transferred to a strict absolute-value bound
-over `ℝ`. -/
-theorem lt_abs_coe_real_of_not_boundOK {b₁ : NonNegDyadic} {y : Dyadic}
-    (h : ¬ Format.boundOK ((b₁ : Bound)) y) :
-    ((b₁.val : Dyadic) : ℝ) < |(y : ℝ)| := by
-  have h1 : ¬ |(y : ℚ)| ≤ ((b₁.val : Dyadic) : ℚ) := h
-  push Not at h1
-  exact_mod_cast h1
 
 /-- A dyadic between two in-bound dyadics is in-bound. -/
 theorem boundOK_of_between {b : Bound} {lo hi g : Dyadic}

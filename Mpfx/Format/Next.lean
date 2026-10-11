@@ -4,7 +4,7 @@ import Mpfx.Format.Containment
 # Bound replacement and the `next` operator
 
 `withBound`, the successor bound `next` (on `Format` and `FiniteFormat`),
-`boundAfterNext` for the paper's `F⁺` containment, the `next` grid lemmas, and
+`boundAfterNext` for the paper's `F⁺` containment, the lemmas on `next`, and
 the paper-form containment lemmas the §5.2 rules take.
 -/
 
@@ -15,11 +15,10 @@ namespace Format
 /-! ### Bound replacement and the `next` operator
 
 `F.withBound b'` swaps out `F`'s magnitude bound for `b'`. `F.next b` is the
-paper's `next_{F.p, F.exp}(b)` from §5.2: the smallest Dyadic in the
-grid `A(F.p, F.exp, ∞)` strictly above `b`. -/
+paper's `next_{F.p, F.exp}(b)` from §5.2: the smallest value of
+`A(F.p, F.exp, ∞)` strictly above `b`. -/
 
-/-- Replace `F`'s bound with `b'`, keeping precision and quantum. No
-non-negativity witness is needed: `NonNegDyadic` already carries `0 ≤ d`. -/
+/-- Replace `F`'s bound with `b'`, keeping precision and quantum. -/
 def withBound (F : Format) (b' : Bound) : Format := { F with b := b' }
 
 @[simp] theorem withBound_p (F : Format) (b' : Bound) :
@@ -38,26 +37,11 @@ theorem withBound_mono (F : Format) {b b' : Bound} (h : ∀ v, boundOK b v → b
     F.withBound b ⊆ F.withBound b' :=
   subset_of_mem subset_rfl fun v hv => ⟨hv.1, hv.2.1, h v hv.2.2⟩
 
-/-- The paper's `next_{F.p, F.exp}(b)` from §5.2: the smallest Dyadic
-in the grid `A(F.p, F.exp, ∞)` strictly above `b`.
-
-For `b > 0` with finite `(F.p, F.exp)`, computed as `b + step` where the grid
-step depends on `b`'s magnitude (for `b ≤ 0` the smallest positive grid
-point `2^F.exp` is returned, which is the successor at `b = 0` and junk
-for `b < 0`):
-- **Subnormal regime** (`|b| < 2^(F.exp + F.p − 1)`): step = `2^F.exp`.
-- **Normal regime**: step = `2^(⌊log₂ b⌋ − F.p + 1)` (binade-dependent).
-- Unified: step exponent = `max(F.exp, ⌊log₂ b⌋ − F.p + 1)`.
-
-For `F.p = ⊤` and `F.exp = (e : ℤ)`: `A(⊤, e, ∞)` is all dyadics with quantum
-≥ e, so the smallest value strictly above `b` is `b + 2^e`.
-
-For `F.exp = ⊥` with `F.p = p` and `b > 0`: there is no quantum, so
-the step is purely binade-dependent: `2^(⌊log₂ b⌋ − F.p + 1)`. For `b ≤ 0`
-the grid has positive elements of arbitrarily small magnitude, so no
-successor exists; `b + 1` is returned as a junk value (only the `b > 0`
-case is meaningful). The doubly-unbounded `(⊤, ⊥)` arm is excluded by
-`FiniteFormat`. -/
+/-- The paper's `next_{F.p, F.exp}(b)` from §5.2: the smallest value of
+`A(F.p, F.exp, ∞)` strictly above `b`, namely `b + 2^max(F.exp, ⌊log₂ b⌋ − F.p + 1)`
+for `b > 0` (one term drops when `F.p = ⊤` or `F.exp = ⊥`). At `b = 0` it is
+`2^F.exp`; without a minimum quantum `0` has no successor and `b ≤ 0` gives junk.
+The `(⊤, ⊥)` arm is excluded by `FiniteFormat`. -/
 noncomputable def next (F : Format) (b : Dyadic) : Dyadic :=
   match F.exp, F.p with
   | (e : ℤ), (p : ℕ) =>
@@ -123,8 +107,8 @@ private theorem next_eq_bot_p_top' (F : Format) (he : F.exp = ⊥) (hp : F.p = �
   unfold next
   rw [he, hp]; rfl
 
-/-- Computed form of `next` for `F.exp = ⊥, b ≤ 0` (junk arm: no grid
-successor exists). -/
+/-- Computed form of `next` for `F.exp = ⊥, b ≤ 0` (junk arm: no successor
+exists). -/
 private theorem next_eq_bot_nonpos (F : Format) (he : F.exp = ⊥) {b : Dyadic}
     (hb : ((b : Dyadic) : ℝ) ≤ 0) : F.next b = b + 1 := by
   cases hp : F.p using ENat.recTopCoe with
@@ -206,12 +190,7 @@ theorem next_zero (F : Format) {e : ℤ} (he : F.exp = (e : QExp)) :
   | top => rw [next_eq_p_top F he hp, zero_add]
   | coe p => unfold next; rw [he, hp]; simp
 
-/-! ### `boundAfterNext`: the bound for the paper's `F⁺` containment
-
-`next(F.b)` lifted to `Bound`. Returns `⊤` when `F.b = ⊤`,
-otherwise `(F.next b : NonNegDyadic)`. The non-negativity witness is carried by
-`NonNegDyadic` itself (no separate obligation), and `withBound` takes only the
-bound. -/
+/-! ### `boundAfterNext`: the bound for the paper's `F⁺` containment -/
 
 /-- The bound for the paper's `F⁺` containment: `next(F.b)` lifted to
 `Bound`. -/
@@ -286,12 +265,12 @@ theorem format_next_eq (F : FiniteFormat) {b : Dyadic} (hb : 0 ≤ ((b : Dyadic)
 
 end FiniteFormat
 
-/-! ### Grid lemmas for `next`: closure, minimality, monotonicity,
+/-! ### `next` on `F.unbounded`: closure, minimality, monotonicity,
 midpoints, and the paper containment formats -/
 
-/-- **Step lemma** for grid closure of `next`: at a positive base
+/-- **Step lemma** for closure of `next`: at a positive base
 `b = m·2^s` with `logB − p + 1 ≤ s` and `next b = b + 2^s`, the successor is
-`(m+1)·2^s` and stays on the `p`-bit precision grid (in the carry case
+`(m+1)·2^s` and still fits `p` digits (in the carry case
 `m + 1 = 2^p` it is the pure power `2^(p+s)`). -/
 private theorem next_ulp_precision {F : Format} {p : ℕ} (hp : 0 < p) {b : Dyadic}
     (hb0 : 0 < ((b : Dyadic) : ℝ)) {m s : ℤ}
@@ -343,7 +322,7 @@ private theorem next_ulp_precision {F : Format} {p : ℕ} (hp : 0 < p) {b : Dyad
     exact ⟨1, (p : ℤ) + s, by rw [h_val']; push_cast; ring,
       abs_one_lt_two_pow hp⟩
 
-/-- **Step lemma** for grid minimality of `next`: if `b = mb·2^s`,
+/-- **Step lemma** for minimality of `next`: if `b = mb·2^s`,
 `g = mg·2^s`, `b < g`, and `next b = b + 2^s`, then `next b ≤ g` (a strict
 increase between multiples of `2^s` is at least one step). -/
 private theorem next_ulp_min {F : Format} {b g : Dyadic} {mb mg s : ℤ}
@@ -359,7 +338,7 @@ private theorem next_ulp_min {F : Format} {b g : Dyadic} {mb mg s : ℤ}
   push_cast at h
   linarith
 
-/-- Halving the grid step lands on the midpoint:
+/-- Halving the step lands on the midpoint:
 `b + 2^(t−1) = (b + (b + 2^t)) / 2` over `ℝ`. -/
 private theorem coe_add_ulp_halves {b : Dyadic} (t : ℤ) :
     ((b + Dyadic.ofIntZpow 1 (t - 1) : Dyadic) : ℝ)
@@ -369,7 +348,7 @@ private theorem coe_add_ulp_halves {b : Dyadic} (t : ℤ) :
   ring
 
 /-- The step of `Format.next` at a positive `b` is `2 ^ canonicalExp b`, in both
-exponent regimes — this is what lets the grid lemmas below avoid a case split. -/
+exponent regimes — this is what lets the lemmas below avoid a case split. -/
 private theorem next_pos_eq (F : FiniteFormat) {b : Dyadic} (hb : 0 < ((b : Dyadic) : ℝ)) :
     F.toFormat.next b = b + Dyadic.ofIntZpow 1 (F.canonicalExp ((b : Dyadic) : ℝ)) := by
   rw [FiniteFormat.next_eq_format_next F hb,
@@ -385,8 +364,7 @@ private theorem exists_step_rep_le {F : FiniteFormat} {g : Dyadic}
   exact ⟨m * 2 ^ ((t - s).toNat), by
     rw [hm, two_zpow_split_toNat hs]; push_cast; ring⟩
 
-/-- **Grid closure of `next`**: if `b ≥ 0` lies on the `(p, exp)` grid, so does
-`F.next b`. -/
+/-- **Closure of `next`**: if `b ≥ 0` is in `F.unbounded`, so is `F.next b`. -/
 theorem next_mem_unbounded' {F : FiniteFormat} {b : Dyadic}
     (hb_mem : b ∈ F.unbounded) (hb_nn : 0 ≤ ((b : Dyadic) : ℝ)) :
     F.toFormat.next b ∈ F.unbounded := by
@@ -394,7 +372,7 @@ theorem next_mem_unbounded' {F : FiniteFormat} {b : Dyadic}
   rcases eq_or_lt_of_le hb_nn with hb0 | hb0
   · -- `b = 0`: the step is the format's own quantum, or `1` when it has none
     have hbz : b = 0 :=
-      (Dyadic.coe_real_inj b 0).mp (by rw [Dyadic.coe_real_zero]; exact hb0.symm)
+      eq_zero_of_coe_real_zero hb0.symm
     cases he : F.exp using QExp.recBotCoe with
     | bot =>
       obtain ⟨p, hF_p⟩ := exists_p_coe_of_exp_bot he
@@ -438,10 +416,9 @@ theorem next_mem_unbounded' {F : FiniteFormat} {b : Dyadic}
           two_zpow_split_toNat (F.exp_le_canonicalExp _ he)]
         push_cast; ring
 
-/-- **Grid minimality of `next`**: for `b ≥ 0` on the grid, any grid point
-strictly above `b` is at least `F.next b` — the grid has no point in
-`(b, next b)`. Without a minimum quantum the base point must be positive, since
-`0` has no successor there. -/
+/-- **Minimality of `next`**: for `b ≥ 0` in `F.unbounded`, any value of
+`F.unbounded` strictly above `b` is at least `F.next b`. Without a minimum
+quantum the base point must be positive, since `0` has no successor there. -/
 theorem next_min' {F : FiniteFormat} {b g : Dyadic}
     (hb_mem : b ∈ F.unbounded) (hg_mem : g ∈ F.unbounded)
     (hb_nn : 0 ≤ ((b : Dyadic) : ℝ))
@@ -454,7 +431,7 @@ theorem next_min' {F : FiniteFormat} {b g : Dyadic}
   rcases eq_or_lt_of_le hb_nn with hb0 | hb0
   · -- `b = 0`: the step is the quantum `2 ^ e`, and `g` is a positive multiple of it
     have hbz : b = 0 :=
-      (Dyadic.coe_real_inj b 0).mp (by rw [Dyadic.coe_real_zero]; exact hb0.symm)
+      eq_zero_of_coe_real_zero hb0.symm
     cases he : F.exp using QExp.recBotCoe with
     | bot => exact absurd (hguard he) (by rw [← hb0]; exact lt_irrefl 0)
     | coe e =>
@@ -509,7 +486,7 @@ theorem next_extend_midpoint' {F₁ : FiniteFormat} {b : Dyadic}
   rcases eq_or_lt_of_le hb_nn with hb0 | hb0
   · -- `b = 0`: both steps are pure powers of two, one bit apart
     have hbz : b = 0 :=
-      (Dyadic.coe_real_inj b 0).mp (by rw [Dyadic.coe_real_zero]; exact hb0.symm)
+      eq_zero_of_coe_real_zero hb0.symm
     cases he : F₁.exp using QExp.recBotCoe with
     | bot => exact absurd (hguard he) (by rw [← hb0]; exact lt_irrefl 0)
     | coe e =>
@@ -568,15 +545,7 @@ theorem FiniteFormat.subset_withBound_boundAfterNext (F : FiniteFormat) :
     F.toFormat ⊆ F.toFormat.withBound F.toFormat.boundAfterNext :=
   Format.withBound_mono F.toFormat (b := F.b) fun _ => boundOK_boundAfterNext_of_boundOK
 
-/-- Membership transfer into the paper containment format: every `d ∈ F₁`
-lies in `(F₁.extend 1).withBound F₁.boundAfterNext` (one more bit of
-precision, bound relaxed from `b₁` to `next(b₁)`). -/
-theorem mem_extend_one_withBound_of_mem {F₁ : FiniteFormat} {d : Dyadic} (hd : d ∈ F₁) :
-    d ∈ ((F₁.extend 1).toFormat.withBound F₁.toFormat.boundAfterNext) := by
-  have hd' : d ∈ (F₁.extend 1) := Format.self_subset_extend F₁.toFormat 1 d hd
-  exact ⟨hd'.1, hd'.2.1, boundOK_boundAfterNext_of_boundOK hd.2.2⟩
-
-/-- Unbounded grid membership plus the relaxed bound gives membership in the
+/-- Membership in `F₁.unbounded` plus the relaxed bound gives membership in the
 paper containment format `(F₁.extend 1).withBound F₁.boundAfterNext`. -/
 theorem mem_extend_one_withBound_of_mem_unbounded {F₁ : FiniteFormat} {d : Dyadic}
     (hd : d ∈ F₁.unbounded)
@@ -585,20 +554,11 @@ theorem mem_extend_one_withBound_of_mem_unbounded {F₁ : FiniteFormat} {d : Dya
   have hd' := Format.self_subset_extend F₁.toFormat.unbounded 1 d hd
   exact ⟨hd'.1, hd'.2.1, hb⟩
 
-/-- If the *unbounded* `F₁` grid (bound `⊤`, here via
-`withBound boundAfterNext` with `F₁.b = ⊤`) is contained in `F₂`, then `F₂`
-cannot have a finite bound: the grid contains arbitrarily large powers of
-two. -/
+/-- If `F₁.withBound ⊤` is contained in `F₂`, then `F₂` has no finite bound:
+`F₁.withBound ⊤` contains arbitrarily large powers of two. -/
 theorem bound_top_of_withBound_top_subset {F₁ F₂ : FiniteFormat}
-    (hsub : (F₁.toFormat.withBound ⊤) ⊆ F₂.toFormat) : F₂.b = ⊤ := by
-  by_contra h
-  obtain ⟨b₂, hb₂⟩ := WithTop.ne_top_iff_exists.mp h
-  obtain ⟨k, hk, hgt⟩ := Format.exists_zpow_gt ((b₂.val : Dyadic) : ℝ) F₁.exp
-  have hv := (hsub _ (Format.ofIntZpow_mem (precisionAtMost_one_zpow F₁.pos k) hk trivial)).2.2
-  rw [← hb₂] at hv
-  have := abs_coe_real_le_of_boundOK hv
-  rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) k)] at this
-  exact absurd this (not_le_of_gt hgt)
+    (hsub : (F₁.toFormat.withBound ⊤) ⊆ F₂.toFormat) : F₂.b = ⊤ :=
+  Format.b_top_of_subset (F₁ := F₁.toFormat.withBound ⊤) F₁.pos rfl hsub
 
 /-! ### Containment with a relaxed bound
 
@@ -607,9 +567,7 @@ The §5.2 rules take a single containment hypothesis
 `F₁.extend k ⊆ F₂` and the auxiliary `2 ≤ F₂.p` from it. -/
 
 /-- `(F.extend 1).extend 1` and `F.extend 2` agree on precision and quantum
-(`(n+1)+1 = n+2`, `(e-1)-1 = e-2`); their bounds are both `F.b`. Used to bridge
-the RN lemmas (stated over `F₁.extend 2`) to the generic ones (stated over an
-arbitrary base extended once). -/
+(`(n+1)+1 = n+2`, `(e-1)-1 = e-2`); their bounds are both `F.b`. -/
 private theorem extend_one_extend_one_toFormat (F : FiniteFormat) :
     ((F.extend 1).extend 1).toFormat = (F.extend 2).toFormat :=
   Format.extend_extend F.toFormat 1 1
@@ -699,11 +657,7 @@ private theorem extend_one_extend_one_withBound_subset {F₁ F₂ : FiniteFormat
       (F₁.extend 1).toFormat.boundAfterNext) ⊆ F₂.toFormat := by
   rwa [extend_one_extend_one_toFormat]
 
-/-- RN analog (`k = 2` case) of `extend_one_subset_of_withBound_subset`: from the
-paper-aligned containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext)
-⊆ F₂`, derive the weaker `F₁.extend 2 ⊆ F₂` form. Obtained from the generic
-`extend_one_subset_of_withBound_subset` at base `F₁.extend 1`, bridging the
-`(F₁.extend 1).extend 1` / `F₁.extend 2` mismatch via `Format.extend_extend`. -/
+/-- The `k = 2` form of `extend_one_subset_of_withBound_subset`. -/
 theorem extend_two_subset_of_withBound_subset {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
               ⊆ F₂.toFormat) :
@@ -711,15 +665,7 @@ theorem extend_two_subset_of_withBound_subset {F₁ F₂ : FiniteFormat}
   have h := extend_one_subset_of_withBound_subset (extend_one_extend_one_withBound_subset hsub)
   rwa [extend_one_extend_one_toFormat] at h
 
-/-- RN analog (`k = 2` case) of `two_le_p_or_trivial_of_extend_one_withBound_subset`.
-From the paper-aligned RN
-containment `((F₁.extend 2).withBound (F₁.extend 1).boundAfterNext) ⊆ F₂`, either
-`F₂.p ≥ 2` or `F₁` contains only `0`. Obtained from the generic
-`two_le_p_or_trivial_of_extend_one_withBound_subset` at base `F₁.extend 1`: the hypothesis
-is bridged from
-`F₁.extend 2` to `(F₁.extend 1).extend 1` via `Format.extend_extend`, and
-`F₁.extend 1` trivial (the conclusion at that base) implies `F₁` trivial since
-`F₁ ⊆ F₁.extend 1`. -/
+/-- The `k = 2` form of `two_le_p_or_trivial_of_extend_one_withBound_subset`. -/
 theorem two_le_p_or_trivial_of_extend_two_withBound_subset {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
               ⊆ F₂.toFormat) :
@@ -733,10 +679,9 @@ theorem two_le_p_or_trivial_of_extend_two_withBound_subset {F₁ F₂ : FiniteFo
 theorem two_le_p_of_nontrivial_extend_two {F₁ F₂ : FiniteFormat}
     (hsub : ((F₁.extend 2).toFormat.withBound (F₁.extend 1).toFormat.boundAfterNext)
       ⊆ F₂.toFormat)
-    (hnt : F₁.toFormat.Nontrivial) : ((2 : ℕ) : Prec) ≤ F₂.p := by
-  rcases two_le_p_or_trivial_of_extend_two_withBound_subset hsub with h | htriv
-  · exact h
-  · obtain ⟨d, hd, hne⟩ := hnt
-    exact absurd (eq_zero_of_coe_real_zero (htriv d hd)) hne
+    (hnt : F₁.toFormat.Nontrivial) : ((2 : ℕ) : Prec) ≤ F₂.p :=
+  have ⟨d, hd, hne⟩ := hnt
+  two_le_p_of_nontrivial (extend_one_extend_one_withBound_subset hsub)
+    ⟨d, Format.self_subset_extend _ 1 d hd, hne⟩
 
 end Mpfx

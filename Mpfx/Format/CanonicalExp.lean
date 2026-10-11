@@ -17,8 +17,7 @@ namespace Mpfx
 The companions of the `Mpfx/Utils.lean` block that mention the format. -/
 
 /-- Generic floor-minimality: if `z ∈ F.unbounded` and `z ≤ x`, then `z` is
-≤ the floor-projection of `x` at the canonical exponent. Used by `_toNegative`
-(directly) and by `_toZero` (for the `0 ≤ x` branch). -/
+≤ the floor-projection of `x` at the canonical exponent. -/
 theorem floor_minimality (F : FiniteFormat) (x : ℝ) {z : Dyadic}
     (hz_prec : Dyadic.precisionAtMost F.p z)
     (hz_quant : Dyadic.quantumAtLeast F.exp z) (hz_le_x : (z : ℝ) ≤ x) :
@@ -100,8 +99,7 @@ theorem ofIntZpow_mem_unbounded (F : FiniteFormat) {k e : ℤ}
     rw [FiniteFormat.unbounded_b]; trivial
 
 /-- Canonical-mantissa bound: `|x · 2^(-canonicalExp x)| < 2^p` when `F.p`
-is finite. Drives the membership proofs for `floor`/`ceil`/`toZero`/`awayZero`
-results across the satisfies theorems. -/
+is finite. -/
 theorem floor_mantissa_lt {F : FiniteFormat} {x : ℝ}
     {p : ℕ} (hp : F.p = (p : Prec)) :
     |x * (2 : ℝ) ^ (-(F.canonicalExp x))| < (2 : ℝ) ^ p := by

@@ -182,6 +182,19 @@ private theorem exists_mul_zpow_le {C r : ℝ} (hC : 0 < C) (hr : 0 < r) (e : �
   calc C * (2 : ℝ) ^ (min e (Int.log 2 (r / C))) ≤ C * (r / C) := by nlinarith
     _ = r := by field_simp
 
+/-- An unbounded `F₁` has powers of two above any bound, so it fits only in an
+unbounded `F₂`. -/
+theorem b_top_of_subset {F₁ F₂ : Format} (hp : F₁.p ≠ 0) (hb : F₁.b = ⊤) (h : F₁ ⊆ F₂) :
+    F₂.b = ⊤ := by
+  by_contra hne
+  obtain ⟨b₂, hb₂⟩ := WithTop.ne_top_iff_exists.mp hne
+  obtain ⟨k, hk, hgt⟩ := exists_zpow_gt ((b₂.val : Dyadic) : ℝ) F₁.exp
+  have hv := (h _ (ofIntZpow_mem (precisionAtMost_one_zpow hp k) hk (by rw [hb]; trivial))).2.2
+  rw [← hb₂] at hv
+  have := abs_coe_real_le_of_boundOK hv
+  rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) k)] at this
+  exact absurd this (not_le_of_gt hgt)
+
 /-- **Necessity of `b₁ ≤ b₂`.** A finite `b₁` is a value of `F₁`, so it must be
 a value of `F₂`; an infinite `b₁` gives `F₁` arbitrarily large powers of two. -/
 private theorem b_le_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt : F₁.Nontrivial)
@@ -197,14 +210,7 @@ private theorem b_le_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (hnt :
       rw [← abs_of_nonneg (a := ((b₁.val : Dyadic) : ℝ)) (nonneg_coe_real b₁)]
       exact abs_coe_real_le_of_boundOK this
     | top =>
-      -- `F₁` is unbounded, so it contains a power of two exceeding `b₂`.
-      obtain ⟨k, hk, hgt⟩ := exists_zpow_gt ((b₂.val : Dyadic) : ℝ) F₁.exp
-      have hv := (h _ (ofIntZpow_mem (precisionAtMost_one_zpow hnt.p_ne_zero k) hk
-        (by rw [hb1]; trivial))).2.2
-      rw [hb2] at hv
-      have := abs_coe_real_le_of_boundOK hv
-      rw [coe_real_ofIntZpow_one, abs_of_pos (zpow_pos (by norm_num) k)] at this
-      exact absurd this (not_le_of_gt hgt)
+      exact absurd (b_top_of_subset hnt.p_ne_zero hb1 h) (by rw [hb2]; exact WithTop.coe_ne_top)
 
 /-- **Necessity of `exp₂ ≤ exp₁`.** `F₁` is non-trivial, so `2^exp₁` is one of
 its values (or, when `exp₁ = -∞`, so is `2^k` for arbitrarily small `k`), while
@@ -338,7 +344,7 @@ private theorem sub_test_of_subset {F₁ F₂ : Format} (hbr : BoundRep F₁) (h
     cases hb1 : F₁.b using Bound.recTopCoe with
     | top => exact absurd (key e₁ (by rw [he1]) (by rw [hb1]; trivial)) not_false
     | coe b₁ =>
-      -- `b₁` is a grid point, `b₁ = m · 2^exp₁`; if `b₁ > 2^(exp₁+p₂)` then
+      -- `b₁` is a value of `F₁`, `b₁ = m · 2^exp₁`; if `b₁ > 2^(exp₁+p₂)` then
       -- `m ≥ wit p₂`, so the witness is in bound.
       refine WithTop.coe_le_coe.mpr (NonNegDyadic.le_iff_coe_real.mpr ?_)
       by_contra hcon

@@ -24,13 +24,6 @@ for `opNeg`) are exactly those the operation produces
 are the numeric containments over `Format.toSet`. With negation-closed
 specials, `opNeg F = F` (`opNeg_of_negClosed`), but `|F|` can gain `+∞`.
 
-## Result formats are plain `Format`s
-
-`Format` carries only its fields `(p, exp, b, specials)` with **no** validity
-invariants (those live in `FiniteFormat`/`ParityFormat`). So `opMul`/`opAdd`
-produce a plain `Format` with no proof obligations, and need no `F.exp ≠ ⊥`
-preconditions.
-
 For the `⊕`-precision we use a *slightly tighter* formula than the paper:
 `opAddPrec` returns `⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉` (floor inside),
 matching the actual integer bound on `|c|`.
@@ -245,7 +238,6 @@ theorem mul_subset_finite (F₁ F₂ : Format) :
   have h_prec := Dyadic.precisionAtMost_mul (mem_toSet.mp hx).1 (mem_toSet.mp hy).1
   have h_quant := Dyadic.quantumAtLeast_mul (mem_toSet.mp hx).2.1 (mem_toSet.mp hy).2.1
   refine ⟨h_prec, h_quant, ?_⟩
-  -- boundOK of the matched product bound
   change boundOK
       (match F₁.b, F₂.b with
         | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic) => _
@@ -258,7 +250,6 @@ theorem mul_subset_finite (F₁ F₂ : Format) :
     cases hF2_b : F₂.b using Bound.recTopCoe with
     | top => trivial
     | coe b₂ =>
-      -- goal: |(x*y : ℚ)| ≤ ((b₁.1 * b₂.1 : Dyadic) : ℚ)
       rw [hF1_b] at hbx
       rw [hF2_b] at hby
       change |(x : ℚ)| ≤ ((b₁.1 : Dyadic) : ℚ) at hbx
@@ -337,12 +328,10 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
   -- Build the precisionAtMost witness (over ℚ).
   rw [Dyadic.precisionAtMost_coe]
   refine ⟨c, m, ?_, ?_⟩
-  · -- (x+y : ℚ) = c * 2^m
-    have hq : (((x + y : Dyadic) : ℚ) : ℝ) = (((c : ℚ) * (2 : ℚ) ^ m : ℚ) : ℝ) := by
+  · have hq : (((x + y : Dyadic) : ℚ) : ℝ) = (((c : ℚ) * (2 : ℚ) ^ m : ℚ) : ℝ) := by
       rw [← Dyadic.coe_real_eq_ratCast, h_xy_eqR]; push_cast; ring
     exact_mod_cast hq
-  · -- |c| < 2 ^ clog 2 (N+1)
-    have h_natAbs_le : c.natAbs ≤ N := by
+  · have h_natAbs_le : c.natAbs ≤ N := by
       have : (c.natAbs : ℤ) ≤ (N : ℤ) := by rw [Int.natCast_natAbs]; exact h_abs_c_le
       exact_mod_cast this
     have h_clog : N + 1 ≤ 2 ^ Nat.clog 2 (N + 1) :=
@@ -360,8 +349,7 @@ theorem add_subset_finite (F₁ F₂ : Format) :
   obtain ⟨_, _, hbx⟩ := mem_toSet.mp hx
   obtain ⟨_, _, hby⟩ := mem_toSet.mp hy
   refine ⟨?_, h_quant, ?_⟩
-  · -- precisionAtMost (opAddPrec F₁ F₂) (x + y)
-    change Dyadic.precisionAtMost (opAddPrec F₁ F₂) (x + y)
+  · change Dyadic.precisionAtMost (opAddPrec F₁ F₂) (x + y)
     unfold opAddPrec
     cases hF1_b : F₁.b using Bound.recTopCoe with
     | top => trivial
@@ -384,8 +372,7 @@ theorem add_subset_finite (F₁ F₂ : Format) :
             have := add_prec_finite hF1_b hF2_b hF1_exp hF2_exp
               (mem_toSet.mp hx) (mem_toSet.mp hy)
             convert this using 3
-  · -- boundOK of the matched sum bound
-    change boundOK
+  · change boundOK
         (match F₁.b, F₂.b with
           | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic) => _
           | _, _ => ⊤) (x + y)

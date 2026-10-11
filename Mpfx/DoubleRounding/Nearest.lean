@@ -52,10 +52,8 @@ private theorem RoundsFinite.nearest_of_trivial {F₁ : FiniteFormat} {tb : TieB
     {x : ℝ} {w' : Dyadic} (hw : w' ∈ F₁) :
     RoundsFinite F₁ (.nearest tb) x w' := by
   have hw'_zero : (w' : ℝ) = 0 := hF₁_triv w' hw
-  -- Every F₁ element equals w' (both are 0).
   have h_eq_w' : ∀ z : Dyadic, z ∈ F₁ → z = w' := fun z hzF₁ =>
     (Dyadic.coe_real_inj z w').mp (by rw [hF₁_triv z hzF₁, hw'_zero])
-  -- Shared faithfulness.
   have h_adj : IsFaithfulRound F₁ x w' := by
     rcases lt_or_ge x 0 with hx_neg | hx_nn
     · right
@@ -66,12 +64,10 @@ private theorem RoundsFinite.nearest_of_trivial {F₁ : FiniteFormat} {tb : TieB
       refine ⟨hw, by rw [hw'_zero]; exact hx_nn, ?_⟩
       intro v hvF₁ _
       rw [hF₁_triv v hvF₁, hw'_zero]
-  -- Shared closeness.
   have h_close : ∀ z : Dyadic, z ∈ F₁ → IsFaithfulRound F₁ x z →
       |x - (w' : ℝ)| ≤ |x - (z : ℝ)| := by
     intro z hzF₁ _
     rw [hF₁_triv z hzF₁, hw'_zero]
-  -- Dispatch on tb only for the tie-break clause shape.
   cases tb with
   | toEven =>
     refine ⟨hw, h_adj, h_close, ?_⟩
@@ -151,7 +147,6 @@ theorem roundsRTO_RN_finite {F₁ F₂ : FiniteFormat}
   rcases two_le_p_or_trivial_of_extend_two_withBound_subset hsub with hp_F₂ | hF₁_triv
   · exact roundsRTO_RN_finite_of_extend (extend_two_subset_of_withBound_subset hsub) hp_F₂
       hz hw
-  · -- F₁ trivial: handled uniformly for any tb.
-    exact RoundsFinite.nearest_of_trivial hF₁_triv hw.1
+  · exact RoundsFinite.nearest_of_trivial hF₁_triv hw.1
 
 end Mpfx

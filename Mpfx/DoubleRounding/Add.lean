@@ -224,15 +224,12 @@ private theorem sub_key_bound {p₁ p₂ : ℕ} (hp : 0 < p₁) {k eb : ℤ}
     linarith [hb_lt, h3, hfinal]
 
 /-- **rnd-minus, ordered positive, genuine-midpoint core** (radix 2, either
-exponent regime).
-The `x − y` case that needs Roux's midpoint argument: the operand gap exceeds
-`p₁+1` (`hgap`) and `x − y` is *normal* in `F₂` (`hF2norm`) — hence normal in
-`F₁` too, so `canonicalExp` takes the precision-exponent closed form
-(`canonicalExp_closed`) and the proof runs identically to the `exp = ⊥` case.
-Split on whether `x` is a
-binade boundary: `x > 2^k` keeps `x − y` in `x`'s binade; `x = 2^k` drops a
-binade but `sub_key_bound` keeps the intermediate `z` strictly inside `x`'s
-lower cell. Both `◦₁(x−y)` and `◦₁(z)` equal `x`. -/
+exponent regime). The `x − y` case that needs Roux's midpoint argument: the
+operand gap exceeds `p₁+1` (`hgap`) and `x − y` is *normal* in `F₂` (`hF2norm`),
+hence in `F₁`, so `canonicalExp` takes its closed form (`canonicalExp_closed`).
+Split on whether `x` is a binade boundary: `x > 2^k` keeps `x − y` in `x`'s
+binade; `x = 2^k` drops a binade but `sub_key_bound` keeps the intermediate `z`
+strictly inside `x`'s lower cell. Both `◦₁(x−y)` and `◦₁(z)` equal `x`. -/
 private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     (hp₁ : F₁.p = (p₁ : Prec))
     (hp₂ : F₂.p = (p₂ : Prec))
@@ -252,7 +249,6 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
   have hr_real : ((x - y : Dyadic) : ℝ) = (x : ℝ) - (y : ℝ) := by push_cast; ring
   have hrpos : 0 < ((x - y : Dyadic) : ℝ) := by rw [hr_real]; linarith
   have hr_ne : ((x - y : Dyadic) : ℝ) ≠ 0 := ne_of_gt hrpos
-  -- power helpers (shared `two_zpow_*` from `CanonicalExp`)
   have pow_half := two_zpow_half
   have pow_dbl := two_zpow_dbl
   set ex := F₁.canonicalExp (x : ℝ) with hex
@@ -447,43 +443,6 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
     have hw_eq : w = x := RoundsFinite.unique hu₁ hw hzx_round
     rw [hw_eq]; exact hrx_round
 
-/-- Small-gap / normal exact fallback: a result `r` fitting `2p₁+1` bits and
-inheriting `F₁`'s quantum is exactly `F₂`-representable, so `◦₁(◦₂ r) = ◦₁ r`. -/
-private theorem rndSmallGap_exact {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
-    (hp₂ : F₂.p = (p₂ : Prec)) (hpp : 2 * p₁ + 1 ≤ p₂)
-    (hexp : F₂.exp ≤ F₁.exp) {r : Dyadic}
-    (hquant_r : Dyadic.quantumAtLeast F₁.exp r)
-    (hprec : Dyadic.precisionAtMost ((2 * p₁ + 1 : ℕ) : Prec) r)
-    {z w : Dyadic}
-    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (r : ℝ) z)
-    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
-    RoundsFinite F₁.unbounded (.nearest tb₁) (r : ℝ) w := by
-  refine rndExact (F₂ := F₂.unbounded)
-    (Format.mem_unbounded_of_le (p := ((2 * p₁ + 1 : ℕ) : Prec)) (e := F₁.exp)
-      (by rw [hp₂]; exact_mod_cast hpp) hexp hprec hquant_r) hz hw
-
-/-- Subnormal exact fallback: a result `r` that inherits `F₁`'s quantum but is
-*subnormal* in `F₂` (precision exponent below `F₂.exp`) is exactly
-`F₂`-representable,
-so double rounding is a no-op. -/
-private theorem rndSubnormal_exact {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₂ : ℕ}
-    (hp₂ : F₂.p = (p₂ : Prec)) (hexp : F₂.exp ≤ F₁.exp) {r : Dyadic}
-    (hquant_r : Dyadic.quantumAtLeast F₁.exp r)
-    (hF2norm : ¬ F₂.exp ≤ ((Int.log 2 |(r : ℝ)| + 1 - (p₂ : ℤ) : ℤ) : QExp))
-    {z w : Dyadic}
-    (hz : RoundsFinite F₂.unbounded (.nearest tb₂) (r : ℝ) z)
-    (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
-    RoundsFinite F₁.unbounded (.nearest tb₁) (r : ℝ) w := by
-  obtain ⟨e₂, he₂⟩ : ∃ e : ℤ, F₂.exp = (e : QExp) := by
-    cases h : F₂.exp using QExp.recBotCoe with
-    | bot => exact absurd (h ▸ bot_le) hF2norm
-    | coe e => exact ⟨e, rfl⟩
-  rw [he₂] at hF2norm
-  have hsublt : Int.log 2 |(r : ℝ)| + 1 - (p₂ : ℤ) < e₂ := by
-    by_contra hc; rw [not_lt] at hc; exact hF2norm (by exact_mod_cast hc)
-  exact rndExact (F₂ := F₂.unbounded)
-    (mem_F₂_of_subnormal hp₂ hexp hquant_r he₂ hsublt) hz hw
-
 /-- **The three cases of Roux Theorem 20.** For a result `r` with `F₁`'s quantum:
 in the small-gap case `r` fits `2p₁ + 1` bits, so it is exact in `F₂`; if `r` is
 subnormal in `F₂` it is exact there too; otherwise the midpoint argument applies. -/
@@ -498,10 +457,19 @@ private theorem rnd_of_cases {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak}
     (hw : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) w) :
     RoundsFinite F₁.unbounded (.nearest tb₁) (r : ℝ) w := by
   by_cases hs : small
-  · exact rndSmallGap_exact hp₂ hpp hexp hquant_r (hsmall hs) hz hw
+  · exact rndExact (F₂ := F₂.unbounded)
+      (Format.mem_unbounded_of_le (p := ((2 * p₁ + 1 : ℕ) : Prec)) (e := F₁.exp)
+        (by rw [hp₂]; exact_mod_cast hpp) hexp (hsmall hs) hquant_r) hz hw
   by_cases hF2norm : F₂.exp ≤ ((Int.log 2 |(r : ℝ)| + 1 - (p₂ : ℤ) : ℤ) : QExp)
   · exact hmid hs hF2norm
-  · exact rndSubnormal_exact hp₂ hexp hquant_r hF2norm hz hw
+  -- Subnormal in `F₂`: `F₂.exp` is finite and above the precision exponent.
+  obtain ⟨e₂, he₂⟩ : ∃ e : ℤ, F₂.exp = (e : QExp) := by
+    cases h : F₂.exp using QExp.recBotCoe with
+    | bot => exact absurd (h ▸ bot_le) hF2norm
+    | coe e => exact ⟨e, rfl⟩
+  rw [he₂] at hF2norm
+  exact rndExact (F₂ := F₂.unbounded) (mem_F₂_of_subnormal hp₂ hexp hquant_r he₂
+    (not_le.mp fun hc => hF2norm (by exact_mod_cast hc))) hz hw
 
 /-- **rnd-minus, positive ordered case** (Roux Theorem 20, radix 2, either exponent
 regime): for `x, y ∈ F₁` with `0 < y < x`, `p₂ ≥ 2p₁+1` and `F₂.exp ≤ F₁.exp`,
@@ -524,11 +492,9 @@ private theorem rndSub_pos {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {
       (not_le.mp h) hn hz hw) hz hw
 
 /-- **rnd-plus, ordered positive, genuine-midpoint core** (radix 2, either
-exponent regime).
-The `x + y` analog of `rndSub_pos_normal`: operand gap `> p₁+1` (`hgap`) and
-`x + y` normal in `F₂` (`hF2norm`), so `canonicalExp` takes the precision-exponent
-closed form
-and Roux's Lemma 16 (`rnd_lt_mid'`) applies unchanged. -/
+exponent regime). The `x + y` analog of `rndSub_pos_normal`: operand gap
+`> p₁+1` (`hgap`) and `x + y` normal in `F₂` (`hF2norm`), so `canonicalExp` takes
+its closed form and Roux's Lemma 16 (`rnd_lt_mid'`) applies. -/
 private theorem rndAdd_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
     (hp₁ : F₁.p = (p₁ : Prec))
     (hp₂ : F₂.p = (p₂ : Prec))
@@ -657,13 +623,13 @@ private theorem rndAdd_nonneg {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak
   rcases eq_or_lt_of_le hxnn with hx0 | hxp
   · -- x = 0
     have hxd : x = 0 :=
-      (Dyadic.coe_real_inj x 0).mp (by rw [Dyadic.coe_real_zero]; exact hx0.symm)
+      eq_zero_of_coe_real_zero hx0.symm
     rw [hxd, zero_add] at hz ⊢
     exact rndExact (mem_F₂_unbounded hp₁ hp₂ hexp hp1p2 hy) hz hw
   · rcases eq_or_lt_of_le hynn with hy0 | hyp
     · -- y = 0
       have hyd : y = 0 :=
-        (Dyadic.coe_real_inj y 0).mp (by rw [Dyadic.coe_real_zero]; exact hy0.symm)
+        eq_zero_of_coe_real_zero hy0.symm
       rw [hyd, add_zero] at hz ⊢
       exact rndExact (mem_F₂_unbounded hp₁ hp₂ hexp hp1p2 hx) hz hw
     · rcases le_total (y : ℝ) (x : ℝ) with hyx | hxy
@@ -702,11 +668,11 @@ theorem rndDiff {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ :
   · -- otherwise `a > 0`, `b > 0`, `a ≠ b`.
     have hane : (a : ℝ) ≠ 0 := by
       intro h; apply hab_mem
-      have hd : a = 0 := (Dyadic.coe_real_inj a 0).mp (by rw [Dyadic.coe_real_zero]; exact h)
+      have hd : a = 0 := eq_zero_of_coe_real_zero h
       rw [hd, show (0 - b : Dyadic) = -b from by ring]; exact FiniteFormat.neg_mem hb
     have hbne : (b : ℝ) ≠ 0 := by
       intro h; apply hab_mem
-      have hd : b = 0 := (Dyadic.coe_real_inj b 0).mp (by rw [Dyadic.coe_real_zero]; exact h)
+      have hd : b = 0 := eq_zero_of_coe_real_zero h
       rw [hd, show (a - 0 : Dyadic) = a from by ring]; exact ha
     have habne : (a : ℝ) ≠ (b : ℝ) := by
       intro h; apply hab_mem
@@ -717,7 +683,7 @@ theorem rndDiff {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ :
     have hnegval : -((a - b : Dyadic) : ℝ) = ((b - a : Dyadic) : ℝ) := by push_cast; ring
     rcases lt_or_gt_of_ne habne with hab | hab
     · -- `a < b`: negate to `b − a > 0` and apply `rndSub_pos`.
-      refine rndNeg hz hw (fun z' w' hz' hw' => ?_)
+      refine rndNeg hz hw (fun hz' hw' => ?_)
       rw [hnegval] at hz' ⊢
       exact rndSub_pos hp₁ hp₂ hpp hexp hundef₁ hb ha hbp hap hab hz' hw'
     · -- `a > b`: apply `rndSub_pos` directly.
@@ -767,7 +733,7 @@ theorem rndAdd {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {p₁ p₂ : 
       have hnxnn : 0 ≤ ((-x : Dyadic) : ℝ) := by rw [Dyadic.coe_real_neg]; linarith
       have hnynn : 0 ≤ ((-y : Dyadic) : ℝ) := by rw [Dyadic.coe_real_neg]; linarith
       have hnegval : -((x + y : Dyadic) : ℝ) = (((-x) + (-y) : Dyadic) : ℝ) := by push_cast; ring
-      refine rndNeg hz hw (fun z' w' hz' hw' => ?_)
+      refine rndNeg hz hw (fun hz' hw' => ?_)
       rw [hnegval] at hz' ⊢
       exact rndAdd_nonneg hp₁ hp₂ hpp hexp hundef₁ hnx hny hnxnn hnynn hz' hw'
 
