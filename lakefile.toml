@@ -1,7 +1,7 @@
 name = "mpfx"
 version = "0.1.0"
 keywords = ["math"]
-defaultTargets = ["Mpfx"]
+defaultTargets = ["Mpfx", "Fpy"]
 testDriver = "MpfxTest"
 
 [leanOptions]
@@ -21,3 +21,6 @@ name = "Mpfx"
 [[lean_lib]]
 name = "MpfxTest"
 globs = ["MpfxTest.+"]
+
+[[lean_lib]]
+name = "Fpy"

@@ -14,6 +14,9 @@ breakdown, one phase per commit.
 - **Comments stay succinct**, and notes about *process* (what was tried, what
   a phase decided, why an ordering was chosen) belong in this document, not in
   source comments.
+- **The Lean is the source of truth.** A bug found in the paper goes into the
+  FPy section of `ROADMAP.md` when it is found, and the Lean states the fixed
+  rule.
 
 ## Context
 
@@ -52,7 +55,8 @@ rewrites:
 ### Problems found in the draft
 
 Reading the rules against the semantics turned up two unsound rules and two
-gaps. Each fix below is a change to the paper.
+gaps. Each fix below is a change to the paper, and each is a todo in
+`ROADMAP.md`.
 
 | Where | As written | Failure | Fix |
 | --- | --- | --- | --- |
@@ -124,6 +128,17 @@ need no separate inner induction: `whileTrue` matches its unrolled
 ## Phases
 
 ### Phase 1 - Syntax and semantics
+
+**Done.** Fig. 10 leaves some cases unstated. The Lean settles them as
+follows; none contradicts the paper:
+
+- `E-Index` takes an index that evaluates to a finite natural `k < m`.
+- `E-Proj` takes the first field with the label (`List.lookup`).
+- `E-Context` does not check that `e` gives a context; an arithmetic
+  operation under a non-context is stuck, since it has no `Val.rnd`.
+- `ctx e` requires `e` to give a record in `dom(ρ)`.
+- A guard that does not give a boolean, and an operator outside its
+  domain, are stuck.
 
 - `Fpy/Syntax.lean`: `Num`, `Val`, `Signature`, `Expr`, `Stmt`, `Program`.
 - `Fpy/Semantics.lean`: `Store` (`single`, `update`), `Outcome`, `Val.rnd`,
@@ -250,8 +265,6 @@ holding the identities, per the open item).
 
 - README: an FPy section, a theorem table in the Mpfx section's style
   (paper → Lean name → file), and layout rows.
-- `ROADMAP.md`: the paper changes from "Problems found in the draft", as
-  todos.
 
 Test: none (markdown).
 
@@ -267,6 +280,9 @@ There is no separate lint command: `weak.linter.mathlibStandardSet` runs
 during the build, and a clean build has no warnings.
 
 ## Open items
+
+Every item below was settled with its provisional call. Each reopen condition
+still stands.
 
 ### Same Lake package, or a separate `Fpy/` package requiring `mpfx`?
 
@@ -294,8 +310,8 @@ The Lean statements will follow the fixed rules. If the paper keeps the
 original `rnd♯_?`, `ctx(e)` or Table 2 row, the mechanization proves a
 different system from the one printed.
 
-Provisional: Phases 2 and 4 use the fixes. Each becomes a `ROADMAP.md`
-todo in Phase 8.
+Provisional: Phases 2 and 4 use the fixes, which are recorded in
+`ROADMAP.md`.
 
 ### Theorem 4.2: one assignment per run, or one per value?
 

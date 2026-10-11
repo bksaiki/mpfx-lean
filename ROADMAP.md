@@ -1,10 +1,12 @@
 # Roadmap
 
-Open threads the paper revision needs from this development,
-forward-looking only; check an item off when it lands. The
-formalization's own backlog stays in `docs/agents/`; this file holds
-only what the paper depends on. References are Lean names under
-`namespace Mpfx` and files under `Mpfx/`, never line numbers.
+Open threads the papers need from this development, forward-looking
+only; check an item off when it lands. The formalization's own backlog
+stays in `docs/agents/`; this file holds only what the papers depend
+on. The mechanization is the source of truth: where a paper and the
+Lean disagree, the paper changes. References are Lean names under
+`namespace Mpfx` or `namespace Fpy` and files under `Mpfx/` or `Fpy/`,
+never line numbers.
 
 ## Paper revision
 
@@ -67,3 +69,27 @@ only what the paper depends on. References are Lean names under
   Figure 7, the double-rounding rules Figure 8, the format instances
   Table 1, and the lemmas are 5.1 completeness, 5.2 digit count,
   5.3 `w₂ = w₁ + k`, and 5.4 RTO padding.
+
+## FPy paper (PLDI draft)
+
+Bugs in the draft's rules, found against the semantics. Each item is a
+change to the paper; the Lean states the fixed rule. The phases that
+mechanize them are in `docs/agents/FPY_PLAN.md`.
+
+- [ ] Fig. 5, `rnd♯` under an unknown context `?`: with `F_? = R*` the
+  first case `F ⊆ F_C` always fires, so the exact bound is kept under a
+  context that may round (`t = round(xi)` in `fused_sum`). Fig. 6 shows
+  `R*`, so only the rule is wrong. Fix: `rnd♯_?(F) = R*`.
+- [ ] Fig. 5 and 11, `A-Context`/`A-Ctx`: `ctx(e)` is "known statically"
+  and `ctx e : •`, but Fig. 6 line 5 needs the format of the parameter
+  `out`, which no static `ctx(e)` gives. Fix: abstract values carry a
+  known context `⟨C⟩` (`R : ⟨R⟩`, `ctx e : ⟨ctx fs⟩` for a known record),
+  and `A-Context` reads it off `e`'s abstract value.
+- [ ] Table 2, row `IEEE754(e, n, RTZ)`: `[max(l, m − p + 1), m]` is
+  unsound, since `m` only bounds the leading digit from above (`v = 1`,
+  interval `[0, 10]`, `p = 3`: the result `1` has digit `0 ∉ [8, 10]`).
+  Fix: `[max(l, μ − p + 1), μ]` with fresh `μ ≤ m`, as in the next row.
+- [ ] §4.2, the side condition that each context "leaves the values of
+  `F_C` unchanged": an Mpfx context meets it only when its special map
+  fixes the format's specials (e.g. `SpecialMap.exact`). State that
+  hypothesis on contexts.
