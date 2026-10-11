@@ -158,6 +158,29 @@ Test: `~/.elan/bin/lake build Fpy`.
 
 ### Phase 2 - Format inference and Theorem 4.1
 
+**Done.** It diverged from the plan in these places:
+
+- Lists are described through a mutual `DescribesAll`, so that every proof
+  stays structural.
+- `A-Arith` takes arguments of any abstract value: `AVal.toFmt` reads a
+  non-format as `⊤`.
+- `A-Assert` takes any abstract value for its condition. The draft requires
+  `•`.
+- A statement that cannot return has the return bound `fmt bot`.
+- The environment join leaves unbound a variable bound on one side only.
+- Two known contexts join to `known C` when they are equal and to `top`
+  otherwise. Deciding equality of `Val`s, which contain reals, is the one use
+  of `Classical`.
+- `with e in s` has two rules, `withCtx` for a known context and
+  `withUnknown` for `?`.
+- The test file has no `fma` derivation. It has:
+  - the collecting analysis, which shows the obligations can be met;
+  - `draft_rnd_unknown_unsound`, a witness that the draft's `rnd♯_?` is
+    unsound;
+  - a derivation in which a context passed as an argument stays known.
+- `lakefile.toml` gains the `FpyTest` library, and CI gains the step
+  `lake build FpyTest`.
+
 - `Fpy/FormatInference.lean`:
   - `FormatDomain`: `Fmt`, `γ`, `top`, `bot`, `join`, `sub`, `ofNum`, with
     their soundness fields.

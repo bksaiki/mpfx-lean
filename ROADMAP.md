@@ -79,12 +79,14 @@ mechanize them are in `docs/agents/FPY_PLAN.md`.
 - [ ] Fig. 5, `rnd♯` under an unknown context `?`: with `F_? = R*` the
   first case `F ⊆ F_C` always fires, so the exact bound is kept under a
   context that may round (`t = round(xi)` in `fused_sum`). Fig. 6 shows
-  `R*`, so only the rule is wrong. Fix: `rnd♯_?(F) = R*`.
+  `R*`, so only the rule is wrong. Fix: `rnd♯_?(F) = R*`
+  (`Analysis.rnd`; witness `FpyTest.draft_rnd_unknown_unsound`).
 - [ ] Fig. 5 and 11, `A-Context`/`A-Ctx`: `ctx(e)` is "known statically"
   and `ctx e : •`, but Fig. 6 line 5 needs the format of the parameter
   `out`, which no static `ctx(e)` gives. Fix: abstract values carry a
   known context `⟨C⟩` (`R : ⟨R⟩`, `ctx e : ⟨ctx fs⟩` for a known record),
-  and `A-Context` reads it off `e`'s abstract value.
+  and `A-Context` reads it off `e`'s abstract value (`AEval.ctx`,
+  `AExec.withCtx`, `AExec.withUnknown`).
 - [ ] Table 2, row `IEEE754(e, n, RTZ)`: `[max(l, m − p + 1), m]` is
   unsound, since `m` only bounds the leading digit from above (`v = 1`,
   interval `[0, 10]`, `p = 3`: the result `1` has digit `0 ∉ [8, 10]`).

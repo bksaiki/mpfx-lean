@@ -24,3 +24,7 @@ globs = ["MpfxTest.+"]
 
 [[lean_lib]]
 name = "Fpy"
+
+[[lean_lib]]
+name = "FpyTest"
+globs = ["FpyTest.+"]
