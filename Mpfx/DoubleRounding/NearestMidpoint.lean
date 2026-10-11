@@ -124,9 +124,7 @@ theorem rnd_lt_mid {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x : ℝ}
   -- w = rndDown F₁ x by nearest-uniqueness, then round `x` below its midpoint
   have hu₁ : ¬ (F₁.unbounded).IsUndefined (.nearest tb₁) := by
     rw [FiniteFormat.unbounded_isUndefined]; exact hundef₁
-  have hw_eq : w = rndDown F₁ x := by
-    rw [rndUnbounded_unique F₁.unbounded (.nearest tb₁) (z : ℝ) hu₁ hw,
-        rndUnbounded_unique F₁.unbounded (.nearest tb₁) (z : ℝ) hu₁ hP2]
+  have hw_eq : w = rndDown F₁ x := RoundsFinite.unique hu₁ hw hP2
   rw [hw_eq]
   exact nearest_eq_rndDown_of_lt_midp F₁ tb₁ x hundef₁ hx_lt_midp
 
@@ -150,7 +148,7 @@ private theorem canonicalExp_eq_of_binade_top {F₁ F₂ : FiniteFormat} {tb₂ 
   have h_xlo : (2 : ℝ) ^ k ≤ x := by
     have := Int.zpow_log_le_self (b := 2) (by norm_num) hx; rw [← hk] at this; exact_mod_cast this
   have he₂_le_k : F₂.canonicalExp x ≤ k := by omega
-  have hzf : IsFaithfulRound F₂.unbounded x z := by cases tb₂ <;> exact hz.2.1
+  have hzf : IsFaithfulRound F₂.unbounded x z := hz.isFaithfulRound
   have hdk_mem : Dyadic.ofIntZpow 1 k ∈ F₂.unbounded := by
     refine ofIntZpow_mem_unbounded F₂
       (fun he' => le_trans (F₂.exp_le_canonicalExp x he') he₂_le_k) (fun {p} _ => ?_)
@@ -322,7 +320,7 @@ theorem rnd_gt_mid_robust {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieBreak} {x
       rw [abs_one]; exact one_le_pow₀ (by norm_num)
     have hB_real : (Dyadic.ofIntZpow 1 (k + 1) : ℝ) = (2 : ℝ) ^ (k + 1) := by
       rw [Dyadic.coe_ofIntZpow]; push_cast; ring
-    have hzf : IsFaithfulRound F₂.unbounded x z := by cases tb₂ <;> exact hz.2.1
+    have hzf : IsFaithfulRound F₂.unbounded x z := hz.isFaithfulRound
     have hz_eq : (z : ℝ) = (2 : ℝ) ^ (k + 1) := by
       rcases hzf with ⟨_, hzx, _⟩ | ⟨_, _, hmin⟩
       · exfalso; linarith [hzx, hx_hi, hzc]

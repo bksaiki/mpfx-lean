@@ -373,9 +373,7 @@ theorem toOdd_toOdd_noOverflow_chain {F₁ F₂ : FiniteFormat}
   have hxw : RoundsFinite F₁.unbounded .toOdd x w :=
     RoundsFinite.toOdd_lift (F := G) hxw_G hy hG_bnd_y
   -- Uniqueness against the in-bound direct rounding.
-  have h_eq : w = y := by
-    rw [rndUnbounded_unique F₁ .toOdd x h₁u hxw,
-      rndUnbounded_unique F₁ .toOdd x h₁u hy]
+  have h_eq : w = y := RoundsFinite.unique h₁u hxw hy
   rw [h_eq]
   exact hby'
 

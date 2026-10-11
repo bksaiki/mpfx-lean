@@ -419,9 +419,7 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
             zpow_lt_zpow_right₀ (by norm_num) (by omega)
           rw [e5, abs_lt]
           exact ⟨by linarith [hzx_close.1, hb3], by linarith [hzx_close.2, hb3]⟩
-      have hw_eq : w = x := by
-        rw [rndUnbounded_unique F₁.unbounded (.nearest tb₁) (z : ℝ) hu₁ hw,
-            rndUnbounded_unique F₁.unbounded (.nearest tb₁) (z : ℝ) hu₁ hzx_round]
+      have hw_eq : w = x := RoundsFinite.unique hu₁ hw hzx_round
       rw [hw_eq]; exact hrx_round
     · -- Sub-case 2a: `2^k < x`, `x − y` stays in `x`'s binade.
       have hbot' : (2 : ℝ) ^ k < (x : ℝ) := lt_of_le_of_ne hx_lo (fun h => hbot h.symm)
@@ -515,9 +513,7 @@ private theorem rndSub_pos_normal {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : TieB
         rw [hcE1z]
         have e5 : (2 : ℝ) ^ ex / 2 = (2 : ℝ) ^ (ex - 1) := pow_half ex
         rw [e5, abs_lt]; exact ⟨hzx_close.1, hzx_close.2⟩
-      have hw_eq : w = x := by
-        rw [rndUnbounded_unique F₁.unbounded (.nearest tb₁) (z : ℝ) hu₁ hw,
-            rndUnbounded_unique F₁.unbounded (.nearest tb₁) (z : ℝ) hu₁ hzx_round]
+      have hw_eq : w = x := RoundsFinite.unique hu₁ hw hzx_round
       rw [hw_eq]; exact hrx_round
 
 /-- Small-gap / normal exact fallback: a result `r` fitting `2p₁+1` bits and

@@ -25,11 +25,8 @@ private theorem maxFinite_spec (F : FiniteFormat) (hb : F.b ≠ ⊤) :
   rndUnbounded_satisfies _ _ _ _
 
 theorem maxFinite_nonneg (F : FiniteFormat) (hb : F.b ≠ ⊤) :
-    (0 : ℝ) ≤ (F.maxFinite hb : ℝ) := by
-  obtain ⟨-, -, hmax⟩ := F.maxFinite_spec hb
-  have h := hmax 0 F.unbounded.zero_mem
-    (by rw [Dyadic.coe_real_zero]; exact nonneg_coe_real _)
-  rwa [Dyadic.coe_real_zero] at h
+    (0 : ℝ) ≤ (F.maxFinite hb : ℝ) :=
+  RoundsFinite.toNegative_nonneg (nonneg_coe_real _) (F.maxFinite_spec hb)
 
 theorem maxFinite_mem (F : FiniteFormat) (hb : F.b ≠ ⊤) : F.maxFinite hb ∈ F := by
   obtain ⟨hmem, hle, -⟩ := F.maxFinite_spec hb

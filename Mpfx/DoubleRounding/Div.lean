@@ -177,7 +177,7 @@ private theorem round_round_div_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : T
   have hu2pos : (0 : ℝ) < ulp F₂ v := ulp_pos F₂ hv.ne'
   have hv0 : RoundsFinite F₁.unbounded (.nearest tb₁) v 0 :=
     nearest_zero_of_small hp₁ hexp₁ hundef₁ hv.le (by linarith)
-  have hzf : IsFaithfulRound F₂.unbounded v z := by cases tb₂ <;> exact hz.2.1
+  have hzf : IsFaithfulRound F₂.unbounded v z := hz.isFaithfulRound
   have hznn : 0 ≤ (z : ℝ) := by
     rcases hzf with ⟨_, _, hmax⟩ | ⟨_, hxz, _⟩
     · simpa using hmax 0 (FiniteFormat.zero_mem F₂.unbounded) (by simpa using hv.le)
@@ -186,9 +186,7 @@ private theorem round_round_div_zero {F₁ F₂ : FiniteFormat} {tb₁ tb₂ : T
   have hzlt : (z : ℝ) < (2 : ℝ) ^ (emin₁ - 1) := by linarith [hzerr.2, hvlt]
   have hz0 : RoundsFinite F₁.unbounded (.nearest tb₁) (z : ℝ) 0 :=
     nearest_zero_of_small hp₁ hexp₁ hundef₁ hznn hzlt
-  have hw0 : w = 0 :=
-    (rndUnbounded_unique F₁ (.nearest tb₁) (z : ℝ) hundef₁ hw).trans
-      (rndUnbounded_unique F₁ (.nearest tb₁) (z : ℝ) hundef₁ hz0).symm
+  have hw0 : w = 0 := RoundsFinite.unique hundef₁ hw hz0
   rw [hw0]; exact hv0
 
 /-- **Division separation lemma** (Flocq `round_round_div_aux{1,2}`, Figueroa),

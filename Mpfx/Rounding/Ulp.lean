@@ -159,17 +159,10 @@ exist. -/
 theorem nearest_error_le_half_ulp {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
     {z : Dyadic} (h : RoundsFinite F.unbounded (.nearest tb) x z) :
     |(z : ℝ) - x| ≤ ulp F x / 2 := by
-  have hclose : ∀ c : Dyadic, c ∈ F.unbounded → IsFaithfulRound F.unbounded x c →
-      |x - (z : ℝ)| ≤ |x - (c : ℝ)| := by
-    cases tb with
-    | toEven => exact h.2.2.1
-    | awayZero => exact h.2.2.1
-  have haf : IsFaithfulRound F.unbounded x (rndDown F x) :=
-    Or.inl ⟨rndDown_mem F x, rndDown_le F x, fun v hv hvx => rndDown_max F x hv hvx⟩
-  have ha'f : IsFaithfulRound F.unbounded x (rndUp F x) :=
-    Or.inr ⟨rndUp_mem F x, le_rndUp F x, fun v hv hxv => rndUp_min F x hv hxv⟩
-  have h1 : |x - (z : ℝ)| ≤ |x - (rndDown F x : ℝ)| := hclose _ (rndDown_mem F x) haf
-  have h2 : |x - (z : ℝ)| ≤ |x - (rndUp F x : ℝ)| := hclose _ (rndUp_mem F x) ha'f
+  have h1 : |x - (z : ℝ)| ≤ |x - (rndDown F x : ℝ)| :=
+    h.nearest_min (rndDown_mem F x) (rndDown_spec F x).isFaithfulRound
+  have h2 : |x - (z : ℝ)| ≤ |x - (rndUp F x : ℝ)| :=
+    h.nearest_min (rndUp_mem F x) (rndUp_spec F x).isFaithfulRound
   have hax : (rndDown F x : ℝ) ≤ x := rndDown_le F x
   have hxa' : x ≤ (rndUp F x : ℝ) := le_rndUp F x
   rw [abs_of_nonneg (by linarith : (0 : ℝ) ≤ x - (rndDown F x : ℝ))] at h1
