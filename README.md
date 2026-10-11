@@ -42,7 +42,7 @@ All positive rules, in `Mpfx/DoubleRounding/`, at three levels:
 
 - **Finite form**: given `RoundsFinite F₂ rm₂ x z` and `RoundsFinite F₁ rm₁ z w`
   (with the stated containment of `F₁` in `F₂`), then `RoundsFinite F₁ rm₁ x w`.
-  RTO → RTZ/RAZ/RN also have a `…_finite_of_extend` form taking the plain
+  RTO → RTN/RTP/RTZ/RAZ/RN also have a `…_finite_of_extend` form taking the plain
   containment `F₁.extend k ⊆ F₂` and `2 ≤ F₂.p`.
 - **Total form**, with bounds: either rounding `x` directly in `F₁` overflows
   (`Overflows`), or rounding `x` into `F₂` and the result into `F₁` stays in
@@ -59,6 +59,7 @@ All positive rules, in `Mpfx/DoubleRounding/`, at three levels:
 | `rnd-RTO-RAZ` | `roundsRTO_RAZ_finite` | `roundsRTO_RAZ_inBound` | `rndRTO_RAZ` |
 | `rnd-RTO-RNE` / `rnd-RTO-RNA` | `roundsRTO_RN_finite` (both tie-breaks) | `roundsRTO_RN_inBound` | `rndRTO_RN` |
 | RTP→RTP, RTN→RTN (IEEE directed) | `roundsRTP_RTP_finite`, `roundsRTN_RTN_finite` | — | — |
+| RTO→RTP, RTO→RTN | `roundsRTO_RTP_finite`, `roundsRTO_RTN_finite` | — | — |
 
 ### Double rounding with special values
 

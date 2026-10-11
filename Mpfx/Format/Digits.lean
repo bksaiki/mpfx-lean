@@ -720,9 +720,7 @@ theorem IsOdd.transfer_of_numDigits_eq {F₁ F₂ : ParityFormat}
 
 /-- **RTO-padding lemma** (RTO digit-padding preserves oddness across a subformat).
 If `F₁ ⊆ F₂`, `F₂` has at least 2 bits, and `y ∈ F₁` is `IsOdd` in `F₂`, then
-`y` is `IsOdd` in `F₁` as well. The capstone consumed by the RTO-composition
-double-rounding rules (`roundsRTO_RTO_finite`, `roundsRTO_RTZ_finite`,
-`roundsRTO_RAZ_finite`, `roundsRTO_RN_finite`):
+`y` is `IsOdd` in `F₁` as well. The parity step of `roundsRTO_RTO_finite`:
 it composes the digit-count agreement (`numDigits_eq_of_subset_of_isOdd`)
 with the parity transfer (`IsOdd.transfer_of_numDigits_eq`). -/
 theorem IsOdd.transfer_of_subset {F₁ F₂ : ParityFormat}

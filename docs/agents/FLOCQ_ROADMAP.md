@@ -39,8 +39,7 @@ spec, none of which mention the `rnd` construction:
 * uniqueness per mode and generic (`RoundsFinite.unique`, Flocq `round_unique`);
 * faithfulness (`RoundsFinite.isFaithfulRound`);
 * `eq_zero_of_zero`, `toNegative_nonneg`, `toPositive_nonpos`;
-* monotonicity per mode and generic (`RoundsFinite.monotone`, Flocq `round_le`)
-  was proved and later removed as unused; recover it from commit `2293cbc`;
+* monotonicity per mode and generic (`RoundsFinite.monotone`, Flocq `round_le`);
 * the grid bridges `toNegative_floor` / `toPositive_ceil` and their equation
   forms, plus `isOdd_alternate_of_bracketing`.
 
@@ -67,12 +66,6 @@ half; these are cheap and get used constantly.
 ## 4. `Mpfx/Ulp.lean` — `Core/Ulp.v` — **done**
 
 *Residual notes in [`ULP_TODO.md`](ULP_TODO.md).*
-
-`succ`/`pred`/`predPos`, the error bounds below and the bracket
-characterisations were later removed as unused (nothing outside `Ulp.lean`
-called them); recover them from commit `2293cbc`. What remains is `ulp`,
-`rndDown`/`rndUp`/`midp`, `nearest_error_le_half_ulp` and the midpoint
-characterisations of nearest rounding.
 
 `ulp` (Goldberg's convention, `0` at zero when there is no minimum quantum),
 `rndDown`/`rndUp`/`midp`, `succ`/`pred`/`predPos` as total format functions with
@@ -138,12 +131,6 @@ All the `_exp_bot` twins are gone, merged on `canonicalExp`:
 `exists_grid_rep` variants were deleted outright once
 `exists_canonical_rep_of_parts` absorbed their consumers. `Grid.lean` 753 →
 `Discrete.lean` 626.
-
-Later the adjacency lemmas and `midpoint_mem_extend_one_of_p_top` went too: the
-midpoint of adjacent positive values is a multiple of half their common step,
-which `FiniteFormat.exists_mul_zpow_canonicalExp`, its converse
-`mem_unbounded_of_mul_zpow_canonicalExp` and `canonicalExp_extend` turn into
-membership in `F.extend 1` for every format shape at once.
 
 ## 7. Operation-level error lemmas — `Prop/`
 

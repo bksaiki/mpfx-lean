@@ -139,10 +139,10 @@ Mpfx/
 │                     below/above-midpoint characterisations
 └── DoubleRounding/
     ├── Basic.lean    §5.2 rules, spec-relational over RoundsFinite:
-    │                 roundsRTZ_RTZ_finite, roundsRAZ_RAZ_finite(_pos), roundsRTO_RTO_finite,
-    │                 roundsRTO_RTZ_finite(_of_extend), roundsRTO_RAZ_finite(_of_extend),
-    │                 roundsRTP_RTP_finite, roundsRTN_RTN_finite, rndExact. RTO helper
-    │                 chain (toOdd_notMem_of_extend_subset, …), *_of_trivial
+    │                 roundsRTN_RTN_finite, roundsRTP_RTP_finite, and RTZ/RAZ from
+    │                 them by sign (toZero_of_directed, awayZero_of_directed);
+    │                 roundsRTO_RTO_finite; roundsRTO_RTN/RTP_finite(_of_extend), and
+    │                 RTO → RTZ/RAZ from them; toOdd_notMem_of_extend_subset, rndExact
     ├── Nearest.lean  roundsRTO_RN_finite(_of_extend) and its RN web
     │                 (rndRTO_RN_close_transfer, rndRTO_no_tie_contradiction,
     │                 rndRTO_nearest_facts)
@@ -255,8 +255,6 @@ Each stands until its reopen condition holds.
 
 ## Documented non-theorems / possible extensions
 
-- `roundsRTO_RTP_finite`, `roundsRTO_RTN_finite` (RTO then a directed mode) — provable by
-  sign-reduction like `roundsRTP_RTP_finite`/`roundsRTN_RTN_finite`; not yet ported.
 - `rndRNA_RNA` is **not** correct double rounding — RNA→RNA chains can fail at
   binade-boundary inputs (pen-and-paper). A counterexample analogous to
   `no_rndRNE_RNE` could be formalized.

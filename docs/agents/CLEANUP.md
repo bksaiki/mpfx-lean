@@ -1,26 +1,15 @@
 # Cleanup plan
 
-Findings of a read-only review of the whole development at commit `2293cbc`
-(about 19k lines). Four passes: a Lean-level pass over each of `Format/`,
-`Rounding/` and `DoubleRounding/`, looking for de-duplication and simpler
-proofs, and a structural pass asking whether the formalism is more complex than
-its mathematics. Nothing here has been built. Line counts are estimates, and
-the estimates overlap, so they do not add up. Declarations are named rather
-than located; where a range helps it is given as of `2293cbc`.
-
-The four passes converged on the same five structural causes. Together they
-account for most of the size; scattered sloppiness accounts for little.
+Simplifications of the development, from a review of its structure and
+proofs. Line counts are estimates and overlap, so they do not add up.
+Declarations are named rather than located.
 
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked.
 
 ## Suggested order
 
-1. **Done** (commits `1193eb2`..`59fd80a`, about 1.5k lines): the unused API
-   (§U) and the format-layer and small double-rounding quick wins (§Q). Open in
-   §Q: the `mem_def`/`boundOK`-iff sweep over the remaining `change` lines, and
-   the items superseded by §S1/§S2 (`Parity.lean` pair factoring,
-   `Rounding/Parity.lean` leaves).
-2. A uniform `canonicalExp` and successor API (§S3). It unblocks §S1 and §S2.
+1. [x] Quick wins (§Q) and the unused-API decision (§U).
+2. [x] A uniform `canonicalExp` and successor API (§S3). It unblocks §S1 and §S2.
 3. Parity via coarsening (§S1). The largest remaining block of size and case
    splitting.
 4. The generic overflow theorem (§S2), prototyped on RTO → RN.
@@ -66,7 +55,7 @@ preserved. For `p ≥ 2` or `p = ⊤`, and any `exp` including `⊥`:
 
 * `Format/Digits.lean`: `numDigits_eq_of_subset_of_isOdd(_aux)` (about 320
   lines), `odd_index_of_p_one_corner` (about 185), `IsOdd.transfer_of_numDigits_eq`,
-  `precisionAtMost_not_IsOdd`, and most of `mem_imp_precisionAtMost_numDigits`.
+  `precisionAtMost_not_IsOdd`.
 * `DoubleRounding/Basic.lean`: `toOdd_notMem_of_lower_numDigits`.
 * `Format/Parity/Alternate.lean`: the per-regime `alternating_parity_*_iff`
   and `alternating_isEven_*` pairs, the `canonical_rep_*` and
@@ -140,6 +129,13 @@ Prototype on RTO → RN first.
   grid point `N` with `b₁ < N ≤ Format.next b₁` (`next b₁` on the grid,
   `rndUp b₁` off it).
 * Most of `Rounding/Restrict.lean`, which becomes one locality lemma.
+* The second successor. `Format.next` (four arms, with placeholder values where
+  no successor exists) sits beside `FiniteFormat.next` (`b + 2^cexp b`) only
+  because `boundAfterNext` is defined on `Format`. Restate `boundAfterNext`, and
+  with it the `withBound boundAfterNext` containment hypotheses, on
+  `FiniteFormat` while the rules are restated here; that removes the
+  `lt_next_of_*` helpers, the private `next_eq_bot_*`/`next_eq_p_top`
+  evaluators and `next_eq_format_next` (about 100 lines).
 
 **Check before relying on it.** The `hnt` (`Nontrivial`) hypotheses on the
 `_noOverflow` forms may become unnecessary: at `exp = ⊥` and `b₁ = 0`,
@@ -154,8 +150,7 @@ Prototype on RTO → RN first.
 * [ ] `eq_zero_of_toZero_zero` is subsumed by `eq_zero_of_faithful_zero`
   applied to `hy.isFaithfulRound`. The degenerate branch of
   `bound_floor_setup` is the same fact for RTN. The "`ofIntZpow 1 K ∈
-  F.unbounded` when `exp = ⊥`" block appears three times here and again in
-  `Next.lean` (`bound_top_of_withBound_top_subset`). `rounds_total_of_zero_bound`'s
+  F.unbounded` when `exp = ⊥`" block appears three times here. `rounds_total_of_zero_bound`'s
   `hzero₁`/`hzero₂` parameters are always the same generic facts and can go.
   About 70 lines.
 * [ ] The six `_inBound` theorems share one body. One `inBound_of` lemma
@@ -197,22 +192,16 @@ re-unfold the definitions.
   `F.unbounded`". It replaces `Next.exists_step_rep(_le)` and
   `Discrete.exists_canonical_rep_of_parts` with its private helpers
   `canonical_rep_reconstruct` and `log_le_of_canonical_rep`. The `|m| < 2^p`
-  bound comes from `floor_mantissa_lt`. About 120 lines. Landed as
-  `FiniteFormat.exists_mul_zpow_canonicalExp`, with the converse
-  `mem_unbounded_of_mul_zpow_canonicalExp`.
-* [~] Keep one successor. Three exist: `Format.next` (four-arm match with junk
+  bound comes from `floor_mantissa_lt`. About 120 lines.
+* [x] Keep one successor. Three exist: `Format.next` (four-arm match with junk
   arms), `FiniteFormat.next` (via `canonicalExp`) and `Ulp.succ` (real-valued),
   bridged by `next_eq_format_next` and `next_coe`. Define `boundAfterNext` from
   the one kept. At minimum add `next_zero (he : F.exp = e) : F.next 0 =
   ofIntZpow 1 e` beside `next_pos_eq`; `lt_next` and `next_mono` (68 lines,
   five-way split) then follow from `canonicalExp_mono`. Removes the
   `lt_next_of_*` and `next_eq_bot_*` families and four inline re-derivations of
-  the `b ≤ 0` reduction. About 200 lines. Done in part: `Ulp.succ` is gone,
-  `Format.next_zero` and `FiniteFormat.format_next_eq` (`next b = b + 2^cexp b`
-  for `b ≥ 0`) landed, `next_mono` is stated on `FiniteFormat` and follows from
-  `canonicalExp_mono`, and the inline `b = 0` reductions are gone. `Format.next`
-  keeps its junk arms and the `lt_next_of_*` helpers, since `boundAfterNext` is
-  defined on `Format`.
+  the `b ≤ 0` reduction. About 200 lines. Collapsing `Format.next` into
+  `FiniteFormat.next` moved to §S2.
 * [x] `two_le_p_or_trivial_of_extend_one_withBound_subset` (170 lines) builds
   a `3 · 2^k` witness in each of eight cases. Generic witness: a positive
   `d ∈ F₁`, and `m = (F₁.extend 1).next d = (d + next d)/2`
@@ -222,10 +211,7 @@ re-unfold the definitions.
 * [x] Grid discreteness is proved four times: `Discrete.adjacent_canonical_form`
   (needs finite `p`), `Next.next_min'`, `Ulp.succ_le_of_lt`, and
   `Cex.exists_isolated` with `Cex.Adjacent`. Make one canonical; the
-  `Cex.exists_isolated` form needs no shape split. Done: `adjacent_canonical_form`
-  and `succ_le_of_lt` are deleted, and `exists_isolated` and `next_min'` both
-  rest on `exists_mul_zpow_canonicalExp` (they state different facts: an
-  isolation radius, and the successor bound).
+  `Cex.exists_isolated` form needs no shape split.
 * [x] `floor_minimality` repeats "`z = k · 2^e`, `z ≤ x` implies `k ≤ ⌊x ·
   2^-e⌋`" three times. Generically: if `cexp z ≥ e` then `z` is a multiple of
   `2^e`, else `|z| < 2^log|x|`, which is on the grid. This removes
@@ -383,7 +369,7 @@ through `unbotD 0`), and it alternates. `(1, ⊥)` is only special in that no
 
 ## Double-rounding rules
 
-* [ ] Rebase the directed rules on RTN → RTN and RTP → RTP. RTN → RTN is a
+* [x] Rebase the directed rules on RTN → RTN and RTP → RTP. RTN → RTN is a
   four-line direct proof (`w ≤ z ≤ x`, and any `v ∈ F₁ ⊆ F₂` with `v ≤ x` has
   `v ≤ z`, hence `v ≤ w`). RTZ → RTZ and RAZ → RAZ then follow in about ten
   lines each from the sign bridges (`toNegative_iff_toZero_of_nonneg`, …),
@@ -391,7 +377,7 @@ through `unbotD 0`), and it alternates. `(1, ⊥)` is only special in that no
   derivation runs the other way: `roundsRTP_RTP_finite` and
   `roundsRTN_RTN_finite`, which nothing uses, are derived from them. About 155
   lines.
-* [ ] Prove RTO → RTN and RTO → RTP once, without sign cases, and derive
+* [x] Prove RTO → RTN and RTO → RTP once, without sign cases, and derive
   RTO → RTZ and RTO → RAZ from them. If `z ≤ x`, `z` is the `F₂` round-down and
   maximality transfers. If `x < z`, `z` is the `F₂` round-up and `z ∉ F₁` by
   `toOdd_notMem_of_extend_subset`; `x < w` would force `w = z ∈ F₁`. This
@@ -452,7 +438,7 @@ About 300 lines, mostly medium confidence.
   `Sqrt.round_round_sqrt_aux`; move it to `Ulp.lean`. `rnd_gt_mid` redoes
   `rndNeg` inline. About 30 lines.
 
-## U. Unused API (decision needed)
+## U. Unused API
 
 Each block below is referenced only inside its own file (checked by grep over
 `Mpfx/` and `MpfxTest/`).
@@ -478,19 +464,6 @@ Each block below is referenced only inside its own file (checked by grep over
   `monotone_toNegative` through `RoundsFinite.monotone`. Keep `nearest_min`,
   which `Propagation.lean` uses.
 
-All four were deleted, with `Format.neg_mem_values` (used only by
-`OverflowMap.neg`); they are recoverable from commit `2293cbc`. The note below
-records the alternative that was not taken.
-
-The Ulp and monotonicity blocks are deliberate Flocq-parity API
-(`FLOCQ_ROADMAP.md` §4, `ULP_TODO.md`). Options: delete; move to an API-only
-file; or keep them and drop their `hp : F.p = (p : Prec)` hypotheses. The last
-is about 50 lines of change: `succ_le_of_lt_pos` is three lines from
-`next_coe`, `next_eq_format_next` and `next_min'` (no `hp`); `next_mem`
-duplicates `next_mem_unbounded'`; and every remaining `hp` comes from
-`exists_canonical_rep` (use `exists_step_rep`), `canonicalExp_binade_below_le`
-(its `p = ⊤` case is `exp_le_log_of_mem`), or explicit `unfold canonicalExp`
-computations whose coefficient bounds are vacuous at `p = ⊤`.
 
 ## Q. Quick wins
 
@@ -527,7 +500,7 @@ High confidence, low risk, independent of the structural work.
   has mirror sign branches. `ParityFormat.IsOdd.ne_zero` and the `y = 0`
   branch of `isEven_iff_even_of_canonical` are `IsRepresentableAtP.ne_zero`.
   About 110 lines.
-* [~] Bridging boilerplate (34 `change |…| ≤ …`, 39 `change
+* [x] Bridging boilerplate (34 `change |…| ≤ …`, 39 `change
   Dyadic.precisionAtMost/quantumAtLeast/boundOK …`, about 15
   `rw [coe_real_eq_ratCast, …, ← Rat.cast_abs]; exact_mod_cast`):
   * make `boundOK_coe_iff_real : boundOK (b : Bound) d ↔ |(d : ℝ)| ≤ (b.val :
@@ -539,10 +512,8 @@ High confidence, low risk, independent of the structural work.
   * add a norm_cast `Dyadic.coe_real_ne_zero_iff`;
   * use `nonneg_coe_real` instead of re-deriving it.
 
-  About 120 lines. Done in part: `exact_mod_cast` bridges Dyadic→ℝ casts by
-  itself, so 27 `rw [Dyadic.coe_real_eq_ratCast, …, ← Rat.cast_abs]` steps were
-  dropped, and `extend_p`/`extend_exp_coe`/`extend_exp_bot` were added. The
-  `mem_def` and `boundOK` iff sweep over the `change` lines remains.
+  About 120 lines. The `mem_def`/`boundOK`-iff sweep is dropped: the remaining
+  `change` lines are one line each, so rewriting them saves nothing.
 * [ ] `Format/Parity.lean`: `IsOdd`/`IsEven` lemmas are duplicated pairwise.
   Factor through an index `idx F c e := if F.p = 1 then e − exp.unbotD 0 + 1
   else c` and a private witness predicate, and prove `neg` once for any
@@ -580,21 +551,17 @@ High confidence, low risk, independent of the structural work.
 
 **Double-rounding layer**
 
-* [~] `Propagation.nearest_components` is `⟨h.1, h.isFaithfulRound,
+* [x] `Propagation.nearest_components` is `⟨h.1, h.isFaithfulRound,
   nearest_min⟩`; `Nearest.midpoint_F₁_in_F₂_of_F_adjacent` is a one-line
   wrapper; `cases tb₂ <;> exact hz.2.1` in `NearestMidpoint` is
   `hz.isFaithfulRound`; paired `rndUnbounded_unique` rewrites in
   `Propagation`, `NearestMidpoint` and `Add` are `RoundsFinite.unique`. About
-  20 lines. Done except the two wrappers, kept: each has four or five callers
-  that would otherwise repeat the expansion.
+  20 lines. The two wrappers stay: each has four or five callers.
 
 **Dead code**
 
-* [~] `Utils.nonneg_of_mul_nonneg_pos`, `Utils.two_zpow_split_minus_two`,
-  `Format.mem_congr`, `Format.neg_subset_finite`, `Format.abs_subset_finite`
-  (unused since the last PR). Done except `neg_subset_finite`/`abs_subset_finite`,
-  kept as the README's paper-facing finite forms, and `coe_abs`/`coe_rat_abs`,
-  kept as the coercion API of `Dyadic.abs`. `Dyadic.coe_abs`/`coe_rat_abs` are simp-tagged
-  but `Dyadic.abs` is only ever unfolded; consider Mathlib's `|·|` on the
-  subring. `Dyadic.isRepresentableAtP_of_bounds` is a bare constructor wrapper
-  with one use. About 45 lines.
+* [x] `Utils.nonneg_of_mul_nonneg_pos`, `Utils.two_zpow_split_minus_two`,
+  `Format.mem_congr`, and `Dyadic.isRepresentableAtP_of_bounds` (a bare
+  constructor wrapper with one use). `neg_subset_finite`/`abs_subset_finite`
+  stay as the README's paper-facing finite forms, and `coe_abs`/`coe_rat_abs` as
+  the coercion API of `Dyadic.abs`. About 45 lines.

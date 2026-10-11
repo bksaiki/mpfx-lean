@@ -871,16 +871,26 @@ theorem IsFaithfulRound.decide_lt_zero {F : FiniteFormat} {x : ℝ} {y : Dyadic}
       exact lt_of_le_of_ne (RoundsFinite.toPositive_nonpos hx.le hu) hy
   rw [decide_eq_decide, ← key, Dyadic.coe_real_lt_zero_iff]
 
+/-- A faithful rounding of a nonnegative input is nonnegative. -/
+theorem IsFaithfulRound.nonneg {F : FiniteFormat} {x : ℝ} {z : Dyadic}
+    (hf : IsFaithfulRound F x z) (hx : 0 ≤ x) : 0 ≤ (z : ℝ) := by
+  rcases isFaithfulRound_iff_directed.mp hf with hd | hu
+  · exact RoundsFinite.toNegative_nonneg hx hd
+  · exact hx.trans hu.2.1
+
+/-- A faithful rounding of a nonpositive input is nonpositive. -/
+theorem IsFaithfulRound.nonpos {F : FiniteFormat} {x : ℝ} {z : Dyadic}
+    (hf : IsFaithfulRound F x z) (hx : x ≤ 0) : (z : ℝ) ≤ 0 := by
+  rcases isFaithfulRound_iff_directed.mp hf with hd | hu
+  · exact hd.2.1.trans hx
+  · exact RoundsFinite.toPositive_nonpos hx hu
+
 /-- A faithful rounding has the sign of its input. -/
 theorem IsFaithfulRound.mul_nonneg {F : FiniteFormat} {x : ℝ} {z : Dyadic}
     (hf : IsFaithfulRound F x z) : (z : ℝ) * x ≥ 0 := by
-  rcases le_or_gt 0 x with hx | hx
-  · rcases isFaithfulRound_iff_directed.mp hf with hd | hu
-    · exact _root_.mul_nonneg (RoundsFinite.toNegative_nonneg hx hd) hx
-    · exact _root_.mul_nonneg (hx.trans hu.2.1) hx
-  · rcases isFaithfulRound_iff_directed.mp hf with hd | hu
-    · exact mul_nonneg_of_nonpos_of_nonpos (hd.2.1.trans hx.le) hx.le
-    · exact mul_nonneg_of_nonpos_of_nonpos (RoundsFinite.toPositive_nonpos hx.le hu) hx.le
+  rcases le_total 0 x with hx | hx
+  · exact _root_.mul_nonneg (hf.nonneg hx) hx
+  · exact mul_nonneg_of_nonpos_of_nonpos (hf.nonpos hx) hx
 
 /-- A faithful rounding of `x` lies in `[-N, N]` once `|x| ≤ N ∈ F`. -/
 theorem abs_faithful_le_of_le {F : FiniteFormat} {x : ℝ} {z N : Dyadic}
