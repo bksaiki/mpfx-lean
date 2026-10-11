@@ -133,7 +133,9 @@ need no separate inner induction: `whileTrue` matches its unrolled
 follows; none contradicts the paper:
 
 - `E-Index` takes an index that evaluates to a finite natural `k < m`.
-- `E-Proj` takes the first field with the label (`List.lookup`).
+- Record labels are distinct by well-formedness, not by a semantic premise:
+  `Program.WF` requires every record literal to have distinct labels, and a
+  theorem assumes it only where its proof needs it.
 - `E-Context` does not check that `e` gives a context; an arithmetic
   operation under a non-context is stuck, since it has no `Val.rnd`.
 - `ctx e` requires `e` to give a record in `dom(ρ)`.
@@ -141,7 +143,8 @@ follows; none contradicts the paper:
   domain, are stuck.
 
 - `Fpy/Value.lean`: `Num`, `Label`, `Val`.
-- `Fpy/Syntax.lean`: `Signature`, `Expr`, `Stmt`, `Program`.
+- `Fpy/Syntax.lean`: `Signature`, `Expr`, `Stmt`, `Program`, and
+  `Expr.WF`/`Stmt.WF`/`Program.WF`.
 - `Fpy/Semantics.lean`: `Store` (`single`, `update`), `Outcome`, `Val.rnd`,
   the mutual `Eval`/`EvalList`/`EvalFields`/`Exec`, `Run` (E-Program).
 - `Fpy.lean` root; `lakefile.toml` gains `[[lean_lib]] name = "Fpy"`, and
@@ -231,7 +234,8 @@ Test: `~/.elan/bin/lake build Fpy.DigitBound FpyTest`.
     in the open items;
   - congruence through every statement form;
   - the whole-program theorem: rewriting one site whose condition holds, for
-    the `Γ` and `C` that format inference assigns there, preserves `Run`.
+    the `Γ` and `C` that format inference assigns there, preserves `Run`;
+  - each rewrite preserves `Program.WF`.
 
 This is separate from the individual rewrites because it is the
 compiler-correctness theorem, and it is the same for all eight rewrites.
