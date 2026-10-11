@@ -251,12 +251,11 @@ invariant required by a downstream API:
   least one of `p`, `exp` is finite. This is the minimum needed for
   `rnd` to compute a canonical exponent for nonzero `x`, since
   dyadics are dense in `ℝ` but not closed under limits.
-* `ParityFormat` (`Mpfx/Format/Parity.lean`) — adds the *parity-anchor*
-  invariant: `p ≠ 1` whenever `exp = ⊥`. Combined with `FiniteFormat`, this
-  is `(p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥`. Required for `IsOdd` / `IsEven` (and hence
-  `rnd .toOdd`, `rnd (.nearest _)`) to be semantically meaningful — without
-  it, the exponent-parity fallback for `p = 1` has no anchor (since the
-  format has no quantum to count indices from).
+* `ParityFormat` (`Mpfx/Format/Parity.lean`) — adds `p ≠ 1` whenever
+  `exp = ⊥`, the formats where `rnd .toOdd` and `rnd (.nearest .toEven)` are
+  defined. Combined with `FiniteFormat`, this is `(p ≠ ⊤ ∧ p ≠ 1) ∨ exp ≠ ⊥`.
+  `IsOdd` / `IsEven` are on `FiniteFormat`; at `(1, ⊥)` the exponent-parity
+  fallback for `p = 1` has no quantum to count from.
 
 State theorems on the *weakest* tier whose proof actually destructures
 the invariant. Promote only when needed. -/
@@ -332,11 +331,6 @@ theorem canonicalExp_le_iff (F : FiniteFormat) {x : ℝ} (hx : x ≠ 0) {k : ℤ
     cases he : F.exp using QExp.recBotCoe with
     | bot => simp [hx]
     | coe e => simp [hx]
-
-/-- `canonicalExp` reads only `(p, exp)`. -/
-theorem canonicalExp_congr {F G : FiniteFormat} (hp : F.p = G.p) (he : F.exp = G.exp)
-    (x : ℝ) : F.canonicalExp x = G.canonicalExp x := by
-  unfold canonicalExp; rw [hp, he]
 
 /-- The canonical exponent dominates `F.exp` whenever `F.exp` is finite.
 Needed to discharge `quantumAtLeast F.exp` for the rounded value. -/
@@ -674,11 +668,5 @@ theorem exists_p_coe_of_exp_bot {F : FiniteFormat} (he : F.exp = ⊥) :
   cases hc : F.p using ENat.recTopCoe with
   | top => exact absurd F.finite (by push Not; exact ⟨hc, he⟩)
   | coe p => exact ⟨p, rfl⟩
-
-/-- `numDigits` only reads `(p, exp)`. -/
-theorem numDigits_congr {F G : FiniteFormat} (hp : F.p = G.p)
-    (he : F.exp = G.exp) (x : ℝ) : F.numDigits x = G.numDigits x := by
-  unfold FiniteFormat.numDigits
-  rw [FiniteFormat.canonicalExp_congr hp he]
 
 end Mpfx

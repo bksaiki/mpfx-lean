@@ -543,7 +543,7 @@ end FiniteFormat
 
 `F.shrink` drops a digit of precision and raises the minimum quantum by one,
 the inverse of `extend 1`. For `p ≠ 1` its values are the even values of `F`
-(`ParityFormat.isEven_iff_mem_shrink`). -/
+(`FiniteFormat.isEven_iff_mem_shrink`). -/
 
 namespace Format
 

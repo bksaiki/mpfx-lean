@@ -143,7 +143,7 @@ private theorem RoundsFinite.toOdd_restrict {F : FiniteFormat} {x : ℝ}
   obtain ⟨hmem, hfaithful, hparity⟩ := h
   exact ⟨mem_of_mem_unbounded_of_boundOK hmem hb,
     IsFaithfulRound.restrict hfaithful hb,
-    fun hne => parity_witness_congr (F := F.unbounded) (G := F) rfl rfl (hparity hne)⟩
+    hparity⟩
 
 /-- **Lift** (`.toOdd`): if `w` is the bounded RTO rounding of `x` and the
 unbounded RTO rounding `y` of `x` happens to be in-bound, then `w` is also
@@ -155,7 +155,7 @@ private theorem RoundsFinite.toOdd_lift {F : FiniteFormat} {x : ℝ}
   obtain ⟨hwmem, hwfaithful, hwparity⟩ := hw
   exact ⟨mem_unbounded_of_mem hwmem,
     IsFaithfulRound.unbounded_lift hwfaithful hy.2.1 hb,
-    fun hne => parity_witness_congr (F := F) (G := F.unbounded) rfl rfl (hwparity hne)⟩
+    hwparity⟩
 
 
 /-- There are at most two faithful values, one per side, so a third witness
@@ -219,8 +219,7 @@ private theorem RoundsFinite.nearest_restrict {F : FiniteFormat} {tb : TieBreak}
       exact (nearest_close_upgrade hclose hcF hc_faithful).1
     · rintro ⟨c, hcF, hc_faithful, hc_ne, hc_tie⟩
       have hc_up := (nearest_close_upgrade hclose hcF hc_faithful).2 hc_tie
-      exact parity_witness_even_congr (F := F.unbounded) (G := F) rfl rfl
-        (htie ⟨c, mem_unbounded_of_mem hcF, hc_up, hc_ne, hc_tie⟩)
+      exact htie ⟨c, mem_unbounded_of_mem hcF, hc_up, hc_ne, hc_tie⟩
   | awayZero =>
     obtain ⟨hmem, hfaithful, hclose, htie⟩ := h
     refine ⟨mem_of_mem_unbounded_of_boundOK hmem hb,
@@ -252,9 +251,8 @@ private theorem RoundsFinite.nearest_lift {F : FiniteFormat} {tb : TieBreak}
       exact le_trans hwy (hyclose c hc hc_faithful)
     · rintro ⟨c, hc, hc_faithful, hc_ne, hc_tie⟩
       by_cases hcb : Format.boundOK F.b c
-      · exact parity_witness_even_congr (F := F) (G := F.unbounded) rfl rfl
-          (hwtie ⟨c, mem_of_mem_unbounded_of_boundOK hc hcb,
-            IsFaithfulRound.restrict hc_faithful hcb, hc_ne, hc_tie⟩)
+      · exact hwtie ⟨c, mem_of_mem_unbounded_of_boundOK hc hcb,
+          IsFaithfulRound.restrict hc_faithful hcb, hc_ne, hc_tie⟩
       · -- `c` out of bound forces `y = w`; fire `y`'s own tie clause.
         have hc_ne_y : c ≠ y := fun h => hcb (h ▸ hb)
         have hyw : y = w := faithful_eq_of_third hwf_u hyfaithful hc_faithful hc_ne hc_ne_y

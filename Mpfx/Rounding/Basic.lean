@@ -122,7 +122,7 @@ theorem RoundsFinite.neg_nearest_toEven (F : FiniteFormat) (x : ℝ) (y : Dyadic
     RoundsFinite F (.nearest .toEven) x y ↔
       RoundsFinite F (.nearest .toEven) (-x) (-y) := by
   unfold RoundsFinite
-  simp only [FiniteFormat.mem_neg_iff, ← IsFaithfulRound.neg_iff, ParityFormat.IsEven.neg_iff]
+  simp only [FiniteFormat.mem_neg_iff, ← IsFaithfulRound.neg_iff, FiniteFormat.IsEven.neg_iff]
   have hf := IsFaithfulRound.neg_iff F x
   exact and_congr_right' (and_congr_right' (and_congr
     (FiniteFormat.forall_mem_congr_neg F fun _ => by simp [abs_neg_add, hf])
@@ -377,7 +377,7 @@ theorem RoundsFinite.nearest_toEven_of_bracket {F : FiniteFormat} {x : ℝ} {d u
     (hd : RoundsFinite F .toNegative x d) (hu : RoundsFinite F .toPositive x u)
     (hy : y = d ∨ y = u) (hclose : |x - (y : ℝ)| ≤ |x - (d : ℝ)| ∧ |x - (y : ℝ)| ≤ |x - (u : ℝ)|)
     (htie : |x - (d : ℝ)| = |x - (u : ℝ)| → d ≠ u →
-      ∃ F' : ParityFormat, F'.toFormat = F.toFormat ∧ F'.IsEven y) :
+      F.IsEven y) :
     RoundsFinite F (.nearest .toEven) x y := by
   have hfy : IsFaithfulRound F x y := hy.elim (· ▸ Or.inl hd) (· ▸ Or.inr hu)
   refine ⟨hy.elim (· ▸ hd.1) (· ▸ hu.1), hfy, fun z _ hz => ?_, fun ⟨z, _, hz, hzy, h⟩ => ?_⟩
@@ -515,9 +515,7 @@ theorem alternate_of_bracketing {F : FiniteFormat} {x : ℝ}
     (hy : RoundsFinite F.unbounded .toNegative x y)
     (hy' : RoundsFinite F.unbounded .toPositive x y')
     (hne : x ≠ (y : ℝ)) :
-    ((F.toParityFormatOfToOdd h).IsOdd y' ↔
-      ¬ (F.toParityFormatOfToOdd h).IsOdd y) ∧
-    (¬ (F.toParityFormatOfToOdd h).IsEven y → (F.toParityFormatOfToOdd h).IsEven y') := by
+    (F.IsOdd y' ↔ ¬ F.IsOdd y) ∧ (¬ F.IsEven y → F.IsEven y') := by
   -- `x = 0` would make `y` the round-down of `0`, hence `0 = x`.
   have hx_ne : x ≠ 0 := fun hx0 => hne (by
     have hy0 : RoundsFinite F.unbounded .toNegative 0 y := by rw [← hx0]; exact hy
@@ -540,8 +538,7 @@ theorem isOdd_alternate_of_bracketing {F : FiniteFormat} {x : ℝ}
     (hy : RoundsFinite F.unbounded .toNegative x y)
     (hy' : RoundsFinite F.unbounded .toPositive x y')
     (hne : x ≠ (y : ℝ)) :
-    ((F.toParityFormatOfToOdd h).IsOdd y' ↔
-      ¬ (F.toParityFormatOfToOdd h).IsOdd y) :=
+    (F.IsOdd y' ↔ ¬ F.IsOdd y) :=
   (alternate_of_bracketing h hy hy' hne).1
 
 /-- Matching sides collapse by directed uniqueness; the mixed case would need
@@ -557,10 +554,7 @@ theorem RoundsFinite.unique_toOdd {F : FiniteFormat} {x : ℝ}
   have mixed : ∀ {a b : Dyadic},
       RoundsFinite F.unbounded .toNegative x a →
       RoundsFinite F.unbounded .toPositive x b →
-      (x ≠ (a : ℝ) → ∃ F' : ParityFormat,
-        F'.toFormat = F.unbounded.toFormat ∧ F'.IsOdd a) →
-      (x ≠ (b : ℝ) → ∃ F' : ParityFormat,
-        F'.toFormat = F.unbounded.toFormat ∧ F'.IsOdd b) →
+      (x ≠ (a : ℝ) → F.IsOdd a) → (x ≠ (b : ℝ) → F.IsOdd b) →
       a = b := by
     intro a b hda hub hpa hpb
     obtain ⟨ha_mem, ha_le, ha_max⟩ := id hda
@@ -570,11 +564,7 @@ theorem RoundsFinite.unique_toOdd {F : FiniteFormat} {x : ℝ}
     by_cases hxb : x = (b : ℝ)
     · exact Dyadic.ext_real (le_antisymm (hxb ▸ ha_le) (ha_max b hb_mem hxb.ge))
     exfalso
-    obtain ⟨Fa, hFa, hFa_odd⟩ := hpa hxa
-    obtain ⟨Fb, hFb, hFb_odd⟩ := hpb hxb
-    exact (isOdd_alternate_of_bracketing (F := F.unbounded) h hda hub hxa).mp
-      ((ParityFormat.IsOdd_iff_of_toFormat_eq hFb b).mp hFb_odd)
-      ((ParityFormat.IsOdd_iff_of_toFormat_eq hFa a).mp hFa_odd)
+    exact (isOdd_alternate_of_bracketing (F := F.unbounded) h hda hub hxa).mp (hpb hxb) (hpa hxa)
   rcases isFaithfulRound_iff_directed.mp hf₁ with hd₁ | hu₁ <;>
     rcases isFaithfulRound_iff_directed.mp hf₂ with hd₂ | hu₂
   · exact RoundsFinite.unique_toNegative hd₁ hd₂
@@ -649,23 +639,18 @@ theorem RoundsFinite.unique_nearest {F : FiniteFormat} {tb : TieBreak} {x : ℝ}
     have hdist : |x - (y₁ : ℝ)| = |x - (y₂ : ℝ)| :=
       le_antisymm (hmin₁ y₂ hm₂ hf₂) (hmin₂ y₁ hm₁ hf₁)
     have hodd : ¬ F.IsUndefined .toOdd := fun ⟨h1, h2, _⟩ => h ⟨h1, h2, Or.inr rfl⟩
-    set F'' := F.unbounded.toParityFormatOfToOdd hodd with hF''
     -- Each is a tie for the other, so the tie-break makes both even.
-    have even₁ : F''.IsEven y₁ := by
-      obtain ⟨F', hF', hev⟩ := htie₁ ⟨y₂, hm₂, hf₂, Ne.symm hne, hdist⟩
-      exact (ParityFormat.IsEven_iff_of_toFormat_eq hF' y₁).mp hev
-    have even₂ : F''.IsEven y₂ := by
-      obtain ⟨F', hF', hev⟩ := htie₂ ⟨y₁, hm₁, hf₁, hne, hdist.symm⟩
-      exact (ParityFormat.IsEven_iff_of_toFormat_eq hF' y₂).mp hev
+    have even₁ := htie₁ ⟨y₂, hm₂, hf₂, Ne.symm hne, hdist⟩
+    have even₂ := htie₂ ⟨y₁, hm₁, hf₁, hne, hdist.symm⟩
     -- But the two neighbours alternate in parity, so they are not both even.
     have key : ∀ {a b : Dyadic}, RoundsFinite F.unbounded .toNegative x a →
         RoundsFinite F.unbounded .toPositive x b → a ≠ b →
-        |x - (a : ℝ)| = |x - (b : ℝ)| → F''.IsEven a → F''.IsEven b → False := by
+        |x - (a : ℝ)| = |x - (b : ℝ)| → F.IsEven a → F.IsEven b → False := by
       intro a b hda hub hab hdist' heva hevb
-      exact ParityFormat.not_isEven_and_isOdd hevb
+      exact FiniteFormat.not_isEven_and_isOdd hevb
         ((isOdd_alternate_of_bracketing (F := F.unbounded) hodd hda hub
             (ne_of_tie hab hdist')).mpr
-          (fun hoa => ParityFormat.not_isEven_and_isOdd heva hoa))
+          (fun hoa => FiniteFormat.not_isEven_and_isOdd heva hoa))
     rcases hf₁.opposite_sides_of_ne hf₂ hne with ⟨hd, hu⟩ | ⟨hd, hu⟩
     · exact key hd hu hne hdist even₁ even₂
     · exact key hd hu (Ne.symm hne) hdist.symm even₂ even₁

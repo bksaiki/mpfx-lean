@@ -130,22 +130,8 @@ theorem alternate_of_adjacent (F : ParityFormat) {u u' : Dyadic}
     ⟨hu, by linarith, fun v hv hvx => hadj v hv (by linarith)⟩
   have hup : RoundsFinite F.unbounded.unbounded .toPositive x u' :=
     ⟨hu', by linarith, fun v hv hxv => not_lt.mp fun hv' => by linarith [hadj v hv hv']⟩
-  obtain ⟨hodd, heven⟩ := alternate_of_bracketing (F := F.unbounded)
-    (F.not_isUndefined .toOdd) hdown hup (by linarith)
-  refine ⟨⟨fun h₁ h₂ => hodd.mp (h₁.congr rfl rfl) (h₂.congr rfl rfl),
-    fun h₁ => (hodd.mpr fun h₂ => h₁ (h₂.congr rfl rfl)).congr rfl rfl⟩,
-    fun h₁ => (heven fun h₂ => h₁ (h₂.congr rfl rfl)).congr rfl rfl⟩
-
-/-- `F`'s parity witness for the nearest-even spec on `F.unbounded`. -/
-theorem isEven_witness (F : ParityFormat) {y : Dyadic} (h : F.IsEven y) :
-    ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsEven y :=
-  ⟨⟨F.unbounded, F.parity⟩, rfl, h.congr rfl rfl⟩
-
-/-- A round-to-odd result off its input is odd in `F`. -/
-theorem isOdd_of_roundsRTO (F : ParityFormat) {x : ℝ} {y : Dyadic}
-    (h : RoundsFinite F.unbounded .toOdd x y) (hne : x ≠ (y : ℝ)) : F.IsOdd y := by
-  obtain ⟨F', hF', hodd⟩ := h.2.2 hne
-  exact hodd.congr (congrArg Format.p hF' :) (congrArg Format.exp hF' :)
+  exact alternate_of_bracketing (F := F.unbounded) (F.not_isUndefined .toOdd) hdown hup
+    (by linarith)
 
 /-! ## Roundings near an isolated value -/
 
@@ -225,8 +211,7 @@ one, and on a tie the even one. -/
 theorem roundsRNE_of_bracket {F : FiniteFormat} {u u' y : Dyadic} {z : ℝ}
     (h : Adjacent F u u') (hzu : (u : ℝ) ≤ z) (hzu' : z ≤ (u' : ℝ)) (hy : y = u ∨ y = u')
     (hclose : |z - y| ≤ |z - u| ∧ |z - y| ≤ |z - u'|)
-    (htie : |z - u| = |z - u'| →
-      ∃ F' : ParityFormat, F'.toFormat = F.unbounded.toFormat ∧ F'.IsEven y) :
+    (htie : |z - u| = |z - u'| → F.IsEven y) :
     RoundsFinite F.unbounded (.nearest .toEven) z y := by
   obtain ⟨hu, hu', hlt, hadj⟩ := h
   -- At an end, `hclose` pins `y` to `z`.

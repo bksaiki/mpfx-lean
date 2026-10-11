@@ -190,7 +190,7 @@ private theorem disagrees_toOdd {F₁ : ParityFormat} {F₂ : FiniteFormat} {rm�
   refine ⟨x, h, h, _, hz, ⟨RoundsFinite.toOdd_self (mem_unbounded_of_mem hh), hh.2.2⟩,
     ⟨hy, boundOK_of_abs_le (by rwa [abs_of_nonneg (hx0.trans hxc)]) hc.2.2⟩, fun he => ?_⟩
   rw [← he] at hy
-  exact hh_odd (isOdd_of_roundsRTO F₁ hy hxh)
+  exact hh_odd (hy.2.2 hxh)
 
 /-! ## The counterexamples
 
@@ -340,7 +340,7 @@ theorem no_roundsRTZ_RNE (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
     ⟨(RoundsFinite.toNegative_iff_toZero_of_nonneg _ hx0 _).mp hz,
       boundOK_of_le (hsub _ hu') (by linarith) (by linarith)⟩,
     ⟨roundsRNE_of_bracket hadj hz_ge (by linarith) (Or.inl rfl)
-      ⟨le_rfl, by rw [hzu, hzu']; linarith⟩ fun _ => isEven_witness F₁ heven, hu.2.2⟩,
+      ⟨le_rfl, by rw [hzu, hzu']; linarith⟩ fun _ => heven, hu.2.2⟩,
     ⟨roundsRNE_of_bracket hadj (by linarith) (by linarith) (Or.inr rfl)
       ⟨by rw [hxu, hxu']; linarith, le_rfl⟩ fun he => by rw [hxu, hxu'] at he; linarith,
       hu'.2.2⟩,
@@ -380,7 +380,7 @@ theorem no_roundsRAZ_RNE (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
     ⟨(RoundsFinite.toPositive_iff_awayZero_of_nonneg _ hx0 _).mp hz,
       boundOK_of_le (hsub _ hu') (by linarith) hz_le⟩,
     ⟨roundsRNE_of_bracket hadj (by linarith) hz_le (Or.inr rfl)
-      ⟨by rw [hzu, hzu']; linarith, le_rfl⟩ fun _ => isEven_witness F₁ heven, hu'.2.2⟩,
+      ⟨by rw [hzu, hzu']; linarith, le_rfl⟩ fun _ => heven, hu'.2.2⟩,
     ⟨roundsRNE_of_bracket hadj (by linarith) (by linarith) (Or.inl rfl)
       ⟨le_rfl, by rw [hxu, hxu']; linarith⟩ fun he => by rw [hxu, hxu'] at he; linarith,
       hu.2.2⟩,
@@ -431,7 +431,7 @@ theorem no_roundsRNE_RNE (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
     obtain ⟨hxu, hxu'⟩ := abs_sub_of_bracket (by linarith : (u : ℝ) ≤ x) (by linarith : x ≤ u')
     refine ⟨x, m, u, u', hz₂ x (abs_sub_lt_iff.mpr ⟨by linarith, by linarith⟩),
       ⟨roundsRNE_of_bracket hadj hu_le hm_le (Or.inl rfl) ⟨le_rfl, hm_mid.le⟩
-        fun _ => isEven_witness F₁ heven, hu.2.2⟩,
+        fun _ => heven, hu.2.2⟩,
       ⟨roundsRNE_of_bracket hadj (by linarith) (by linarith) (Or.inr rfl)
         ⟨by rw [hxu, hxu']; linarith, le_rfl⟩ fun he => by rw [hxu, hxu'] at he; linarith,
         hu'.2.2⟩,
@@ -442,7 +442,7 @@ theorem no_roundsRNE_RNE (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
     obtain ⟨hxu, hxu'⟩ := abs_sub_of_bracket (by linarith : (u : ℝ) ≤ x) (by linarith : x ≤ u')
     refine ⟨x, m, u', u, hz₂ x (abs_sub_lt_iff.mpr ⟨by linarith, by linarith⟩),
       ⟨roundsRNE_of_bracket hadj hu_le hm_le (Or.inr rfl) ⟨hm_mid.ge, le_rfl⟩
-        fun _ => isEven_witness F₁ heven', hu'.2.2⟩,
+        fun _ => heven', hu'.2.2⟩,
       ⟨roundsRNE_of_bracket hadj (by linarith) (by linarith) (Or.inl rfl)
         ⟨le_rfl, by rw [hxu, hxu']; linarith⟩ fun he => by rw [hxu, hxu'] at he; linarith,
         hu.2.2⟩,

@@ -12,7 +12,7 @@ development:
    is the trivial format `{0}`; `b ≥ 0` via `WithTop NonNegDyadic`).
    `FiniteFormat extends Format` rules out `(p = ⊤, exp = ⊥)` and `p = 0`;
    `ParityFormat extends FiniteFormat` additionally
-   rules out `(p = 1, exp = ⊥)` so `IsOdd` / `IsEven` are anchored.
+   rules out `(p = 1, exp = ⊥)`, where the parity modes are undefined.
 2. **Explicit rounding.** Alongside the spec relation
    `Rounds F S O rm v r : Prop`, a function `rnd F S O rm v : RoundResult`
    (`S`, `O`: the special-value and overflow tables) computes the rounded value via `Int.log` + `Int.floor`/`Int.ceil`
@@ -69,9 +69,8 @@ Mpfx/
 │   │                 exists_mul_zpow_canonicalExp and its converse
 │   │                 mem_unbounded_of_mul_zpow_canonicalExp,
 │   │                 numDigits (= ⌊log₂|x|⌋ + 1 − canonicalExp x)
-│   ├── Parity.lean   ParityFormat, IsOdd, IsEven, negation, transport
-│   │                 (IsOdd/IsEven.congr, *_iff_of_toFormat_eq,
-│   │                 parity_witness_congr); isOdd/isEven_iff_canonical, the
+│   ├── Parity.lean   ParityFormat; FiniteFormat.IsOdd/IsEven, negation;
+│   │                 IsEven as non-odd; isOdd_iff_canonical, the
 │   │                 shrink characterization isEven/isOdd_iff_mem_shrink,
 │   │                 ofIntZpow_mem_shrink_iff (alternation), the p = 1 forms
 │   │                 is{Odd,Even}_ofIntZpow_of_p_one, isEven_of_subset,
@@ -110,7 +109,6 @@ Mpfx/
 │   │                 FiniteFormat.IsUndefined, SpecialMap, OverflowMap,
 │   │                 IsFaithfulRound, RoundsFinite, RoundsInBound, Overflows,
 │   │                 Rounds,
-│   │                 FiniteFormat.toParityFormatOf{ToOdd,NearestEven}
 │   ├── Basic.lean    relational consequences of the spec. Sign symmetry:
 │   │                 IsFaithfulRound.neg_iff, per-mode RoundsFinite.neg_*.
 │   │                 Mode-vs-sign: RTP/RTN ↔ RTZ/RAZ by sign of x.

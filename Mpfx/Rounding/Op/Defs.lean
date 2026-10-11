@@ -45,7 +45,7 @@ noncomputable def rndInt (rm : RoundingMode) (x : ℝ) (e : ℤ) : ℤ :=
 /-- Parity-aware integer-rounding step. Identifies the two F-adjacents
 to `x` at exponent `e` (via floor and ceiling of the scaled mantissa),
 then picks the one whose parity satisfies the mode's rule. -/
-noncomputable def rndParity (F : ParityFormat) (rm : RoundingMode)
+noncomputable def rndParity (F : FiniteFormat) (rm : RoundingMode)
     (x : ℝ) (e : ℤ) : Dyadic :=
   let s := x * (2 : ℝ) ^ (-e)
   let lo : ℤ := ⌊s⌋
@@ -64,14 +64,11 @@ noncomputable def rndParity (F : ParityFormat) (rm : RoundingMode)
 
 /-- The unbounded rounding step: produce a `Dyadic` per `rm`, *without*
 checking `F.b`. Used by `rnd` as the candidate value that the bound check
-filters. -/
+filters. The body does not consult `_h_undef`; it restricts `rndUnbounded` to
+the pairs where `rnd` calls it. -/
 noncomputable def rndUnbounded (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
-    (h_undef : ¬ F.IsUndefined rm) : Dyadic :=
-  if h1 : rm = .toOdd then
-    rndParity (F.toParityFormatOfToOdd (h1 ▸ h_undef)) .toOdd x (F.canonicalExp x)
-  else if h2 : rm = .nearest .toEven then
-    rndParity (F.toParityFormatOfNearestEven (h2 ▸ h_undef))
-      (.nearest .toEven) x (F.canonicalExp x)
+    (_h_undef : ¬ F.IsUndefined rm) : Dyadic :=
+  if rm = .toOdd ∨ rm = .nearest .toEven then rndParity F rm x (F.canonicalExp x)
   else
     Dyadic.ofIntZpow (rndInt rm x (F.canonicalExp x)) (F.canonicalExp x)
 
@@ -81,18 +78,18 @@ theorem rndUnbounded_of_ne {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
     {h : ¬ F.IsUndefined rm} (h₁ : rm ≠ .toOdd) (h₂ : rm ≠ .nearest .toEven) :
     rndUnbounded F rm x h =
       Dyadic.ofIntZpow (rndInt rm x (F.canonicalExp x)) (F.canonicalExp x) := by
-  unfold rndUnbounded; rw [dif_neg h₁, dif_neg h₂]
+  unfold rndUnbounded; rw [if_neg (by rintro (h | h) <;> contradiction)]
 
 theorem rndUnbounded_toOdd {F : FiniteFormat} {x : ℝ} {h : ¬ F.IsUndefined .toOdd} :
     rndUnbounded F .toOdd x h =
-      rndParity (F.toParityFormatOfToOdd h) .toOdd x (F.canonicalExp x) := by
-  unfold rndUnbounded; rw [dif_pos rfl]
+      rndParity F .toOdd x (F.canonicalExp x) := by
+  unfold rndUnbounded; rw [if_pos (Or.inl rfl)]
 
 theorem rndUnbounded_nearest_toEven {F : FiniteFormat} {x : ℝ}
     {h : ¬ F.IsUndefined (.nearest .toEven)} :
     rndUnbounded F (.nearest .toEven) x h =
-      rndParity (F.toParityFormatOfNearestEven h) (.nearest .toEven) x (F.canonicalExp x) := by
-  unfold rndUnbounded; rw [dif_neg (by decide), dif_pos rfl]
+      rndParity F (.nearest .toEven) x (F.canonicalExp x) := by
+  unfold rndUnbounded; rw [if_pos (Or.inr rfl)]
 
 /-- Rounding into `F` under mode `rm`, with special inputs sent through `S`.
 A real input goes to `rndUnbounded`, then the bound is checked: the rounded

@@ -126,26 +126,8 @@ theorem roundsRTO_RTO_finite {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat �
       -- its F₁-oddness comes from F₂-oddness via RTO-padding transfer.
       subst hzw
       refine ⟨hw'F₁, hz_faithful.of_subset hsub hw'F₁, ?_⟩
-      · -- Parity: produce a `ParityFormat` over `F₁.toFormat` and transfer
-        -- F₂-oddness of z into F₁-oddness of z.
-        intro _
-        obtain ⟨F₂', hF₂'eq, hF₂'odd⟩ := hz_odd_imp hxne
-        -- `¬ F₁.IsUndefined .toOdd`, so a `ParityFormat` over `F₁` exists.
-        have h_not_undef : ¬ F₁.IsUndefined .toOdd := by
-          rintro ⟨hp1, hexp_bot, _⟩
-          have h := ParityFormat.exp_eq_canonicalExp_of_p_one (hF₂'eq ▸ hsub) (hF₂'eq ▸ hp_F₂)
-            hp1 hw'F₁ hF₂'odd
-          rw [hexp_bot] at h
-          exact WithBot.bot_ne_coe h
-        set F₁' := F₁.toParityFormatOfToOdd h_not_undef with hF₁'_def
-        have hF₁'eq : F₁'.toFormat = F₁.toFormat := rfl
-        have hF₁'odd : F₁'.IsOdd z := by
-          have h_F₁'F₂' : F₁'.toFormat ⊆ F₂'.toFormat := by
-            rw [hF₁'eq, hF₂'eq]; exact hsub
-          have h_p_F₂' : ((2 : ℕ) : Prec) ≤ F₂'.p := by
-            rw [hF₂'eq]; exact hp_F₂
-          exact IsOdd.transfer_of_subset h_F₁'F₂' h_p_F₂' hw'F₁ hF₂'odd
-        exact ⟨F₁', hF₁'eq, hF₁'odd⟩
+      · -- Parity: RTO padding carries `F₂`-oddness of `z ∈ F₁` into `F₁`.
+        exact fun _ => IsOdd.transfer_of_subset hsub hp_F₂ hw'F₁ (hz_odd_imp hxne)
     · -- z ≠ w': `z ∉ F₁` (else RTO in `F₁` fixes it), so `x` and `z` share their
       -- faithful roundings in `F₁`.
       have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := fun h_eq => hzw (Dyadic.coe_real_inj z w' |>.mp h_eq)
@@ -174,9 +156,8 @@ theorem toOdd_notMem_of_extend_subset {F₁ F₂ : FiniteFormat}
     (hxne : x ≠ (z : ℝ)) :
     z ∉ F₁ := by
   intro hzF₁
-  obtain ⟨F₂', hF₂'eq, hodd⟩ := hz.2.2 hxne
-  refine ParityFormat.not_isEven_and_isOdd (ParityFormat.isEven_of_subset (hF₂'eq ▸ hsub)
-    (hF₂'eq ▸ hp_F₂) (Format.self_subset_extend F₁.toFormat 1 z hzF₁) ?_) hodd
+  refine FiniteFormat.not_isEven_and_isOdd (FiniteFormat.isEven_of_subset hsub hp_F₂
+    (Format.self_subset_extend F₁.toFormat 1 z hzF₁) ?_) (hz.2.2 hxne)
   change z ∈ (F₁.toFormat.extend 1).shrink.unbounded
   rw [Format.shrink_extend_one]
   exact mem_unbounded_of_mem hzF₁
@@ -185,8 +166,7 @@ theorem toOdd_notMem_of_extend_subset {F₁ F₂ : FiniteFormat}
 private theorem toOdd_eq_zero_of_eq_zero {F : FiniteFormat} {x : ℝ} {z : Dyadic}
     (hz : RoundsFinite F .toOdd x z) (hz0 : (z : ℝ) = 0) : x = 0 := by
   by_contra hx
-  obtain ⟨_, _, hodd⟩ := hz.2.2 (by rw [hz0]; exact hx)
-  exact hodd.ne_zero (eq_zero_of_coe_real_zero hz0)
+  exact (hz.2.2 (by rw [hz0]; exact hx)).ne_zero (eq_zero_of_coe_real_zero hz0)
 
 /-- **rnd-RTO-RTN** under `F₁.extend 1 ⊆ F₂` and `2 ≤ F₂.p`, without the relaxed
 bound. If `z` is the `F₂` round-down of `x`, every `F₁` value at most `x` is at

@@ -59,15 +59,14 @@ theorem neighbors_alternate {F : FiniteFormat} (x : ℝ)
     (hx_ne : x ≠ 0)
     (h_lo_ne_s :
       (⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ : ℝ) ≠ x * (2 : ℝ) ^ (-F.canonicalExp x)) :
-    ((F.toParityFormatOfToOdd h).IsOdd
+    (F.IsOdd
         (Dyadic.ofIntZpow (⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ + 1) (F.canonicalExp x))
-      ↔ ¬ (F.toParityFormatOfToOdd h).IsOdd
+      ↔ ¬ F.IsOdd
         (Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ (F.canonicalExp x)))
-    ∧ (¬ (F.toParityFormatOfToOdd h).IsEven
+    ∧ (¬ F.IsEven
         (Dyadic.ofIntZpow ⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ (F.canonicalExp x))
-      → (F.toParityFormatOfToOdd h).IsEven
+      → F.IsEven
         (Dyadic.ofIntZpow (⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ + 1) (F.canonicalExp x))) := by
-  set P := F.toParityFormatOfToOdd h
   set e := F.canonicalExp x
   set s := x * (2 : ℝ) ^ (-e)
   set k := ⌊s⌋
@@ -84,8 +83,8 @@ theorem neighbors_alternate {F : FiniteFormat} (x : ℝ)
   swap
   · -- `p ≠ 1`: a neighbour is even iff it lies in the shrink iff its significand is.
     have hpar : ∀ m, (m = k ∨ m = k + 1) →
-        (P.IsOdd (Dyadic.ofIntZpow m e) ↔ ¬ Even m) ∧
-          (P.IsEven (Dyadic.ofIntZpow m e) ↔ Even m) := by
+        (F.IsOdd (Dyadic.ofIntZpow m e) ↔ ¬ Even m) ∧
+          (F.IsEven (Dyadic.ofIntZpow m e) ↔ Even m) := by
       intro m hm
       have hC := FiniteFormat.ofIntZpow_mem_shrink_iff F hp1 (exp_le_canonicalExp_coe F x)
         (hk m hm) fun hm0 => by
@@ -100,9 +99,9 @@ theorem neighbors_alternate {F : FiniteFormat} (x : ℝ)
       have hmem : Dyadic.ofIntZpow m e ∈ F.unbounded :=
         ofIntZpow_mem_unbounded F (fun {e'} he' => F.exp_le_canonicalExp x he')
           (fun {p} hp => hk m hm p hp)
-      exact ⟨(ParityFormat.isOdd_iff_mem_shrink P hp1 _).trans
+      exact ⟨(FiniteFormat.isOdd_iff_mem_shrink F hp1 _).trans
           ⟨fun h' => (not_congr hC).mp h'.2, fun h' => ⟨hmem, (not_congr hC).mpr h'⟩⟩,
-        (ParityFormat.isEven_iff_mem_shrink P hp1 _).trans hC⟩
+        (FiniteFormat.isEven_iff_mem_shrink F hp1 _).trans hC⟩
     obtain ⟨hlo, hlo'⟩ := hpar k (Or.inl rfl)
     obtain ⟨hhi, hhi'⟩ := hpar (k + 1) (Or.inr rfl)
     rw [hlo, hhi, hlo', hhi', Int.even_add_one, not_not]
@@ -114,9 +113,9 @@ theorem neighbors_alternate {F : FiniteFormat} (x : ℝ)
     | coe e₀ => exact ⟨e₀, rfl⟩
   have he : e₀ ≤ e := F.exp_le_canonicalExp x he₀
   have hpow : ∀ σ j : ℤ, |σ| = 1 → e₀ ≤ j →
-      (P.IsOdd (Dyadic.ofIntZpow σ j) ↔ Even (j - e₀)) ∧
-        (P.IsEven (Dyadic.ofIntZpow σ j) ↔ Odd (j - e₀)) := fun σ j hσ hj =>
-    ⟨P.isOdd_ofIntZpow_of_p_one hp1 he₀ hσ hj, P.isEven_ofIntZpow_of_p_one hp1 he₀ hσ hj⟩
+      (F.IsOdd (Dyadic.ofIntZpow σ j) ↔ Even (j - e₀)) ∧
+        (F.IsEven (Dyadic.ofIntZpow σ j) ↔ Odd (j - e₀)) := fun σ j hσ hj =>
+    ⟨F.isOdd_ofIntZpow_of_p_one hp1 he₀ hσ hj, F.isEven_ofIntZpow_of_p_one hp1 he₀ hσ hj⟩
   have hdbl : ∀ σ : ℤ, Dyadic.ofIntZpow (2 * σ) e = Dyadic.ofIntZpow σ (e + 1) := fun σ =>
     Dyadic.ext_real (by
       simp only [Dyadic.coe_ofIntZpow]; rw [zpow_add_one₀ two_ne_zero]; push_cast; ring)
@@ -157,12 +156,12 @@ theorem neighbors_alternate {F : FiniteFormat} (x : ℝ)
     obtain ⟨hlo, -⟩ := hpow (-1) e (by norm_num) he
     rw [show (-1 : ℤ) + 1 = 0 by norm_num, hzero, hlo, this, sub_self]
     exact ⟨iff_of_false (fun h' => h'.ne_zero rfl) (not_not.mpr Even.zero),
-      fun _ => ParityFormat.isEven_zero P⟩
+      fun _ => FiniteFormat.isEven_zero F⟩
   · have := hsub (Or.inl hk')
     obtain ⟨hhi, -⟩ := hpow 1 e (by norm_num) he
     rw [zero_add, hzero, hhi, this, sub_self]
     exact ⟨iff_of_true Even.zero (fun h' => h'.ne_zero rfl),
-      fun h' => absurd (ParityFormat.isEven_zero P) h'⟩
+      fun h' => absurd (FiniteFormat.isEven_zero F) h'⟩
   · obtain ⟨hlo, hlo'⟩ := hpow 1 e (by norm_num) he
     obtain ⟨hhi, hhi'⟩ := hpow 1 (e + 1) (by norm_num) (by omega)
     rw [show (1 : ℤ) + 1 = 2 * 1 by norm_num, hdbl, hlo, hhi, hlo', hhi',

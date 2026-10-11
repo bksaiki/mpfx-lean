@@ -56,10 +56,11 @@ that invariant never needs threading. Two subtypes refine `Format`:
   Use `FiniteFormat.p_pos` to get `0 < p` from `hp : F.p = ↑p`. At `Format`
   level, `Format.Nontrivial.p_ne_zero` plays the same role.
 - `ParityFormat extends FiniteFormat` adds `parity : p ≠ 1 ∨ exp ≠ ⊥` — the
-  extra condition under which `IsOdd` / `IsEven` are well-anchored.
+  formats where the parity modes are defined. The counterexamples are stated
+  over it.
 
-Rounding (`Rounds`, `rnd`) is stated over `FiniteFormat`; parity (`IsOdd`,
-`IsEven`, RTO-padding lemma) over `ParityFormat`. Parent fields are accessed directly
+Rounding (`Rounds`, `rnd`) and parity (`IsOdd`, `IsEven`, RTO-padding lemma)
+are stated over `FiniteFormat`. Parent fields are accessed directly
 through inheritance (`F.p`, not `F.toFormat.p`); `.toFormat` appears only where
 an operator lives on `Format` itself (`⊆`, `withBound`, `boundAfterNext`).
 

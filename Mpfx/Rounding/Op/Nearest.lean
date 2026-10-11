@@ -86,16 +86,15 @@ theorem rndUnbounded_satisfies_nearest (F : FiniteFormat) (tb : TieBreak) (x : �
     have hodd : ¬ F.IsUndefined .toOdd := fun ⟨h₁, h₂, _⟩ => h ⟨h₁, h₂, Or.inr rfl⟩
     rw [rndUnbounded_nearest_toEven]
     change RoundsFinite _ _ x (if s - lo < 1 / 2 then dlo else if 1 / 2 < s - lo then dhi
-      else if (F.toParityFormatOfNearestEven h).IsEven dlo then dlo else dhi)
+      else if F.IsEven dlo then dlo else dhi)
     split_ifs with h₁ h₂ hev
     · exact RoundsFinite.nearest_toEven_of_bracket hd hu (Or.inl rfl)
         ⟨le_rfl, (hlt h₁).le⟩ fun h _ => absurd h (hlt h₁).ne
     · exact RoundsFinite.nearest_toEven_of_bracket hd hu (Or.inr rfl)
         ⟨(hgt h₂).le, le_rfl⟩ fun h _ => absurd h.symm (hgt h₂).ne
     · exact RoundsFinite.nearest_toEven_of_bracket hd hu (Or.inl rfl)
-        ⟨le_rfl, (htie h₁ h₂).le⟩ fun _ _ => ⟨F.unbounded.toParityFormatOfToOdd hodd, rfl, hev⟩
+        ⟨le_rfl, (htie h₁ h₂).le⟩ fun _ _ => hev
     · exact RoundsFinite.nearest_toEven_of_bracket hd hu (Or.inr rfl)
-        ⟨(htie h₁ h₂).ge, le_rfl⟩ fun _ _ => ⟨F.unbounded.toParityFormatOfToOdd hodd, rfl,
-          (alternate_of_bracketing (F := F) hodd hd hu hne).2 hev⟩
+        ⟨(htie h₁ h₂).ge, le_rfl⟩ fun _ _ => (alternate_of_bracketing (F := F) hodd hd hu hne).2 hev
 
 end Mpfx
