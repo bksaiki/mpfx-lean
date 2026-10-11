@@ -332,14 +332,10 @@ through `unbotD 0`), and it alternates. `(1, ⊥)` is only special in that no
   `numDigits` (about 28 lines). Every caller already has it; take it as a
   hypothesis. This weakens a README-listed theorem only to what its `rnd` form
   already assumes.
-* [ ] Factor `IsFaithfulRound.trans_of_ne`: if `z` is faithful for `x` in
-  `F₂ ⊇ F₁`, `w` is faithful for `z` in `F₁`, and `w ≠ z`, then `w` is faithful
-  for `x` in `F₁`. It is proved twice, as the `z ≠ w'` four-way split in
-  `roundsRTO_RTO_finite` and as `h_adj_x` in `rndRTO_nearest_facts`. The
-  `z = w'` branch is a generic `IsFaithfulRound.of_subset`, of which
-  `Restrict`'s private `IsFaithfulRound.restrict` is an instance. About 40
-  lines.
-* [ ] `DoubleRounding/Nearest.lean`:
+* [ ] The `z = w'` branch of `roundsRTO_RTO_finite` is a generic
+  `IsFaithfulRound.of_subset`, of which `Restrict`'s private
+  `IsFaithfulRound.restrict` is an instance.
+* [x] `DoubleRounding/Nearest.lean`:
   * `rndRTO_RN_close_transfer` (215 lines) is two mirrored branches; one half
     plus a swap, or `RoundsFinite.neg_nearest`, halves it.
   * In `rndRTO_no_tie_contradiction`, `h_F_adj_pair` (48 lines) re-derives

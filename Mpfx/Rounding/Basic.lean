@@ -403,6 +403,43 @@ theorem RoundsFinite.nearest_awayZero_of_bracket {F : FiniteFormat} {x : ℝ} {d
     rcases hz.eq_or_eq hd hu with rfl | rfl
     exacts [(htie h₁ h₂).1, (htie h₁ h₂).2]
 
+/-- A faithful rounding stays on its input's side of any value `m` of the format
+that neither equals. -/
+theorem IsFaithfulRound.same_side {F : FiniteFormat} {x : ℝ} {z m : Dyadic}
+    (h : IsFaithfulRound F x z) (hm : m ∈ F) (hxm : x ≠ (m : ℝ)) (hzm : (z : ℝ) ≠ m) :
+    0 < (x - m) * ((z : ℝ) - m) := by
+  rcases h with ⟨-, hzx, hmax⟩ | ⟨-, hxz, hmin⟩ <;> rcases lt_or_gt_of_ne hxm with h | h
+  · exact mul_pos_of_neg_of_neg (by linarith) (by linarith)
+  · exact mul_pos (by linarith) (by linarith [lt_of_le_of_ne (hmax m hm h.le) hzm.symm])
+  · exact mul_pos_of_neg_of_neg (by linarith) (by linarith [lt_of_le_of_ne (hmin m hm h.le) hzm])
+  · exact mul_pos (by linarith) (by linarith)
+
+/-- **Shared neighbours.** If `z` is a faithful rounding of `x` in `F₂ ⊇ F₁` and
+not a value of `F₁`, then `x` and `z` have the same faithful roundings in `F₁`:
+no value of `F₁` separates them. -/
+theorem IsFaithfulRound.iff_of_between {F₁ F₂ : FiniteFormat}
+    (hsub : F₁.toFormat ⊆ F₂.toFormat) {x : ℝ} {z : Dyadic}
+    (hz : IsFaithfulRound F₂ x z) (hz₁ : z ∉ F₁) (c : Dyadic) :
+    IsFaithfulRound F₁ x c ↔ IsFaithfulRound F₁ z c := by
+  -- A value of `F₁` at `z` would be `z` itself.
+  have hne : ∀ v ∈ F₁, (v : ℝ) ≠ z := fun v hv h => hz₁ (Dyadic.ext_real h ▸ hv)
+  have hle : ∀ v ∈ F₁, ((v : ℝ) ≤ x ↔ (v : ℝ) ≤ z) := fun v hv => by
+    rcases hz with ⟨-, hzx, hmax⟩ | ⟨-, hxz, hmin⟩
+    · exact ⟨hmax v (hsub v hv), fun h => h.trans hzx⟩
+    · exact ⟨fun h => h.trans hxz, fun h => not_lt.mp fun hxv =>
+        hne v hv (le_antisymm h (hmin v (hsub v hv) hxv.le))⟩
+  have hge : ∀ v ∈ F₁, (x ≤ (v : ℝ) ↔ (z : ℝ) ≤ v) := fun v hv => by
+    rcases hz with ⟨-, hzx, hmax⟩ | ⟨-, hxz, hmin⟩
+    · exact ⟨fun h => hzx.trans h, fun h => not_lt.mp fun hvx =>
+        hne v hv (le_antisymm (hmax v (hsub v hv) hvx.le) h)⟩
+    · exact ⟨hmin v (hsub v hv), fun h => hxz.trans h⟩
+  unfold IsFaithfulRound
+  refine or_congr
+    ⟨fun ⟨hc, h1, h2⟩ => ⟨hc, (hle c hc).mp h1, fun v hv h => h2 v hv ((hle v hv).mpr h)⟩,
+    fun ⟨hc, h1, h2⟩ => ⟨hc, (hle c hc).mpr h1, fun v hv h => h2 v hv ((hle v hv).mp h)⟩⟩
+    ⟨fun ⟨hc, h1, h2⟩ => ⟨hc, (hge c hc).mp h1, fun v hv h => h2 v hv ((hge v hv).mpr h)⟩,
+    fun ⟨hc, h1, h2⟩ => ⟨hc, (hge c hc).mpr h1, fun v hv h => h2 v hv ((hge v hv).mp h)⟩⟩
+
 /-! ### Reading the directed roundings off the grid
 
 Stated as *the grid point satisfies the spec*, so uniqueness turns each into an

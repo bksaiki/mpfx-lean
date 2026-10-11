@@ -116,7 +116,8 @@ Mpfx/
 │   │                 Mode-vs-sign: RTP/RTN ↔ RTZ/RAZ by sign of x.
 │   │                 RoundsFinite.self (every mode), uniqueness per mode and
 │   │                 generic, isFaithfulRound, eq_of_mem, eq_zero_of_zero,
-│   │                 IsFaithfulRound.eq_or_eq, opposite_sides_of_ne, the grid
+│   │                 IsFaithfulRound.eq_or_eq, opposite_sides_of_ne, same_side,
+│   │                 iff_of_between (shared neighbours), the grid
 │   │                 bridges toNegative_floor/toPositive_ceil/
 │   │                 toPositive_floor_add_one (+ equation forms), the nearest
 │   │                 modes between round-down and round-up
@@ -146,9 +147,9 @@ Mpfx/
     │                 them by sign (toZero_of_directed, awayZero_of_directed);
     │                 roundsRTO_RTO_finite; roundsRTO_RTN/RTP_finite(_of_extend), and
     │                 RTO → RTZ/RAZ from them; toOdd_notMem_of_extend_subset, rndExact
-    ├── Nearest.lean  roundsRTO_RN_finite(_of_extend) and its RN web
-    │                 (rndRTO_RN_close_transfer, rndRTO_no_tie_contradiction,
-    │                 rndRTO_nearest_facts)
+    ├── Nearest.lean  roundsRTO_RN_finite(_of_extend), from shared neighbours,
+    │                 the midpoint of two faithful roundings, and same-side
+    │                 (midpoint_mem_extend_one_of_faithful, closer_of_same_side)
     ├── Total.lean    LocalDoubleRounding (+ .inBound, .not_overflows), BelowValue,
     │                 localDoubleRounding_of_below/_of_above, exists_mem_above; the
     │                 RTO → RN midpoint facts (abs_le_mid_of_nearest,

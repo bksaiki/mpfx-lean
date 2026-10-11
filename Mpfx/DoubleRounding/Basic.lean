@@ -159,49 +159,12 @@ theorem roundsRTO_RTO_finite {F₁ F₂ : FiniteFormat} (hsub : F₁.toFormat �
             rw [hF₂'eq]; exact hp_F₂
           exact IsOdd.transfer_of_subset h_F₁'F₂' h_p_F₂' hw'F₁ hF₂'odd
         exact ⟨F₁', hF₁'eq, hF₁'odd⟩
-    · -- z ≠ w': standard 4-way faithfulness case split.
+    · -- z ≠ w': `z ∉ F₁` (else RTO in `F₁` fixes it), so `x` and `z` share their
+      -- faithful roundings in `F₁`.
       have hz_ne_w' : (z : ℝ) ≠ (w' : ℝ) := fun h_eq => hzw (Dyadic.coe_real_inj z w' |>.mp h_eq)
-      refine ⟨hw'F₁, ?_, ?_⟩
-      · rcases hz_faithful with hzRD | hzRU
-        · rcases hw_faithful with hwRD | hwRU
-          · left
-            obtain ⟨_, hwz, hw_max⟩ := hwRD
-            have hzx_le := hzRD.2.1
-            refine ⟨hw'F₁, le_trans hwz hzx_le, ?_⟩
-            intro v hvF₁ hvx
-            have hv_le_z : (v : ℝ) ≤ (z : ℝ) := hzRD.2.2 v (hsub _ hvF₁) hvx
-            exact hw_max v hvF₁ hv_le_z
-          · obtain ⟨_, hzw_le, hw_min⟩ := hwRU
-            by_cases hw'_le_x : (w' : ℝ) ≤ x
-            · exfalso
-              have hw_le_z : (w' : ℝ) ≤ (z : ℝ) := hzRD.2.2 w' (hsub _ hw'F₁) hw'_le_x
-              have : (w' : ℝ) = (z : ℝ) := le_antisymm hw_le_z hzw_le
-              exact hz_ne_w' this.symm
-            · push Not at hw'_le_x
-              right
-              refine ⟨hw'F₁, hw'_le_x.le, ?_⟩
-              intro v hvF₁ hxv
-              exact hw_min v hvF₁ (le_trans hzRD.2.1 hxv)
-        · rcases hw_faithful with hwRD | hwRU
-          · obtain ⟨_, hwz, hw_max⟩ := hwRD
-            by_cases hw'_le_x : (w' : ℝ) ≤ x
-            · left
-              refine ⟨hw'F₁, hw'_le_x, ?_⟩
-              intro v hvF₁ hvx
-              exact hw_max v hvF₁ (le_trans hvx hzRU.2.1)
-            · exfalso
-              push Not at hw'_le_x
-              have hw_ge_z : (z : ℝ) ≤ (w' : ℝ) :=
-                hzRU.2.2 w' (hsub _ hw'F₁) hw'_le_x.le
-              have : (w' : ℝ) = (z : ℝ) := le_antisymm hwz hw_ge_z
-              exact hz_ne_w' this.symm
-          · right
-            obtain ⟨_, hzw_le, hw_min⟩ := hwRU
-            have hxz := hzRU.2.1
-            refine ⟨hw'F₁, le_trans hxz hzw_le, ?_⟩
-            intro v hvF₁ hxv
-            have hzv : (z : ℝ) ≤ (v : ℝ) := hzRU.2.2 v (hsub _ hvF₁) hxv
-            exact hw_min v hvF₁ hzv
+      have hz₁ : z ∉ F₁ := fun h =>
+        hzw (RoundsFinite.eq_of_mem (rm := .toOdd) h ⟨hw'F₁, hw_faithful, hw_odd_imp⟩).symm
+      refine ⟨hw'F₁, (IsFaithfulRound.iff_of_between hsub hz_faithful hz₁ w').mpr hw_faithful, ?_⟩
       · -- Parity: from `hw`'s own parity clause (z ≠ w').
         intro _
         exact hw_odd_imp hz_ne_w'
