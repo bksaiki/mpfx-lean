@@ -96,9 +96,11 @@ Mpfx/
 │   │                 Built over the ℚ substrate.
 │   ├── CanonicalExp.lean canonicalExp closed forms, format-dependent
 │   │                 scaled-mantissa facts
-│   └── Inference.lean §6.1: ⊗/⊕ format inference. Format.toSet,
-│                     opMul/opAdd/opAddPrec, mul_subset/add_subset (the inferred
-│                     format contains every product/sum), neg_subset/abs_subset.
+│   └── Inference.lean §6.1: ⊗/⊕ format inference. IEEE 754 *, +, -, abs on
+│                     WithSpecial Dyadic; Format.toSet, opMul/opAdd/opAddPrec,
+│                     opNeg/opAbs, mul/add/absSpecials (+ special_mem_op*_iff:
+│                     exactly the produced specials); mul/add/neg/abs_subset over
+│                     values, *_subset_finite over toSet; opNeg_of_negClosed.
 ├── Rounding/
 │   ├── Defs.lean     relational layer:
 │   │                 TieBreak, RoundingMode,
@@ -234,8 +236,6 @@ Each stands until its reopen condition holds.
       compose (`MpfxTest/DoubleRounding.lean`).
 - [ ] **Unchecked:** RTO → RN with a saturating RTO table and the IEEE RN
       table. By hand, `b₂ ≥ M` is still needed.
-- **`opMul`/`opAdd` specials** are `∅`. Reopen if §6.1 is meant to cover
-  special arithmetic (`Inf · 0`, `Inf − Inf`).
 - **`.undefined` is numeric-only**: special inputs always go through `S`.
   Reopen if a double-rounding statement becomes awkward because of it.
 - **Tables are arbitrary**, with constraints as named predicates. Reopen if
