@@ -1,4 +1,3 @@
-import Mpfx.Rounding.Op
 import Mpfx.Rounding.Ulp
 
 /-!
@@ -103,16 +102,23 @@ theorem exists_isolated (F : FiniteFormat) {m : Dyadic} (hm : (m : ℝ) ≠ 0) :
   have : (v : ℝ) - m = 0 := by rw [hdiff, h0]; simp
   linarith
 
+/-- A format is isolated at a positive dyadic `m` with `K` small enough that
+`2^K ≤ m`. -/
+theorem exists_isolated_le (F : FiniteFormat) {m : Dyadic} (hm : (0 : ℝ) < m) :
+    ∃ K : ℤ, Isolated F m K ∧ (2 : ℝ) ^ K ≤ m := by
+  obtain ⟨K, h⟩ := exists_isolated F hm.ne'
+  exact ⟨min K (Int.log 2 (m : ℝ)), h.mono (min_le_left _ _),
+    (zpow_le_zpow_right₀ (by norm_num) (min_le_right _ _)).trans
+      (Int.zpow_log_le_self (b := 2) (by norm_num) hm)⟩
+
 /-- Two formats are isolated at a positive dyadic `m` with a common `K`, small
 enough that `2^K ≤ m`. -/
 theorem exists_isolated₂ (F G : FiniteFormat) {m : Dyadic} (hm : (0 : ℝ) < m) :
     ∃ K : ℤ, Isolated F m K ∧ Isolated G m K ∧ (2 : ℝ) ^ K ≤ m := by
-  obtain ⟨K₁, h₁⟩ := exists_isolated F hm.ne'
-  obtain ⟨K₂, h₂⟩ := exists_isolated G hm.ne'
-  refine ⟨min (min K₁ K₂) (Int.log 2 (m : ℝ)), h₁.mono ((min_le_left _ _).trans (min_le_left _ _)),
-    h₂.mono ((min_le_left _ _).trans (min_le_right _ _)), ?_⟩
-  exact (zpow_le_zpow_right₀ (by norm_num) (min_le_right _ _)).trans
-    (Int.zpow_log_le_self (b := 2) (by norm_num) hm)
+  obtain ⟨K₁, h₁, hK₁⟩ := exists_isolated_le F hm
+  obtain ⟨K₂, h₂, -⟩ := exists_isolated_le G hm
+  exact ⟨min K₁ K₂, h₁.mono (min_le_left _ _), h₂.mono (min_le_right _ _),
+    (zpow_le_zpow_right₀ (by norm_num) (min_le_left _ _)).trans hK₁⟩
 
 /-! ## Adjacency and parity -/
 
@@ -124,7 +130,7 @@ def Adjacent (F : FiniteFormat) (u u' : Dyadic) : Prop :=
 /-- A positive value of `F` has an adjacent predecessor `u ≥ 0`. -/
 theorem exists_pred (F : FiniteFormat) {a : Dyadic} (ha : a ∈ F.unbounded)
     (ha_pos : (0 : ℝ) < a) : ∃ u : Dyadic, Adjacent F u a ∧ 0 ≤ (u : ℝ) := by
-  obtain ⟨K, hK, -, hK_le⟩ := exists_isolated₂ F F ha_pos
+  obtain ⟨K, hK, hK_le⟩ := exists_isolated_le F ha_pos
   have hK_pos : (0 : ℝ) < (2 : ℝ) ^ K := zpow_pos two_pos K
   set x₀ : ℝ := (a : ℝ) - (2 : ℝ) ^ K / 2 with hx₀
   refine ⟨rndDown F x₀, ⟨rndDown_mem F x₀, ha, (rndDown_le F x₀).trans_lt (by linarith),
@@ -257,7 +263,7 @@ theorem roundsRNE_of_bracket {F : FiniteFormat} {u u' y : Dyadic} {z : ℝ}
     · refine Or.inl ⟨hu, hzu, fun v hv hvz => ?_⟩
       rcases (hvz.trans hzu').lt_or_eq with h | h
       · exact hadj v hv h
-      · -- `z = u'`, strictly nearer to `u'` than to `y`.
+      · -- `z = u'` would make `u'` strictly nearer, contradicting `hclose`.
         have hz : z = u' := le_antisymm hzu' (h ▸ hvz)
         have := hclose.2
         rw [hz, sub_self, abs_zero, abs_nonpos_iff, sub_eq_zero] at this

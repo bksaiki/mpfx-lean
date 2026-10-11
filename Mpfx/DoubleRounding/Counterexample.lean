@@ -27,7 +27,7 @@ those counts are, we believe, the least that work for every `F₂`:
 
 With one value fewer, an `F₂` without a minimum quantum seems to agree on
 every input that stays in bound, so only the overflow maps could make it fail.
-Neither direction of that claim is proved. With no minimum quantum in `F₁`
+That minimality is not proved. With no minimum quantum in `F₁`
 any positive bound gives infinitely many values, and an unbounded `F₁` has
 all of them (`FiniteFormat.hasPositive_of_b_top`).
 -/
@@ -143,6 +143,55 @@ private theorem abs_sub_of_bracket {u u' z : ℝ} (h₁ : u ≤ z) (h₂ : z ≤
     |z - u| = z - u ∧ |z - u'| = u' - z :=
   ⟨abs_of_nonneg (by linarith), by rw [abs_sub_comm]; exact abs_of_nonneg (by linarith)⟩
 
+/-! ## Cores for the directed and round-to-odd targets
+
+Each takes the intermediate rounding of `x` onto an anchor of `F₁` as a
+hypothesis; the direct rounding then misses the anchor. -/
+
+/-- The intermediate lands on `a > x`, which RTZ fixes; the direct RTZ is at
+most `x`. -/
+private theorem disagrees_toZero {F₁ F₂ : FiniteFormat} {rm₂ : RoundingMode} {a : Dyadic}
+    (ha : a ∈ F₁.toFormat) {x : ℝ} (hx0 : 0 ≤ x) (hxa : x < a)
+    (hz : RoundsInBound F₂ rm₂ x a) : Disagrees F₂ rm₂ F₁ .toZero := by
+  have hy := rndDown_spec F₁ x
+  have hy_le := rndDown_le F₁ x
+  refine ⟨x, a, a, rndDown F₁ x, hz,
+    ⟨RoundsFinite.toZero_self (mem_unbounded_of_mem ha), ha.2.2⟩,
+    ⟨(RoundsFinite.toNegative_iff_toZero_of_nonneg _ hx0 _).mp hy,
+      boundOK_of_le ha (RoundsFinite.toNegative_nonneg hx0 hy) (by linarith)⟩,
+    fun h => ?_⟩
+  rw [← h] at hy_le
+  linarith
+
+/-- The intermediate lands on `a < x`, which RAZ fixes; the direct RAZ is at
+least `x`, and at most the value `b ≥ x`. -/
+private theorem disagrees_awayZero {F₁ F₂ : FiniteFormat} {rm₂ : RoundingMode} {a b : Dyadic}
+    (ha : a ∈ F₁.toFormat) (hb : b ∈ F₁.toFormat) {x : ℝ} (hx0 : 0 ≤ x) (hax : (a : ℝ) < x)
+    (hxb : x ≤ b) (hz : RoundsInBound F₂ rm₂ x a) : Disagrees F₂ rm₂ F₁ .awayZero := by
+  have hy := rndUp_spec F₁ x
+  have hy_ge := le_rndUp F₁ x
+  refine ⟨x, a, a, rndUp F₁ x, hz,
+    ⟨RoundsFinite.awayZero_self (mem_unbounded_of_mem ha), ha.2.2⟩,
+    ⟨(RoundsFinite.toPositive_iff_awayZero_of_nonneg _ hx0 _).mp hy,
+      boundOK_of_le hb (by linarith) (rndUp_min F₁ x (mem_unbounded_of_mem hb) hxb)⟩,
+    fun h => ?_⟩
+  rw [← h] at hy_ge
+  linarith
+
+/-- The intermediate lands on a non-odd `h ≠ x`, which RTO fixes; the direct
+RTO is inexact and so odd, and at most the value `c ≥ x`. -/
+private theorem disagrees_toOdd {F₁ : ParityFormat} {F₂ : FiniteFormat} {rm₂ : RoundingMode}
+    {h c : Dyadic} (hh : h ∈ F₁.toFormat) (hh_odd : ¬ F₁.IsOdd h) (hc : c ∈ F₁.toFormat)
+    {x : ℝ} (hx0 : 0 ≤ x) (hxc : x ≤ c) (hxh : x ≠ h) (hz : RoundsInBound F₂ rm₂ x h) :
+    Disagrees F₂ rm₂ F₁.toFiniteFormat .toOdd := by
+  have hy := rndUnbounded_satisfies F₁.toFiniteFormat .toOdd x (F₁.not_isUndefined _)
+  have hy_le := abs_faithful_le_of_le (mem_unbounded_of_mem hc)
+    (by rwa [abs_of_nonneg hx0]) hy.isFaithfulRound
+  refine ⟨x, h, h, _, hz, ⟨RoundsFinite.toOdd_self (mem_unbounded_of_mem hh), hh.2.2⟩,
+    ⟨hy, boundOK_of_abs_le (by rwa [abs_of_nonneg (hx0.trans hxc)]) hc.2.2⟩, fun he => ?_⟩
+  rw [← he] at hy
+  exact hh_odd (isOdd_of_roundsRTO F₁ hy hxh)
+
 /-! ## The counterexamples
 
 Throughout, `2^K` isolates the anchor in `F₂` (and, where the witness must
@@ -156,21 +205,11 @@ theorem no_roundsRNE_RTZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
     (F₂ : FiniteFormat) (hsub : F₁.toFormat ⊆ F₂.toFormat) :
     Disagrees F₂ (.nearest .toEven) F₁.toFiniteFormat .toZero := by
   obtain ⟨a, ha, ha_pos⟩ := exists_one h₁
-  obtain ⟨K, hK, -, hK_le⟩ := exists_isolated₂ F₂ F₂ ha_pos
+  obtain ⟨K, hK, hK_le⟩ := exists_isolated_le F₂ ha_pos
   have hK_pos : (0 : ℝ) < (2 : ℝ) ^ K := zpow_pos two_pos K
-  set x : ℝ := (a : ℝ) - (2 : ℝ) ^ K / 4 with hx
-  have hx0 : 0 ≤ x := by linarith
-  have hy := rndDown_spec F₁.toFiniteFormat x
-  have hy_le := rndDown_le F₁.toFiniteFormat x
-  refine ⟨x, a, a, rndDown F₁.toFiniteFormat x,
+  exact disagrees_toZero (x := a - 2 ^ K / 4) ha (by linarith) (by linarith)
     ⟨roundsRNE_of_isolated hK (mem_unbounded_of_mem (hsub _ ha))
-      (abs_sub_lt_iff.mpr ⟨by linarith, by linarith⟩), (hsub _ ha).2.2⟩,
-    ⟨RoundsFinite.toZero_self (mem_unbounded_of_mem ha), ha.2.2⟩,
-    ⟨(RoundsFinite.toNegative_iff_toZero_of_nonneg _ hx0 _).mp hy,
-      boundOK_of_le ha (RoundsFinite.toNegative_nonneg hx0 hy) (by linarith)⟩,
-    fun h => ?_⟩
-  rw [← h] at hy_le
-  linarith
+      (abs_sub_lt_iff.mpr ⟨by linarith, by linarith⟩), (hsub _ ha).2.2⟩
 
 /-- **RAZ → RTZ.** `x = a − δ`: the intermediate RAZ pushes `x` up onto `a`,
 which RTZ fixes, but the direct RTZ falls below `a`. -/
@@ -178,22 +217,12 @@ theorem no_roundsRAZ_RTZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
     (F₂ : FiniteFormat) (hsub : F₁.toFormat ⊆ F₂.toFormat) :
     Disagrees F₂ .awayZero F₁.toFiniteFormat .toZero := by
   obtain ⟨a, ha, ha_pos⟩ := exists_one h₁
-  obtain ⟨K, hK, -, hK_le⟩ := exists_isolated₂ F₂ F₂ ha_pos
+  obtain ⟨K, hK, hK_le⟩ := exists_isolated_le F₂ ha_pos
   have hK_pos : (0 : ℝ) < (2 : ℝ) ^ K := zpow_pos two_pos K
-  set x : ℝ := (a : ℝ) - (2 : ℝ) ^ K / 4 with hx
-  have hx0 : 0 ≤ x := by linarith
-  have hy := rndDown_spec F₁.toFiniteFormat x
-  have hy_le := rndDown_le F₁.toFiniteFormat x
-  refine ⟨x, a, a, rndDown F₁.toFiniteFormat x,
-    ⟨(RoundsFinite.toPositive_iff_awayZero_of_nonneg _ hx0 _).mp
+  exact disagrees_toZero (x := a - 2 ^ K / 4) ha (by linarith) (by linarith)
+    ⟨(RoundsFinite.toPositive_iff_awayZero_of_nonneg _ (by linarith) _).mp
       (roundsUp_of_isolated hK (mem_unbounded_of_mem (hsub _ ha)) (by linarith) (by linarith)),
-      (hsub _ ha).2.2⟩,
-    ⟨RoundsFinite.toZero_self (mem_unbounded_of_mem ha), ha.2.2⟩,
-    ⟨(RoundsFinite.toNegative_iff_toZero_of_nonneg _ hx0 _).mp hy,
-      boundOK_of_le ha (RoundsFinite.toNegative_nonneg hx0 hy) (by linarith)⟩,
-    fun h => ?_⟩
-  rw [← h] at hy_le
-  linarith
+      (hsub _ ha).2.2⟩
 
 /-- **RTZ → RAZ.** `x = a + δ` above the smaller of two positive values
 `a < b`: the intermediate RTZ truncates onto `a`, which RAZ fixes, but the
@@ -207,21 +236,10 @@ theorem no_roundsRTZ_RAZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
   have hKb : (2 : ℝ) ^ K ≤ b - a := by
     have := hK₁.le_abs_sub (mem_unbounded_of_mem hb) (fun h => by rw [h] at hab; linarith)
     rwa [abs_of_pos (by linarith)] at this
-  set x : ℝ := (a : ℝ) + (2 : ℝ) ^ K / 4 with hx
-  have hx0 : 0 ≤ x := by linarith
-  have hy := rndUp_spec F₁.toFiniteFormat x
-  have hy_ge := le_rndUp F₁.toFiniteFormat x
-  refine ⟨x, a, a, rndUp F₁.toFiniteFormat x,
-    ⟨(RoundsFinite.toNegative_iff_toZero_of_nonneg _ hx0 _).mp
+  exact disagrees_awayZero (x := a + 2 ^ K / 4) ha hb (by linarith) (by linarith) (by linarith)
+    ⟨(RoundsFinite.toNegative_iff_toZero_of_nonneg _ (by linarith) _).mp
       (roundsDown_of_isolated hK₂ (mem_unbounded_of_mem (hsub _ ha)) (by linarith)
-        (by linarith)), (hsub _ ha).2.2⟩,
-    ⟨RoundsFinite.awayZero_self (mem_unbounded_of_mem ha), ha.2.2⟩,
-    ⟨(RoundsFinite.toPositive_iff_awayZero_of_nonneg _ hx0 _).mp hy,
-      boundOK_of_le hb (by linarith)
-        (rndUp_min F₁.toFiniteFormat x (mem_unbounded_of_mem hb) (by linarith))⟩,
-    fun h => ?_⟩
-  rw [← h] at hy_ge
-  linarith
+        (by linarith)), (hsub _ ha).2.2⟩
 
 /-- **RNE → RAZ.** `x = a + δ`: the intermediate RNE rounds down onto `a`, which
 RAZ fixes, but the direct RAZ reaches past `a`, to at most `b`. -/
@@ -234,20 +252,9 @@ theorem no_roundsRNE_RAZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
   have hKb : (2 : ℝ) ^ K ≤ b - a := by
     have := hK₁.le_abs_sub (mem_unbounded_of_mem hb) (fun h => by rw [h] at hab; linarith)
     rwa [abs_of_pos (by linarith)] at this
-  set x : ℝ := (a : ℝ) + (2 : ℝ) ^ K / 4 with hx
-  have hx0 : 0 ≤ x := by linarith
-  have hy := rndUp_spec F₁.toFiniteFormat x
-  have hy_ge := le_rndUp F₁.toFiniteFormat x
-  refine ⟨x, a, a, rndUp F₁.toFiniteFormat x,
+  exact disagrees_awayZero (x := a + 2 ^ K / 4) ha hb (by linarith) (by linarith) (by linarith)
     ⟨roundsRNE_of_isolated hK₂ (mem_unbounded_of_mem (hsub _ ha))
-      (abs_sub_lt_iff.mpr ⟨by linarith, by linarith⟩), (hsub _ ha).2.2⟩,
-    ⟨RoundsFinite.awayZero_self (mem_unbounded_of_mem ha), ha.2.2⟩,
-    ⟨(RoundsFinite.toPositive_iff_awayZero_of_nonneg _ hx0 _).mp hy,
-      boundOK_of_le hb (by linarith)
-        (rndUp_min F₁.toFiniteFormat x (mem_unbounded_of_mem hb) (by linarith))⟩,
-    fun h => ?_⟩
-  rw [← h] at hy_ge
-  linarith
+      (abs_sub_lt_iff.mpr ⟨by linarith, by linarith⟩), (hsub _ ha).2.2⟩
 
 /-- **RAZ → RTO.** `x = h − δ` below a positive value `h` that is not odd: the
 intermediate RAZ lands exactly on `h`, which RTO fixes, but the direct RTO is
@@ -257,21 +264,13 @@ theorem no_roundsRAZ_RTO (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
     Disagrees F₂ .awayZero F₁.toFiniteFormat .toOdd := by
   obtain ⟨a, b, ha, hb, ha_pos, hab⟩ := exists_two h₁
   obtain ⟨h, hh, hh_pos, -, hh_odd⟩ := exists_not_odd ha hb ha_pos hab
-  obtain ⟨K, hK, -, hK_le⟩ := exists_isolated₂ F₂ F₂ hh_pos
+  obtain ⟨K, hK, hK_le⟩ := exists_isolated_le F₂ hh_pos
   have hK_pos : (0 : ℝ) < (2 : ℝ) ^ K := zpow_pos two_pos K
-  set x : ℝ := (h : ℝ) - (2 : ℝ) ^ K / 4 with hx
-  have hx0 : 0 ≤ x := by linarith
-  have hy := rndUnbounded_satisfies F₁.toFiniteFormat .toOdd x (F₁.not_isUndefined _)
-  have hy_le := abs_faithful_le_of_le (mem_unbounded_of_mem hh)
-    (by rw [abs_of_nonneg hx0]; linarith) hy.isFaithfulRound
-  refine ⟨x, h, h, _,
-    ⟨(RoundsFinite.toPositive_iff_awayZero_of_nonneg _ hx0 _).mp
+  exact disagrees_toOdd (x := h - 2 ^ K / 4) hh hh_odd hh (by linarith) (by linarith)
+    (by linarith)
+    ⟨(RoundsFinite.toPositive_iff_awayZero_of_nonneg _ (by linarith) _).mp
       (roundsUp_of_isolated hK (mem_unbounded_of_mem (hsub _ hh)) (by linarith) (by linarith)),
-      (hsub _ hh).2.2⟩,
-    ⟨RoundsFinite.toOdd_self (mem_unbounded_of_mem hh), hh.2.2⟩,
-    ⟨hy, boundOK_of_abs_le (by rwa [abs_of_pos hh_pos]) hh.2.2⟩, fun he => ?_⟩
-  rw [← he] at hy
-  exact hh_odd (isOdd_of_roundsRTO F₁ hy (by linarith))
+      (hsub _ hh).2.2⟩
 
 /-- **RNE → RTO.** `x = h − δ`: the intermediate RNE lands exactly on the
 non-odd `h`, which RTO fixes, but the direct RTO is inexact and so odd. -/
@@ -280,20 +279,12 @@ theorem no_roundsRNE_RTO (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
     Disagrees F₂ (.nearest .toEven) F₁.toFiniteFormat .toOdd := by
   obtain ⟨a, b, ha, hb, ha_pos, hab⟩ := exists_two h₁
   obtain ⟨h, hh, hh_pos, -, hh_odd⟩ := exists_not_odd ha hb ha_pos hab
-  obtain ⟨K, hK, -, hK_le⟩ := exists_isolated₂ F₂ F₂ hh_pos
+  obtain ⟨K, hK, hK_le⟩ := exists_isolated_le F₂ hh_pos
   have hK_pos : (0 : ℝ) < (2 : ℝ) ^ K := zpow_pos two_pos K
-  set x : ℝ := (h : ℝ) - (2 : ℝ) ^ K / 4 with hx
-  have hx0 : 0 ≤ x := by linarith
-  have hy := rndUnbounded_satisfies F₁.toFiniteFormat .toOdd x (F₁.not_isUndefined _)
-  have hy_le := abs_faithful_le_of_le (mem_unbounded_of_mem hh)
-    (by rw [abs_of_nonneg hx0]; linarith) hy.isFaithfulRound
-  refine ⟨x, h, h, _,
+  exact disagrees_toOdd (x := h - 2 ^ K / 4) hh hh_odd hh (by linarith) (by linarith)
+    (by linarith)
     ⟨roundsRNE_of_isolated hK (mem_unbounded_of_mem (hsub _ hh))
-      (abs_sub_lt_iff.mpr ⟨by linarith, by linarith⟩), (hsub _ hh).2.2⟩,
-    ⟨RoundsFinite.toOdd_self (mem_unbounded_of_mem hh), hh.2.2⟩,
-    ⟨hy, boundOK_of_abs_le (by rwa [abs_of_pos hh_pos]) hh.2.2⟩, fun he => ?_⟩
-  rw [← he] at hy
-  exact hh_odd (isOdd_of_roundsRTO F₁ hy (by linarith))
+      (abs_sub_lt_iff.mpr ⟨by linarith, by linarith⟩), (hsub _ hh).2.2⟩
 
 /-- **RTZ → RTO.** `x = h + δ` above a positive non-odd value `h` with a value
 `c > h` above it: the intermediate RTZ truncates onto `h`, which RTO fixes, but
@@ -309,20 +300,11 @@ theorem no_roundsRTZ_RTO (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
     have := hK₁.le_abs_sub (mem_unbounded_of_mem hc)
       (fun he => by rw [he] at hbc; linarith)
     rwa [abs_of_pos (by linarith)] at this
-  set x : ℝ := (h : ℝ) + (2 : ℝ) ^ K / 4 with hx
-  have hx0 : 0 ≤ x := by linarith
-  have hy := rndUnbounded_satisfies F₁.toFiniteFormat .toOdd x (F₁.not_isUndefined _)
-  have hy_le := abs_faithful_le_of_le (mem_unbounded_of_mem hc)
-    (by rw [abs_of_nonneg hx0]; linarith) hy.isFaithfulRound
-  refine ⟨x, h, h, _,
-    ⟨(RoundsFinite.toNegative_iff_toZero_of_nonneg _ hx0 _).mp
+  exact disagrees_toOdd (x := h + 2 ^ K / 4) hh hh_odd hc (by linarith) (by linarith)
+    (by linarith)
+    ⟨(RoundsFinite.toNegative_iff_toZero_of_nonneg _ (by linarith) _).mp
       (roundsDown_of_isolated hK₂ (mem_unbounded_of_mem (hsub _ hh)) (by linarith)
-        (by linarith)), (hsub _ hh).2.2⟩,
-    ⟨RoundsFinite.toOdd_self (mem_unbounded_of_mem hh), hh.2.2⟩,
-    ⟨hy, boundOK_of_abs_le (by rwa [abs_of_pos (by linarith : (0 : ℝ) < c)]) hc.2.2⟩,
-    fun he => ?_⟩
-  rw [← he] at hy
-  exact hh_odd (isOdd_of_roundsRTO F₁ hy (by linarith))
+        (by linarith)), (hsub _ hh).2.2⟩
 
 /-- **RTZ → RNE.** Adjacent values `u < u'` with `u ≥ 0` even, and
 `x = m + δ` just above their midpoint `m`: the intermediate RTZ lands in
@@ -343,7 +325,7 @@ theorem no_roundsRTZ_RNE (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
   have hK_pos : (0 : ℝ) < (2 : ℝ) ^ K := zpow_pos two_pos K
   have hKu' : (2 : ℝ) ^ K ≤ u' - m := by
     have := hK₁.le_abs_sub hadj.2.1 (fun he => by
-      have := congrArg (fun d : Dyadic => (d : ℝ)) he; simp only at this; linarith)
+      have := (Dyadic.coe_real_inj _ _).mpr he; linarith)
     rwa [abs_of_pos (by linarith)] at this
   set x : ℝ := (m : ℝ) + (2 : ℝ) ^ K / 4 with hx
   have hx0 : 0 ≤ x := by linarith
@@ -383,7 +365,7 @@ theorem no_roundsRAZ_RNE (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
   have hK_pos : (0 : ℝ) < (2 : ℝ) ^ K := zpow_pos two_pos K
   have hKu : (2 : ℝ) ^ K ≤ m - u := by
     have := hK₁.le_abs_sub hadj.1 (fun he => by
-      have := congrArg (fun d : Dyadic => (d : ℝ)) he; simp only at this; linarith)
+      have := (Dyadic.coe_real_inj _ _).mpr he; linarith)
     rwa [abs_of_neg (by linarith), neg_sub] at this
   set x : ℝ := (m : ℝ) - (2 : ℝ) ^ K / 4 with hx
   have hx0 : 0 ≤ x := by linarith
@@ -433,7 +415,7 @@ theorem no_roundsRNE_RNE (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
   have hK_pos : (0 : ℝ) < (2 : ℝ) ^ K := zpow_pos two_pos K
   have hKu : (2 : ℝ) ^ K ≤ m - u := by
     have := hK₁.le_abs_sub hadj.1 (fun he => by
-      have := congrArg (fun d : Dyadic => (d : ℝ)) he; simp only at this; linarith)
+      have := (Dyadic.coe_real_inj _ _).mpr he; linarith)
     rwa [abs_of_neg (by linarith), neg_sub] at this
   have hm_mid : |(m : ℝ) - u| = |(m : ℝ) - u'| := by
     rw [(abs_sub_of_bracket (by linarith : (u : ℝ) ≤ m) (by linarith : (m : ℝ) ≤ u')).1,
@@ -468,11 +450,8 @@ theorem no_roundsRNE_RNE (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive
 
 /-! ## On `rnd`
 
-Each counterexample at the total `rnd`, as a finite input `x` whose chained
-rounding through a finite intermediate `z` differs from the direct rounding,
-for every choice of special-value and overflow maps. With a nearest-even
-intermediate, `F₂` must make that mode defined, which only `𝒜(1, ⊥, ·)` fails.
--/
+With a nearest-even intermediate, `F₂` must make that mode defined, which only
+`𝒜(1, ⊥, ·)` fails. -/
 
 /-- `no_roundsRNE_RTZ` on `rnd`. -/
 theorem no_rndRNE_RTZ (F₁ : ParityFormat) (h₁ : F₁.toFormat.HasPositive 1)

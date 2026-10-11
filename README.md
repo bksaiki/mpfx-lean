@@ -93,9 +93,8 @@ rounding, with no rounding overflowing (`Disagrees`: `∃ x z w y,
 RoundsInBound F₂ rm₂ x z ∧ RoundsInBound F₁ rm₁ z w ∧ RoundsInBound F₁ rm₁ x y ∧
 w ≠ y`). `Disagrees.rnd_ne` turns the witness into a failure of
 `rnd₁ ∘ rnd₂ = rnd₁` for any `SpecialMap` and `OverflowMap`, at a finite input
-with a finite intermediate; `no_rnd<rm₂>_<rm₁>` state that for each pairing
-(with an RNE intermediate, given `¬ F₂.IsUndefined (.nearest .toEven)`), and
-`no_rounds<rm₂>_<rm₁>` give the `Disagrees` witness itself.
+with a finite intermediate. The `On rnd` theorems need
+`¬ F₂.IsUndefined (.nearest .toEven)` when the intermediate is RNE.
 
 The only hypothesis on `F₁` is a count of its positive values
 (`Format.HasPositive`; one is `Nontrivial`):
