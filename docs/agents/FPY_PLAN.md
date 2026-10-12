@@ -54,9 +54,8 @@ rewrites:
 
 ### Problems found in the draft
 
-Reading the rules against the semantics turned up two unsound rules and two
-gaps. Each fix below is a change to the paper, and each is a todo in
-`ROADMAP.md`.
+Reading the rules against the semantics turned up the problems below. Each
+fix is a change to the paper; the first four are todos in `ROADMAP.md`.
 
 | Where | As written | Failure | Fix |
 | --- | --- | --- | --- |
@@ -64,6 +63,9 @@ gaps. Each fix below is a change to the paper, and each is a todo in
 | Fig. 5/11 `A-Context`, `A-Ctx` | `ctx(e)` "known statically"; `ctx e : •` | Fig. 6 line 5 needs "the format of `out`", but `out` is a parameter with abstract value `•`, so no static `ctx(out)` exists. | Abstract values carry a known context `⟨C⟩`. `R : ⟨R⟩`; `ctx e : ⟨ctx fs⟩` when the record is known. `A-Context` reads the context off `e`'s abstract value. Call-site specialization (A-App) then carries `out`. |
 | Table 2, `IEEE754(e, n, RTZ)` | `[max(l, m − p + 1), m]` | `m` is only an upper bound on the leading digit. `v = 1` with interval `[0, 10]` and `p = 3` rounds to `1`, whose digit `0 ∉ [8, 10]`. | Same shape as the next row: `[max(l, μ − p + 1), μ]` with fresh `μ ≤ m`. |
 | §4.2 soundness side condition | each context "leaves the values of `F_C` unchanged" | A Mpfx `SpecialMap` need not fix the specials in `F`, so an Mpfx context meets this only when it does (e.g. `SpecialMap.exact`). | State that hypothesis on contexts in the paper. |
+| Table 2, `IEEE754(e, n, RTZ)` and "all others" | `[max(l, μ − p + 1), μ]` (fixed) and `[l, μ]` | Both assume rounding never lowers the least significant digit, which fails when a context overflows, or sends a special, to a finite value. IEEE 754 RTZ overflows to the largest finite value: `v = 2^(emax+1)` has interval `[emax+1, emax+1]` but rounds to a value with digit `emax − p + 1`. `Int(n, rm)` with saturation, and any `OverflowMap` or `SpecialMap` with a finite nonzero image, fail the same way. | Join each row with the digits of the context's overflow and special values, or require those to be non-finite (the digit-bound analogue of the §4.2 hypothesis). |
+| §4.3, Fig. 6 loop bound | "an accumulating loop that runs `L` times" adds at most `⌈log₂ L⌉` positions | No rule gives this. D-While's `Δ_I = Δ ⊔ Δ′`, with upper endpoints bounded only from above, yields `msb_I ≤ max(msb₀, msb_I + 1)`, which every large `msb_I` satisfies. D-Sum has the bound, but `sum` and `for` are not core FPy, so Fig. 6's bound on `fused_sum` follows from no rule. | A counted-loop rule, or `sum` as an operator with D-Sum. |
+| Fig. 12 `D-Logb` | `val(logb x) = msb(x)` | Sound only if the assignment can make `msb(x)` exact, which fails once a constraint bounds `msb(x)` from below. `logb 0 = −∞` gives a non-finite integer term (`e − k` in `fused_sum`), which Theorem 4.2, stated for finite values, does not cover. | Open; settled with the open item on assignments. |
 
 Two more points are not wrong but are unspecified. Theorem 4.2's
 per-value assignments, and its statement for statements and loops, are open
@@ -369,6 +371,38 @@ Test: `~/.elan/bin/lake build Fpy.DigitBound FpyTest`.
 This is separate from the individual rewrites because it is the
 compiler-correctness theorem, and it is the same for all eight rewrites.
 
+**Done**, ahead of Phase 4, which waits on a rewrite of the draft's §4.3. It
+needs only Phase 2. As built:
+
+- `Fpy/Rewrite.lean`:
+  - `Store.Agree`/`Outcome.Agree`: agreement outside the fresh set `X`.
+  - `Equiv Φ X Γ κ s s'`, the correctness of a local rewrite: from the same
+    store in `Γ`, both directions, outcomes agreeing outside `X`.
+  - `Sim Φ Φ' X Γ κ s s'`: the same across two programs, from stores that
+    agree outside `X`.
+  - `Rw`/`RwExpr`, the placement of rewrites: a judgment that follows
+    format inference through each statement, with a `site` rule taking any
+    `Sim`.
+  - `Rw.sim` (congruence), `Sim.equiv` (a local `Equiv` at a site), and
+    `run_iff_of_rw` (the whole-program theorem).
+- `FpyTest/Rewrite.lean`: `x = e ⇝ t = e; x = t` with a fresh `t`, proved as
+  an `Equiv` and carried through `run_iff_of_rw` on a toy program.
+
+It diverged from the plan in these places:
+
+- `Rw` allows any number of sites, not one; a single site is the special
+  case.
+- A site inside a callee is checked at every call the analysis visits:
+  `RwExpr.call` requires `Rw` of the callee's body under that call's
+  argument bound. Functions the analysis never reaches may differ freely
+  between `Φ` and `Φ'`.
+- Both directions are proved (`exec_fwd`, `exec_bwd`), so `Run` is
+  preserved as an iff.
+- `Rw` takes the `AExec`/`AEval` derivations it needs as premises (at `seq`,
+  `whileDo` and `withCtx`) rather than mirroring every rule of Fig. 11.
+  Guards get `RwExpr` premises, which `AExec` does not have.
+- `Program.WF` preservation is per rewrite, so it moves to Phases 6 and 7.
+
 Test: `~/.elan/bin/lake build Fpy.Rewrite FpyTest`.
 
 ### Phase 6 - Rewrites of §5.1
@@ -475,6 +509,10 @@ avoid variables the context reads.
 
 Provisional: agreement outside a fresh set disjoint from the program's
 variables. Reopen if Phase 5's congruence needs liveness.
+
+Settled in Phase 5 without liveness: outcomes agree outside `X`, the
+original program reads no variable of `X` (`RwExpr.var`), and the `Γ` at
+each site binds none (`Sim.equiv`).
 
 ### Mechanize only the rules, or also the implementation's algorithm?
 
