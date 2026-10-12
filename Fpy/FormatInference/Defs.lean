@@ -10,7 +10,8 @@ of each context, condition refinement) are an `Analysis`. `Analysis.Sound`
 states the obligations under which the rules are sound (Theorem 4.1,
 `Fpy/FormatInference/Sound.lean`).
 
-Two rules differ from the draft, which is unsound there (see `ROADMAP.md`):
+Two rules differ from the draft, which is unsound there (see
+`docs/agents/FPY_PLAN.md`):
 
 * rounding under an unknown context `?` gives `⊤`, not the exact bound;
 * an abstract value can be a known context `⟨C⟩`, and `with e in s` analyzes

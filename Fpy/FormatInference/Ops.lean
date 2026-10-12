@@ -11,7 +11,8 @@ obligations `Analysis.Sound.arith` and `Analysis.Sound.exact`.
 On finite sets each operator acts element-wise. On abstract formats the rows
 are Table 1's, with the specials each operator can produce added: the draft's
 formats have none, but `logb 0 = −∞` and every format contains `0` (see
-`ROADMAP.md`). A set meeting an abstract format is first replaced by `⌈S⌉`.
+`docs/agents/FPY_PLAN.md`). A set meeting an abstract format is first replaced
+by `⌈S⌉`.
 -/
 
 namespace Fpy

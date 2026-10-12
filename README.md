@@ -11,6 +11,10 @@ appendix, and extends it with special values: a format also states which of
 `±Inf` and NaN it contains, and rounding is total over reals, infinities and
 NaN, with overflow sent to a format-chosen value.
 
+A second library, `Fpy`, built on `Mpfx`, mechanizes the FPy compiler paper
+(draft): the language's semantics, format inference, and the compiler's
+rewrites ([FPy](#fpy)).
+
 ## Theorems
 
 Each entry gives the paper result, the Lean name (relative to `namespace
@@ -151,6 +155,78 @@ operation produces (`special_mem_opMul_iff`, `special_mem_opAdd_iff`,
 | `-A ⊆ A` | `Format.neg_subset` (into `opNeg A`; `= A` for negation-closed specials, `opNeg_of_negClosed`) | `Format.neg_subset_finite` |
 | `\|A\| ⊆ A` | `Format.abs_subset` (into `opAbs A`) | `Format.abs_subset_finite` |
 
+## FPy
+
+The FPy compiler paper (PLDI draft) compiles hardware specifications with
+explicit rounding into fast software models. `Fpy` mechanizes its semantics
+(§3), format inference with Theorem 4.1 (§4.2), and each rewrite of §5. Names
+are relative to `namespace Fpy`, e.g. `#check @Fpy.run_iff_of_rw`. Section,
+figure and table numbers follow the draft.
+
+The operators are abstract (a `Signature`) through the semantics, format
+inference and the rewrite framework; `fpy decode` is FPy's own signature, with
+contexts that round through `Mpfx.rnd` and any record layout `decode`.
+
+### §3 — Syntax and semantics (Fig. 2, 3, 10)
+
+| Paper | Lean | File |
+| --- | --- | --- |
+| Values, numbers `ℝ ∪ {±∞, NaN}` | `Val`, `Num` | `Fpy/Value.lean` |
+| Syntax (Fig. 2) | `Expr`, `Stmt`, `Program` | `Fpy/Syntax.lean` |
+| Big-step semantics (Fig. 3, 10) | `Eval`, `Exec`, `Run` | `Fpy/Semantics.lean` |
+| Determinism (beyond the paper) | `Eval.det`, `Exec.det` | `Fpy/Semantics.lean` |
+| FPy's operators and contexts | `fpy`, `ArithOp`, `ExactOp`, `RoundCtx` | `Fpy/Ops.lean` |
+
+### §4.2 — Format inference (Fig. 4, 5, 11; Table 1)
+
+| Paper | Lean | File |
+| --- | --- | --- |
+| Inference rules (Fig. 5, 11) | `AEval`, `AExec` | `Fpy/FormatInference/Defs.lean` |
+| Soundness side conditions | `Analysis.Sound` | `Fpy/FormatInference/Defs.lean` |
+| Theorem 4.1, any format domain | `eval_sound`, `exec_sound`, `run_sound` | `Fpy/FormatInference/Sound.lean` |
+| Format domain (Fig. 4) | `Fmt`, `Fmt.domain` | `Fpy/FormatInference/Domain.lean` |
+| Table 1 | `ArithOp.fmt`, `ArithOp.fmt_sound`, `ExactOp.aval_sound` | `Fpy/FormatInference/Ops.lean` |
+| Condition refinement | `refine`, `refine_sound` | `Fpy/FormatInference/Refine.lean` |
+| Theorem 4.1 for FPy | `fpy_run_sound` | `Fpy/FormatInference/Analysis.lean` |
+
+### §5 — Rewrites
+
+A rewrite `[C] s ⇝ s' if φ` is correct (`Equiv`) when, from every store format
+inference allows and under every context it allows, `s` and `s'` reach the same
+outcomes up to fresh variables. Each rewrite below is such an `Equiv`, and its
+output is well formed (`wf_*`). `Rw` places correct rewrites in a program at the
+`Γ` and context format inference assigns each site; `Rw.sim` is the congruence
+theorem and `run_iff_of_rw` the whole-program one.
+
+| Paper | Lean | File |
+| --- | --- | --- |
+| Rewrite correctness | `Equiv` | `Fpy/Rewrite.lean` |
+| Rewriting preserves `Run` | `Rw.sim`, `run_iff_of_rw` | `Fpy/Rewrite.lean` |
+| Elim | `equiv_elim` | `Fpy/Rewrite/Separate.lean` |
+| Insert | `equiv_insert` | `Fpy/Rewrite/Separate.lean` |
+| Split | `equiv_split`; condition from any total Mpfx rule via `RoundCtx.round_round` | `Fpy/Rewrite/Separate.lean` |
+| SplitOp | `equiv_splitOp`; conditions from Roux via `splitOp_add`, `splitOp_mul`, `splitOp_div`, `splitOp_sqrt` | `Fpy/Rewrite/Separate.lean` |
+| Special | `equiv_special` | `Fpy/Rewrite/Lower.lean` |
+| Overflow | `equiv_overflow`; threshold form `equiv_overflow_threshold`, with `overflows_iff_of_threshold` | `Fpy/Rewrite/Lower.lean` |
+| Overflow threshold for MX E4M3 (`464`) | `FpyTest.e4m3_overflows_iff` | `FpyTest/Rewrite/Lower.lean` |
+| FloatToFixed | `equiv_floatToFixed`, from `rndUnbounded_eq_fixed` | `Fpy/Rewrite/Lower.lean` |
+| Rescale | `equiv_rescale`, from `rndUnbounded_scale` | `Fpy/Rewrite/Lower.lean` |
+
+### Differences from the draft
+
+Where a rule of the draft is unsound or underspecified, the Lean states a fixed
+rule; the list is in [`docs/agents/FPY_PLAN.md`](docs/agents/FPY_PLAN.md). In
+brief: rounding under an unknown context is bounded by `R*`; abstract values
+carry known contexts;
+Table 1 states the special values each operator produces; Overflow compares
+exactly and needs a finite input; FloatToFixed needs `p ≠ 1`; Rescale's
+context scales `C`'s special and overflow values. The SplitOp instances need an
+unbounded intermediate format.
+
+Not mechanized: the digit-bound analysis and Theorem 4.2 (§4.3), the
+composition of rewrites (e.g. Fig. 9), and the implementation's fixpoint
+algorithm, which only constructs derivations of the rules.
+
 ## Verifying
 
 Requires the toolchain pinned in `lean-toolchain`.
@@ -159,6 +235,7 @@ Requires the toolchain pinned in `lean-toolchain`.
 lake exe cache get   # prebuilt Mathlib oleans
 lake build           # checks the whole development; exit 0 = all proofs check
 lake test            # the examples in MpfxTest/
+lake build FpyTest   # the examples in FpyTest/
 ```
 
 `lake build` compiles every file (including the `rnd` function layer).
@@ -170,7 +247,8 @@ import Mpfx
 -- 'Mpfx.rndRTO_RN' depends on axioms: [propext, Classical.choice, Quot.sound]
 ```
 
-Every theorem listed above depends on exactly these three standard axioms.
+Every theorem listed above, in `Mpfx` and `Fpy`, depends on exactly these three
+standard axioms.
 
 ## Layout
 
@@ -201,6 +279,15 @@ Every theorem listed above depends on exactly these three standard axioms.
 | `Mpfx/DoubleRounding/NearestMidpoint.lean` | Nearest double rounding below the midpoint (Roux Lemma 16). |
 | `Mpfx/DoubleRounding/{Mul,Add,Sqrt,Div}.lean` | Roux: `×`, `+`/`−`, `√`, `/`. |
 | `MpfxTest/` | `lake test` examples: the maps against IEEE 754 §7.4, IEEE double rounding. |
+| `Fpy/Value.lean`, `Syntax.lean`, `Semantics.lean` | FPy values, syntax, semantics, determinism. |
+| `Fpy/Ops.lean` | FPy's operators on `Num`, `RoundCtx`, the signature `fpy`. |
+| `Fpy/FormatInference/Defs.lean`, `Sound.lean` | Format inference over any domain; Theorem 4.1. |
+| `Fpy/FormatInference/Domain.lean`, `Ops.lean`, `Refine.lean`, `Analysis.lean` | The Fig. 4 domain, Table 1, condition refinement; Theorem 4.1 for FPy. |
+| `Fpy/Rewrite.lean` | `Equiv`, `Rw`, congruence, the whole-program theorem. |
+| `Fpy/Rewrite/Separate.lean` | §5.1 rewrites and their FPy instances. |
+| `Fpy/Rewrite/Lower.lean` | §5.2 rewrites and their rounding identities. |
+| `FpyTest/` | `lake build FpyTest` examples: a toy signature, Table 1 checks, Split/SplitOp instances, the E4M3 threshold. |
 
 Formalization design notes are in [`docs/DESIGN.md`](docs/DESIGN.md); status and
-remaining work in [`docs/agents/TODO.md`](docs/agents/TODO.md).
+remaining work in [`docs/agents/TODO.md`](docs/agents/TODO.md) (Mpfx) and
+[`docs/agents/FPY_PLAN.md`](docs/agents/FPY_PLAN.md) (FPy).
