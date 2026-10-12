@@ -16,15 +16,11 @@ open Fpy
 theorem equiv_name {L : Signature} {D : FormatDomain} {Φ : Program L} {Γ : AEnv D}
     {κ : Option Val} {x t : Var} {e : Expr L} :
     Equiv Φ {t} Γ κ (.assign x e) (.seq (.assign t e) (.assign x (.var t))) := by
-  have hag : ∀ (σ : Store) (v : Val), (σ.update x v).Agree {t} ((σ.update t v).update x v) := by
-    intro σ v z hz
-    simp only [Set.mem_singleton_iff] at hz
-    simp [Store.update, Function.update_apply, hz]
   intro σ C _ _
   refine ⟨fun o h => ?_, fun o' h => ?_⟩
   · cases h with
     | assign he => exact ⟨_, .seqNormal (.assign he) (.assign (.var (by simp [Store.update]))),
-        hag σ _⟩
+        Store.Agree.update_fresh σ _ _⟩
   · cases h with
     | seqNormal h₁ h₂ =>
       cases h₁ with
@@ -34,7 +30,7 @@ theorem equiv_name {L : Signature} {D : FormatDomain} {Φ : Program L} {Γ : AEn
           cases hv with
           | var hx =>
             simp only [Store.update, Function.update_self, Option.some.injEq] at hx
-            exact ⟨_, .assign he, hx ▸ hag σ _⟩
+            exact ⟨_, .assign he, hx ▸ Store.Agree.update_fresh σ _ _⟩
     | seqRet h₁ => cases h₁
 
 /-- `r = c; ret r`. -/

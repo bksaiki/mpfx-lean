@@ -414,6 +414,49 @@ Test: `~/.elan/bin/lake build Fpy.Rewrite FpyTest`.
   - `SplitOp`, with instances from Roux (`rndAdd`, `rndMul_*`, `rndDiv_*`,
     `rndSqrt_*`).
 
+**Done.** As built:
+
+- `Fpy/Rewrite/Separate.lean`:
+  - two cores with semantic conditions on the values `Γ` allows for `y⃗`:
+    `equiv_reround`, which rounds under `C'` instead of `C`, and
+    `equiv_split_of`, which rounds under `C'` into a fresh `t` and then
+    applies `round(t)`;
+  - the draft's four rewrites as corollaries: `equiv_elim`, `equiv_insert`,
+    `equiv_split` and `equiv_splitOp`;
+  - `wf_reround` and `wf_split`;
+  - for FPy:
+    - `fpy_rnd_ctx` and `fpy_round`;
+    - `RoundCtx.round_round`, which turns any total rule (`rndRTO_RN`,
+      `rndRTZ_RTZ`, …) into Split's condition;
+    - `RoundCtx.round_round_of`, the same at one input;
+    - `splitOp_add`, `splitOp_mul`, `splitOp_div` and `splitOp_sqrt`, which
+      take Roux's finite rule as a hypothesis.
+- `Fpy/Rewrite.lean` gains `Store.Agree.update_fresh`.
+- `FpyTest/Rewrite/Separate.lean` checks two instances:
+  - Split through round-to-odd (`rndRTO_RN`);
+  - SplitOp for `+` (`rndAdd`).
+
+It diverged from the plan in these places:
+
+- The rewrites act on `x = op(y⃗)` over variables, as the draft writes them.
+  Arguments that are expressions would be evaluated under the new context.
+- `C'` is written by any expression that denotes it (`Denotes`), and
+  `round` is any operator computing the identity.
+- Both contexts must have rounding functions (`C.rnd L = some r`). `with e in s`
+  does not check that `e` gives a context, so the current context may have
+  none.
+- SplitOp takes any set `S` containing each `fmt(yᵢ)`. The draft's `S = F_C`
+  is one instance.
+- The SplitOp instances need:
+  - an unbounded intermediate format (`F₂.b = ⊤`), since Roux's rules ignore
+    bounds;
+  - `F₂`'s special map to compose with `F₁`'s (`SpecialMap.Composes`).
+
+  A bounded intermediate would need `OverflowAgrees` at one input, which
+  Mpfx states only for all inputs.
+- The source `x = op(y⃗)` is always well formed, so preserving `Program.WF`
+  means the target is well formed when the context expression is.
+
 Test: `~/.elan/bin/lake build Fpy.Rewrite.Separate FpyTest`.
 
 ### Phase 7 - Rewrites of §5.2

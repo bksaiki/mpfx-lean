@@ -64,6 +64,13 @@ theorem Store.Agree.update {σ σ' : Store} (h : σ.Agree X σ') (x : Var) (v : 
   · rfl
   · exact h z hz
 
+/-- Writing a fresh `t` before `x` changes nothing outside `t`. -/
+theorem Store.Agree.update_fresh (σ : Store) {x t : Var} (v w : Val) :
+    (σ.update x v).Agree {t} ((σ.update t w).update x v) := by
+  intro z hz
+  simp only [Set.mem_singleton_iff] at hz
+  simp [Store.update, Function.update_apply, hz]
+
 theorem Outcome.Agree.trans {o₁ o₂ o₃ : Outcome} (h₁ : o₁.Agree X o₂) (h₂ : o₂.Agree X o₃) :
     o₁.Agree X o₃ := by
   cases o₁ <;> cases o₂ <;> cases o₃ <;> simp only [Outcome.Agree] at *
