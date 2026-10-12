@@ -19,6 +19,7 @@ import Mpfx.Format.Next
 import Mpfx.Format.Parity
 import Mpfx.Rounding.Basic
 import Mpfx.Rounding.Defs
+import Mpfx.Rounding.Monotone
 import Mpfx.Rounding.Op
 import Mpfx.Rounding.Op.Defs
 import Mpfx.Rounding.Op.Directed

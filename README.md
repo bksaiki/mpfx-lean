@@ -188,7 +188,8 @@ Every theorem listed above depends on exactly these three standard axioms.
 | `Mpfx/Rounding/Defs.lean` | Rounding modes, `SpecialMap`/`OverflowMap`, the `Rounds`/`RoundsFinite` spec, `Overflows`, `IsFaithfulRound`. |
 | `Mpfx/Rounding/Basic.lean` | Consequences of the spec: sign symmetry, uniqueness, faithfulness. |
 | `Mpfx/Rounding/Restrict.lean` | Restrict/lift between bounded and unbounded rounding. |
-| `Mpfx/Rounding/Parity.lean` | Adjacent values alternate in parity. |
+| `Mpfx/Rounding/Parity.lean` | Adjacent values alternate in parity; for `p ≠ 1`, a neighbour's parity is its significand's. |
+| `Mpfx/Rounding/Monotone.lean` | Rounding is monotone in every mode (`RoundsFinite.mono`). |
 | `Mpfx/Rounding/Op.lean`, `Op/` | The rounding function `rnd` and the bridge `rnd_iff_rounds`. |
 | `Mpfx/Rounding/Special.lean` | `maxFinite` and the standard maps: `SpecialMap.exact`/`saturate`/`toNaN`, `OverflowMap.ieee`/`saturate`/`toNaN`. |
 | `Mpfx/Rounding/Ulp.lean` | `ulp`, `rndDown`/`rndUp`/`midp`, nearest rounding around the midpoint. |

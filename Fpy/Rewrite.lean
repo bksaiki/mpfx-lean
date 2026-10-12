@@ -71,6 +71,11 @@ theorem Store.Agree.update_fresh (σ : Store) {x t : Var} (v w : Val) :
   simp only [Set.mem_singleton_iff] at hz
   simp [Store.update, Function.update_apply, hz]
 
+/-- Writing a variable of `X` changes nothing outside `X`. -/
+theorem Store.agree_update_of_mem (σ : Store) {u : Var} (hu : u ∈ X) (w : Val) :
+    σ.Agree X (σ.update u w) := fun z hz => by
+  simp [Store.update, show z ≠ u from fun h => hz (h ▸ hu)]
+
 theorem Outcome.Agree.trans {o₁ o₂ o₃ : Outcome} (h₁ : o₁.Agree X o₂) (h₂ : o₂.Agree X o₃) :
     o₁.Agree X o₃ := by
   cases o₁ <;> cases o₂ <;> cases o₃ <;> simp only [Outcome.Agree] at *
@@ -109,6 +114,19 @@ theorem AEnv.Holds.agree {Γ : AEnv D} {σ σ' : Store} (hΓ : Γ.Holds σ) (hσ
   exact hΓ x a hx
 
 end Agree
+
+/-- An `Equiv` from one direction: by determinism, it suffices that `s'` runs
+only where `s` does. -/
+theorem Equiv.of_fwd {Φ : Program L} {X : Set Var} {Γ : AEnv D} {κ : Option Val}
+    {s s' : Stmt L}
+    (hfwd : ∀ σ C o, Γ.Holds σ → Admits κ C → Exec Φ σ C s o →
+      ∃ o', Exec Φ σ C s' o' ∧ o.Agree X o')
+    (hrun : ∀ σ C o', Γ.Holds σ → Admits κ C → Exec Φ σ C s' o' → ∃ o, Exec Φ σ C s o) :
+    Equiv Φ X Γ κ s s' := fun σ C hΓ hκ =>
+  ⟨fun o hs => hfwd σ C o hΓ hκ hs, fun o' hs' => by
+    obtain ⟨o, hs⟩ := hrun σ C o' hΓ hκ hs'
+    obtain ⟨o₂, hs₂, hag⟩ := hfwd σ C o hΓ hκ hs
+    exact ⟨o, hs, Exec.det _ hs₂ hs' ▸ hag⟩⟩
 
 /-! ## Rewriting a program -/
 

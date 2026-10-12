@@ -84,6 +84,74 @@ inductive Exec : Store → Val → Stmt L → Outcome → Prop
 
 end
 
+/-! ## Determinism -/
+
+mutual
+
+theorem Eval.det {σ : Store} {C : Val} {e : Expr L} {v v' : Val} :
+    Eval Φ σ C e v → Eval Φ σ C e v' → v = v'
+  | .bool, .bool | .num, .num | .real, .real => rfl
+  | .var h, .var h' => Option.some.inj (h.symm.trans h')
+  | .list h, .list h' => by rw [EvalList.det h h']
+  | .index h₁ h₂ hk, .index h₁' h₂' hk' => by
+      obtain rfl := Val.list.inj (Eval.det h₁ h₁')
+      have hk₀ := Eval.det h₂ h₂'
+      simp only [Val.num.injEq, Mpfx.WithSpecial.finite.injEq, Nat.cast_inj] at hk₀
+      subst hk₀
+      exact Option.some.inj (hk.symm.trans hk')
+  | .record h, .record h' => by rw [EvalFields.det h h']
+  | .proj h hl, .proj h' hl' => by
+      obtain rfl := Val.record.inj (Eval.det h h')
+      exact Option.some.inj (hl.symm.trans hl')
+  | .ctx h _, .ctx h' _ => by rw [Val.record.inj (Eval.det h h')]
+  | .arith hl hop hr, .arith hl' hop' hr' => by
+      obtain rfl := List.map_injective_iff.mpr (fun _ _ h => Val.num.inj h) (EvalList.det hl hl')
+      obtain rfl := Option.some.inj (hop.symm.trans hop')
+      obtain rfl := Option.some.inj (hr.symm.trans hr')
+      rfl
+  | .exact hl hop, .exact hl' hop' => by
+      obtain rfl := EvalList.det hl hl'
+      exact Option.some.inj (hop.symm.trans hop')
+  | .call hΦ he hs, .call hΦ' he' hs' => by
+      rw [hΦ] at hΦ'
+      obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hΦ')
+      obtain rfl := Eval.det he he'
+      exact Outcome.ret.inj (Exec.det hs hs')
+termination_by structural h _ => h
+
+theorem EvalList.det {σ : Store} {C : Val} {es : List (Expr L)} {vs vs' : List Val} :
+    EvalList Φ σ C es vs → EvalList Φ σ C es vs' → vs = vs'
+  | .nil, .nil => rfl
+  | .cons h hs, .cons h' hs' => by rw [Eval.det h h', EvalList.det hs hs']
+termination_by structural h _ => h
+
+theorem EvalFields.det {σ : Store} {C : Val} {fs : List (Label × Expr L)}
+    {vs vs' : List (Label × Val)} : EvalFields Φ σ C fs vs → EvalFields Φ σ C fs vs' → vs = vs'
+  | .nil, .nil => rfl
+  | .cons h hs, .cons h' hs' => by rw [Eval.det h h', EvalFields.det hs hs']
+termination_by structural h _ => h
+
+theorem Exec.det {σ : Store} {C : Val} {s : Stmt L} {o o' : Outcome} :
+    Exec Φ σ C s o → Exec Φ σ C s o' → o = o'
+  | .assign he, .assign he' | .ret he, .ret he' => by rw [Eval.det he he']
+  | .skip, .skip | .assert _, .assert _ | .whileFalse _, .whileFalse _ => rfl
+  | .seqNormal h₁ h₂, .seqNormal h₁' h₂' => by
+      obtain rfl := Outcome.normal.inj (Exec.det h₁ h₁')
+      exact Exec.det h₂ h₂'
+  | .seqNormal h₁ _, .seqRet h₁' | .seqRet h₁, .seqNormal h₁' _ => by cases Exec.det h₁ h₁'
+  | .seqRet h₁, .seqRet h₁' => Exec.det h₁ h₁'
+  | .iteTrue _ h, .iteTrue _ h' | .iteFalse _ h, .iteFalse _ h' => Exec.det h h'
+  | .iteTrue he _, .iteFalse he' _ | .iteFalse he _, .iteTrue he' _
+  | .whileFalse he, .whileTrue he' _ | .whileTrue he _, .whileFalse he' => by
+      cases Eval.det he he'
+  | .whileTrue _ h, .whileTrue _ h' => Exec.det h h'
+  | .withCtx he hs, .withCtx he' hs' => by
+      obtain rfl := Eval.det he he'
+      exact Exec.det hs hs'
+termination_by structural h _ => h
+
+end
+
 /-- `(Φ, f)(v) ⇓ v'`: the entry function `f`, called on `v` under `R`, returns `v'`. -/
 def Run (f : Fn) (v v' : Val) : Prop :=
   ∃ y s, Φ f = some (y, s) ∧ Exec Φ (.single y v) .real s (.ret v')

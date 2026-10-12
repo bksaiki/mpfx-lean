@@ -6,6 +6,7 @@ import Fpy.FormatInference.Refine
 import Fpy.FormatInference.Sound
 import Fpy.Ops
 import Fpy.Rewrite
+import Fpy.Rewrite.Lower
 import Fpy.Rewrite.Separate
 import Fpy.Semantics
 import Fpy.Syntax

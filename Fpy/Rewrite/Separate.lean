@@ -30,8 +30,12 @@ open Mpfx
 
 variable {L : Signature} {D : FormatDomain} {Φ : Program L} {X : Set Var}
 
+/-- `c` evaluates under `R` in `σ` to `C` and nothing else. -/
+def DenotesAt (Φ : Program L) (σ : Store) (c : Expr L) (C : Val) : Prop :=
+  ∀ v, Eval Φ σ .real c v ↔ v = C
+
 /-- `c` evaluates under `R`, in every store, to `C` and nothing else. -/
-def Denotes (Φ : Program L) (c : Expr L) (C : Val) : Prop := ∀ σ v, Eval Φ σ .real c v ↔ v = C
+def Denotes (Φ : Program L) (c : Expr L) (C : Val) : Prop := ∀ σ, DenotesAt Φ σ c C
 
 theorem denotes_real : Denotes Φ .real .real :=
   fun _ _ => ⟨fun h => by cases h; rfl, fun h => by subst h; exact .real⟩

@@ -66,6 +66,11 @@ fix is a change to the paper; the first four are todos in `ROADMAP.md`.
 | Table 2, `IEEE754(e, n, RTZ)` and "all others" | `[max(l, μ − p + 1), μ]` (fixed) and `[l, μ]` | Both assume rounding never lowers the least significant digit, which fails when a context overflows, or sends a special, to a finite value. IEEE 754 RTZ overflows to the largest finite value: `v = 2^(emax+1)` has interval `[emax+1, emax+1]` but rounds to a value with digit `emax − p + 1`. `Int(n, rm)` with saturation, and any `OverflowMap` or `SpecialMap` with a finite nonzero image, fail the same way. | Join each row with the digits of the context's overflow and special values, or require those to be non-finite (the digit-bound analogue of the §4.2 hypothesis). |
 | §4.3, Fig. 6 loop bound | "an accumulating loop that runs `L` times" adds at most `⌈log₂ L⌉` positions | No rule gives this. D-While's `Δ_I = Δ ⊔ Δ′`, with upper endpoints bounded only from above, yields `msb_I ≤ max(msb₀, msb_I + 1)`, which every large `msb_I` satisfies. D-Sum has the bound, but `sum` and `for` are not core FPy, so Fig. 6's bound on `fused_sum` follows from no rule. | A counted-loop rule, or `sum` as an operator with D-Sum. |
 | Fig. 12 `D-Logb` | `val(logb x) = msb(x)` | Sound only if the assignment can make `msb(x)` exact, which fails once a constraint bounds `msb(x)` from below. `logb 0 = −∞` gives a non-finite integer term (`e − k` in `fused_sum`), which Theorem 4.2, stated for finite values, does not cover. | Open; settled with the open item on assignments. |
+| §5.2 Overflow, the test | `if \|r\| > b` under `C` | `\|·\|` is a rounded operator, so the test sees `C(\|r\|)`. When `C` overflows to NaN (MX E4M3, the running example) or saturates to `b`, an `r` beyond `b` fails the test and `x = r` leaves `F`. | Compare exactly: `r < −b`, `b < r` (unrounded `<`), or under `R`. |
+| §5.2 Overflow, the input | no condition on `t` | For `t = ±∞` the rewrite returns `ovf_C`, but `C(±∞)` is the special map's value, which differs when overflow saturates and infinities are kept. | Require `t` finite. The draft applies Overflow after Special, but the rule should say so. |
+| §5.2 Special and Overflow | `copysign(C(∞), t)`, `copysign(ovf_C, r)` | Assumes `C(−∞) = −C(∞)` and symmetric overflow; a context's maps need not be symmetric. | Branch on the sign, with one constant per sign. |
+| §5.2 FloatToFixed | any `𝒜(p, exp, ∞)` | At `p = 1`, RTO and RNE read parity off the exponent in `𝒜(1, exp)` but off the significand in `𝒜(∞, n)`, so the two can pick different neighbours. This is argued by hand, not proved. | Require `p ≠ 1`, or a mode without parity. |
+| §5.2 Rescale | `C_{𝒜(∞,0,2⁻ⁿb)}` "behaves like `C`" | `2ⁿ × C₀(2⁻ⁿt) = C(t)` needs `C₀`'s special and overflow values to be `C`'s scaled by `2⁻ⁿ`; saturation to `b` must become saturation to `2⁻ⁿb`. | State the scaling (`RoundCtx.Scaled`). |
 
 Two more points are not wrong but are unspecified. Theorem 4.2's
 per-value assignments, and its statement for statements and loops, are open
@@ -469,8 +474,65 @@ Test: `~/.elan/bin/lake build Fpy.Rewrite.Separate FpyTest`.
   - `Special`.
 - `Fpy/Rewrite/Lower.lean`: each identity as a rewrite through Phase 5.
 
-Test: `~/.elan/bin/lake build Fpy.Rewrite.Lower FpyTest` (plus the Mpfx file
-holding the identities, per the open item).
+**Done.** As built:
+
+- `Fpy/Rewrite/Lower.lean`:
+  - the identities:
+    - `rndInt_congr`: the integer step depends on the format only through the
+      parity of the floor point;
+    - `rndUnbounded_eq_fixed` (FloatToFixed, `p ≠ 1`);
+    - `rndUnbounded_scale` (Rescale);
+  - `overflows_iff_of_threshold`: Overflow's threshold condition from
+    monotonicity;
+  - on contexts:
+    - `RoundCtx.round_finite`, `round_special`, `round_zero` and
+      `round_of_overflows`;
+    - `round_unbounded`, `round_fixed` and `round_scale`;
+    - `RoundCtx.Scaled`;
+  - the rewrites: `equiv_special`, `equiv_overflow`,
+    `equiv_overflow_threshold`, `equiv_floatToFixed` and `equiv_rescale`.
+- `Fpy/Semantics.lean` gains determinism: `Eval.det`, `EvalList.det`,
+  `EvalFields.det` and `Exec.det`.
+- `Fpy/Rewrite.lean` gains:
+  - `Equiv.of_fwd`: by determinism, one direction plus "the target runs only
+    where the source does";
+  - `Store.agree_update_of_mem`.
+- `Fpy/Rewrite/Separate.lean`: `Denotes` is `DenotesAt` at every store.
+- Mpfx:
+  - `Mpfx/Rounding/Parity.lean` exposes `neighbor_abs_le`,
+    `isOdd_neighbor_iff` and `isEven_neighbor_iff`, factored out of
+    `neighbors_alternate`;
+  - `Mpfx/Rounding/Monotone.lean`: `RoundsFinite.mono` in every mode.
+- `FpyTest/Rewrite/Lower.lean`: MX E4M3 under RNE overflows exactly beyond
+  `±464` (`e4m3_overflows_iff`), and the threshold rewrite for an E4M3 context.
+
+It diverged from the plan in these places:
+
+- The identities live in FPy, not Mpfx: Mpfx keeps formats and rounding, and
+  lowering is FPy's. Monotonicity is a rounding fact, so it is in Mpfx.
+- The draft's rules are fixed as in the problem table:
+  - Overflow compares exactly and needs finite `t`;
+  - `copysign` becomes a sign branch;
+  - FloatToFixed needs `p ≠ 1`;
+  - Rescale states the scaling of the maps.
+- Contexts built at run time are expressions with a store-dependent
+  denotation. FloatToFixed takes `cf` with `DenotesAt` at every store where
+  `n` holds an integer `k`, giving a context into `𝒜(∞, k, ∞)` with `C`'s mode.
+- Rescale takes a constant `k`. Chaining it after FloatToFixed puts its site
+  under a context known only at run time, which `Rw`'s static `κ` cannot
+  express. Fig. 9c's combined form would need a rewrite of its own, or `Equiv`
+  with a precondition relating store and context.
+- Finiteness conditions are semantic, over the stores of `Γ`. The draft
+  derives them from Special's branches, but `refine` does not narrow on
+  `isnan`/`isinf` (Phase 3c), so a chain Special → Overflow cannot yet
+  establish them from format inference.
+- "Branches that format inference shows `t` cannot reach are omitted" is not
+  mechanized.
+- Determinism, an open item, is proved here because it halves each rewrite's
+  proof.
+
+Test: `~/.elan/bin/lake build Fpy.Rewrite.Lower FpyTest`, and `lake test` for
+the Mpfx changes.
 
 ### Phase 8 - Docs
 
@@ -577,6 +639,9 @@ scoped to the double-rounding paper.
 
 Provisional: `Mpfx/Rounding/Lower.lean`, cited from `Fpy/Rewrite/Lower.lean`.
 
+Settled in Phase 7: in `Fpy/Rewrite/Lower.lean`. Mpfx provides formats and
+rounding; lowering is FPy's.
+
 ### `FpyTest` as its own library, or inside `MpfxTest`?
 
 Lake has one `testDriver`, so a separate `FpyTest` needs its own CI step.
@@ -595,6 +660,9 @@ and it is cheap, since every rule is syntax-directed except `iteTrue` and
 
 Provisional: no. Add it to Phase 5 if the paper's prose wants
 "computes the same value".
+
+Settled in Phase 7: proved (`Exec.det`, …), because `Equiv.of_fwd` uses it to
+derive each rewrite's reverse direction.
 
 ### Should `min`/`max` propagate NaN, or return the other operand?
 

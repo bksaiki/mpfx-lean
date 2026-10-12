@@ -50,6 +50,56 @@ private theorem two_zpow_log_le_neighbor {F : FiniteFormat} {x : ℝ} (hx : x �
   calc (2 : ℝ) ^ L = (N : ℝ) * 2 ^ e := hN.symm
     _ ≤ |(m : ℝ)| * 2 ^ e := mul_le_mul_of_nonneg_right (by exact_mod_cast hNm) h2e.le
 
+/-- A neighbour of `x` at the canonical step has significand at most `2^p`. -/
+theorem neighbor_abs_le {F : FiniteFormat} (x : ℝ) {m : ℤ}
+    (hm : m = ⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ ∨
+      m = ⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ + 1) {p : ℕ} (hp : F.p = p) :
+    |m| ≤ 2 ^ p := by
+  have hs := floor_mantissa_lt (F := F) (x := x) hp
+  rcases hm with rfl | rfl
+  · exact abs_floor_le_of_abs_lt (N := 2 ^ p) (by push_cast; exact hs)
+  · exact abs_floor_add_one_le_of_abs_lt hs
+
+/-- For `p ≠ 1` and `x` off the canonical grid, a neighbour of `x` is odd
+exactly when its significand is: it lies in the shrink exactly when its
+significand is even. -/
+theorem isOdd_neighbor_iff {F : FiniteFormat} (hp1 : F.p ≠ ((1 : ℕ) : Prec)) {x : ℝ}
+    (h_lo_ne_s :
+      (⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ : ℝ) ≠ x * (2 : ℝ) ^ (-F.canonicalExp x))
+    {m : ℤ} (hm : m = ⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ ∨
+      m = ⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ + 1) :
+    F.IsOdd (Dyadic.ofIntZpow m (F.canonicalExp x)) ↔ ¬ Even m := by
+  have hx_ne : x ≠ 0 := fun hx0 => h_lo_ne_s (by simp [hx0])
+  set e := F.canonicalExp x
+  have hC := FiniteFormat.ofIntZpow_mem_shrink_iff F hp1 (exp_le_canonicalExp_coe F x)
+    (fun _ hp => neighbor_abs_le x hm hp) fun hm0 => by
+      have hlog := two_zpow_log_le_neighbor hx_ne h_lo_ne_s hm hm0
+      rw [← Dyadic.coe_ofIntZpow] at hlog
+      have h2L' : (0 : ℝ) < 2 ^ Int.log 2 |x| := zpow_pos two_pos _
+      have h2L : (2 : ℝ) ^ Int.log 2 |x| ≠ 0 := h2L'.ne'
+      calc e = F.canonicalExp ((2 : ℝ) ^ Int.log 2 |x|) := canonicalExp_eq_of_log_eq F hx_ne
+            h2L (by rw [abs_of_pos h2L', log_eq_of_zpow_bounds h2L' le_rfl
+              (zpow_lt_zpow_right₀ one_lt_two (lt_add_one _))])
+        _ ≤ _ := F.canonicalExp_mono h2L (by rwa [abs_of_pos h2L'])
+  have hmem : Dyadic.ofIntZpow m e ∈ F.unbounded :=
+    ofIntZpow_mem_unbounded F (fun {e'} he' => F.exp_le_canonicalExp x he')
+      (fun {_} hp => neighbor_abs_le x hm hp)
+  exact (FiniteFormat.isOdd_iff_mem_shrink F hp1 _).trans
+    ⟨fun h' => (not_congr hC).mp h'.2, fun h' => ⟨hmem, (not_congr hC).mpr h'⟩⟩
+
+/-- For `p ≠ 1` and `x` off the canonical grid, a neighbour of `x` is even
+exactly when its significand is. -/
+theorem isEven_neighbor_iff {F : FiniteFormat} (hp1 : F.p ≠ ((1 : ℕ) : Prec)) {x : ℝ}
+    (h_lo_ne_s :
+      (⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ : ℝ) ≠ x * (2 : ℝ) ^ (-F.canonicalExp x))
+    {m : ℤ} (hm : m = ⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ ∨
+      m = ⌊x * (2 : ℝ) ^ (-F.canonicalExp x)⌋ + 1) :
+    F.IsEven (Dyadic.ofIntZpow m (F.canonicalExp x)) ↔ Even m := by
+  have hmem : Dyadic.ofIntZpow m (F.canonicalExp x) ∈ F.unbounded :=
+    ofIntZpow_mem_unbounded F (fun {e'} he' => F.exp_le_canonicalExp x he')
+      (fun {_} hp => neighbor_abs_le x hm hp)
+  rw [FiniteFormat.IsEven, isOdd_neighbor_iff hp1 h_lo_ne_s hm, not_not, and_iff_right hmem]
+
 /-- **Adjacent values alternate in parity.** For `dlo = ⌊s⌋·2^e` and
 `dhi = (⌊s⌋+1)·2^e` at the canonical exponent, `dhi` is odd exactly when `dlo`
 is not. Flocq `DN_UP_parity_generic_pos`. -/
@@ -64,34 +114,10 @@ theorem neighbors_alternate {F : FiniteFormat} (x : ℝ)
   set e := F.canonicalExp x
   set s := x * (2 : ℝ) ^ (-e)
   set k := ⌊s⌋
-  -- Both neighbours have significand at most `2^p`.
-  have hk : ∀ m, (m = k ∨ m = k + 1) → ∀ p : ℕ, F.p = p → |m| ≤ 2 ^ p := by
-    intro m hm p hp
-    have hs := floor_mantissa_lt (F := F) (x := x) hp
-    rcases hm with rfl | rfl
-    · exact abs_floor_le_of_abs_lt (N := 2 ^ p) (by push_cast; exact hs)
-    · exact abs_floor_add_one_le_of_abs_lt hs
   by_cases hp1 : F.p = ((1 : ℕ) : Prec)
   swap
-  · -- `p ≠ 1`: a neighbour is even iff it lies in the shrink iff its significand is.
-    have hpar : ∀ m, (m = k ∨ m = k + 1) → (F.IsOdd (Dyadic.ofIntZpow m e) ↔ ¬ Even m) := by
-      intro m hm
-      have hC := FiniteFormat.ofIntZpow_mem_shrink_iff F hp1 (exp_le_canonicalExp_coe F x)
-        (hk m hm) fun hm0 => by
-          have hlog := two_zpow_log_le_neighbor hx_ne h_lo_ne_s hm hm0
-          rw [← Dyadic.coe_ofIntZpow] at hlog
-          have h2L' : (0 : ℝ) < 2 ^ Int.log 2 |x| := zpow_pos two_pos _
-          have h2L : (2 : ℝ) ^ Int.log 2 |x| ≠ 0 := h2L'.ne'
-          calc e = F.canonicalExp ((2 : ℝ) ^ Int.log 2 |x|) := canonicalExp_eq_of_log_eq F hx_ne
-                h2L (by rw [abs_of_pos h2L', log_eq_of_zpow_bounds h2L' le_rfl
-                  (zpow_lt_zpow_right₀ one_lt_two (lt_add_one _))])
-            _ ≤ _ := F.canonicalExp_mono h2L (by rwa [abs_of_pos h2L'])
-      have hmem : Dyadic.ofIntZpow m e ∈ F.unbounded :=
-        ofIntZpow_mem_unbounded F (fun {e'} he' => F.exp_le_canonicalExp x he')
-          (fun {p} hp => hk m hm p hp)
-      exact (FiniteFormat.isOdd_iff_mem_shrink F hp1 _).trans
-        ⟨fun h' => (not_congr hC).mp h'.2, fun h' => ⟨hmem, (not_congr hC).mpr h'⟩⟩
-    rw [hpar k (Or.inl rfl), hpar (k + 1) (Or.inr rfl), Int.even_add_one, not_not]
+  · rw [isOdd_neighbor_iff hp1 h_lo_ne_s (Or.inl rfl), isOdd_neighbor_iff hp1 h_lo_ne_s
+      (Or.inr rfl), Int.even_add_one, not_not]
   -- `p = 1`: the values are `0` and `±2^j`, and parity counts `j` from `exp`.
   obtain ⟨e₀, he₀⟩ : ∃ e₀ : ℤ, F.exp = (e₀ : QExp) := by
     cases hexp : F.exp using QExp.recBotCoe with
@@ -126,8 +152,8 @@ theorem neighbors_alternate {F : FiniteFormat} (x : ℝ)
     have := canonicalExp_expFinite hp1 he₀ hx_ne
     push_cast at this
     omega
-  have hk_bnd := hk k (Or.inl rfl) 1 hp1
-  have hk1_bnd := hk (k + 1) (Or.inr rfl) 1 hp1
+  have hk_bnd : |k| ≤ 2 ^ 1 := neighbor_abs_le x (Or.inl rfl) hp1
+  have hk1_bnd : |k + 1| ≤ 2 ^ 1 := neighbor_abs_le x (Or.inr rfl) hp1
   rw [abs_le] at hk_bnd hk1_bnd
   have hk_range : k = -2 ∨ k = -1 ∨ k = 0 ∨ k = 1 := by norm_num at hk_bnd hk1_bnd; omega
   rcases hk_range with hk' | hk' | hk' | hk' <;> rw [hk']
