@@ -491,6 +491,11 @@ Test: `~/.elan/bin/lake build Fpy.Rewrite.Separate FpyTest`.
     - `RoundCtx.Scaled`;
   - the rewrites: `equiv_special`, `equiv_overflow`,
     `equiv_overflow_threshold`, `equiv_floatToFixed` and `equiv_rescale`.
+    Special's three branches are optional (`nanBranch`, `infBranch`,
+    `zeroBranch`): a branch computes what `round(t)` would, so the draft's
+    omission of unreachable branches needs no condition;
+  - `wf_special`, `wf_overflow`, `wf_overflow_threshold`, `wf_floatToFixed`
+    and `wf_rescale`.
 - `Fpy/Semantics.lean` gains determinism: `Eval.det`, `EvalList.det`,
   `EvalFields.det` and `Exec.det`.
 - `Fpy/Rewrite.lean` gains:
@@ -518,16 +523,14 @@ It diverged from the plan in these places:
 - Contexts built at run time are expressions with a store-dependent
   denotation. FloatToFixed takes `cf` with `DenotesAt` at every store where
   `n` holds an integer `k`, giving a context into `𝒜(∞, k, ∞)` with `C`'s mode.
-- Rescale takes a constant `k`. Chaining it after FloatToFixed puts its site
-  under a context known only at run time, which `Rw`'s static `κ` cannot
-  express. Fig. 9c's combined form would need a rewrite of its own, or `Equiv`
-  with a precondition relating store and context.
-- Finiteness conditions are semantic, over the stores of `Γ`. The draft
-  derives them from Special's branches, but `refine` does not narrow on
-  `isnan`/`isinf` (Phase 3c), so a chain Special → Overflow cannot yet
-  establish them from format inference.
-- "Branches that format inference shows `t` cannot reach are omitted" is not
-  mechanized.
+- The claim is each rewrite on its own, not their composition. Out of scope:
+  - Fig. 9's derivation;
+  - Rescale after FloatToFixed, whose site has a context known only at run
+    time;
+  - establishing one rewrite's conditions from another's output, e.g. finite
+    `t` after Special, which would need `refine` to narrow on `isnan`/`isinf`.
+- Rescale takes a constant `k`, as `F_C = 𝒜(∞, k, b)` states.
+- Finiteness conditions are semantic, over the stores of `Γ`.
 - Determinism, an open item, is proved here because it halves each rewrite's
   proof.
 
