@@ -25,4 +25,9 @@ inductive Val where
   | real
   | ctx (fs : List (Label × Val))
 
+/-- `R` and `ctx fs` are contexts. -/
+def Val.IsCtx : Val → Prop
+  | .real | .ctx _ => True
+  | _ => False
+
 end Fpy

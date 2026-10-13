@@ -255,14 +255,14 @@ theorem exec_fwd (hA : A.Sound Φ) {σ : Store} {C : Val} {s : Stmt L} {o : Outc
       obtain ⟨_, hs', hag⟩ := exec_fwd hA hs (hA.refine (hle _ hΓ) hκ he) hσ hκ rb
       obtain rfl := hag.ret_left
       exact ⟨_, .whileTrue (eval_fwd hA he (hle _ hΓ) hσ hκ r) (.seqRet hs'), rfl⟩
-  | .withCtx he hs, _, _, _, _, hΓ, hσ, _, .withCtx r ha rb => by
+  | .withCtx he hC hs, _, _, _, _, hΓ, hσ, _, .withCtx r ha rb => by
       cases eval_sound hA he hΓ (admits_some _) ha with
       | known =>
         obtain ⟨o', hs', hag⟩ := exec_fwd hA hs hΓ hσ (admits_some _) rb
-        exact ⟨o', .withCtx (eval_fwd hA he hΓ hσ (admits_some _) r) hs', hag⟩
-  | .withCtx he hs, _, _, _, _, hΓ, hσ, _, .withUnknown r rb => by
+        exact ⟨o', .withCtx (eval_fwd hA he hΓ hσ (admits_some _) r) hC hs', hag⟩
+  | .withCtx he hC hs, _, _, _, _, hΓ, hσ, _, .withUnknown r rb => by
       obtain ⟨o', hs', hag⟩ := exec_fwd hA hs hΓ hσ (admits_none _) rb
-      exact ⟨o', .withCtx (eval_fwd hA he hΓ hσ (admits_some _) r) hs', hag⟩
+      exact ⟨o', .withCtx (eval_fwd hA he hΓ hσ (admits_some _) r) hC hs', hag⟩
 
 end
 
@@ -353,15 +353,15 @@ theorem exec_bwd (hA : A.Sound Φ) {σ' : Store} {C : Val} {s' : Stmt L} {o' : O
       obtain ⟨_, hs₀, hag⟩ := exec_bwd hA hs (hA.refine (hle _ hΓ) hκ he₀) hσ hκ rb
       obtain rfl := hag.ret_right
       exact ⟨_, .whileTrue he₀ (.seqRet hs₀), rfl⟩
-  | .withCtx he hs, _, _, _, _, hΓ, hσ, _, .withCtx r ha rb => by
+  | .withCtx he hC hs, _, _, _, _, hΓ, hσ, _, .withCtx r ha rb => by
       have he₀ := eval_bwd hA he hΓ hσ (admits_some _) r
       cases eval_sound hA he₀ hΓ (admits_some _) ha with
       | known =>
         obtain ⟨o, hs₀, hag⟩ := exec_bwd hA hs hΓ hσ (admits_some _) rb
-        exact ⟨o, .withCtx he₀ hs₀, hag⟩
-  | .withCtx he hs, _, _, _, _, hΓ, hσ, _, .withUnknown r rb => by
+        exact ⟨o, .withCtx he₀ hC hs₀, hag⟩
+  | .withCtx he hC hs, _, _, _, _, hΓ, hσ, _, .withUnknown r rb => by
       obtain ⟨o, hs₀, hag⟩ := exec_bwd hA hs hΓ hσ (admits_none _) rb
-      exact ⟨o, .withCtx (eval_bwd hA he hΓ hσ (admits_some _) r) hs₀, hag⟩
+      exact ⟨o, .withCtx (eval_bwd hA he hΓ hσ (admits_some _) r) hC hs₀, hag⟩
 
 end
 

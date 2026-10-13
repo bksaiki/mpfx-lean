@@ -337,10 +337,10 @@ theorem exec_sound (hA : A.Sound Φ) {σ : Store} {C : Val} {s : Stmt L} {o : Ou
   | .whileTrue he (.seqRet hs), _, _, _, _, hΓ, hκ, .whileDo hle hbody _ => by
       have h := exec_sound hA hs (hA.refine (hle _ hΓ) hκ he) hκ hbody
       exact h
-  | .withCtx he hs, _, _, _, _, hΓ, _, .withCtx ha hs' => by
+  | .withCtx he _ hs, _, _, _, _, hΓ, _, .withCtx ha hs' => by
       cases eval_sound hA he hΓ (admits_some _) ha with
       | known => exact exec_sound hA hs hΓ (admits_some _) hs'
-  | .withCtx _ hs, _, _, _, _, hΓ, _, .withUnknown _ hs' =>
+  | .withCtx _ _ hs, _, _, _, _, hΓ, _, .withUnknown _ hs' =>
       exec_sound hA hs hΓ (admits_none _) hs'
 
 end

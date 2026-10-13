@@ -31,6 +31,9 @@ def Val.rnd (L : Signature) : Val → Option (Num → Num)
   | .ctx fs => L.ρ fs
   | _ => none
 
+theorem Val.isCtx_of_rnd {C : Val} {r : Num → Num} (h : C.rnd L = some r) : C.IsCtx := by
+  cases C <;> trivial
+
 variable (Φ : Program L)
 
 mutual
@@ -80,7 +83,8 @@ inductive Exec : Store → Val → Stmt L → Outcome → Prop
   | whileFalse {σ C e s} : Eval σ C e (.bool false) → Exec σ C (.whileDo e s) (.normal σ)
   | whileTrue {σ C e s o} : Eval σ C e (.bool true) → Exec σ C (.seq s (.whileDo e s)) o →
       Exec σ C (.whileDo e s) o
-  | withCtx {σ C e C' s o} : Eval σ .real e C' → Exec σ C' s o → Exec σ C (.withCtx e s) o
+  | withCtx {σ C e C' s o} : Eval σ .real e C' → C'.IsCtx → Exec σ C' s o →
+      Exec σ C (.withCtx e s) o
 
 end
 
@@ -145,7 +149,7 @@ theorem Exec.det {σ : Store} {C : Val} {s : Stmt L} {o o' : Outcome} :
   | .whileFalse he, .whileTrue he' _ | .whileTrue he _, .whileFalse he' => by
       cases Eval.det he he'
   | .whileTrue _ h, .whileTrue _ h' => Exec.det h h'
-  | .withCtx he hs, .withCtx he' hs' => by
+  | .withCtx he _ hs, .withCtx he' _ hs' => by
       obtain rfl := Eval.det he he'
       exact Exec.det hs hs'
 termination_by structural h _ => h

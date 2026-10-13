@@ -273,7 +273,7 @@ theorem Exec.ite_dec {e : Expr L} {s₁ s₂ : Stmt L} {o : Outcome} {b : Prop} 
 
 theorem Exec.withCtx_assign {e e' : Expr L} {y : Var} {o : Outcome}
     (h : Exec Φ σ C (.withCtx e (.assign y e')) o) : ∃ C' v, Eval Φ σ C' e' v := by
-  cases h with | withCtx _ h => cases h with | assign he => exact ⟨_, _, he⟩
+  cases h with | withCtx _ _ h => cases h with | assign he => exact ⟨_, _, he⟩
 
 end Inversion
 
@@ -443,7 +443,8 @@ theorem equiv_overflow {C C' : Val} {c c' : RoundCtx} {ce : Expr (fpy decode)} {
     set yU := rndUnbounded c.F c.rm y c.defined
     have h₁ : Exec Φ σ C (.withCtx ce (.assign r (.arithOp .round [.var t])))
         (.normal (σ.update r (.num (.finite (yU : ℝ))))) := by
-      have h := Exec.withCtx (C := C) ((hce σ C').mpr rfl) (exec_round (x := r) hC' ht)
+      have h := Exec.withCtx (C := C) ((hce σ C').mpr rfl) (Val.isCtx_of_rnd hC')
+        (exec_round (x := r) hC' ht)
       rwa [RoundCtx.round_unbounded hF hrm] at h
     have hr₁ : (σ.update r (.num (.finite (yU : ℝ)))) r = some (.num (.finite (yU : ℝ))) := by
       simp [Store.update]
@@ -559,8 +560,8 @@ theorem equiv_floatToFixed {C : Val} {c : RoundCtx} {cf : Expr (fpy decode)} {x 
       simp [Store.update, Ne.symm hnt, ht]
     have hp1' : c.F.p ≠ ((1 : ℕ) : Prec) := by
       rw [hp]; exact fun h => hp1 (by exact_mod_cast h)
-    refine ⟨_, .seqNormal (.withCtx .real (.assign hev))
-      (.withCtx ((hden C').mpr rfl) (exec_round hC' ht₁)), ?_⟩
+    refine ⟨_, .seqNormal (.withCtx .real trivial (.assign hev))
+      (.withCtx ((hden C').mpr rfl) (Val.isCtx_of_rnd hC') (exec_round hC' ht₁)), ?_⟩
     rw [RoundCtx.round_fixed hp1' hb hp' hb' hrm' he']
     exact Store.Agree.update_fresh _ _ _
   · obtain rfl := hκ C rfl
@@ -595,8 +596,9 @@ theorem equiv_rescale {C C₀ : Val} {c c₀ : RoundCtx} {ce : Expr (fpy decode)
       rw [RoundCtx.round_scale hsc v]
       exact .assign (.arith (ns := [_, _]) (r := id)
         (.cons .num (.cons (.var (by simp [σ₂, Store.update])) .nil)) rfl rfl)
-    refine ⟨_, .seqNormal (.withCtx .real h₁)
-      (.seqNormal (.withCtx ((hce σ₁ C₀).mpr rfl) h₂) (.withCtx .real h₃)), ?_⟩
+    refine ⟨_, .seqNormal (.withCtx .real trivial h₁)
+      (.seqNormal (.withCtx ((hce σ₁ C₀).mpr rfl) (Val.isCtx_of_rnd hC₀) h₂)
+        (.withCtx .real trivial h₃)), ?_⟩
     exact Store.Agree.update ((σ.agree_update_of_mem (by simp) _).trans
       (σ₁.agree_update_of_mem (by simp) _)) _ _
   · obtain rfl := hκ C rfl

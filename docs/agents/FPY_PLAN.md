@@ -50,8 +50,6 @@ is unspecified (provisional decisions, below).
 - **Rounding rows under `?`.** `Decodes` needs every admitted context to be a
   `RoundCtx`, but `?` admits `R`, whose rounding is `id`; no row applies inside
   `withUnknown`. Let `Decodes` admit `id` and prove the rows for it.
-- **`with` on a non-context.** `Exec.withCtx` accepts any value for `C'`; the
-  draft's E-Context takes a context. Add the premise `(C'.rnd L).isSome`.
 
 ### Not claimed
 

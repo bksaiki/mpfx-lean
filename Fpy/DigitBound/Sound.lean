@@ -448,7 +448,7 @@ theorem loop_sound (hA : A.Sound Φ) {e : Expr (fpy decode)} {s : Stmt (fpy deco
   | _, _, _, _, _, .ret _, h, _, _, _, _, _ | _, _, _, _, _, .assert _, h, _, _, _, _, _
   | _, _, _, _, _, .seqNormal _ _, h, _, _, _, _, _ | _, _, _, _, _, .seqRet _, h, _, _, _, _, _
   | _, _, _, _, _, .iteTrue _ _, h, _, _, _, _, _ | _, _, _, _, _, .iteFalse _ _, h, _, _, _, _, _
-  | _, _, _, _, _, .withCtx _ _, h, _, _, _, _, _ => by cases h
+  | _, _, _, _, _, .withCtx _ _ _, h, _, _, _, _, _ => by cases h
 termination_by structural _ _ _ _ _ h => h
 
 /-! ## Theorem 4.2 -/
@@ -724,7 +724,7 @@ theorem exec_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ s Δ' a Ψ n₁},
         h rfl ((Sat.congr_before hbg a₁.agree hsg).append hs₁) hσ₁ (hΓᵢ _ hΓ)
         (admits_congr a₁.agree hκ hC) hχ
       exact ⟨ι₂, a₁.agree.trans a₂, hs₂, hw⟩
-  | _, _, _, _, _, _, _, _, _, _, .withCtx hd ha hbody, _, _, _, _, _, .withCtx he hs,
+  | _, _, _, _, _, _, _, _, _, _, .withCtx hd ha hbody, _, _, _, _, _, .withCtx he _ hs,
       hbg, hsg, hΔ, _, hσ, hΓ, _, _ => by
       have hF₁ := (DEval.wf hd).1
       have hb := (DEval.wf hd).2 hΔ (ctxBelow_real _)
@@ -738,7 +738,7 @@ theorem exec_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ s Δ' a Ψ n₁},
           (fun K hK => Option.mem_some_iff.mp hK ▸ hb) (hσ.grow hbg hF₁ a₁ hΔ) hΓ
           (fun K hK => Option.mem_some_iff.mp hK ▸ hC') hk
         exact chain hF₁ a₁ hs₁ a₂ hs₂ (by simpa using hw)
-  | _, _, _, _, _, _, _, _, _, _, .withUnknown hd ha hbody, _, _, _, _, _, .withCtx he hs,
+  | _, _, _, _, _, _, _, _, _, _, .withUnknown hd ha hbody, _, _, _, _, _, .withCtx he _ hs,
       hbg, hsg, hΔ, _, hσ, hΓ, _, _ => by
       have hF₁ := (DEval.wf hd).1
       obtain ⟨ι₁, a₁, hs₁, -⟩ := eval_sound hA hd he hbg hsg hΔ (ctxBelow_real _) hσ hΓ
