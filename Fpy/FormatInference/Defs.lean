@@ -10,13 +10,8 @@ of each context, condition refinement) are an `Analysis`. `Analysis.Sound`
 states the obligations under which the rules are sound (Theorem 4.1,
 `Fpy/FormatInference/Sound.lean`).
 
-Two rules differ from the draft, which is unsound there (see
-`docs/agents/FPY_PLAN.md`):
-
-* rounding under an unknown context `?` gives `⊤`, not the exact bound;
-* an abstract value can be a known context `⟨C⟩`, and `with e in s` analyzes
-  `s` under the context read off `e`'s abstract value, so a context passed as
-  an argument stays known.
+Unlike the draft (see `docs/agents/FPY_PLAN.md`), `rnd♯` under `?` is `⊤`, and
+abstract values can be known contexts `⟨C⟩`.
 -/
 
 namespace Fpy
@@ -141,8 +136,7 @@ noncomputable def AEnv.join (Γ₁ Γ₂ : AEnv D) : AEnv D := fun x =>
 
 /-! ## The analysis -/
 
-/-- The context the analysis runs under: `some C` for a known context, `none`
-for the unknown context `?`. `Admits κ C` says `κ` describes `C`. -/
+/-- `κ` (`some C` known, `none` for `?`) describes `C`. -/
 def Admits (κ : Option Val) (C : Val) : Prop := ∀ C₀ ∈ κ, C₀ = C
 
 def Val.isReal : Val → Bool

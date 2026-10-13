@@ -244,6 +244,14 @@ theorem eval_update {n : ℕ} {t : Term} (h : t.Below n) (ι : Asgn) (z : EInt) 
     t.eval (Function.update ι n z) = t.eval ι :=
   (Term.eval_congr (fun _ hx => (Function.update_of_ne hx.ne _ _).symm) h).symm
 
+theorem forall₂_one {α β : Type} {R : α → β → Prop} {a : α} {l : List β}
+    (h : List.Forall₂ R [a] l) : ∃ b, l = [b] ∧ R a b := by
+  rcases h with _ | ⟨h, h'⟩; cases h'; exact ⟨_, rfl, h⟩
+
+theorem forall₂_two {α β : Type} {R : α → β → Prop} {a₁ a₂ : α} {l : List β}
+    (h : List.Forall₂ R [a₁, a₂] l) : ∃ b₁ b₂, l = [b₁, b₂] ∧ R a₁ b₁ ∧ R a₂ b₂ := by
+  rcases h with _ | ⟨h₁, _ | ⟨h₂, h'⟩⟩; cases h'; exact ⟨_, _, rfl, h₁, h₂⟩
+
 /-! ## Fresh intervals -/
 
 theorem fresh_bounds (n : ℕ) {Lo Hi : Term} (hLo : Lo.Below (n + 1)) (hHi : Hi.Below n) :

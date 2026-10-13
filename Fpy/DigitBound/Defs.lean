@@ -5,22 +5,13 @@ import Mathlib.Order.WithBotTop
 /-!
 # Digit-bound analysis (§4.3, Figure 12)
 
-The positions of a value's least and most significant digits, `lsbOf` and
-`msbOf`, are extended integers: `0` has no digits, so its interval is
-`[+∞, −∞]` (the draft's `∅`); an infinity has `[+∞, +∞]`; a value with
-infinitely many digits has least significant digit `−∞`. NaN lies in every
-interval. A symbolic value is a term for an integer value, matched through
-`numOfE`, so `logb 0 = −∞ = msb(0)`.
-
-The analysis introduces fresh integer variables above a counter it threads
-(`n₀ → n₁`), and bounds each by one constraint (`Con`). Every operator and
-rounding transfer is a semantic premise (`ArithOK`), and the joins are an order
-with fresh variables (`DVal.Le`, `DEnv.Le`): Table 2's rows and the draft's
-joins are instances. D-While takes an invariant, as A-While. The rules for
-integer values (D-Linear, D-Neg, D-Logb, D-Max, D-Min) are under `R`.
-
-The judgment carries format inference's environment and context, so D-Int and
-D-Fmt can read `fmt(e)` off a format-inference derivation for `e`.
+Digit positions (`lsbOf`, `msbOf`) are extended integers: `0` has `[+∞, −∞]`,
+an infinity `[+∞, +∞]`, a value with infinitely many digits lsb `−∞`; NaN lies
+in every interval. Symbolic values are terms, matched through `numOfE`. Fresh
+variables are numbered from a threaded counter (`n₀ → n₁`), each bounded by one
+`Con`. Transfers are a semantic premise (`ArithOK`) and joins an order with
+fresh variables (`DVal.Le`, `DEnv.Le`). The judgment carries format inference's
+`Γ` and context for D-Int and D-Fmt.
 -/
 
 namespace Fpy.DigitBound

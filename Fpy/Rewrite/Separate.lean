@@ -5,18 +5,10 @@ import Mpfx.DoubleRounding.Special
 /-!
 # Separating arithmetic from rounding (§5.1)
 
-The rewrites of §5.1 on an operation `x = op(y₁, …, yₖ)` over variables:
-
-* **Elim**: `[C] x = op(y⃗) ⇝ with R in x = op(y⃗)` if `op♯(fmt(y⃗)) ⊆ F_C`;
-* **Insert**: `[R] x = op(y⃗) ⇝ with C' in x = op(y⃗)` if `op♯(fmt(y⃗)) ⊆ F_{C'}`;
-* **Split**: `[C] x = op(y⃗) ⇝ with C' in t = op(y⃗); x = round(t)` if
-  `C(C'(v)) = C(v)` for every `v`;
-* **SplitOp**: the same, if each `fmt(yᵢ) ⊆ F_C` and `C(C'(v)) = C(v)` for
-  every `v = op(u⃗)` with `uᵢ ∈ F_C`.
-
-Each is an `Equiv` (`equiv_elim`, `equiv_insert`, `equiv_split`,
-`equiv_splitOp`), from two cores with semantic conditions (`equiv_reround`,
-`equiv_split_of`). `C'` is written by any expression that denotes it.
+The rewrites of §5.1 on `x = op(y⃗)`: Elim, Insert, Split and SplitOp
+(`equiv_elim`, `equiv_insert`, `equiv_split`, `equiv_splitOp`), from two cores
+(`equiv_reround`, `equiv_split_of`). `C'` is written by any expression that
+denotes it.
 
 For FPy's contexts, `RoundCtx.round_round` turns each total double-rounding
 rule (`rndRTO_RN`, …) into Split's condition, and `splitOp_add`, `splitOp_mul`,
@@ -297,37 +289,6 @@ theorem reals_finite {F : Format} {u : Num} {a : ℝ} (hu : u ∈ F.reals) (h : 
   cases w with
   | finite d => exact ⟨d, hw, WithSpecial.finite.inj h⟩
   | special => cases h
-
-theorem Num.add_eq_finite {u v : Num} {x : ℝ} (h : Num.add u v = .finite x) :
-    ∃ a b, u = .finite a ∧ v = .finite b ∧ x = a + b := by
-  rcases u with a | (_ | _) <;> rcases v with b | (_ | _) <;>
-    simp only [Num.add, reduceCtorEq] at h
-  all_goals first
-    | exact ⟨a, b, rfl, rfl, (WithSpecial.finite.inj h).symm⟩
-    | split_ifs at h
-
-theorem Num.mul_eq_finite {u v : Num} {x : ℝ} (h : Num.mul u v = .finite x) :
-    ∃ a b, u = .finite a ∧ v = .finite b ∧ x = a * b := by
-  rcases u with a | (_ | _) <;> rcases v with b | (_ | _) <;>
-    simp only [Num.mul, reduceCtorEq] at h
-  all_goals first
-    | exact ⟨a, b, rfl, rfl, (WithSpecial.finite.inj h).symm⟩
-    | split_ifs at h
-
-theorem Num.div_eq_finite {u v : Num} {x : ℝ} (h : Num.div u v = .finite x) :
-    (∃ a b, u = .finite a ∧ v = .finite b ∧ b ≠ 0 ∧ x = a / b) ∨
-      (∃ a s, u = .finite a ∧ v = .special (.inf s) ∧ x = 0) := by
-  rcases u with a | (_ | _) <;> rcases v with b | (_ | _) <;>
-    simp only [Num.div, reduceCtorEq] at h
-  · split_ifs at h
-    exact .inl ⟨a, b, rfl, rfl, ‹_›, (WithSpecial.finite.inj h).symm⟩
-  · exact .inr ⟨a, _, rfl, rfl, (WithSpecial.finite.inj h).symm⟩
-
-theorem Num.sqrt_eq_finite {u : Num} {x : ℝ} (h : Num.sqrt u = .finite x) :
-    ∃ a, u = .finite a ∧ 0 ≤ a ∧ x = Real.sqrt a := by
-  rcases u with a | ((_ | _) | _) <;> simp only [Num.sqrt, reduceCtorEq] at h
-  split_ifs at h with ha
-  exact ⟨a, rfl, not_lt.mp ha, (WithSpecial.finite.inj h).symm⟩
 
 section SplitOp
 

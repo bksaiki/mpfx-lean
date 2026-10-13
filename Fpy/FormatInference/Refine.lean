@@ -7,10 +7,8 @@ import Fpy.FormatInference.Sound
 `refine κ e b Γ` is `⟦e⟧♯ Γ` for `b = true` and `⟦¬e⟧♯ Γ` for `b = false`. It
 narrows a variable `x` by a test against a constant `c`: `x ⋈ c`, and under
 `R`, where they are exact, `|x| ⋈ c` and `logb x ⋈ c`. A set keeps the values
-that pass. On an abstract format, a test implying `|x| ≤ c` lowers the bound
-to `c`, and one implying `logb x ≥ k` raises the minimum exponent to
-`k − p + 1`, since `x` has at most `p` digits. `not`, a true `and` and a false
-`or` refine through their operands. `refine_sound` is the obligation
+that pass; an abstract format is narrowed by `Atom.narrow`. `not`, a true
+`and` and a false `or` refine through their operands. `refine_sound` is the obligation
 `Analysis.Sound.refine`.
 -/
 
@@ -114,12 +112,9 @@ theorem eval_parseLhs {κ : Option Val} {e : Expr (fpy decode)} {x : Var} {g : L
           subst hr
           split_ifs at he with h₁ h₂ <;>
             simp only [Option.some.injEq, Prod.mk.injEq] at he
-          · obtain ⟨rfl, rfl⟩ := he
-            subst h₁
-            simp only [fpy, ArithOp.eval, Option.some.injEq] at hop
-            exact ⟨u, hx, by simp [Lhs.eval, hop]⟩
-          · obtain ⟨rfl, rfl⟩ := he
-            subst h₂
+          all_goals
+            obtain ⟨rfl, rfl⟩ := he
+            subst_vars
             simp only [fpy, ArithOp.eval, Option.some.injEq] at hop
             exact ⟨u, hx, by simp [Lhs.eval, hop]⟩
   · simp at he

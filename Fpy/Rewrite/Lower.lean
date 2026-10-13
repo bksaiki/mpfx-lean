@@ -15,10 +15,7 @@ The rewrites of §5.2 on `x = round(t)` under a context `C`:
 * **Rescale** rounds `2⁻ᵏt` to an integer and scales back.
 
 Each is an `Equiv` (`equiv_special`, `equiv_overflow`,
-`equiv_overflow_threshold`, `equiv_floatToFixed`, `equiv_rescale`). The draft's
-Overflow compares `|r|` under `C`, which rounds it; here the comparisons are
-exact. Its `copysign(·, t)` is a branch on the sign, since a context's maps need
-not be symmetric.
+`equiv_overflow_threshold`, `equiv_floatToFixed`, `equiv_rescale`).
 
 FloatToFixed and Rescale rest on two rounding identities,
 `rndUnbounded_eq_fixed` and `rndUnbounded_scale`: the integer step depends on
@@ -130,20 +127,6 @@ theorem rndUnbounded_scale {F G : FiniteFormat} {rm : RoundingMode} {k : ℤ}
   unfold rndUnbounded
   rw [heF, heG, hint, Mpfx.Dyadic.coe_ofIntZpow, Mpfx.Dyadic.coe_ofIntZpow]
   ring
-
-/-- A value between two in-bound values is in bound. -/
-theorem boundOK_of_between {b : Bound} {lo z hi : Mpfx.Dyadic} (hlo : Format.boundOK b lo)
-    (hhi : Format.boundOK b hi) (h₁ : (lo : ℝ) ≤ z) (h₂ : (z : ℝ) ≤ hi) : Format.boundOK b z := by
-  cases b using WithTop.recTopCoe with
-  | top => trivial
-  | coe b =>
-    change |(lo : ℚ)| ≤ _ at hlo
-    change |(hi : ℚ)| ≤ _ at hhi
-    change |(z : ℚ)| ≤ _
-    rw [Mpfx.Dyadic.coe_real_eq_ratCast, Mpfx.Dyadic.coe_real_eq_ratCast, Rat.cast_le] at h₁ h₂
-    obtain ⟨hlo, -⟩ := abs_le.mp hlo
-    obtain ⟨-, hhi⟩ := abs_le.mp hhi
-    exact abs_le.mpr ⟨hlo.trans h₁, h₂.trans hhi⟩
 
 /-- Overflow's threshold condition, by monotonicity: if `±θ` round in bound and
 every input beyond them rounds out of bound, `F` overflows exactly beyond `±θ`. -/
@@ -327,11 +310,6 @@ theorem eval_lt {σ : Store} {C : Val} {e₁ e₂ : Expr (fpy decode)} {a b : �
     Eval Φ σ C (.exactOp .lt [e₁, e₂]) (.bool (decide (a < b))) :=
   .exact (.cons h₁ (.cons h₂ .nil)) rfl
 
-theorem eval_eq {σ : Store} {C : Val} {e₁ e₂ : Expr (fpy decode)} {a b : ℝ}
-    (h₁ : Eval Φ σ C e₁ (.num (.finite a))) (h₂ : Eval Φ σ C e₂ (.num (.finite b))) :
-    Eval Φ σ C (.exactOp .eq [e₁, e₂]) (.bool (decide (a = b))) :=
-  .exact (.cons h₁ (.cons h₂ .nil)) rfl
-
 theorem num_of_unary {σ : Store} {C : Val} {t : Var} {v : Val} {op : ExactOp}
     (hop : op = .isNaN ∨ op = .isInf) (h : Eval Φ σ C (.exactOp op [.var t]) v) :
     ∃ u, σ t = some (.num u) := by
@@ -418,8 +396,7 @@ theorem exec_nanBranch {σ : Store} {C : Val} {r : Num → Num} {x t : Var} {u :
 /-- **Special**: `[C] x = round(t) ⇝ if isnan(t) then x = C(NaN) else if isinf(t) then
 (if t < 0 then x = C(−∞) else x = C(+∞)) else if t = 0 then x = t else x = round(t)`, for a
 context whose rounding function `r` fixes `0` (every Mpfx context, `RoundCtx.round_zero`).
-Any branch may be omitted (`kn`, `ki`, `kz` false): a branch computes what `round(t)` would,
-so omitting one needs no condition. -/
+Any branch may be omitted (`kn`, `ki`, `kz` false). -/
 theorem equiv_special {C : Val} {r : Num → Num} {x t : Var}
     (hr : C.rnd (fpy decode) = some r) (h0 : r (.finite 0) = .finite 0) (kn ki kz : Bool) :
     Equiv Φ X Γ (some C) (.assign x (.arithOp .round [.var t]))

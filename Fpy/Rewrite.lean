@@ -3,16 +3,10 @@ import Fpy.FormatInference.Sound
 /-!
 # Rewriting (§5)
 
-A rewrite `[C] s ⇝ s' if φ` replaces `s` by `s'` where the current context is
-`C`. `Equiv Φ X Γ κ s s'` is its correctness: from every store in `Γ`, under
-every context `κ` admits, `s` and `s'` reach the same outcomes up to the fresh
-variables `X`.
-
-`Rw` places rewrites in a program. It follows format inference through each
-statement, so each site is checked against the `Γ` and `κ` the analysis assigns
-it, and a callee's body is checked at every call the analysis visits. `Rw.sim`
-is the congruence theorem, and `run_iff_of_rw` the whole-program theorem:
-rewriting preserves `Run`.
+`Equiv` is the correctness of a rewrite `[C] s ⇝ s' if φ`. `Rw` places
+rewrites at sites, each checked against the `Γ` and `κ` format inference assigns
+it (a callee at every call the analysis visits); `Rw.sim` is congruence and
+`run_iff_of_rw` the whole-program theorem.
 -/
 
 namespace Fpy

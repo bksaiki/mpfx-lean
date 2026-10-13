@@ -196,6 +196,10 @@ def opMul (F₁ F₂ : Format) : Format where
     | _, _ => ⊤
   specials := mulSpecials F₁ F₂
 
+/-- `⌈log₂(⌊B / 2^m⌋ + 1)⌉`: the precision a value with quantum `2^m` and
+magnitude at most `B` needs. -/
+noncomputable def bitsFor (B : ℝ) (m : ℤ) : ℕ := Nat.clog 2 (Int.toNat ⌊B / (2 : ℝ) ^ m⌋ + 1)
+
 /-- Tight precision bound for `⊕`:
 `p = ⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉`, or `⊤` when either operand bound
 or exponent is infinite.  The floor ratio is computed over `ℝ`. -/
@@ -203,7 +207,7 @@ noncomputable def opAddPrec (F₁ F₂ : Format) : Prec :=
   match (F₁.b : Bound), (F₂.b : Bound),
         (min F₁.exp F₂.exp : QExp) with
   | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic), (m : ℤ) =>
-      (Nat.clog 2 (Int.toNat ⌊(((b₁.1 + b₂.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌋ + 1) : Prec)
+      (bitsFor ((b₁.1 + b₂.1 : Dyadic) : ℝ) m : Prec)
   | _, _, _ => ⊤
 
 /-- Paper's `⊕`: additive format inference.  Returns the inferred `Format`
@@ -260,10 +264,6 @@ theorem mul_subset_finite (F₁ F₂ : Format) :
       have hb1_nn : 0 ≤ ((b₁.1 : Dyadic) : ℚ) := b₁.2
       exact mul_le_mul hbx hby (abs_nonneg _) hb1_nn
 
-/-- `⌈log₂(⌊B / 2^m⌋ + 1)⌉`: the precision a value with quantum `2^m` and
-magnitude at most `B` needs. -/
-noncomputable def bitsFor (B : ℝ) (m : ℤ) : ℕ := Nat.clog 2 (Int.toNat ⌊B / (2 : ℝ) ^ m⌋ + 1)
-
 /-- A value with quantum `2^m` and magnitude at most `B` has a significand of
 magnitude at most `⌊B / 2^m⌋`, so it needs at most `bitsFor B m` digits. -/
 theorem precisionAtMost_bitsFor {x : Dyadic} {m : ℤ} {B : ℝ}
@@ -296,8 +296,7 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
     (hF1_exp : F₁.exp = (e1 : QExp)) (hF2_exp : F₂.exp = (e2 : QExp))
     (hx : x ∈ F₁) (hy : y ∈ F₂) :
     Dyadic.precisionAtMost
-      ((Nat.clog 2
-          (Int.toNat ⌊(((b1.1 + b2.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ (min e1 e2)⌋ + 1) : Prec))
+      (bitsFor ((b1.1 + b2.1 : Dyadic) : ℝ) (min e1 e2) : Prec)
       (x + y) := by
   obtain ⟨_, hqx, hbx⟩ := hx
   obtain ⟨_, hqy, hby⟩ := hy

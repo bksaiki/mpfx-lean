@@ -4,14 +4,10 @@ import Fpy.FormatInference.Sound
 /-!
 # Soundness of the digit-bound analysis (Theorem 4.2)
 
-`eval_sound` and `exec_sound`, by induction on the analysis derivation, in
-prefix form: from an assignment describing the store, one agreeing with it below
-the derivation's first fresh variable satisfies the derivation's constraints and
-describes the result. Untaken branches, and loop bodies run zero times, have
-their variables re-chosen in head order (`Sat.extend`); loops iterate by
-`loop_sound`. The store also lies in format inference's `Γ`, so `fmt(e)` bounds
-`e`'s value (Theorem 4.1), which D-Int and D-Fmt use. `DEval.wf` gives the fresh
-ranges and variable bounds every derivation has.
+`eval_sound` and `exec_sound`, by induction on the derivation, in prefix form.
+Untaken branches and zero-iteration loops re-choose their variables
+(`Sat.extend`); loops iterate by `loop_sound`; D-Int and D-Fmt use Theorem 4.1.
+`DEval.wf` gives each derivation's fresh ranges.
 -/
 
 namespace Fpy.DigitBound
@@ -149,29 +145,6 @@ end
 
 local notation "nan" => (WithSpecial.special Special.nan : Num)
 
-theorem args_one {ι : Asgn} {l m : Term} {τ : Option Term} {ns : List Num}
-    (h : List.Forall₂ (Describes ι) [.num l m τ] (ns.map .num)) :
-    ∃ u, ns = [u] ∧ NumIn ι l m τ u := by
-  rcases ns with _ | ⟨u, _ | ⟨_, _⟩⟩
-  · cases h
-  · cases h with
-    | cons h _ => cases h with
-      | num h => exact ⟨u, rfl, h⟩
-  · cases h with | cons _ h => cases h
-
-theorem args_two {ι : Asgn} {l₁ m₁ l₂ m₂ : Term} {τ₁ τ₂ : Option Term} {ns : List Num}
-    (h : List.Forall₂ (Describes ι) [.num l₁ m₁ τ₁, .num l₂ m₂ τ₂] (ns.map .num)) :
-    ∃ u₁ u₂, ns = [u₁, u₂] ∧ NumIn ι l₁ m₁ τ₁ u₁ ∧ NumIn ι l₂ m₂ τ₂ u₂ := by
-  rcases ns with _ | ⟨u₁, _ | ⟨u₂, _ | ⟨_, _⟩⟩⟩
-  · cases h
-  · cases h with | cons _ h => cases h
-  · cases h with
-    | cons h₁ h => cases h with
-      | cons h₂ _ => cases h₁ with
-        | num h₁ => cases h₂ with
-          | num h₂ => exact ⟨u₁, u₂, rfl, h₁, h₂⟩
-  · cases h with | cons _ h => cases h with | cons _ h => cases h
-
 theorem numIns {ι : Asgn} : ∀ {Is : List (Term × Term × Option Term)} {ns : List Num},
     List.Forall₂ (Describes ι) (Is.map fun I => .num I.1 I.2.1 I.2.2) (ns.map .num) →
     List.Forall₂ (fun (I : Term × Term × Option Term) n => NumIn ι I.1 I.2.1 I.2.2 n) Is ns
@@ -181,6 +154,17 @@ theorem numIns {ι : Asgn} : ∀ {Is : List (Term × Term × Option Term)} {ns :
     | num h => exact .cons h (numIns hs)
   | [], _ :: _, h => by cases h
   | _ :: _, [], h => by cases h
+
+theorem args_one {ι : Asgn} {l m : Term} {τ : Option Term} {ns : List Num}
+    (h : List.Forall₂ (Describes ι) [.num l m τ] (ns.map .num)) :
+    ∃ u, ns = [u] ∧ NumIn ι l m τ u := by
+  obtain ⟨u, rfl, hu⟩ := forall₂_one (numIns (Is := [(l, m, τ)]) h); exact ⟨u, rfl, hu⟩
+
+theorem args_two {ι : Asgn} {l₁ m₁ l₂ m₂ : Term} {τ₁ τ₂ : Option Term} {ns : List Num}
+    (h : List.Forall₂ (Describes ι) [.num l₁ m₁ τ₁, .num l₂ m₂ τ₂] (ns.map .num)) :
+    ∃ u₁ u₂, ns = [u₁, u₂] ∧ NumIn ι l₁ m₁ τ₁ u₁ ∧ NumIn ι l₂ m₂ τ₂ u₂ := by
+  obtain ⟨u₁, u₂, rfl, h₁, h₂⟩ := forall₂_two (numIns (Is := [(l₁, m₁, τ₁), (l₂, m₂, τ₂)]) h)
+  exact ⟨u₁, u₂, rfl, h₁, h₂⟩
 
 theorem add_term {u₁ u₂ : Num} {a b : EInt} (h₁ : u₁ = nan ∨ u₁ = numOfE a)
     (h₂ : u₂ = nan ∨ u₂ = numOfE b) : Num.add u₁ u₂ = nan ∨ Num.add u₁ u₂ = numOfE (a + b) := by
@@ -255,6 +239,13 @@ theorem chain {P : Asgn → Prop} {n₀ n₁ : ℕ} {Ψ Ψ' : List Con} {ι ι�
     (hF : Fresh n₀ n₁ Ψ) (a₁ : Agree n₀ ι ι₁) (hs₁ : Sat ι₁ Ψ) (a₂ : Agree n₁ ι₁ ι₂)
     (hs₂ : Sat ι₂ Ψ') (h : P ι₂) : ∃ ι', Agree n₀ ι ι' ∧ Sat ι' (Ψ ++ Ψ') ∧ P ι' :=
   ⟨ι₂, a₁.trans (a₂.mono hF.le), (Sat.congr hF a₂ hs₁).append hs₂, h⟩
+
+/-- `chain` over three steps. -/
+theorem chain₃ {P : Asgn → Prop} {n₀ n₁ n₂ : ℕ} {Ψ₁ Ψ₂ Ψ₃ : List Con} {ι ι₁ ι₂ ι₃ : Asgn}
+    (hF₁ : Fresh n₀ n₁ Ψ₁) (hF₂ : Fresh n₁ n₂ Ψ₂) (a₁ : Agree n₀ ι ι₁) (hs₁ : Sat ι₁ Ψ₁)
+    (a₂ : Agree n₁ ι₁ ι₂) (hs₂ : Sat ι₂ Ψ₂) (a₃ : Agree n₂ ι₂ ι₃) (hs₃ : Sat ι₃ Ψ₃) (h : P ι₃) :
+    ∃ ι', Agree n₀ ι ι' ∧ Sat ι' (Ψ₁ ++ Ψ₂ ++ Ψ₃) ∧ P ι' :=
+  chain (hF₁.append hF₂) (a₁.trans (a₂.mono hF₁.le)) ((Sat.congr hF₁ a₂ hs₁).append hs₂) a₃ hs₃ h
 
 /-! ## Integer rules
 
@@ -380,10 +371,8 @@ theorem ext_sound {op : ArithOp} {ge : Bool} {e₁ e₂ : Expr (fpy decode)}
   have f₂ : τ₂.eval ι₃ = τ₂.eval ι₁ :=
     (Term.eval_congr a₃ hτ₂).symm.trans (Term.eval_congr a₂.agree hτ₂').symm
   have hz : ι₃ n₂ = z := Function.update_self ..
-  have a₂₃ : Agree n₁ ι₁ ι₃ := a₂.agree.trans (a₃.mono hF.le)
-  refine ⟨ι₃, a₁.trans (a₂₃.mono hF₁.le), ?_, .num ?_⟩
-  · refine ((Sat.congr hF₁ a₂₃ hs₁).append (Sat.congr hF a₃ hs₂)).append ?_
-    intro c hc
+  refine chain₃ hF₁ hF a₁ hs₁ a₂.agree hs₂ a₃ ?_ (.num ?_)
+  · intro c hc
     obtain rfl := List.mem_singleton.mp hc
     simp only [Con.ext]
     rw [f₁, f₂, hz]
@@ -481,10 +470,7 @@ theorem eval_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ e d Ψ n₁},
         obtain ⟨ι₂, a₂, hs₂, -⟩ := eval_sound hA hd₂ h₂ (hΔ.mono hF₁.le) (hκ.mono hF₁.le)
           (hσ.congr a₁ hΔ) hΓ (admits_congr a₁ hκ hC) hχ
         obtain ⟨ι₃, a₃, hs₃, hv⟩ := hcopy ι₀ ι₂ _ hv₀
-        have a₃' := a₃.agree
-        exact ⟨ι₃, a₁.trans ((a₂.trans (a₃'.mono hF₂.le)).mono hF₁.le),
-          ((Sat.congr hF₁ (a₂.trans (a₃'.mono hF₂.le)) hs₁).append
-            (Sat.congr hF₂ a₃' hs₂)).append hs₃, hv⟩
+        exact chain₃ hF₁ hF₂ a₁ hs₁ a₂ hs₂ a₃.agree hs₃ hv
   | _, _, _, _, _, _, _, _, _, .record hdf, _, _, _, _, .record hf, hΔ, hκ, hσ, hΓ, hC, hχ => by
       obtain ⟨ι₁, a₁, hs₁, hfs⟩ := evalFields_sound hA hdf hf hΔ hκ hσ hΓ hC hχ
       exact ⟨ι₁, a₁, hs₁, .record hfs⟩
@@ -638,9 +624,7 @@ theorem exec_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ s Δ' a Ψ n₁},
       obtain ⟨ι₂, a₂, hs₂, hw₂⟩ := exec_sound hA hd₂ h₂ hb₁.1 (hκ.mono hF₁.le) hw₁
         (Fpy.exec_sound hA h₁ hΓ hχ hAx) (admits_congr a₁ hκ hC) hχ
       obtain ⟨ι₃, a₃, hs₃, hw⟩ := within_seq hw₂ hb₂.1 hF hra₂
-      have a₂₃ := a₂.trans (a₃.mono hF₂.le)
-      exact ⟨ι₃, a₁.trans (a₂₃.mono hF₁.le),
-        ((Sat.congr hF₁ a₂₃ hs₁).append (Sat.congr hF₂ a₃ hs₂)).append hs₃, hw⟩
+      exact chain₃ hF₁ hF₂ a₁ hs₁ a₂ hs₂ a₃ hs₃ hw
   | _, _, _, _, _, _, _, _, _, _, .seq hd₁ _ hd₂ hra₁ _ hF _, _, _, _, _, .seqRet h₁,
       hΔ, hκ, hσ, hΓ, hC, hχ => by
       have hF₁ := (DExec.wf hd₁).1
@@ -651,9 +635,7 @@ theorem exec_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ s Δ' a Ψ n₁},
       obtain ⟨d, hd, hv⟩ := hw₁
       obtain ⟨d', hd', hle⟩ := hra₁ d hd
       obtain ⟨ι₃, a₃, hs₃, hv'⟩ := hle ι₂ _ (hv.congr a₂ (hb₁.2 d hd))
-      have a₂₃ := a₂.trans (a₃.agree.mono hF₂.le)
-      exact ⟨ι₃, a₁.trans (a₂₃.mono hF₁.le),
-        ((Sat.congr hF₁ a₂₃ hs₁).append (Sat.congr hF₂ a₃.agree hs₂)).append hs₃, d', hd', hv'⟩
+      exact chain₃ hF₁ hF₂ a₁ hs₁ a₂ hs₂ a₃.agree hs₃ ⟨d', hd', hv'⟩
   | _, _, _, _, _, _, _, _, _, _, .ite hd₁ hd₂ hle₁ _ hra₁ _ hF _ _, _, _, _, _, .iteTrue hg h₁,
       hΔ, hκ, hσ, hΓ, hC, hχ => by
       have hF₁ := (DExec.wf hd₁).1
@@ -662,9 +644,7 @@ theorem exec_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ s Δ' a Ψ n₁},
       obtain ⟨ι₁, a₁, hs₁, hw₁⟩ := exec_sound hA hd₁ h₁ hΔ hκ hσ (hA.refine hΓ hχ hg) hC hχ
       obtain ⟨ι₂, a₂, hs₂⟩ := Sat.extend hF₂ ι₁
       obtain ⟨ι₃, a₃, hs₃, hw⟩ := within_join (hw₁.congr a₂ hb₁.1 hb₁.2) hle₁ hra₁
-      have a₂₃ := a₂.trans (a₃.mono hF₂.le)
-      exact ⟨ι₃, a₁.trans (a₂₃.mono hF₁.le),
-        ((Sat.congr hF₁ a₂₃ hs₁).append (Sat.congr hF₂ a₃ hs₂)).append hs₃, hw⟩
+      exact chain₃ hF₁ hF₂ a₁ hs₁ a₂ hs₂ a₃ hs₃ hw
   | _, _, _, _, _, _, _, _, _, _, .ite hd₁ hd₂ _ hle₂ _ hra₂ hF _ _, _, _, _, ι, .iteFalse hg h₂,
       hΔ, hκ, hσ, hΓ, hC, hχ => by
       have hF₁ := (DExec.wf hd₁).1
@@ -673,9 +653,7 @@ theorem exec_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ s Δ' a Ψ n₁},
       obtain ⟨ι₂, a₂, hs₂, hw₂⟩ := exec_sound hA hd₂ h₂ (hΔ.mono hF₁.le) (hκ.mono hF₁.le)
         (hσ.congr a₁ hΔ) (hA.refine hΓ hχ hg) (admits_congr a₁ hκ hC) hχ
       obtain ⟨ι₃, a₃, hs₃, hw⟩ := within_join hw₂ hle₂ hra₂
-      have a₂₃ := a₂.trans (a₃.mono hF₂.le)
-      exact ⟨ι₃, a₁.trans (a₂₃.mono hF₁.le),
-        ((Sat.congr hF₁ a₂₃ hs₁).append (Sat.congr hF₂ a₃ hs₂)).append hs₃, hw⟩
+      exact chain₃ hF₁ hF₂ a₁ hs₁ a₂ hs₂ a₃ hs₃ hw
   | _, _, _, _, _, _, _, _, _, _, .whileDo hle hFᵢ hbᵢ hΓᵢ hAx hΓ' hbody hle', _, _, _, _, h,
       _, hκ, hσ, hΓ, hC, hχ => by
       obtain ⟨ι₁, a₁, hs₁, hσ₁⟩ := hle _ _ hσ

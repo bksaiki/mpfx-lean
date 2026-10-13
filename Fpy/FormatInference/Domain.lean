@@ -1,5 +1,6 @@
 import Fpy.FormatInference.Defs
 import Fpy.Ops
+import Mpfx.Format.Containment
 
 /-!
 # The format domain of Figure 4
@@ -28,41 +29,23 @@ noncomputable def fmtJoin (F₁ F₂ : Format) : Format where
   b := max F₁.b F₂.b
   specials := F₁.specials ∪ F₂.specials
 
-theorem boundOK_mono {b₁ b₂ : Bound} (h : b₁ ≤ b₂) {d : Mpfx.Dyadic} (hd : Format.boundOK b₁ d) :
-    Format.boundOK b₂ d := by
-  cases b₂ using WithTop.recTopCoe with
-  | top => trivial
-  | coe b₂ =>
-    cases b₁ using WithTop.recTopCoe with
-    | top => exact absurd h (by simp)
-    | coe b₁ =>
-      exact hd.trans (by exact_mod_cast WithTop.coe_le_coe.mp h)
-
-theorem mem_fmtJoin_left {F₁ : Format} {d : Mpfx.Dyadic} (h : d ∈ F₁) (F₂ : Format) :
-    d ∈ fmtJoin F₁ F₂ :=
-  ⟨Dyadic.precisionAtMost_mono le_sup_left h.1, Dyadic.quantumAtLeast_anti inf_le_left h.2.1,
-    boundOK_mono le_sup_left h.2.2⟩
-
-theorem mem_fmtJoin_right (F₁ : Format) {F₂ : Format} {d : Mpfx.Dyadic} (h : d ∈ F₂) :
-    d ∈ fmtJoin F₁ F₂ :=
-  ⟨Dyadic.precisionAtMost_mono le_sup_right h.1, Dyadic.quantumAtLeast_anti inf_le_right h.2.1,
-    boundOK_mono le_sup_right h.2.2⟩
+theorem _root_.Mpfx.Format.reals_mono {F G : Format} (h : F ⊆ G) {n : Num} (hn : n ∈ F.reals) :
+    n ∈ G.reals := by
+  obtain ⟨v, hv, rfl⟩ := hn
+  refine ⟨v, ?_, rfl⟩
+  cases v with
+  | finite d => exact h d hv
+  | special s => exact h.specials hv
 
 theorem reals_fmtJoin_left {F₁ : Format} {n : Num} (h : n ∈ F₁.reals) (F₂ : Format) :
-    n ∈ (fmtJoin F₁ F₂).reals := by
-  obtain ⟨v, hv, rfl⟩ := h
-  refine ⟨v, ?_, rfl⟩
-  cases v with
-  | finite d => exact mem_fmtJoin_left hv F₂
-  | special s => exact Or.inl hv
+    n ∈ (fmtJoin F₁ F₂).reals :=
+  Format.reals_mono (Format.containsPrec le_sup_left inf_le_left le_sup_left
+    Set.subset_union_left) h
 
 theorem reals_fmtJoin_right (F₁ : Format) {F₂ : Format} {n : Num} (h : n ∈ F₂.reals) :
-    n ∈ (fmtJoin F₁ F₂).reals := by
-  obtain ⟨v, hv, rfl⟩ := h
-  refine ⟨v, ?_, rfl⟩
-  cases v with
-  | finite d => exact mem_fmtJoin_right F₁ hv
-  | special s => exact Or.inr hv
+    n ∈ (fmtJoin F₁ F₂).reals :=
+  Format.reals_mono (Format.containsPrec le_sup_right inf_le_right le_sup_right
+    Set.subset_union_right) h
 
 /-- Formats of Figure 4. -/
 inductive Fmt where

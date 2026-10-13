@@ -8,11 +8,8 @@ import Mpfx.Format.Inference
 unrounded one; `ArithOp.fmt_sound` and `ExactOp.aval_sound` are the
 obligations `Analysis.Sound.arith` and `Analysis.Sound.exact`.
 
-On finite sets each operator acts element-wise. On abstract formats the rows
-are Table 1's, with the specials each operator can produce added: the draft's
-formats have none, but `logb 0 = −∞` and every format contains `0` (see
-`docs/agents/FPY_PLAN.md`). A set meeting an abstract format is first replaced
-by `⌈S⌉`.
+On finite sets each operator acts element-wise; on abstract formats the rows
+are Table 1's, plus the specials each operator produces.
 -/
 
 namespace Fpy
@@ -67,12 +64,9 @@ theorem reals_opAbs {F : Format} {u : Num} (hu : u ∈ F.reals) :
 def _root_.Mpfx.Format.withP (F : Format) (p : Prec) : Format := { F with p := p }
 
 theorem reals_withP {F : Format} {p : Prec} (h : F.p ≤ p) {u : Num} (hu : u ∈ F.reals) :
-    u ∈ (F.withP p).reals := by
-  obtain ⟨w, hw, rfl⟩ := hu
-  refine ⟨w, ?_, rfl⟩
-  cases w with
-  | finite d => exact ⟨Dyadic.precisionAtMost_mono h hw.1, hw.2.1, hw.2.2⟩
-  | special s => exact hw
+    u ∈ (F.withP p).reals :=
+  Format.reals_mono (Format.containsPrec (F₁ := F) (F₂ := F.withP p) h le_rfl le_rfl subset_rfl)
+    hu
 
 /-- `bits(b, exp)`, the precision the bound and the quantum alone allow; `⊤`
 when either is infinite. -/
@@ -304,24 +298,6 @@ theorem reals_exp2Fmt {F : Format} {u : Num} (hu : u ∈ F.reals) :
       · exact ⟨.special .nan, hw, rfl⟩
     · trivial
   · trivial
-
-theorem Num.min_eq_or (u v : Num) : Num.min u v = u ∨ Num.min u v = v := by
-  rcases u with x | (a | _) <;> rcases v with y | (b | _) <;>
-    first
-    | (simp [Num.min]; done)
-    | exact (min_choice x y).imp (congrArg _) (congrArg _)
-    | (cases a <;> cases b <;> simp [Num.min])
-    | (cases a <;> simp [Num.min])
-    | (cases b <;> simp [Num.min])
-
-theorem Num.max_eq_or (u v : Num) : Num.max u v = u ∨ Num.max u v = v := by
-  rcases u with x | (a | _) <;> rcases v with y | (b | _) <;>
-    first
-    | (simp [Num.max]; done)
-    | exact (max_choice x y).imp (congrArg _) (congrArg _)
-    | (cases a <;> cases b <;> simp [Num.max])
-    | (cases a <;> simp [Num.max])
-    | (cases b <;> simp [Num.max])
 
 theorem reals_fmtJoin_of_eq_or {F₁ F₂ : Format} {u v n : Num} (hu : u ∈ F₁.reals)
     (hv : v ∈ F₂.reals) (h : n = u ∨ n = v) : n ∈ (fmtJoin F₁ F₂).reals := by

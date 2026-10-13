@@ -6,7 +6,7 @@ import Fpy.Value
 Expressions, statements and programs of the core language. The operators are
 left abstract: a `Signature` names the rounded (`Arith`) and unrounded
 (`Exact`) operators, gives their meaning, and gives the map `ρ` from records to
-rounding functions. Each theorem about FPy holds for every signature.
+rounding functions.
 -/
 
 namespace Fpy
@@ -62,8 +62,7 @@ abbrev Program := Fn → Option (Var × Stmt L)
 
 /-! ## Well-formedness
 
-A program is well formed when every record literal in it has distinct labels.
-The theorems that need this assume it. -/
+A program is well formed when every record literal in it has distinct labels. -/
 
 variable {L}
 

@@ -110,9 +110,6 @@ theorem msbOf_le_coe {x : ℝ} {k : ℤ} : msbOf (.finite x) ≤ k ↔ |x| < 2 ^
 theorem msbOf_mono {x y : ℝ} (h : |x| ≤ |y|) : msbOf (.finite x) ≤ msbOf (.finite y) :=
   EInt.le_of_forall_le_coe fun _ hk => msbOf_le_coe.mpr (h.trans_lt (msbOf_le_coe.mp hk))
 
-theorem msbOf_ne_top {x : ℝ} : msbOf (.finite x) ≠ ⊤ := by
-  simp only [msbOf]; split_ifs <;> simp
-
 theorem lsbOf_neg_real (x : ℝ) : lsbOf (.finite (-x)) = lsbOf (.finite x) := by
   have key : ∀ y : ℝ, lsbOf (.finite y) ≤ lsbOf (.finite (-y)) := fun y =>
     EInt.le_of_forall_coe_le fun k hk => by
@@ -148,65 +145,33 @@ theorem EInt.top_add {a : EInt} (h : a ≠ ⊥) : ⊤ + a = ⊤ := by
 theorem EInt.add_top {a : EInt} (h : a ≠ ⊥) : a + ⊤ = ⊤ := by
   rw [add_comm]; exact EInt.top_add h
 
-namespace Num
-
-theorem add_special {u v : Num} (h : ∀ x y, u = .finite x → v = .finite y → False) :
-    ∃ s, Num.add u v = .special s := by
-  rcases u with x | (_ | _) <;> rcases v with y | (_ | _) <;>
-    first | exact (h _ _ rfl rfl).elim | (simp only [Num.add]; split_ifs <;> exact ⟨_, rfl⟩) |
-      exact ⟨_, rfl⟩
-
-theorem mul_special {u v : Num} (h : ∀ x y, u = .finite x → v = .finite y → False) :
-    ∃ s, Num.mul u v = .special s := by
-  rcases u with x | (_ | _) <;> rcases v with y | (_ | _) <;>
-    first | exact (h _ _ rfl rfl).elim | (simp only [Num.mul]; split_ifs <;> exact ⟨_, rfl⟩) |
-      exact ⟨_, rfl⟩
-
-theorem min_cases (u v : Num) : Num.min u v = u ∨ Num.min u v = v ∨ Num.min u v = nan := by
-  rcases u with x | ((_ | _) | _) <;> rcases v with y | ((_ | _) | _) <;>
-    simp [Num.min, le_total]
-
-theorem max_cases (u v : Num) : Num.max u v = u ∨ Num.max u v = v ∨ Num.max u v = nan := by
-  rcases u with x | ((_ | _) | _) <;> rcases v with y | ((_ | _) | _) <;>
-    simp [Num.max, le_total]
-
-end Num
-
-/-- Unless both operands are finite, one has most significant digit `+∞`. -/
-theorem msbOf_eq_top_of_not_finite {u v : Num} (h : ¬ ∃ x y, u = .finite x ∧ v = .finite y) :
-    msbOf u = ⊤ ∨ msbOf v = ⊤ := by
-  rcases u with x | _ <;> rcases v with y | _
-  · exact absurd ⟨x, y, rfl, rfl⟩ h
-  all_goals first | exact .inl rfl | exact .inr rfl
-
 theorem lsb_add (u v : Num) : min (lsbOf u) (lsbOf v) ≤ lsbOf (Num.add u v) := by
-  by_cases h : ∃ x y, u = .finite x ∧ v = .finite y
-  · obtain ⟨x, y, rfl, rfl⟩ := h
+  cases h : Num.add u v with
+  | special => exact le_top
+  | finite =>
+    obtain ⟨x, y, rfl, rfl, rfl⟩ := Num.add_eq_finite h
     refine EInt.le_of_forall_coe_le fun k hk => ?_
     obtain ⟨a, ha⟩ := coe_le_lsbOf.mp (hk.trans (min_le_left _ _))
     obtain ⟨b, hb⟩ := coe_le_lsbOf.mp (hk.trans (min_le_right _ _))
     exact coe_le_lsbOf.mpr ⟨a + b, by rw [ha, hb]; push_cast; ring⟩
-  · obtain ⟨s, hs⟩ := Num.add_special fun x y hx hy => h ⟨x, y, hx, hy⟩
-    rw [hs]; exact le_top
 
 theorem msb_add (u v : Num) :
     msbOf (Num.add u v) ≤ max (msbOf u) (msbOf v) + ((1 : ℤ) : EInt) := by
-  by_cases h : ∃ x y, u = .finite x ∧ v = .finite y
-  · obtain ⟨x, y, rfl, rfl⟩ := h
-    refine EInt.le_of_forall_le_coe fun k hk => ?_
+  rcases u with x | _ <;> rcases v with y | _
+  · refine EInt.le_of_forall_le_coe fun k hk => ?_
     rw [EInt.add_coe_le_coe] at hk
     have hx := msbOf_le_coe.mp ((le_max_left _ _).trans hk)
     have hy := msbOf_le_coe.mp ((le_max_right _ _).trans hk)
     simp only [sub_add_cancel] at hx hy
     refine msbOf_le_coe.mpr ((abs_add_le x y).trans_lt ?_)
     rw [zpow_add_one₀ two_ne_zero]; linarith
-  · rcases msbOf_eq_top_of_not_finite h with h | h <;> rw [h] <;>
-      simp only [max_eq_left, max_eq_right, le_top, EInt.top_add_coe]
+  all_goals simp only [msbOf_special, max_eq_left, max_eq_right, le_top, EInt.top_add_coe]
 
 theorem lsb_mul (u v : Num) : lsbOf u + lsbOf v ≤ lsbOf (Num.mul u v) := by
-  by_cases h : ∃ x y, u = .finite x ∧ v = .finite y
-  · obtain ⟨x, y, rfl, rfl⟩ := h
-    simp only [Num.mul]
+  cases h : Num.mul u v with
+  | special => exact le_top
+  | finite =>
+    obtain ⟨x, y, rfl, rfl, rfl⟩ := Num.mul_eq_finite h
     by_cases hx : x = 0
     · simp [hx, lsbOf_zero]
     by_cases hy : y = 0
@@ -226,8 +191,6 @@ theorem lsb_mul (u v : Num) : lsbOf u + lsbOf v ≤ lsbOf (Num.mul u v) := by
         rw [hc, hd, show (c : ℝ) * 2 ^ a * (d * 2 ^ b) = ((c * d : ℤ) : ℝ) * 2 ^ (a + b) by
           rw [zpow_add₀ two_ne_zero]; push_cast; ring]
         exact coe_le_lsbOf.mpr ⟨_, two_zpow_shift _ hk⟩
-  · obtain ⟨s, hs⟩ := Num.mul_special fun x y hx hy => h ⟨x, y, hx, hy⟩
-    rw [hs]; exact le_top
 
 theorem msb_mul {u v : Num} (hn : Num.mul u v ≠ nan) :
     msbOf (Num.mul u v) ≤ msbOf u + msbOf v + ((1 : ℤ) : EInt) := by
@@ -269,24 +232,6 @@ theorem msb_mul {u v : Num} (hn : Num.mul u v ≠ nan) :
   rcases u with x | (_ | _)
   · simp [Num.abs, msbOf]
   all_goals rfl
-
-theorem lsb_min (u v : Num) : min (lsbOf u) (lsbOf v) ≤ lsbOf (Num.min u v) := by
-  rcases Num.min_cases u v with h | h | h <;> rw [h]
-  exacts [min_le_left _ _, min_le_right _ _, le_top]
-
-theorem msb_min {u v : Num} (hn : Num.min u v ≠ nan) :
-    msbOf (Num.min u v) ≤ max (msbOf u) (msbOf v) := by
-  rcases Num.min_cases u v with h | h | h <;> rw [h]
-  exacts [le_max_left _ _, le_max_right _ _, absurd h hn]
-
-theorem lsb_max (u v : Num) : min (lsbOf u) (lsbOf v) ≤ lsbOf (Num.max u v) := by
-  rcases Num.max_cases u v with h | h | h <;> rw [h]
-  exacts [min_le_left _ _, min_le_right _ _, le_top]
-
-theorem msb_max {u v : Num} (hn : Num.max u v ≠ nan) :
-    msbOf (Num.max u v) ≤ max (msbOf u) (msbOf v) := by
-  rcases Num.max_cases u v with h | h | h <;> rw [h]
-  exacts [le_max_left _ _, le_max_right _ _, absurd h hn]
 
 /-- `2ᵉ` has its only digit at `e`, or none (`2^(−∞) = 0`). -/
 theorem digits_exp2 (e : EInt) :

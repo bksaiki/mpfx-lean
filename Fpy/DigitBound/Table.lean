@@ -6,14 +6,9 @@ import Mpfx.Rounding.Ulp
 
 D-Arith's premise `ArithOK` is `rnd♮_C(op♮(Is))`: an operator transfer
 `OpOK` followed by a rounding transfer `RndOK` (`ArithOK.comp`). Each row of
-Table 2 discharges one. A compound endpoint is a fresh variable bounded by it:
-the result interval is `[λ, μ]` with `μ = n` bounded above and `λ = n + 1`
-below (`fresh_numIn`). Under the extended endpoints this applies to a lone
-endpoint as well, since a value can round to `0`, whose interval is `[+∞, −∞]`.
-
-The rounding rows take the contexts `κ` admits through `Decodes`: each decodes
-to a context of the row's shape whose overflow and special values have digits
-within `[Lo, Ho]`, and the row's interval is joined with `[Lo, Ho]`.
+Table 2 discharges one. Each row's result is a fresh interval `[n + 1, n]`
+(`fresh_numIn`). Rounding rows take their contexts through `Decodes` and join
+the row with the digits of the context's overflow and special values.
 -/
 
 namespace Fpy.DigitBound
@@ -54,14 +49,6 @@ theorem ArithOK.comp {κ : Option SCtx} {op : ArithOp} {Is : List (Term × Term 
   rw [a₂ x (by omega), a₁ x (by omega)]
 
 /-! ## Operator rows -/
-
-theorem forall₂_one {α β : Type} {R : α → β → Prop} {a : α} {l : List β}
-    (h : List.Forall₂ R [a] l) : ∃ b, l = [b] ∧ R a b := by
-  rcases h with _ | ⟨h, h'⟩; cases h'; exact ⟨_, rfl, h⟩
-
-theorem forall₂_two {α β : Type} {R : α → β → Prop} {a₁ a₂ : α} {l : List β}
-    (h : List.Forall₂ R [a₁, a₂] l) : ∃ b₁ b₂, l = [b₁, b₂] ∧ R a₁ b₁ ∧ R a₂ b₂ := by
-  rcases h with _ | ⟨h₁, _ | ⟨h₂, h'⟩⟩; cases h'; exact ⟨_, _, rfl, h₁, h₂⟩
 
 /-- A row whose interval is fresh, bounded by `Lo` and `Hi` on the operands'
 endpoints. -/
@@ -111,7 +98,7 @@ theorem opOK_mul (hLo : (Term.add l₁ l₂).Below n)
     refine ⟨(msb_mul hn).trans_eq ?_, (lsb_mul u₁ u₂).trans_eq' ?_⟩ <;>
       simp only [Term.eval, hl₁, hm₁, hl₂, hm₂]
 
-/-- `−x`, `|x|`, `round(x)` keep `[l, m]`. -/
+/-- `−x`, `|x|`, `round(x)`, `cast(x)` keep `[l, m]`. -/
 theorem opOK_exact {op : ArithOp} (hop : op = .neg ∨ op = .abs ∨ op = .round ∨ op = .cast) :
     OpOK op [(l, m, τ)] n n [] l m := by
   intro ι ns u hns hu
@@ -134,17 +121,16 @@ theorem opOK_ext {op : ArithOp} (hop : op = .min ∨ op = .max) (hLo : (Term.min
       (bounds n _ _ (hLo.mono (Nat.le_succ n)) hHi) (.var (n + 1)) (.var n) :=
   opOK_of hLo hHi fun ι ns u hns hu hn => by
     obtain ⟨u₁, u₂, rfl, h₁, h₂⟩ := forall₂_two hns
-    have hc : u = u₁ ∨ u = u₂ ∨ u = nan := by
+    have hc : u = u₁ ∨ u = u₂ := by
       rcases hop with rfl | rfl <;> simp only [ArithOp.eval, Option.some.injEq] at hu <;>
         subst hu
-      exacts [Num.min_cases u₁ u₂, Num.max_cases u₁ u₂]
+      exacts [Num.min_eq_or u₁ u₂, Num.max_eq_or u₁ u₂]
     simp only [Term.eval]
-    rcases hc with rfl | rfl | rfl
+    rcases hc with rfl | rfl
     · obtain ⟨hl, hm⟩ := h₁.eq hn
       exact ⟨hm ▸ le_max_left _ _, hl ▸ min_le_left _ _⟩
     · obtain ⟨hl, hm⟩ := h₂.eq hn
       exact ⟨hm ▸ le_max_right _ _, hl ▸ min_le_right _ _⟩
-    · exact absurd rfl hn
 
 /-- `2ˣ : [τ, τ]` when `x` has term `τ`. -/
 theorem opOK_exp2 {t : Term} (hLo : t.Below n) :

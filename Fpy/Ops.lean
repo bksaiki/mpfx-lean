@@ -50,7 +50,7 @@ noncomputable def sqrt : Num → Num
   | .special (.inf false) => .special (.inf false)
   | .special _ => .special .nan
 
-/-- Fused multiply-add: `u × v + w` with one rounding. -/
+/-- Fused multiply-add: `u × v + w`, exact. -/
 noncomputable def fma (u v w : Num) : Num := add (mul u v) w
 
 noncomputable def abs : Num → Num
@@ -110,6 +110,57 @@ def isInf : Num → Bool
   | _ => false
 
 end Num
+
+/-! ## Case lemmas -/
+
+theorem Num.add_eq_finite {u v : Num} {x : ℝ} (h : Num.add u v = .finite x) :
+    ∃ a b, u = .finite a ∧ v = .finite b ∧ x = a + b := by
+  rcases u with a | (_ | _) <;> rcases v with b | (_ | _) <;>
+    simp only [Num.add, reduceCtorEq] at h
+  all_goals first
+    | exact ⟨a, b, rfl, rfl, (WithSpecial.finite.inj h).symm⟩
+    | split_ifs at h
+
+theorem Num.mul_eq_finite {u v : Num} {x : ℝ} (h : Num.mul u v = .finite x) :
+    ∃ a b, u = .finite a ∧ v = .finite b ∧ x = a * b := by
+  rcases u with a | (_ | _) <;> rcases v with b | (_ | _) <;>
+    simp only [Num.mul, reduceCtorEq] at h
+  all_goals first
+    | exact ⟨a, b, rfl, rfl, (WithSpecial.finite.inj h).symm⟩
+    | split_ifs at h
+
+theorem Num.div_eq_finite {u v : Num} {x : ℝ} (h : Num.div u v = .finite x) :
+    (∃ a b, u = .finite a ∧ v = .finite b ∧ b ≠ 0 ∧ x = a / b) ∨
+      (∃ a s, u = .finite a ∧ v = .special (.inf s) ∧ x = 0) := by
+  rcases u with a | (_ | _) <;> rcases v with b | (_ | _) <;>
+    simp only [Num.div, reduceCtorEq] at h
+  · split_ifs at h
+    exact .inl ⟨a, b, rfl, rfl, ‹_›, (WithSpecial.finite.inj h).symm⟩
+  · exact .inr ⟨a, _, rfl, rfl, (WithSpecial.finite.inj h).symm⟩
+
+theorem Num.sqrt_eq_finite {u : Num} {x : ℝ} (h : Num.sqrt u = .finite x) :
+    ∃ a, u = .finite a ∧ 0 ≤ a ∧ x = Real.sqrt a := by
+  rcases u with a | ((_ | _) | _) <;> simp only [Num.sqrt, reduceCtorEq] at h
+  split_ifs at h with ha
+  exact ⟨a, rfl, not_lt.mp ha, (WithSpecial.finite.inj h).symm⟩
+
+theorem Num.min_eq_or (u v : Num) : Num.min u v = u ∨ Num.min u v = v := by
+  rcases u with x | (a | _) <;> rcases v with y | (b | _) <;>
+    first
+    | (simp [Num.min]; done)
+    | exact (min_choice x y).imp (congrArg _) (congrArg _)
+    | (cases a <;> cases b <;> simp [Num.min])
+    | (cases a <;> simp [Num.min])
+    | (cases b <;> simp [Num.min])
+
+theorem Num.max_eq_or (u v : Num) : Num.max u v = u ∨ Num.max u v = v := by
+  rcases u with x | (a | _) <;> rcases v with y | (b | _) <;>
+    first
+    | (simp [Num.max]; done)
+    | exact (max_choice x y).imp (congrArg _) (congrArg _)
+    | (cases a <;> cases b <;> simp [Num.max])
+    | (cases a <;> simp [Num.max])
+    | (cases b <;> simp [Num.max])
 
 /-- The rounded operators of FPy. -/
 inductive ArithOp where

@@ -12,8 +12,8 @@ appendix, and extends it with special values: a format also states which of
 NaN, with overflow sent to a format-chosen value.
 
 A second library, `Fpy`, built on `Mpfx`, mechanizes the FPy compiler paper
-(draft): the language's semantics, format inference, and the compiler's
-rewrites ([FPy](#fpy)).
+(draft): the language's semantics, format inference, the digit-bound analysis,
+and the compiler's rewrites ([FPy](#fpy)).
 
 ## Theorems
 
@@ -159,9 +159,11 @@ operation produces (`special_mem_opMul_iff`, `special_mem_opAdd_iff`,
 
 The FPy compiler paper (PLDI draft) compiles hardware specifications with
 explicit rounding into fast software models. `Fpy` mechanizes its semantics
-(§3), format inference with Theorem 4.1 (§4.2), and each rewrite of §5. Names
-are relative to `namespace Fpy`, e.g. `#check @Fpy.run_iff_of_rw`. Section,
-figure and table numbers follow the draft.
+(§3), format inference with Theorem 4.1 (§4.2), the digit-bound analysis with
+Theorem 4.2 (§4.3), and each rewrite of §5. Names are relative to `namespace
+Fpy`, e.g. `#check @Fpy.run_iff_of_rw`. Section, figure and table numbers follow
+the draft. The theorems cover non-recursive programs: a recursive call has no
+finite derivation.
 
 The operators are abstract (a `Signature`) through the semantics, format
 inference and the rewrite framework; `fpy decode` is FPy's own signature, with
@@ -191,6 +193,8 @@ contexts that round through `Mpfx.rnd` and any record layout `decode`.
 
 ### §4.3 — Digit-bound analysis (Fig. 7, 8, 12; Table 2)
 
+Names are in `namespace Fpy.DigitBound`.
+
 | Paper | Lean | File |
 | --- | --- | --- |
 | Rules (Fig. 8, 12) | `DEval`, `DExec` | `Fpy/DigitBound/Defs.lean` |
@@ -202,12 +206,9 @@ contexts that round through `Mpfx.rnd` and any record layout `decode`.
 
 ### §5 — Rewrites
 
-A rewrite `[C] s ⇝ s' if φ` is correct (`Equiv`) when, from every store format
-inference allows and under every context it allows, `s` and `s'` reach the same
-outcomes up to fresh variables. Each rewrite below is such an `Equiv`, and its
-output is well formed (`wf_*`). `Rw` places correct rewrites in a program at the
-`Γ` and context format inference assigns each site; `Rw.sim` is the congruence
-theorem and `run_iff_of_rw` the whole-program one.
+Each rewrite is an `Equiv`, and its output is well formed (`wf_*`). A rewrite's
+fresh variables are kept apart from the rest of the program by `Rw`, not by the
+`equiv_*` statements.
 
 | Paper | Lean | File |
 | --- | --- | --- |
@@ -226,15 +227,7 @@ theorem and `run_iff_of_rw` the whole-program one.
 ### Differences from the draft
 
 Where a rule of the draft is unsound or underspecified, the Lean states a fixed
-rule; the list is in [`docs/agents/FPY_PLAN.md`](docs/agents/FPY_PLAN.md). In
-brief: rounding under an unknown context is bounded by `R*`; abstract values
-carry known contexts;
-Table 1 states the special values each operator produces; Overflow compares
-exactly and needs a finite input; FloatToFixed needs `p ≠ 1`; Rescale's
-context scales `C`'s special and overflow values. The SplitOp instances need an
-unbounded intermediate format. Digit positions range over `ℤ ∪ {±∞}`; D-While
-takes an invariant; Table 2's rounding rows join the context's overflow and
-special values' digits.
+rule; the list is in [`docs/agents/FPY_PLAN.md`](docs/agents/FPY_PLAN.md).
 
 Not mechanized: the composition of rewrites (e.g. Fig. 9), and the
 implementation's fixpoint algorithm, which only constructs derivations of the
@@ -296,10 +289,11 @@ standard axioms.
 | `Fpy/Ops.lean` | FPy's operators on `Num`, `RoundCtx`, the signature `fpy`. |
 | `Fpy/FormatInference/Defs.lean`, `Sound.lean` | Format inference over any domain; Theorem 4.1. |
 | `Fpy/FormatInference/Domain.lean`, `Ops.lean`, `Refine.lean`, `Analysis.lean` | The Fig. 4 domain, Table 1, condition refinement; Theorem 4.1 for FPy. |
+| `Fpy/DigitBound/Defs.lean`, `Basic.lean`, `Digits.lean`, `Sound.lean`, `Table.lean` | §4.3 rules, their lemmas, digit positions of each operator, Theorem 4.2, Table 2. |
 | `Fpy/Rewrite.lean` | `Equiv`, `Rw`, congruence, the whole-program theorem. |
 | `Fpy/Rewrite/Separate.lean` | §5.1 rewrites and their FPy instances. |
 | `Fpy/Rewrite/Lower.lean` | §5.2 rewrites and their rounding identities. |
-| `FpyTest/` | `lake build FpyTest` examples: a toy signature, Table 1 checks, Split/SplitOp instances, the E4M3 threshold. |
+| `FpyTest/` | `lake build FpyTest` examples: a toy signature, Table 1 checks, Split/SplitOp instances, the E4M3 threshold, Table 2 checks. |
 
 Formalization design notes are in [`docs/DESIGN.md`](docs/DESIGN.md); status and
 remaining work in [`docs/agents/TODO.md`](docs/agents/TODO.md) (Mpfx) and
