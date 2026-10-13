@@ -43,4 +43,20 @@ theorem draft_ieee_rm_bound :
     coe_add_coe]
   norm_num
 
+/-- A list summary's constraints bound every element: under `μ ≤ 10`, the
+summary `⟨[λ, μ], _⟩` does not describe `[2²⁰]`. -/
+example (ι : Asgn) :
+    ¬ Describes [Con.upper 1 (.const (10 : ℤ)) trivial] ι
+      (.list (.num (.var 0) (.var 1) none) 0) (.list [.num (.finite ((2 : ℝ) ^ (20 : ℤ)))]) := by
+  intro h
+  cases h with | list hall => cases hall with | cons _ hs hd _ => cases hd with | num hu =>
+  rcases hu with h | ⟨-, hm, -⟩
+  · cases h
+  · have h10 := hs _ (List.mem_singleton_self _)
+    simp only [Con.upper, Term.eval] at h10
+    rw [msbOf_of_ne_zero (by positivity), abs_of_pos (by positivity), log_two_zpow] at hm
+    simp only [Term.eval] at hm
+    rw [← hm] at h10
+    exact absurd (WithBotTop.coe_le_coe.mp h10) (by norm_num)
+
 end FpyTest

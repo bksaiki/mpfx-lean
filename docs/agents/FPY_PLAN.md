@@ -34,6 +34,7 @@ Each fix is a change to the draft; the Lean states the fixed rule.
 | Theorem 4.2, values with infinitely many digits | `γ_ι([l, m])` requires `min digits(v) = ι(l)` | `0.1`, or `√2` and `x / 3` under `R`, have no least significant digit, so no interval concretizes them; yet D-Const gives `0.1` the value `⟨[λ, μ], _⟩` and Table 2's "all others" covers `√` and `÷`. | Extended endpoints: such a value has lsb `−∞`. |
 | Fig. 12 `D-While` | `Δ_I = Δ ⊔ Δ′` | The invariant's variables depend on the body's outputs, which depend on the invariant, so the constraints are cyclic and the proof cannot re-choose variables in order. For a variable the body leaves unchanged, `μ_I ≤ max(m, μ_I)` bounds nothing. | An invariant with `Δ ⊑ Δ_I` and `Δ′ ⊑ Δ_I`, as A-While; the join is an instance. |
 | Fig. 12 `D-Index` | `e₁[e₂] : d` | Each list element is described under its own assignment of `d`'s variables, but once the list is in a variable those are variables of `Δ`, which the theorem keeps fixed. `xs = [1, 4]; z = xs[1]` needs `val = 4` while `Δ` fixes it at the value describing another element. | The result is a copy of `d` with fresh variables, justified for every assignment of `d`'s variables. |
+| §4.3, list concretization | `vⱼ ∈ γ_ιⱼ(d)` for some `ιⱼ ⊨ Ψ` agreeing with `ι` outside the variables of `d` | `Ψ` keeps growing, and a later constraint can mention `d`'s variables (`ν ≤ μ + 1` after the list): `ιⱼ` changes `μ` but must keep `ι`'s `ν`, so `ιⱼ ⊨ Ψ` can fail. | `ιⱼ` agrees with `ι` on the variables created before `d`'s, and re-chooses the rest. |
 | Fig. 12 `D-Logb`, `D-Max`, `D-Min` | under any context `C` | Each rounds under `C`, which can change an integer result (`Fixed(3, RTZ)` sends `5` to `0`), so the symbolic value no longer matches. | State them under `R`, as `D-Linear`. |
 | §5.2 Overflow, the test | `if \|r\| > b` under `C` | `\|·\|` is a rounded operator, so the test sees `C(\|r\|)`. When `C` overflows to NaN (MX E4M3, the running example) or saturates to `b`, an `r` beyond `b` fails the test and `x = r` leaves `F`. | Compare exactly: `r < −b`, `b < r` (unrounded `<`), or under `R`. |
 | §5.2 Overflow, the input | no condition on `t` | For `t = ±∞` the rewrite returns `ovf_C`, but `C(±∞)` is the special map's value, which differs when overflow saturates and infinities are kept. | Require `t` finite. The draft applies Overflow after Special, but the rule should say so. |
@@ -46,10 +47,6 @@ is unspecified (provisional decisions, below).
 
 ## Remaining work
 
-- **List elements.** `DescribesAll` takes each element under any assignment,
-  not one satisfying `Ψ` and agreeing outside `d`'s variables, so a list's
-  element value with variable endpoints bounds nothing and `xs[i]` gets no
-  bound from the list. Fix `DescribesAll`, then D-List, D-Index, `DVal.Copy`.
 - **Rounding rows under `?`.** `Decodes` needs every admitted context to be a
   `RoundCtx`, but `?` admits `R`, whose rounding is `id`; no row applies inside
   `withUnknown`. Let `Decodes` admit `id` and prove the rows for it.
@@ -81,8 +78,9 @@ The claim is each rewrite on its own. Not mechanized:
 - **The draft adopts the fixes above.** If it keeps a rule as printed, the
   mechanization proves a different system.
 - **Theorem 4.2's assignments.** One assignment per value of an expression,
-  and per loop iteration, agreeing on `Δ`'s variables. List elements are
-  weaker than the draft (remaining work, below).
+  and per loop iteration, agreeing on `Δ`'s variables. Descriptions take the
+  constraints generated so far; a list's elements each get an assignment
+  satisfying them (the list row above).
 - **Rules only, not the implementation's algorithm.** The theorems cover any
   derivation; widening, the set-size cap and Z3 only construct derivations.
   The draft should say "the rules are sound". Reopen if it wants an extracted

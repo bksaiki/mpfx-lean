@@ -3,10 +3,10 @@ import Fpy.DigitBound.Defs
 /-!
 # Lemmas for the digit-bound analysis
 
-Descriptions depend only on the variables below a bound (`Describes.congr`);
-any fresh range's constraints can be satisfied by re-choosing its variables
-(`Sat.extend`); and symbolic values follow FPy's `+`, `−`, `max`, `min` and
-`logb` through `numOfE`.
+Any fresh range's constraints can be satisfied by re-choosing its variables
+(`Sat.extend`); descriptions depend only on the variables below a bound, and
+survive new constraints on fresh variables (`Describes.grow`); and symbolic
+values follow FPy's `+`, `−`, `max`, `min` and `logb` through `numOfE`.
 -/
 
 namespace Fpy.DigitBound
@@ -23,7 +23,7 @@ mutual
 
 theorem DVal.Below.mono {n n' : ℕ} (h : n ≤ n') : ∀ {d : DVal}, d.Below n → d.Below n'
   | .num _ _ _, ⟨hl, hm, hτ⟩ => ⟨hl.mono h, hm.mono h, fun t ht => (hτ t ht).mono h⟩
-  | .list _, _ => trivial
+  | .list _ _, ⟨ha, hd⟩ => ⟨ha.trans h, DVal.Below.mono h hd⟩
   | .record _, hfs => DVal.BelowFields.mono h hfs
   | .other, _ => trivial
   | .ctx _, hC => SCtx.Below.mono h hC
@@ -112,50 +112,6 @@ theorem SCtx.Admits.congr {n : ℕ} {ι ι' : Asgn} (h : Agree n ι ι') :
       rw [← Term.eval_congr h (hC _ (List.mem_cons_self ..))]
       exact hfw.2
 
-mutual
-
-theorem Describes.congr {n : ℕ} {ι ι' : Asgn} (h : Agree n ι ι') :
-    ∀ {d : DVal} {v : Val}, Describes ι d v → d.Below n → Describes ι' d v
-  | _, _, .num hu, ⟨hl, hm, hτ⟩ => .num (hu.congr h hl hm hτ)
-  | _, _, .list hall, _ => .list hall
-  | _, _, .record hfs, hb => .record (DescribesFields.congr h hfs hb)
-  | _, _, .bool, _ => .bool
-  | _, _, .real, _ => .real
-  | _, _, .ctxv, _ => .ctxv
-  | _, _, .sctx hC, hb => .sctx (hC.congr h hb)
-
-theorem DescribesFields.congr {n : ℕ} {ι ι' : Asgn} (h : Agree n ι ι') :
-    ∀ {afs : List (Label × DVal)} {fs : List (Label × Val)}, DescribesFields ι afs fs →
-      DVal.BelowFields n afs → DescribesFields ι' afs fs
-  | _, _, .nil, _ => .nil
-  | _, _, .cons hd hfs, ⟨hb, hbs⟩ => .cons (hd.congr h hb) (DescribesFields.congr h hfs hbs)
-
-end
-
-theorem DEnv.Holds.congr {n : ℕ} {ι ι' : Asgn} (h : Agree n ι ι') {Δ : DEnv} {σ : Store}
-    (hΔ : Δ.Below n) (hσ : Δ.Holds ι σ) : Δ.Holds ι' σ := fun x d hx => by
-  obtain ⟨v, hv, hd⟩ := hσ x d hx
-  exact ⟨v, hv, hd.congr h (hΔ x d hx)⟩
-
-theorem DEnv.Holds.update {Δ : DEnv} {ι : Asgn} {σ : Store} (hσ : Δ.Holds ι σ) (x : Var)
-    {d : DVal} {v : Val} (hd : Describes ι d v) : (Δ.update x d).Holds ι (σ.update x v) := by
-  intro z d' hz
-  by_cases hzx : z = x
-  · subst hzx
-    simp only [DEnv.update, Function.update_self, Option.some.injEq] at hz
-    exact ⟨v, by simp [Store.update], hz ▸ hd⟩
-  · simp only [DEnv.update, Function.update_of_ne hzx] at hz
-    simpa [Store.update, Function.update_of_ne hzx] using hσ z d' hz
-
-theorem DEnv.Holds.single {ι : Asgn} {y : Var} {d : DVal} {v : Val} (hd : Describes ι d v) :
-    (DEnv.single y d).Holds ι (Store.single y v) := by
-  intro x d' hx
-  by_cases hxy : x = y
-  · subst hxy
-    simp only [DEnv.single, if_pos, Option.some.injEq] at hx
-    exact ⟨v, by simp [Store.single], hx ▸ hd⟩
-  · simp [DEnv.single, hxy] at hx
-
 theorem admits_congr {n : ℕ} {ι ι' : Asgn} (h : Agree n ι ι') {κ : Option SCtx} {C : Val}
     (hκ : CtxBelow n κ) (hC : ∀ K ∈ κ, K.Admits ι C) : ∀ K ∈ κ, K.Admits ι' C :=
   fun K hK => (hC K hK).congr h (hκ K hK)
@@ -167,6 +123,9 @@ theorem Sat.append {ι : Asgn} {Ψ Ψ' : List Con} (h : Sat ι Ψ) (h' : Sat ι 
 
 theorem Sat.left {ι : Asgn} {Ψ Ψ' : List Con} (h : Sat ι (Ψ ++ Ψ')) : Sat ι Ψ :=
   fun c hc => h c (List.mem_append_left _ hc)
+
+theorem Sat.right {ι : Asgn} {Ψ Ψ' : List Con} (h : Sat ι (Ψ ++ Ψ')) : Sat ι Ψ' :=
+  fun c hc => h c (List.mem_append_right _ hc)
 
 theorem Sat.congr {n₀ n₁ : ℕ} {Ψ : List Con} (hΨ : Fresh n₀ n₁ Ψ) {ι ι' : Asgn}
     (h : Agree n₁ ι ι') (hs : Sat ι Ψ) : Sat ι' Ψ := fun c hc =>
@@ -233,6 +192,95 @@ theorem Sat.extend {n₀ n₁ : ℕ} {Ψ : List Con} (hΨ : Fresh n₀ n₁ Ψ) 
           · exact absurd ⟨c', hc', heq⟩ hc)
         exact ⟨ι', Agree.mono (Nat.le_succ j) hι', hs⟩
   exact key _ n₀ rfl ι fun c hc hlt => absurd (hΨ.2.2 c hc).1 (by omega)
+
+theorem Fresh.before {n₀ n₁ : ℕ} {Ψ : List Con} (h : Fresh n₀ n₁ Ψ) : Before n₁ Ψ :=
+  fun c hc => (h.2.2 c hc).2
+
+theorem Before.mono {n n' : ℕ} {Ψ : List Con} (h : n ≤ n') (hΨ : Before n Ψ) : Before n' Ψ :=
+  fun c hc => lt_of_lt_of_le (hΨ c hc) h
+
+theorem Before.append {n₀ n₁ : ℕ} {Ψ Ψ' : List Con} (hΨ : Before n₀ Ψ) (h : Fresh n₀ n₁ Ψ') :
+    Before n₁ (Ψ ++ Ψ') := fun c hc =>
+  (List.mem_append.mp hc).elim (fun hc => lt_of_lt_of_le (hΨ c hc) h.le) (h.before c)
+
+theorem Sat.congr_before {n : ℕ} {Ψ : List Con} (hΨ : Before n Ψ) {ι ι' : Asgn}
+    (h : Agree n ι ι') (hs : Sat ι Ψ) : Sat ι' Ψ := fun c hc =>
+  c.dep (fun x hx => h x (lt_of_le_of_lt hx (hΨ c hc))) (hs c hc)
+
+/-! ## Descriptions -/
+
+mutual
+
+/-- **Growth.** A description under `ι` holds under any `ι'` agreeing below `n`,
+with constraints on fresh variables from `n` added: each list element's
+assignment re-chooses those variables. -/
+theorem Describes.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ) (hF : Fresh n n' Ψ') :
+    ∀ {ι ι' : Asgn} {d : DVal} {v : Val}, Agree n ι ι' → Describes Ψ ι d v → d.Below n →
+      Describes (Ψ ++ Ψ') ι' d v
+  | _, _, _, _, h, .num hu, ⟨hl, hm, hτ⟩ => .num (hu.congr h hl hm hτ)
+  | _, _, _, _, h, .list hall, ⟨ha, hd⟩ => .list (DescribesAll.grow hb hF h hall ha hd)
+  | _, _, _, _, h, .record hfs, hbs => .record (DescribesFields.grow hb hF h hfs hbs)
+  | _, _, _, _, _, .bool, _ => .bool
+  | _, _, _, _, _, .real, _ => .real
+  | _, _, _, _, _, .ctxv, _ => .ctxv
+  | _, _, _, _, h, .sctx hC, hbC => .sctx (hC.congr h hbC)
+
+theorem DescribesAll.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ) (hF : Fresh n n' Ψ') :
+    ∀ {ι ι' : Asgn} {d : DVal} {a : ℕ} {vs : List Val}, Agree n ι ι' →
+      DescribesAll Ψ ι d a vs → a ≤ n → d.Below n → DescribesAll (Ψ ++ Ψ') ι' d a vs
+  | _, _, _, _, _, _, .nil, _, _ => .nil
+  | _, _, _, _, _, h, .cons (ι' := ι₀) h₀ hs hd tl, ha, hdb => by
+    obtain ⟨ι₁, a₁, hs₁⟩ := Sat.extend hF ι₀
+    exact .cons (fun x hx => (h x (lt_of_lt_of_le hx ha)).symm.trans
+        ((h₀ x hx).trans (a₁ x (lt_of_lt_of_le hx ha))))
+      ((Sat.congr_before hb a₁ hs).append hs₁) (Describes.grow hb hF a₁ hd hdb)
+      (DescribesAll.grow hb hF h tl ha hdb)
+
+theorem DescribesFields.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ)
+    (hF : Fresh n n' Ψ') :
+    ∀ {ι ι' : Asgn} {afs : List (Label × DVal)} {fs : List (Label × Val)}, Agree n ι ι' →
+      DescribesFields Ψ ι afs fs → DVal.BelowFields n afs → DescribesFields (Ψ ++ Ψ') ι' afs fs
+  | _, _, _, _, _, .nil, _ => .nil
+  | _, _, _, _, h, .cons hd hfs, ⟨hb₁, hbs⟩ =>
+    .cons (Describes.grow hb hF h hd hb₁) (DescribesFields.grow hb hF h hfs hbs)
+
+end
+
+theorem Describes.congr {n : ℕ} {Ψ : List Con} (hb : Before n Ψ) {ι ι' : Asgn}
+    (h : Agree n ι ι') {d : DVal} {v : Val} (hd : Describes Ψ ι d v) (hdb : d.Below n) :
+    Describes Ψ ι' d v := by
+  simpa using Describes.grow hb (Fresh.nil n) h hd hdb
+
+theorem DEnv.Holds.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ) (hF : Fresh n n' Ψ')
+    {ι ι' : Asgn} (h : Agree n ι ι') {Δ : DEnv} {σ : Store} (hΔ : Δ.Below n)
+    (hσ : Δ.Holds Ψ ι σ) : Δ.Holds (Ψ ++ Ψ') ι' σ := fun x d hx => by
+  obtain ⟨v, hv, hd⟩ := hσ x d hx
+  exact ⟨v, hv, hd.grow hb hF h (hΔ x d hx)⟩
+
+theorem DEnv.Holds.congr {n : ℕ} {Ψ : List Con} (hb : Before n Ψ) {ι ι' : Asgn}
+    (h : Agree n ι ι') {Δ : DEnv} {σ : Store} (hΔ : Δ.Below n) (hσ : Δ.Holds Ψ ι σ) :
+    Δ.Holds Ψ ι' σ := by
+  simpa using hσ.grow hb (Fresh.nil n) h hΔ
+
+theorem DEnv.Holds.update {Δ : DEnv} {Ψ : List Con} {ι : Asgn} {σ : Store}
+    (hσ : Δ.Holds Ψ ι σ) (x : Var) {d : DVal} {v : Val} (hd : Describes Ψ ι d v) :
+    (Δ.update x d).Holds Ψ ι (σ.update x v) := by
+  intro z d' hz
+  by_cases hzx : z = x
+  · subst hzx
+    simp only [DEnv.update, Function.update_self, Option.some.injEq] at hz
+    exact ⟨v, by simp [Store.update], hz ▸ hd⟩
+  · simp only [DEnv.update, Function.update_of_ne hzx] at hz
+    simpa [Store.update, Function.update_of_ne hzx] using hσ z d' hz
+
+theorem DEnv.Holds.single {Ψ : List Con} {ι : Asgn} {y : Var} {d : DVal} {v : Val}
+    (hd : Describes Ψ ι d v) : (DEnv.single y d).Holds Ψ ι (Store.single y v) := by
+  intro x d' hx
+  by_cases hxy : x = y
+  · subst hxy
+    simp only [DEnv.single, if_pos, Option.some.injEq] at hx
+    exact ⟨v, by simp [Store.single], hx ▸ hd⟩
+  · simp [DEnv.single, hxy] at hx
 
 local notation "nan" => (WithSpecial.special Special.nan : Num)
 
@@ -366,9 +414,9 @@ theorem ExactOp.eval_len {vs : List Val} {v : Val} (h : ExactOp.len.eval vs = so
   split at h <;> simp only [Option.some.injEq, reduceCtorEq] at h <;> subst h <;>
     first | exact ⟨_, rfl⟩ | (exfalso; simp_all)
 
-theorem ctxOfFields_admits {ι : Asgn} :
+theorem ctxOfFields_admits {Ψ : List Con} {ι : Asgn} :
     ∀ {afs : List (Label × DVal)} {fs : List (Label × Val)} {ts : List (Label × Term)},
-      DescribesFields ι afs fs → ctxOfFields afs = some ts →
+      DescribesFields Ψ ι afs fs → ctxOfFields afs = some ts →
       List.Forall₂ (fun (f : Label × Term) (w : Label × Val) =>
         f.1 = w.1 ∧ (w.2 = .num (numOfE (f.2.eval ι)) ∨ w.2 = .num nan)) ts fs
   | _, _, _, .nil, h => by simp only [ctxOfFields, Option.some.injEq] at h; subst h; exact .nil
@@ -386,8 +434,9 @@ theorem ctxOfFields_admits {ι : Asgn} :
             (ctxOfFields_admits hfs hts')
     | _ => simp [ctxOfFields] at h
 
-theorem ctxOf_admits {ι : Asgn} {d : DVal} {fs : List (Label × Val)} {C : SCtx}
-    (hd : Describes ι d (.record fs)) (hC : ctxOf d = some C) : C.Admits ι (.ctx fs) := by
+theorem ctxOf_admits {Ψ : List Con} {ι : Asgn} {d : DVal} {fs : List (Label × Val)}
+    {C : SCtx} (hd : Describes Ψ ι d (.record fs)) (hC : ctxOf d = some C) :
+    C.Admits ι (.ctx fs) := by
   cases hd with
   | record hfs =>
     simp only [ctxOf, Option.map_eq_some_iff] at hC
@@ -424,9 +473,10 @@ theorem ctxOf_below {n : ℕ} {d : DVal} {C : SCtx} (hd : d.Below n) (hC : ctxOf
     exact ctxOfFields_below hd hts
   | _ => simp [ctxOf] at hC
 
-theorem DescribesFields.lookup {ι : Asgn} {l : Label} {a : DVal} {v : Val} :
-    ∀ {afs : List (Label × DVal)} {fs : List (Label × Val)}, DescribesFields ι afs fs →
-      afs.lookup l = some a → fs.lookup l = some v → Describes ι a v
+theorem DescribesFields.lookup {Ψ : List Con} {ι : Asgn} {l : Label} {a : DVal}
+    {v : Val} :
+    ∀ {afs : List (Label × DVal)} {fs : List (Label × Val)}, DescribesFields Ψ ι afs fs →
+      afs.lookup l = some a → fs.lookup l = some v → Describes Ψ ι a v
   | _, _, .nil, ha, _ => by simp [List.lookup] at ha
   | _, _, .cons (l := l') hd tl, ha, hv => by
     by_cases hl : l = l'
@@ -437,31 +487,39 @@ theorem DescribesFields.lookup {ι : Asgn} {l : Label} {a : DVal} {v : Val} :
       simp only [List.lookup, hne] at ha hv
       exact DescribesFields.lookup tl ha hv
 
-theorem describesAll_of_le {n₀ n₁ : ℕ} {Ψ : List Con} {d : DVal} {ι : Asgn} :
-    ∀ {ds : List DVal} {vs : List Val}, List.Forall₂ (Describes ι) ds vs →
-      (∀ d' ∈ ds, DVal.Le n₀ n₁ Ψ d' d) → DescribesAll d vs
+/-- D-List: each element, described by its own abstract value, is described by
+the summary `d` once its fresh variables `[n₀, n₁)` are re-chosen. -/
+theorem describesAll_of_le {n₀ n₁ : ℕ} {Ψ Ψ' : List Con} {d : DVal} {ι ι' : Asgn}
+    (hb : Before n₀ Ψ) (hs : Sat ι Ψ) (h : Agree n₀ ι ι') :
+    ∀ {ds : List DVal} {vs : List Val}, List.Forall₂ (Describes Ψ ι) ds vs →
+      (∀ d' ∈ ds, DVal.Le n₀ n₁ Ψ' d' d) → DescribesAll (Ψ ++ Ψ') ι' d n₀ vs
   | _, _, .nil, _ => .nil
   | _, _, .cons hd tl, hle => by
-    obtain ⟨ι', -, -, hd'⟩ := hle _ (List.mem_cons_self ..) _ _ hd
-    exact .cons hd' (describesAll_of_le tl fun d' hd' => hle d' (List.mem_cons_of_mem _ hd'))
+    obtain ⟨ι₁, a₁, hs₁, hd'⟩ :=
+      hle _ (List.mem_cons_self ..) _ [] _ _ hb (by simpa using hs) (by simpa using hd)
+    exact .cons (fun x hx => (h x hx).symm.trans (a₁.agree x hx))
+      ((Sat.congr_before hb a₁.agree hs).append hs₁) hd'
+      (describesAll_of_le hb hs h tl fun d' hd' => hle d' (List.mem_cons_of_mem _ hd'))
 
-theorem DescribesAll.mem {d : DVal} : ∀ {vs : List Val}, DescribesAll d vs → ∀ {v : Val},
-    v ∈ vs → ∃ ι, Describes ι d v
+theorem DescribesAll.mem {Ψ : List Con} {ι : Asgn} {d : DVal} {a : ℕ} :
+    ∀ {vs : List Val}, DescribesAll Ψ ι d a vs → ∀ {v : Val}, v ∈ vs →
+      ∃ ι₀, Agree a ι ι₀ ∧ Sat ι₀ Ψ ∧ Describes Ψ ι₀ d v
   | _, .nil, _, hv => absurd hv List.not_mem_nil
-  | _, .cons hd tl, _, hv =>
-    (List.mem_cons.mp hv).elim (fun h => h ▸ ⟨_, hd⟩) (fun h => DescribesAll.mem tl h)
+  | _, .cons h₀ hs hd tl, _, hv =>
+    (List.mem_cons.mp hv).elim (fun h => h ▸ ⟨_, h₀, hs, hd⟩) (fun h => DescribesAll.mem tl h)
 
 /-! ## Outcomes -/
 
 /-- What a statement's outcome must satisfy: a normal end in `Δ'`, or a value
 returned within `a`. -/
-def Within (ι : Asgn) (Δ' : DEnv) (a : Option DVal) : Outcome → Prop
-  | .normal σ => Δ'.Holds ι σ
-  | .ret v => ∃ d ∈ a, Describes ι d v
+def Within (Ψ : List Con) (ι : Asgn) (Δ' : DEnv) (a : Option DVal) : Outcome → Prop
+  | .normal σ => Δ'.Holds Ψ ι σ
+  | .ret v => ∃ d ∈ a, Describes Ψ ι d v
 
-theorem Within.congr {n : ℕ} {ι ι' : Asgn} (h : Agree n ι ι') {Δ' : DEnv} {a : Option DVal}
-    (hΔ : Δ'.Below n) (ha : RetBelow n a) : ∀ {o : Outcome}, Within ι Δ' a o → Within ι' Δ' a o
-  | .normal _, hw => DEnv.Holds.congr h hΔ hw
-  | .ret _, ⟨d, hd, hv⟩ => ⟨d, hd, hv.congr h (ha d hd)⟩
+theorem Within.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ) (hF : Fresh n n' Ψ')
+    {ι ι' : Asgn} (h : Agree n ι ι') {Δ' : DEnv} {a : Option DVal} (hΔ : Δ'.Below n)
+    (ha : RetBelow n a) : ∀ {o : Outcome}, Within Ψ ι Δ' a o → Within (Ψ ++ Ψ') ι' Δ' a o
+  | .normal _, hw => DEnv.Holds.grow hb hF h hΔ hw
+  | .ret _, ⟨d, hd, hv⟩ => ⟨d, hd, hv.grow hb hF h (ha d hd)⟩
 
 end Fpy.DigitBound

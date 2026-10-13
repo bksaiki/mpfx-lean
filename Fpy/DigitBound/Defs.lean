@@ -7,7 +7,9 @@ import Mathlib.Order.WithBotTop
 
 Digit positions (`lsbOf`, `msbOf`) are extended integers: `0` has `[+∞, −∞]`,
 an infinity `[+∞, +∞]`, a value with infinitely many digits lsb `−∞`; NaN lies
-in every interval. Symbolic values are terms, matched through `numOfE`. Fresh
+in every interval. Symbolic values are terms, matched through `numOfE`.
+Descriptions take the constraints so far, which each list element's assignment
+satisfies. Fresh
 variables are numbered from a threaded counter (`n₀ → n₁`), each bounded by one
 `Con`. Transfers are a semantic premise (`ArithOK`) and joins an order with
 fresh variables (`DVal.Le`, `DEnv.Le`). The judgment carries format inference's
@@ -111,6 +113,9 @@ structure Con where
 /-- `ι ⊨ Ψ`. -/
 def Sat (ι : Asgn) (Ψ : List Con) : Prop := ∀ c ∈ Ψ, c.P ι
 
+/-- `Ψ` bounds only variables below `n`. -/
+def Before (n : ℕ) (Ψ : List Con) : Prop := ∀ c ∈ Ψ, c.head < n
+
 /-- `Ψ` bounds distinct fresh variables in `[n₀, n₁)`. -/
 def Fresh (n₀ n₁ : ℕ) (Ψ : List Con) : Prop :=
   n₀ ≤ n₁ ∧ (Ψ.map Con.head).Nodup ∧ ∀ c ∈ Ψ, n₀ ≤ c.head ∧ c.head < n₁
@@ -134,11 +139,12 @@ def SCtx.Below (n : ℕ) : SCtx → Prop
   | .real => True
   | .record fs => ∀ f ∈ fs, f.2.Below n
 
-/-- Abstract values: `num l m τ` is `⟨[l, m], τ⟩`, a list's elements share one
-abstract value, `other` is `•`, and `ctx C` a symbolic context. -/
+/-- Abstract values: `num l m τ` is `⟨[l, m], τ⟩`, `list d a` a list whose
+elements share the abstract value `d`, with variables from `a`, `other` is `•`,
+and `ctx C` a symbolic context. -/
 inductive DVal where
   | num (l m : Term) (τ : Option Term)
-  | list (d : DVal)
+  | list (d : DVal) (a : ℕ)
   | record (fs : List (Label × DVal))
   | other
   | ctx (C : SCtx)
@@ -150,25 +156,27 @@ def NumIn (ι : Asgn) (l m : Term) (τ : Option Term) (n : Num) : Prop :=
 
 mutual
 
-/-- `v ∈ γ_ι(d)`. A list's elements are each described under their own
-assignment. -/
-inductive Describes : Asgn → DVal → Val → Prop
-  | num {ι l m τ n} : NumIn ι l m τ n → Describes ι (.num l m τ) (.num n)
-  | list {ι d vs} : DescribesAll d vs → Describes ι (.list d) (.list vs)
-  | record {ι afs fs} : DescribesFields ι afs fs → Describes ι (.record afs) (.record fs)
-  | bool {ι b} : Describes ι .other (.bool b)
-  | real {ι} : Describes ι .other .real
-  | ctxv {ι fs} : Describes ι .other (.ctx fs)
-  | sctx {ι C v} : C.Admits ι v → Describes ι (.ctx C) v
+/-- `v ∈ γ_ι(d)` under the constraints `Ψ`. A list `list d a` describes each
+element under its own assignment, which satisfies `Ψ` and agrees with `ι` below
+`a`. -/
+inductive Describes (Ψ : List Con) : Asgn → DVal → Val → Prop
+  | num {ι l m τ n} : NumIn ι l m τ n → Describes Ψ ι (.num l m τ) (.num n)
+  | list {ι d a vs} : DescribesAll Ψ ι d a vs → Describes Ψ ι (.list d a) (.list vs)
+  | record {ι afs fs} : DescribesFields Ψ ι afs fs → Describes Ψ ι (.record afs) (.record fs)
+  | bool {ι b} : Describes Ψ ι .other (.bool b)
+  | real {ι} : Describes Ψ ι .other .real
+  | ctxv {ι fs} : Describes Ψ ι .other (.ctx fs)
+  | sctx {ι C v} : C.Admits ι v → Describes Ψ ι (.ctx C) v
 
-inductive DescribesAll : DVal → List Val → Prop
-  | nil {d} : DescribesAll d []
-  | cons {ι d v vs} : Describes ι d v → DescribesAll d vs → DescribesAll d (v :: vs)
+inductive DescribesAll (Ψ : List Con) : Asgn → DVal → ℕ → List Val → Prop
+  | nil {ι d a} : DescribesAll Ψ ι d a []
+  | cons {ι ι' d a v vs} : Agree a ι ι' → Sat ι' Ψ → Describes Ψ ι' d v →
+      DescribesAll Ψ ι d a vs → DescribesAll Ψ ι d a (v :: vs)
 
-inductive DescribesFields : Asgn → List (Label × DVal) → List (Label × Val) → Prop
-  | nil {ι} : DescribesFields ι [] []
-  | cons {ι l a v afs fs} : Describes ι a v → DescribesFields ι afs fs →
-      DescribesFields ι ((l, a) :: afs) ((l, v) :: fs)
+inductive DescribesFields (Ψ : List Con) : Asgn → List (Label × DVal) → List (Label × Val) → Prop
+  | nil {ι} : DescribesFields Ψ ι [] []
+  | cons {ι l a v afs fs} : Describes Ψ ι a v → DescribesFields Ψ ι afs fs →
+      DescribesFields Ψ ι ((l, a) :: afs) ((l, v) :: fs)
 
 end
 
@@ -176,7 +184,7 @@ mutual
 
 def DVal.Below (n : ℕ) : DVal → Prop
   | .num l m τ => l.Below n ∧ m.Below n ∧ ∀ t ∈ τ, t.Below n
-  | .list _ => True
+  | .list d a => a ≤ n ∧ DVal.Below n d
   | .record fs => DVal.BelowFields n fs
   | .other => True
   | .ctx C => C.Below n
@@ -193,8 +201,8 @@ def RetBelow (n : ℕ) (a : Option DVal) : Prop := ∀ d ∈ a, d.Below n
 /-- A digit environment `Δ`. -/
 abbrev DEnv := Var → Option DVal
 
-def DEnv.Holds (Δ : DEnv) (ι : Asgn) (σ : Store) : Prop :=
-  ∀ x d, Δ x = some d → ∃ v, σ x = some v ∧ Describes ι d v
+def DEnv.Holds (Δ : DEnv) (Ψ : List Con) (ι : Asgn) (σ : Store) : Prop :=
+  ∀ x d, Δ x = some d → ∃ v, σ x = some v ∧ Describes Ψ ι d v
 
 def DEnv.Below (n : ℕ) (Δ : DEnv) : Prop := ∀ x d, Δ x = some d → d.Below n
 
@@ -207,20 +215,25 @@ def CtxBelow (n : ℕ) (κ : Option SCtx) : Prop := ∀ C ∈ κ, C.Below n
 /-! ## Joins and transfers -/
 
 /-- `d ⊑ d'`, with the fresh variables `[n₀, n₁)` of `d'` bounded by `Ψ`:
-whatever `d` describes, `d'` describes once those variables are re-chosen. -/
+whatever `d` describes under the constraints `Ψg` below `n₀`, and any `Ψx`
+above, `d'` describes under `Ψg` and `Ψ` once those variables are re-chosen. -/
 def DVal.Le (n₀ n₁ : ℕ) (Ψ : List Con) (d d' : DVal) : Prop :=
-  ∀ ι v, Describes ι d v → ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Describes ι' d' v
+  ∀ Ψg Ψx ι v, Before n₀ Ψg → Sat ι (Ψg ++ Ψx) → Describes (Ψg ++ Ψx) ι d v →
+    ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Describes (Ψg ++ Ψ) ι' d' v
 
 def RetLe (n₀ n₁ : ℕ) (Ψ : List Con) (a a' : Option DVal) : Prop :=
   ∀ d ∈ a, ∃ d' ∈ a', DVal.Le n₀ n₁ Ψ d d'
 
 def DEnv.Le (n₀ n₁ : ℕ) (Ψ : List Con) (Δ Δ' : DEnv) : Prop :=
-  ∀ ι σ, Δ.Holds ι σ → ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Δ'.Holds ι' σ
+  ∀ Ψg Ψx ι σ, Before n₀ Ψg → Sat ι (Ψg ++ Ψx) → Δ.Holds (Ψg ++ Ψx) ι σ →
+    ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Δ'.Holds (Ψg ++ Ψ) ι' σ
 
-/-- A list element's abstract value `d`, copied to `d'` with fresh variables:
-whatever `d` describes under any assignment, `d'` describes. -/
-def DVal.Copy (n₀ n₁ : ℕ) (Ψ : List Con) (d d' : DVal) : Prop :=
-  ∀ ι₀ ι v, Describes ι₀ d v → ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Describes ι' d' v
+/-- The abstract value `d` of a list's elements, with variables from `a`, copied
+to `d'` with fresh variables: whatever `d` describes under an element's
+assignment, `d'` describes. -/
+def DVal.Copy (n₀ n₁ : ℕ) (Ψ : List Con) (d : DVal) (a : ℕ) (d' : DVal) : Prop :=
+  ∀ Ψg ι ι₀ v, Before n₀ Ψg → Sat ι Ψg → Agree a ι ι₀ → Sat ι₀ Ψg → Describes Ψg ι₀ d v →
+    ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Describes (Ψg ++ Ψ) ι' d' v
 
 variable {decode : List (Label × Val) → Option RoundCtx}
 
@@ -318,11 +331,11 @@ inductive DEval : DEnv → AEnv D → Option SCtx → Option Val → ℕ → Exp
   | real {Δ Γ κ χ n₀} : DEval Δ Γ κ χ n₀ .real (.ctx .real) [] n₀
   | var {Δ Γ κ χ n₀ x d} : Δ x = some d → DEval Δ Γ κ χ n₀ (.var x) d [] n₀
   | list {Δ Γ κ χ n₀ es ds Ψ n₁ d Ψ' n₂} : DEvalList Δ Γ κ χ n₀ es ds Ψ n₁ →
-      (∀ d' ∈ ds, DVal.Le n₁ n₂ Ψ' d' d) → Fresh n₁ n₂ Ψ' →
-      DEval Δ Γ κ χ n₀ (.list es) (.list d) (Ψ ++ Ψ') n₂
-  | index {Δ Γ κ χ n₀ e₁ e₂ d Ψ₁ n₁ d₂ Ψ₂ n₂ d' Ψ' n₃} :
-      DEval Δ Γ κ χ n₀ e₁ (.list d) Ψ₁ n₁ → DEval Δ Γ κ χ n₁ e₂ d₂ Ψ₂ n₂ →
-      DVal.Copy n₂ n₃ Ψ' d d' → Fresh n₂ n₃ Ψ' → d'.Below n₃ →
+      (∀ d' ∈ ds, DVal.Le n₁ n₂ Ψ' d' d) → Fresh n₁ n₂ Ψ' → d.Below n₂ →
+      DEval Δ Γ κ χ n₀ (.list es) (.list d n₁) (Ψ ++ Ψ') n₂
+  | index {Δ Γ κ χ n₀ e₁ e₂ d a Ψ₁ n₁ d₂ Ψ₂ n₂ d' Ψ' n₃} :
+      DEval Δ Γ κ χ n₀ e₁ (.list d a) Ψ₁ n₁ → DEval Δ Γ κ χ n₁ e₂ d₂ Ψ₂ n₂ →
+      DVal.Copy n₂ n₃ Ψ' d a d' → Fresh n₂ n₃ Ψ' → d'.Below n₃ →
       DEval Δ Γ κ χ n₀ (.index e₁ e₂) d' (Ψ₁ ++ Ψ₂ ++ Ψ') n₃
   | record {Δ Γ κ χ n₀ fs afs Ψ n₁} : DEvalFields Δ Γ κ χ n₀ fs afs Ψ n₁ →
       DEval Δ Γ κ χ n₀ (.record fs) (.record afs) Ψ n₁
