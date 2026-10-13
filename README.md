@@ -206,9 +206,8 @@ Names are in `namespace Fpy.DigitBound`.
 
 ### §5 — Rewrites
 
-Each rewrite is an `Equiv`, and its output is well formed (`wf_*`). A rewrite's
-fresh variables are kept apart from the rest of the program by `Rw`, not by the
-`equiv_*` statements.
+Each rewrite is an `Equiv`. A rewrite's fresh variables are kept apart from the
+rest of the program by `Rw`, not by the `equiv_*` statements.
 
 | Paper | Lean | File |
 | --- | --- | --- |

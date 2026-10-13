@@ -607,40 +607,4 @@ theorem equiv_rescale {C C₀ : Val} {c c₀ : RoundCtx} {ce : Expr (fpy decode)
     obtain ⟨u, hu⟩ := he.num_of_arith (by simp : Expr.var t ∈ _)
     exact ⟨_, exec_round hC (eval_var_inv hu)⟩
 
-/-! ## Well-formedness
-
-The targets build no record literals outside their context expressions, so each
-is well formed when those are. -/
-
-theorem wf_special (r : Num → Num) (x t : Var) (kn ki kz : Bool) :
-    (nanBranch r kn x t (infBranch r ki x t
-      (zeroBranch kz x t (.assign x (.arithOp .round [.var t]))) : Stmt (fpy decode))).WF := by
-  cases kn <;> cases ki <;> cases kz <;>
-    simp [nanBranch, infBranch, zeroBranch, Stmt.WF, Expr.WF, Expr.WFList]
-
-theorem wf_overflow {ce : Expr (fpy decode)} (hce : ce.WF) (x t r : Var) (lo hi o₁ o₂ : Num) :
-    (Stmt.seq (.withCtx ce (.assign r (.arithOp .round [.var t])))
-      (.ite (.exactOp .lt [.var r, .num lo]) (.assign x (.num o₁))
-        (.ite (.exactOp .lt [.num hi, .var r]) (.assign x (.num o₂))
-          (.assign x (.var r))))).WF := by
-  simp [Stmt.WF, Expr.WF, Expr.WFList, hce]
-
-theorem wf_overflow_threshold (x t : Var) (lo hi o₁ o₂ : Num) :
-    (Stmt.ite (.exactOp .lt [.var t, .num lo]) (.assign x (.num o₁))
-      (.ite (.exactOp .lt [.num hi, .var t]) (.assign x (.num o₂))
-        (.assign x (.arithOp .round [.var t]))) : Stmt (fpy decode)).WF := by
-  simp [Stmt.WF, Expr.WF, Expr.WFList]
-
-theorem wf_floatToFixed {cf : Expr (fpy decode)} (hcf : cf.WF) (x t n : Var) (q e : Num) :
-    (Stmt.seq (.withCtx .real (.assign n (.arithOp .max
-        [.arithOp .add [.arithOp .logb [.var t], .num q], .num e])))
-      (.withCtx cf (.assign x (.arithOp .round [.var t])))).WF := by
-  simp [Stmt.WF, Expr.WF, Expr.WFList, hcf]
-
-theorem wf_rescale {ce : Expr (fpy decode)} (hce : ce.WF) (x t u m : Var) (a b : Num) :
-    (Stmt.seq (.withCtx .real (.assign u (.arithOp .mul [.num a, .var t])))
-      (.seq (.withCtx ce (.assign m (.arithOp .round [.var u])))
-        (.withCtx .real (.assign x (.arithOp .mul [.num b, .var m]))))).WF := by
-  simp [Stmt.WF, Expr.WF, Expr.WFList, hce]
-
 end Fpy

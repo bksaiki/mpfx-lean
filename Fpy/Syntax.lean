@@ -60,38 +60,4 @@ inductive Stmt where
 /-- A program `Φ` maps each function to its parameter and body. -/
 abbrev Program := Fn → Option (Var × Stmt L)
 
-/-! ## Well-formedness
-
-A program is well formed when every record literal in it has distinct labels. -/
-
-variable {L}
-
-mutual
-
-def Expr.WF : Expr L → Prop
-  | .arith _ es | .exact _ es | .list es => Expr.WFList es
-  | .index e₁ e₂ => e₁.WF ∧ e₂.WF
-  | .record fs => (fs.map Prod.fst).Nodup ∧ Expr.WFFields fs
-  | .proj e _ | .call _ e | .ctx e => e.WF
-  | .bool _ | .num _ | .var _ | .real => True
-
-def Expr.WFList : List (Expr L) → Prop
-  | [] => True
-  | e :: es => e.WF ∧ Expr.WFList es
-
-def Expr.WFFields : List (Label × Expr L) → Prop
-  | [] => True
-  | (_, e) :: fs => e.WF ∧ Expr.WFFields fs
-
-end
-
-def Stmt.WF : Stmt L → Prop
-  | .assign _ e | .ret e | .assert e => e.WF
-  | .seq s₁ s₂ => s₁.WF ∧ s₂.WF
-  | .ite e s₁ s₂ => e.WF ∧ s₁.WF ∧ s₂.WF
-  | .whileDo e s | .withCtx e s => e.WF ∧ s.WF
-  | .skip => True
-
-def Program.WF (Φ : Program L) : Prop := ∀ f y s, Φ f = some (y, s) → s.WF
-
 end Fpy

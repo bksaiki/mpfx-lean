@@ -219,20 +219,6 @@ theorem equiv_splitOp {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr 
   equiv_split_of hc hr hr' hrd fun _ ns n hΓ hns hop =>
     h ns n (mem_of_forall₂ (hΓ.describes has hns) hS) hop
 
-/-! ## Well-formedness -/
-
-theorem wfList_vars (ys : List Var) : Expr.WFList (L := L) (ys.map .var) := by
-  induction ys <;> simp_all [Expr.WFList, Expr.WF]
-
-theorem wf_reround {c : Expr L} (hc : c.WF) (x : Var) (op : L.ArithOp) (ys : List Var) :
-    (Stmt.withCtx c (.assign x (.arith op (ys.map .var)))).WF := by
-  simp [Stmt.WF, Expr.WF, hc, wfList_vars]
-
-theorem wf_split {c : Expr L} (hc : c.WF) (x t : Var) (op rd : L.ArithOp) (ys : List Var) :
-    (Stmt.seq (.withCtx c (.assign t (.arith op (ys.map .var))))
-      (.assign x (.arith rd [.var t]))).WF := by
-  simp [Stmt.WF, Expr.WF, Expr.WFList, hc, wfList_vars]
-
 /-! ## FPy's contexts -/
 
 variable {decode : List (Label × Val) → Option RoundCtx}

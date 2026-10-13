@@ -16,7 +16,8 @@ abbrev Num := WithSpecial ℝ
 abbrev Label := String
 
 /-- Values. `real` is the real context `R`, and `ctx fs` is the context built
-from the record with fields `fs`. -/
+from the record with fields `fs`. A record is an association list; projection
+reads the first field with the label. -/
 inductive Val where
   | bool (b : Bool)
   | num (n : Num)
