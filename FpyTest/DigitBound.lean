@@ -25,6 +25,20 @@ example {decode : List (Label × Val) → Option RoundCtx} (l₁ m₁ l₂ m₂ 
 theorem log_two_zpow (z : ℤ) : Int.log 2 ((2 : ℝ) ^ z) = z := by
   simpa using Int.log_zpow (R := ℝ) (b := 2) (by norm_num) z
 
+/-- Under the unknown context `?`, which admits `R`, the "all others" row applies,
+here joined with every context's overflow and special values. -/
+example {decode : List (Label × Val) → Option RoundCtx} {l m : Term} (hl : l.Below 0) :
+    RndOK decode none l m 0 2
+      (bounds 0 (.min l (.const ⊥)) (.max (.const ⊤) (.const ⊤)) ⟨hl.mono (Nat.le_succ 0), trivial⟩
+        ⟨trivial, trivial⟩) (.var 1) (.var 0) :=
+  rndOK_any (Lo := .const ⊥) (Ho := .const ⊤) hl trivial trivial fun ι C r _ hr => by
+    cases C with
+    | real => exact .inl (Option.some.inj hr).symm
+    | ctx fs =>
+      obtain ⟨c, -, rfl⟩ := Option.map_eq_some_iff.mp hr
+      exact .inr ⟨c, rfl, fun _ => .inr ⟨bot_le, le_top⟩, fun _ => .inl (.inr ⟨bot_le, le_top⟩)⟩
+    | _ => cases hr
+
 /-- RTP into E4M3 sends `2⁻¹¹` to `2⁻⁹`. -/
 theorem rtp_e4m3 :
     ((rndUnbounded e4m3 .toPositive (2 ^ (-11 : ℤ)) (not_isUndefined_toPositive _) :

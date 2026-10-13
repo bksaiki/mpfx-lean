@@ -1,8 +1,8 @@
 # FPy: open items
 
 What is mechanized, and where, is in the FPy section of the README. This file
-keeps only what is open: problems found in the draft, remaining work, and
-provisional decisions with their reopen conditions.
+keeps only what is open: problems found in the draft, what is not claimed,
+and provisional decisions with their reopen conditions.
 
 ## Working policy
 
@@ -45,13 +45,7 @@ Each fix is a change to the draft; the Lean states the fixed rule.
 Theorem 4.2 is stated for expressions only; its form for statements and loops
 is unspecified (provisional decisions, below).
 
-## Remaining work
-
-- **Rounding rows under `?`.** `Decodes` needs every admitted context to be a
-  `RoundCtx`, but `?` admits `R`, whose rounding is `id`; no row applies inside
-  `withUnknown`. Let `Decodes` admit `id` and prove the rows for it.
-
-### Not claimed
+## Not claimed
 
 The claim is each rewrite on its own. Not mechanized:
 

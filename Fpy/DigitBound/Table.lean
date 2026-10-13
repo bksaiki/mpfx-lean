@@ -185,21 +185,20 @@ theorem rndOK_real : RndOK decode (some .real) l m n n [] l m := by
   obtain rfl : id = r := Option.some.inj hr
   exact ⟨ι, fun _ _ => rfl, fun _ h => absurd h (by simp), hu⟩
 
-/-- A row whose interval is fresh, bounded by `Lr` and `Hr` on the input's
-endpoints and joined with the overflow and special values' digits. `Lr` may
-mention the result's most significant digit `n`. -/
-theorem rndOK_of {κ : Option SCtx} {P : Asgn → RoundCtx → Prop} {Lr Hr Lo Ho : Term}
+/-- One context's rounding of a value in `[l, m]` lies in a row's fresh interval. -/
+theorem rnd_fresh {P : Asgn → RoundCtx → Prop} {Lr Hr Lo Ho : Term}
     (hLr : Lr.Below (n + 1)) (hHr : Hr.Below n) (hLo : Lo.Below n) (hHo : Ho.Below n)
-    (hκ : Decodes decode κ P Lo Ho) (htop : ∀ ι, m.eval ι = ⊤ → Hr.eval ι = ⊤)
+    (htop : ∀ ι, m.eval ι = ⊤ → Hr.eval ι = ⊤)
     (hrow : ∀ ι c (x : ℝ) (y : Mpfx.Dyadic), P ι c → x ≠ 0 → lsbOf (.finite x) = l.eval ι →
       msbOf (.finite x) = m.eval ι → RoundsFinite c.F.unbounded c.rm x y → (y : ℝ) ≠ 0 →
       msbOf (.finite (y : ℝ)) ≤ Hr.eval ι ∧
-        Lr.eval (Function.update ι n (msbOf (.finite (y : ℝ)))) ≤ lsbOf (.finite (y : ℝ))) :
-    RndOK decode κ l m n (n + 2)
-      (bounds n (.min Lr Lo) (.max Hr Ho) ⟨hLr, hLo.mono (Nat.le_succ n)⟩ ⟨hHr, hHo⟩)
-      (.var (n + 1)) (.var n) := by
-  intro ι u C r hu hC hr
-  obtain ⟨c, rfl, hP, hO, hS⟩ := hκ ι C r hC hr
+        Lr.eval (Function.update ι n (msbOf (.finite (y : ℝ)))) ≤ lsbOf (.finite (y : ℝ)))
+    {ι : Asgn} {u : Num} {c : RoundCtx} (hu : NumIn ι l m none u) (hP : P ι c)
+    (himg : ImagesIn c (Lo.eval ι) (Ho.eval ι)) :
+    ∃ ι', AgreeOut n (n + 2) ι ι' ∧
+      Sat ι' (bounds n (.min Lr Lo) (.max Hr Ho) ⟨hLr, hLo.mono (Nat.le_succ n)⟩ ⟨hHr, hHo⟩) ∧
+      NumIn ι' (.var (n + 1)) (.var n) none (c.round u) := by
+  obtain ⟨hO, hS⟩ := himg
   refine fresh_numIn _ _ ι _ fun hw => ?_
   simp only [Term.eval, eval_update hLo]
   have ofRange : ∀ w, InRange (Lo.eval ι) (Ho.eval ι) w → w ≠ nan →
@@ -227,6 +226,23 @@ theorem rndOK_of {κ : Option SCtx} {P : Asgn → RoundCtx → Prop} {Lr Hr Lo H
     · obtain ⟨-, hm⟩ := hu.eq (by simp)
       rw [he, WithSpecial.toReal_special, msbOf_special, lsbOf_special, htop ι hm.symm]
       exact ⟨le_max_left _ _, le_top⟩
+
+/-- A row whose interval is fresh, bounded by `Lr` and `Hr` on the input's
+endpoints and joined with the overflow and special values' digits. `Lr` may
+mention the result's most significant digit `n`. -/
+theorem rndOK_of {κ : Option SCtx} {P : Asgn → RoundCtx → Prop} {Lr Hr Lo Ho : Term}
+    (hLr : Lr.Below (n + 1)) (hHr : Hr.Below n) (hLo : Lo.Below n) (hHo : Ho.Below n)
+    (hκ : Decodes decode κ P Lo Ho) (htop : ∀ ι, m.eval ι = ⊤ → Hr.eval ι = ⊤)
+    (hrow : ∀ ι c (x : ℝ) (y : Mpfx.Dyadic), P ι c → x ≠ 0 → lsbOf (.finite x) = l.eval ι →
+      msbOf (.finite x) = m.eval ι → RoundsFinite c.F.unbounded c.rm x y → (y : ℝ) ≠ 0 →
+      msbOf (.finite (y : ℝ)) ≤ Hr.eval ι ∧
+        Lr.eval (Function.update ι n (msbOf (.finite (y : ℝ)))) ≤ lsbOf (.finite (y : ℝ))) :
+    RndOK decode κ l m n (n + 2)
+      (bounds n (.min Lr Lo) (.max Hr Ho) ⟨hLr, hLo.mono (Nat.le_succ n)⟩ ⟨hHr, hHo⟩)
+      (.var (n + 1)) (.var n) := by
+  intro ι u C r hu hC hr
+  obtain ⟨c, rfl, hP, himg⟩ := hκ ι C r hC hr
+  exact rnd_fresh hLr hHr hLo hHo htop hrow hu hP himg
 
 theorem lsb_round {F : FiniteFormat} {rm : RoundingMode} {x : ℝ} {y : Mpfx.Dyadic}
     (hy : RoundsFinite F.unbounded rm x y) : lsbOf (.finite x) ≤ lsbOf (.finite (y : ℝ)) :=
@@ -358,12 +374,19 @@ theorem rndOK_prec {p : ℕ} {t : Term} (hl : l.Below n) (ht : t.Below n) (hm : 
 
 /-- All other contexts: `[l, μ]`. -/
 theorem rndOK_any (hl : l.Below n) (hLo : Lo.Below n) (hHo : Ho.Below n)
-    (hκ : Decodes decode κ (fun _ _ => True) Lo Ho) :
+    (hκ : ∀ ι C r, (∀ K ∈ κ, K.Admits ι C) → C.rnd (fpy decode) = some r →
+      r = id ∨ ∃ c : RoundCtx, r = c.round ∧ ImagesIn c (Lo.eval ι) (Ho.eval ι)) :
     RndOK decode κ l m n (n + 2)
       (bounds n (.min l Lo) (.max (.const ⊤) Ho) ⟨hl.mono (Nat.le_succ n), hLo.mono (Nat.le_succ n)⟩
         ⟨trivial, hHo⟩)
-      (.var (n + 1)) (.var n) :=
-  rndOK_of (Hr := .const ⊤) (hl.mono (Nat.le_succ n)) trivial hLo hHo hκ (fun _ _ => rfl)
-    fun ι _ _ _ _ _ hl' _ hy _ => ⟨le_top, by rw [eval_update hl, ← hl']; exact lsb_round hy⟩
+      (.var (n + 1)) (.var n) := by
+  intro ι u C r hu hC hr
+  rcases hκ ι C r hC hr with rfl | ⟨c, rfl, himg⟩
+  · refine fresh_numIn _ _ ι u fun hn => ⟨le_max_of_le_left le_top, ?_⟩
+    simp only [Term.eval, eval_update hl, eval_update hLo]
+    exact min_le_of_left_le (hu.eq hn).1.ge
+  · exact rnd_fresh (P := fun _ _ => True) (Hr := .const ⊤) (hl.mono (Nat.le_succ n)) trivial hLo
+      hHo (fun _ _ => rfl) (fun ι _ _ _ _ _ hl' _ hy _ =>
+        ⟨le_top, by rw [eval_update hl, ← hl']; exact lsb_round hy⟩) hu trivial himg
 
 end Fpy.DigitBound
