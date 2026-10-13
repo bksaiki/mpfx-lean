@@ -25,38 +25,64 @@ Each fix is a change to the draft; the Lean states the fixed rule.
 | --- | --- | --- | --- |
 | Fig. 5 `rnd♯`, with `ctx(e) = ?` | `rnd♯_?(F) = F` if `F ⊆ F_? = R*` | Always keeps the exact bound under an unknown context, which may round. `t = round(xi)` in `fused_sum` would keep the inputs' format. Fig. 6 shows `R*` there, so the implementation is right and the rule is wrong. | `rnd♯_?(F) = R*` (`Analysis.rnd`; witness `FpyTest.draft_rnd_unknown_unsound`). The side condition "`C` leaves `F_C` unchanged" is false for `?`. |
 | Fig. 5/11 `A-Context`, `A-Ctx` | `ctx(e)` "known statically"; `ctx e : •` | Fig. 6 line 5 needs "the format of `out`", but `out` is a parameter with abstract value `•`, so no static `ctx(out)` exists. | Abstract values carry a known context `⟨C⟩`. `R : ⟨R⟩`; `ctx e : ⟨ctx fs⟩` when the record is known. `A-Context` reads the context off `e`'s abstract value (`AEval.ctx`, `AExec.withCtx`, `AExec.withUnknown`). Call-site specialization (A-App) then carries `out`. |
-| Table 2, `IEEE754(e, n, RTZ)` | `[max(l, m − p + 1), m]` | `m` is only an upper bound on the leading digit. `v = 1` with interval `[0, 10]` and `p = 3` rounds to `1`, whose digit `0 ∉ [8, 10]`. | Same shape as the next row: `[max(l, μ − p + 1), μ]` with fresh `μ ≤ m`. |
 | §4.2 soundness side condition | each context "leaves the values of `F_C` unchanged" | A Mpfx `SpecialMap` need not fix the specials in `F`, so an Mpfx context meets this only when it does (e.g. `SpecialMap.exact`). | State that hypothesis on contexts in the paper. |
 | Table 1, special values | rows state no specials | Every format contains `0`, `logb 0 = −∞` (IEEE `logB`), and the `logb` row's format has no infinities, so the row is unsound. The other rows say nothing about `∞ × 0`, `∞ − ∞`, `2^(+∞)` or NaN operands. | Each row carries the specials its operator produces (`logbSpecials`, `exp2Specials`, Mpfx's `mulSpecials`, `addSpecials`, `absSpecials`). |
-| Table 2, `IEEE754(e, n, RTZ)` and "all others" | `[max(l, μ − p + 1), μ]` (fixed) and `[l, μ]` | Both assume rounding never lowers the least significant digit, which fails when a context overflows, or sends a special, to a finite value. IEEE 754 RTZ overflows to the largest finite value: `v = 2^(emax+1)` has interval `[emax+1, emax+1]` but rounds to a value with digit `emax − p + 1`. `Int(n, rm)` with saturation, and any `OverflowMap` or `SpecialMap` with a finite nonzero image, fail the same way. | Join each row with the digits of the context's overflow and special values, or require those to be non-finite (the digit-bound analogue of the §4.2 hypothesis). |
+| Table 2, `IEEE754(es, nb, RTZ)`, `IEEE754(es, nb, rm)` and "all others" | `[max(l, m − p + 1), m]`, `[max(l, μ − p + 1), μ]` and `[l, μ]` | Each assumes rounding never lowers the least significant digit, which fails when a context overflows, or sends a special, to a finite value. IEEE 754 RTZ overflows to the largest finite value: `v = 2^(emax+1)` has interval `[emax+1, emax+1]` but rounds to a value with digits `emax − p + 1` to `emax`. RTP and RTN do the same on their saturating side, as does `Int(n, rm)` with saturation and any `OverflowMap` or `SpecialMap` with a finite nonzero image. | Join each row with the digits of the context's overflow and special values, or require those to be non-finite (the digit-bound analogue of the §4.2 hypothesis). |
 | §4.3, Fig. 6 loop bound | "an accumulating loop that runs `L` times" adds at most `⌈log₂ L⌉` positions | No rule gives this. D-While's `Δ_I = Δ ⊔ Δ′`, with upper endpoints bounded only from above, yields `msb_I ≤ max(msb₀, msb_I + 1)`, which every large `msb_I` satisfies. D-Sum has the bound, but `sum` and `for` are not core FPy, so Fig. 6's bound on `fused_sum` follows from no rule. | A counted-loop rule, or `sum` as an operator with D-Sum. |
-| Fig. 12 `D-Logb` | `val(logb x) = msb(x)` | Sound only if the assignment can make `msb(x)` exact, which fails once a constraint bounds `msb(x)` from below. `logb 0 = −∞` gives a non-finite integer term (`e − k` in `fused_sum`), which Theorem 4.2, stated for finite values, does not cover. | Open; settled with the open item on assignments. |
+| Fig. 12 `D-Logb`, at zero | `logb(e) : ⟨[0, μ], m⟩` | Every interval concretizes `0` under every assignment, but `logb 0 = −∞`, so the symbolic value `m` is unconstrained by a zero `e`. `e = max(logb(x), 5)` with `σ(x) = 0` and `ι(msb(x)) = 100`: `ι` satisfies `val(e) ≥ msb(x)`, `val(e) ≥ 5`, yet `e` evaluates to `5`, and no `ι'` agreeing with `ι` on `msb(x)` (a variable of `Δ`) has `ι'(val(e)) = 5`. `max_e` in `fdpa` applies `logb` to inputs that may be `0`. | Give `logb(e)` a symbolic value only when `e` is nonzero, or exclude `0` from an interval paired with a term. |
+| Theorem 4.2, values with infinitely many digits | `γ_ι([l, m])` requires `min digits(v) = ι(l)` | `0.1`, or `√2` and `x / 3` under `R`, have no least significant digit, so no interval concretizes them; yet D-Const gives `0.1` the value `⟨[λ, μ], _⟩` and Table 2's "all others" covers `√` and `÷`. | State the theorem for values with finite binary expansions, or add a top abstract value. |
+| Fig. 12 `D-While` | `Δ_I = Δ ⊔ Δ′` | The invariant's variables depend on the body's outputs, which depend on the invariant, so the constraints are cyclic and the proof cannot re-choose variables in order. For a variable the body leaves unchanged, `μ_I ≤ max(m, μ_I)` bounds nothing. | An invariant with `Δ ⊑ Δ_I` and `Δ′ ⊑ Δ_I`, as A-While; the join is an instance. |
+| Fig. 12 `D-Index` | `e₁[e₂] : d` | Each list element is described under its own assignment of `d`'s variables, but once the list is in a variable those are variables of `Δ`, which the theorem keeps fixed. `xs = [1, 4]; z = xs[1]` needs `val = 4` while `Δ` fixes it at the value describing another element. | The result is a copy of `d` with fresh variables, justified for every assignment of `d`'s variables. |
+| Fig. 12 `D-Logb`, `D-Max`, `D-Min` | under any context `C` | Each rounds under `C`, which can change an integer result (`Fixed(3, RTZ)` sends `5` to `0`), so the symbolic value no longer matches. | State them under `R`, as `D-Linear`. |
 | §5.2 Overflow, the test | `if \|r\| > b` under `C` | `\|·\|` is a rounded operator, so the test sees `C(\|r\|)`. When `C` overflows to NaN (MX E4M3, the running example) or saturates to `b`, an `r` beyond `b` fails the test and `x = r` leaves `F`. | Compare exactly: `r < −b`, `b < r` (unrounded `<`), or under `R`. |
 | §5.2 Overflow, the input | no condition on `t` | For `t = ±∞` the rewrite returns `ovf_C`, but `C(±∞)` is the special map's value, which differs when overflow saturates and infinities are kept. | Require `t` finite. The draft applies Overflow after Special, but the rule should say so. |
 | §5.2 Special and Overflow | `copysign(C(∞), t)`, `copysign(ovf_C, r)` | Assumes `C(−∞) = −C(∞)` and symmetric overflow; a context's maps need not be symmetric. | Branch on the sign, with one constant per sign. |
 | §5.2 FloatToFixed | any `𝒜(p, exp, ∞)` | At `p = 1`, RTO and RNE read parity off the exponent in `𝒜(1, exp)` but off the significand in `𝒜(∞, n)`, so the two can pick different neighbours. This is argued by hand, not proved. | Require `p ≠ 1`, or a mode without parity. |
 | §5.2 Rescale | `C_{𝒜(∞,0,2⁻ⁿb)}` "behaves like `C`" | `2ⁿ × C₀(2⁻ⁿt) = C(t)` needs `C₀`'s special and overflow values to be `C`'s scaled by `2⁻ⁿ`; saturation to `b` must become saturation to `2⁻ⁿb`. | State the scaling (`RoundCtx.Scaled`). |
 
-Theorem 4.2 leaves its per-value assignments, and its statement for
-statements and loops, unspecified (provisional decisions, below).
+Theorem 4.2 is stated for expressions only; its form for statements and loops
+is unspecified (provisional decisions, below).
 
 ## Remaining work
 
 ### Phase 4 - Digit-bound analysis and Theorem 4.2
 
-Deferred until the draft's §4.3 is rewritten; the table's Table 2, loop-bound
-and `D-Logb` rows bear on it.
+Split in three: 4a the domain, Fig. 12's judgment and Theorem 4.2 with every
+operator and rounding transfer as a semantic premise; 4b Table 2's rows as
+lemmas discharging those premises for Mpfx contexts; 4c D-Int and the
+format-inference constraints, which couple the judgment to format inference.
 
-- `Fpy/DigitBound.lean`:
-  - terms `τ`, constraints `φ`, `digits(v)`, digit intervals with `∅`, and
-    assignments `ι`;
-  - the mutual judgment of Fig. 12, with fresh variables made explicit;
-  - Table 2 with the fixes above, each row with its soundness lemma.
-- `eval_sound` and `exec_sound` in the form fixed by the assignment decision.
-- The format-inference constraint import ("each interval lies within the
-  inferred format's range") is a premise discharged by Theorem 4.1.
+4a is done (`Fpy/DigitBound/`, namespace `Fpy.DigitBound`): `eval_sound`,
+`exec_sound`, `run_sound` (D-Program), no remaining `sorry`. Design:
 
-Test: `~/.elan/bin/lake build Fpy.DigitBound FpyTest`.
+- **Extended endpoints.** Positions are `EInt = ℤ ∪ {±∞}`. `lsbOf`/`msbOf` read
+  Fig. 7's `min digits`/`max digits`: `0` has `[+∞, −∞]` (the draft's `∅`), an
+  infinity `[+∞, +∞]`, a value with infinitely many digits lsb `−∞`. NaN is
+  described by every interval.
+- **Symbolic values** are terms over `EInt`; a value matches its term through
+  `numOfE` (`±∞` for `±∞`), so `logb 0 = −∞ = msb(0)` and D-Linear, D-Neg,
+  D-Max, D-Min hold at infinities.
+- **Fresh variables** are naturals above a counter the judgment threads
+  (`n₀ → n₁`); each constraint has a head (the fresh variable it bounds),
+  depends only on variables up to its head, and is satisfiable for any values
+  of the others (`±∞` satisfy every one-sided bound).
+- **Theorem 4.2, prefix form**: from an assignment satisfying the constraints
+  generated before `e`, one agreeing with it below `n₀` satisfies those of `e`
+  too and describes `e`'s value. Untaken branches and loops run zero times
+  are covered by re-choosing their variables in head order.
+- **Semantic premises** in place of Table 2 and the joins: `ArithOK` for
+  D-Arith (and the intervals of D-Linear, D-Neg, D-Logb, D-Max, D-Min), and an
+  order `⊑` with fresh variables for D-List, D-If, D-Seq and D-While, so the
+  draft's joins are instances.
+- **D-While** takes an invariant `Δ_I` with `Δ ⊑ Δ_I` and `Δ′ ⊑ Δ_I`, as A-While.
+- **D-Index** copies the element's variables (`DVal.Copy`); D-Linear, D-Neg,
+  D-Logb, D-Max and D-Min apply under `R` only (both in the table above).
+- **Contexts.** `ctx♮` gives a symbolic context whose integer fields are terms;
+  it admits a context whose fields equal the terms' values or NaN. D-Ctx
+  yields the symbolic context, as A-Ctx yields a known one.
+- **Operators are FPy's** (`fpy decode`); only contexts are generic.
+
+Test: `~/.elan/bin/lake build Fpy.DigitBound.Sound`.
 
 ### Not claimed
 
@@ -78,14 +104,15 @@ The claim is each rewrite on its own. Not mechanized:
   Mathlib or toolchain, or should be published apart from Mpfx.
 - **Separate `FpyTest` library**, with the CI step `lake build FpyTest`.
 - **Abstract `Signature`** through the semantics, format inference and the
-  rewrite framework; `fpy` from Table 1 on. Phase 4 takes an interface for
-  integer-term transfers, as Table 2 tabulates them. Reopen if that interface
-  needs more than Table 2's rows.
+  rewrite framework; `fpy` from Table 1 on, and in the digit-bound analysis,
+  whose integer rules name FPy's operators.
 - **The draft adopts the fixes above.** If it keeps a rule as printed, the
   mechanization proves a different system.
-- **Theorem 4.2's assignments.** One assignment per value of an expression;
-  a list's elements share one; at a loop, one per iteration agreeing on `Δ`'s
-  variables. Reopen at the first Phase 4 obligation that does not go through.
+- **Theorem 4.2's assignments.** As the draft states: one assignment per value
+  of an expression, a list's elements each under their own assignment agreeing
+  outside the element value's variables, and loop iterations under their own.
+  For statements, an assignment per iteration agreeing on `Δ`'s variables.
+  Reopen at the first Phase 4 obligation that does not go through.
 - **Rules only, not the implementation's algorithm.** The theorems cover any
   derivation; widening, the set-size cap and Z3 only construct derivations.
   The draft should say "the rules are sound". Reopen if it wants an extracted

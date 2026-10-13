@@ -1,3 +1,6 @@
+import Fpy.DigitBound.Basic
+import Fpy.DigitBound.Defs
+import Fpy.DigitBound.Sound
 import Fpy.FormatInference.Analysis
 import Fpy.FormatInference.Defs
 import Fpy.FormatInference.Domain
