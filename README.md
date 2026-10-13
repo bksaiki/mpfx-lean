@@ -189,6 +189,16 @@ contexts that round through `Mpfx.rnd` and any record layout `decode`.
 | Condition refinement | `refine`, `refine_sound` | `Fpy/FormatInference/Refine.lean` |
 | Theorem 4.1 for FPy | `fpy_run_sound` | `Fpy/FormatInference/Analysis.lean` |
 
+### §4.3 — Digit-bound analysis (Fig. 7, 8, 12; Table 2)
+
+| Paper | Lean | File |
+| --- | --- | --- |
+| Rules (Fig. 8, 12) | `DEval`, `DExec` | `Fpy/DigitBound/Defs.lean` |
+| Theorem 4.2 | `eval_sound`, `exec_sound`, `run_sound` | `Fpy/DigitBound/Sound.lean` |
+| Table 2, operators | `opOK_add`, `opOK_mul`, `opOK_exact`, `opOK_ext`, `opOK_exp2`, `opOK_logb`, `opOK_any` | `Fpy/DigitBound/Table.lean` |
+| Table 2, rounding | `rndOK_real`, `rndOK_fixedRTZ`, `rndOK_fixed`, `rndOK_precRTZ`, `rndOK_prec`, `rndOK_any` | `Fpy/DigitBound/Table.lean` |
+| D-Arith from Table 2 | `ArithOK.comp` | `Fpy/DigitBound/Table.lean` |
+
 ### §5 — Rewrites
 
 A rewrite `[C] s ⇝ s' if φ` is correct (`Equiv`) when, from every store format
@@ -221,11 +231,13 @@ carry known contexts;
 Table 1 states the special values each operator produces; Overflow compares
 exactly and needs a finite input; FloatToFixed needs `p ≠ 1`; Rescale's
 context scales `C`'s special and overflow values. The SplitOp instances need an
-unbounded intermediate format.
+unbounded intermediate format. Digit positions range over `ℤ ∪ {±∞}`; D-While
+takes an invariant; Table 2's rounding rows join the context's overflow and
+special values' digits.
 
-Not mechanized: the digit-bound analysis and Theorem 4.2 (§4.3), the
-composition of rewrites (e.g. Fig. 9), and the implementation's fixpoint
-algorithm, which only constructs derivations of the rules.
+Not mechanized: D-Int and the format-inference constraints of the digit-bound
+analysis, the composition of rewrites (e.g. Fig. 9), and the implementation's
+fixpoint algorithm, which only constructs derivations of the rules.
 
 ## Verifying
 

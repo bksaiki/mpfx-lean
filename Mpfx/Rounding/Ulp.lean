@@ -6,8 +6,9 @@ import Mpfx.Rounding.Op
 
 `ulp F x` is the spacing of `F` at `x`, `rndDown`/`rndUp` the two directed
 roundings as total functions, and `midp F x` the midpoint between them. On top
-sit the round-to-nearest error bound and the characterisations of nearest
-rounding either side of the midpoint.
+sit the round-to-nearest error bound, the characterisations of nearest
+rounding either side of the midpoint, and the quanta of roundings: a rounding
+of `x` is a multiple of `2^canonicalExp x`, and of any `2ᵏ` that `x` is.
 -/
 
 namespace Mpfx
@@ -341,5 +342,34 @@ theorem isAboveQuantum_of_rndDown_pos (F : FiniteFormat) {x : ℝ}
   have hfl : ⌊x * (2 : ℝ) ^ (-e)⌋ = 0 := Int.floor_eq_zero_iff.mpr ⟨by positivity, hxe⟩
   rw [rndDown_eq, Dyadic.coe_ofIntZpow, ← he, hfl] at h
   norm_num at h
+
+/-! ### Quanta of roundings -/
+
+/-- `2ʲ` is a value of `F` once `j` meets the minimum quantum. -/
+theorem FiniteFormat.zpow_mem_unbounded (F : FiniteFormat) {j : ℤ}
+    (hj : F.exp ≤ (j : QExp)) : Dyadic.ofIntZpow 1 j ∈ F.unbounded :=
+  ⟨precisionAtMost_one_zpow F.pos j, Dyadic.quantumAtLeast_ofIntZpow hj, trivial⟩
+
+/-- A rounding of `x` is a multiple of `2^canonicalExp x`. -/
+theorem RoundsFinite.exists_mul_zpow {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
+    {y : Dyadic} (h : RoundsFinite F.unbounded rm x y) :
+    ∃ c : ℤ, (y : ℝ) = c * (2 : ℝ) ^ F.canonicalExp x := by
+  rcases h.isFaithfulRound.eq_or_eq (rndDown_spec F x) (rndUp_spec F x) with rfl | rfl
+  · exact ⟨_, by rw [rndDown_eq, Dyadic.coe_ofIntZpow]⟩
+  · exact ⟨_, by rw [rndUp_eq, Dyadic.coe_ofIntZpow]⟩
+
+/-- Rounding keeps a quantum: if `x` is a multiple of `2ᵏ`, so is its rounding. -/
+theorem RoundsFinite.mul_zpow_of_mul_zpow {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
+    {y : Dyadic} (h : RoundsFinite F.unbounded rm x y) {z k : ℤ} (hx : x = z * (2 : ℝ) ^ k) :
+    ∃ c : ℤ, (y : ℝ) = c * (2 : ℝ) ^ k := by
+  obtain ⟨c, hc⟩ := h.exists_mul_zpow
+  rcases le_total k (F.canonicalExp x) with hk | hk
+  · exact ⟨_, hc.trans (two_zpow_shift c hk)⟩
+  · -- `x` is a multiple of `2^canonicalExp x`, so a value of `F` that rounds to itself.
+    have hd : ((Dyadic.ofIntZpow z k : Dyadic) : ℝ) = x := by rw [Dyadic.coe_ofIntZpow, hx]
+    have hmem : Dyadic.ofIntZpow z k ∈ F.unbounded :=
+      F.mem_unbounded_of_mul_zpow_canonicalExp (by rw [hd]; exact hx.trans (two_zpow_shift z hk))
+    rw [← hd] at h
+    exact ⟨z, by rw [RoundsFinite.eq_of_mem hmem h, hd, hx]⟩
 
 end Mpfx

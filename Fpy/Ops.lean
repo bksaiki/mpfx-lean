@@ -176,6 +176,29 @@ theorem RoundCtx.exists_rnd_eq (c : RoundCtx) (n : Num) :
     simp only [RoundCtx.round, rnd, dif_neg c.defined]
     split_ifs <;> exact ⟨_, rfl, rfl⟩
 
+namespace RoundCtx
+
+theorem round_special (c : RoundCtx) (s : Special) : c.round (.special s) = (c.S.map s).toReal :=
+  rfl
+
+open Classical in
+theorem round_finite (c : RoundCtx) (y : ℝ) :
+    c.round (.finite y) =
+      if Format.boundOK c.F.b (rndUnbounded c.F c.rm y c.defined) then
+        .finite ((rndUnbounded c.F c.rm y c.defined : Mpfx.Dyadic) : ℝ)
+      else
+        (c.O.map (decide ((rndUnbounded c.F c.rm y c.defined : ℚ) < 0))).toReal := by
+  simp only [RoundCtx.round, rnd, dif_neg c.defined]
+  split_ifs <;> rfl
+
+theorem round_zero (c : RoundCtx) : c.round (.finite 0) = .finite 0 := by
+  have h0 : rndUnbounded c.F c.rm 0 c.defined = 0 :=
+    RoundsFinite.eq_zero_of_zero (rndUnbounded_satisfies _ _ _ _)
+  rw [round_finite, h0, if_pos (Format.boundOK_zero _)]
+  simp
+
+end RoundCtx
+
 /-- The FPy signature. `decode` reads a record as a rounding context;
 records it rejects are outside `dom(ρ)`. -/
 noncomputable def fpy (decode : List (Label × Val) → Option RoundCtx) : Signature where

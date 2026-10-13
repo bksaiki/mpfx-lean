@@ -27,7 +27,8 @@ Each fix is a change to the draft; the Lean states the fixed rule.
 | Fig. 5/11 `A-Context`, `A-Ctx` | `ctx(e)` "known statically"; `ctx e : •` | Fig. 6 line 5 needs "the format of `out`", but `out` is a parameter with abstract value `•`, so no static `ctx(out)` exists. | Abstract values carry a known context `⟨C⟩`. `R : ⟨R⟩`; `ctx e : ⟨ctx fs⟩` when the record is known. `A-Context` reads the context off `e`'s abstract value (`AEval.ctx`, `AExec.withCtx`, `AExec.withUnknown`). Call-site specialization (A-App) then carries `out`. |
 | §4.2 soundness side condition | each context "leaves the values of `F_C` unchanged" | A Mpfx `SpecialMap` need not fix the specials in `F`, so an Mpfx context meets this only when it does (e.g. `SpecialMap.exact`). | State that hypothesis on contexts in the paper. |
 | Table 1, special values | rows state no specials | Every format contains `0`, `logb 0 = −∞` (IEEE `logB`), and the `logb` row's format has no infinities, so the row is unsound. The other rows say nothing about `∞ × 0`, `∞ − ∞`, `2^(+∞)` or NaN operands. | Each row carries the specials its operator produces (`logbSpecials`, `exp2Specials`, Mpfx's `mulSpecials`, `addSpecials`, `absSpecials`). |
-| Table 2, `IEEE754(es, nb, RTZ)`, `IEEE754(es, nb, rm)` and "all others" | `[max(l, m − p + 1), m]`, `[max(l, μ − p + 1), μ]` and `[l, μ]` | Each assumes rounding never lowers the least significant digit, which fails when a context overflows, or sends a special, to a finite value. IEEE 754 RTZ overflows to the largest finite value: `v = 2^(emax+1)` has interval `[emax+1, emax+1]` but rounds to a value with digits `emax − p + 1` to `emax`. RTP and RTN do the same on their saturating side, as does `Int(n, rm)` with saturation and any `OverflowMap` or `SpecialMap` with a finite nonzero image. | Join each row with the digits of the context's overflow and special values, or require those to be non-finite (the digit-bound analogue of the §4.2 hypothesis). |
+| Table 2, `IEEE754(es, nb, RTZ)`, `IEEE754(es, nb, rm)` and "all others" | `[max(l, m − p + 1), m]`, `[max(l, μ − p + 1), μ]` and `[l, μ]` | Each assumes rounding never lowers the least significant digit, which fails when a context overflows, or sends a special, to a finite value. IEEE 754 RTZ overflows to the largest finite value: `v = 2^(emax+1)` has interval `[emax+1, emax+1]` but rounds to a value with digits `emax − p + 1` to `emax`. RTP and RTN do the same on their saturating side, as does `Int(n, rm)` with saturation and any `OverflowMap` or `SpecialMap` with a finite nonzero image. | Join each row with the digits of the context's overflow and special values (`ImagesIn`, `rndOK_of`). An overflow to `±∞` then leaves `μ` unbounded, since `∞` has digits `[+∞, +∞]`; `λ ≥ μ − p + 1` still bounds the precision. |
+| Table 2, `IEEE754(es, nb, rm)` | `μ ≤ m + 1` | Below the smallest subnormal `2^q`, RTP, RAZ and RTO round up to `2^q`: `2⁻¹¹` (`m = −11`) rounds to `2⁻⁹` in MX E4M3 (`FpyTest.draft_ieee_rm_bound`). | `μ ≤ max(m + 1, q)`, as the `Fixed(τ, rm)` row (`rndOK_prec`). |
 | §4.3, Fig. 6 loop bound | "an accumulating loop that runs `L` times" adds at most `⌈log₂ L⌉` positions | No rule gives this. D-While's `Δ_I = Δ ⊔ Δ′`, with upper endpoints bounded only from above, yields `msb_I ≤ max(msb₀, msb_I + 1)`, which every large `msb_I` satisfies. D-Sum has the bound, but `sum` and `for` are not core FPy, so Fig. 6's bound on `fused_sum` follows from no rule. | A counted-loop rule, or `sum` as an operator with D-Sum. |
 | Fig. 12 `D-Logb`, at zero | `logb(e) : ⟨[0, μ], m⟩` | Every interval concretizes `0` under every assignment, but `logb 0 = −∞`, so the symbolic value `m` is unconstrained by a zero `e`. `e = max(logb(x), 5)` with `σ(x) = 0` and `ι(msb(x)) = 100`: `ι` satisfies `val(e) ≥ msb(x)`, `val(e) ≥ 5`, yet `e` evaluates to `5`, and no `ι'` agreeing with `ι` on `msb(x)` (a variable of `Δ`) has `ι'(val(e)) = 5`. `max_e` in `fdpa` applies `logb` to inputs that may be `0`. | Give `logb(e)` a symbolic value only when `e` is nonzero, or exclude `0` from an interval paired with a term. |
 | Theorem 4.2, values with infinitely many digits | `γ_ι([l, m])` requires `min digits(v) = ι(l)` | `0.1`, or `√2` and `x / 3` under `R`, have no least significant digit, so no interval concretizes them; yet D-Const gives `0.1` the value `⟨[λ, μ], _⟩` and Table 2's "all others" covers `√` and `÷`. | State the theorem for values with finite binary expansions, or add a top abstract value. |
@@ -51,9 +52,10 @@ Split in three: 4a the domain, Fig. 12's judgment and Theorem 4.2 with every
 operator and rounding transfer as a semantic premise; 4b Table 2's rows as
 lemmas discharging those premises for Mpfx contexts; 4c D-Int and the
 format-inference constraints, which couple the judgment to format inference.
+4a and 4b are done; 4c remains.
 
-4a is done (`Fpy/DigitBound/`, namespace `Fpy.DigitBound`): `eval_sound`,
-`exec_sound`, `run_sound` (D-Program), no remaining `sorry`. Design:
+4a (`Fpy/DigitBound/Sound.lean`, namespace `Fpy.DigitBound`): `eval_sound`,
+`exec_sound`, `run_sound` (D-Program). Design:
 
 - **Extended endpoints.** Positions are `EInt = ℤ ∪ {±∞}`. `lsbOf`/`msbOf` read
   Fig. 7's `min digits`/`max digits`: `0` has `[+∞, −∞]` (the draft's `∅`), an
@@ -82,7 +84,26 @@ format-inference constraints, which couple the judgment to format inference.
   yields the symbolic context, as A-Ctx yields a known one.
 - **Operators are FPy's** (`fpy decode`); only contexts are generic.
 
-Test: `~/.elan/bin/lake build Fpy.DigitBound.Sound`.
+4b (`Fpy/DigitBound/Table.lean`, digit facts in `Digits.lean`):
+
+- **Two columns.** `ArithOK` is `OpOK` (op♮) then `RndOK` (rnd♮), composed
+  by `ArithOK.comp`; `ArithOK` takes the operands' terms, which `2^x` needs.
+- **Fresh endpoints.** Every row's result is `[λ, μ]`, fresh, bounded below and
+  above (`bounds`, `fresh_numIn`), lone endpoints included: under extended
+  endpoints a value can round to `0`, whose interval is `[+∞, −∞]`, not the
+  lone endpoint's value. `R` and `−x`, `|x|`, `round(x)` keep `[l, m]`.
+- **Contexts by shape.** A rounding row takes `Decodes κ P Lo Ho`: every
+  context `κ` admits decodes to one `P` accepts (`QuantumIs τ` for `Fixed`,
+  `F.p = p` for `IEEE754`, with RTZ where the row says), whose overflow and
+  special values have digits in `[Lo, Ho]`. Discharging it for a concrete
+  `decode` is the record layout's business.
+- **Rows.** `opOK_add`, `opOK_mul`, `opOK_exact`, `opOK_ext`, `opOK_exp2`,
+  `opOK_logb`, `opOK_any`; `rndOK_real`, `rndOK_fixedRTZ`, `rndOK_fixed`,
+  `rndOK_precRTZ`, `rndOK_prec`, `rndOK_any`. The rounding rows rest on
+  `RoundsFinite.exists_mul_zpow` and `RoundsFinite.mul_zpow_of_mul_zpow`
+  (Mpfx `Rounding/Ulp.lean`).
+
+Test: `~/.elan/bin/lake build Fpy.DigitBound.Sound Fpy.DigitBound.Table FpyTest.DigitBound`.
 
 ### Not claimed
 

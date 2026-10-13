@@ -161,12 +161,11 @@ theorem args_two {ι : Asgn} {l₁ m₁ l₂ m₂ : Term} {τ₁ τ₂ : Option 
 
 theorem numIns {ι : Asgn} : ∀ {Is : List (Term × Term × Option Term)} {ns : List Num},
     List.Forall₂ (Describes ι) (Is.map fun I => .num I.1 I.2.1 I.2.2) (ns.map .num) →
-    List.Forall₂ (fun (I : Term × Term) n => NumIn ι I.1 I.2 none n)
-      (Is.map fun I => (I.1, I.2.1)) ns
+    List.Forall₂ (fun (I : Term × Term × Option Term) n => NumIn ι I.1 I.2.1 I.2.2 n) Is ns
   | [], [], _ => .nil
   | _ :: _, _ :: _, .cons h hs => by
     cases h with
-    | num h => exact .cons h.forget (numIns hs)
+    | num h => exact .cons h (numIns hs)
   | [], _ :: _, h => by cases h
   | _ :: _, [], h => by cases h
 
@@ -257,7 +256,8 @@ variable {Δ : DEnv} {n₀ n₁ n₂ : ℕ} {Ψ Ψ' : List Con} {ι : Asgn} {C :
 theorem linear_sound {op : ArithOp} {e₁ e₂ : Expr (fpy decode)} (hop' : op = .add ∨ op = .sub)
     (hdl : DEvalList decode Φ Δ (some .real) n₀ [e₁, e₂]
       [.num l₁ m₁ (some τ₁), .num l₂ m₂ (some τ₂)] Ψ n₁)
-    (hok : ArithOK decode (some .real) op [(l₁, m₁), (l₂, m₂)] n₁ n₂ Ψ' l m) (hΔ : Δ.Below n₀)
+    (hok : ArithOK decode (some .real) op [(l₁, m₁, some τ₁), (l₂, m₂, some τ₂)] n₁ n₂ Ψ' l m)
+    (hΔ : Δ.Below n₀)
     (hop : (fpy decode).arith op ns = some u) (hr : C.rnd (fpy decode) = some r)
     (hC : ∀ K ∈ some SCtx.real, K.Admits ι C)
     (ih : ∃ ι₁, Agree n₀ ι ι₁ ∧ Sat ι₁ Ψ ∧
@@ -271,7 +271,7 @@ theorem linear_sound {op : ArithOp} {e₁ e₂ : Expr (fpy decode)} (hop' : op =
   have hτ₁ := (hb _ (List.mem_cons_self ..)).2.2 _ rfl
   have hτ₂ := (hb _ (List.mem_cons_of_mem _ (List.mem_cons_self ..))).2.2 _ rfl
   obtain ⟨u₁, u₂, rfl, hu₁, hu₂⟩ := args_two hds
-  obtain ⟨ι₂, a₂, hs₂, hu⟩ := hok ι₁ _ _ _ _ (.cons hu₁.forget (.cons hu₂.forget .nil)) hop
+  obtain ⟨ι₂, a₂, hs₂, hu⟩ := hok ι₁ _ _ _ _ (.cons hu₁ (.cons hu₂ .nil)) hop
     (admits_real' _) rfl
   have e₁ := Term.eval_congr a₂.agree hτ₁
   have e₂ := Term.eval_congr a₂.agree hτ₂
@@ -293,7 +293,7 @@ theorem linear_sound {op : ArithOp} {e₁ e₂ : Expr (fpy decode)} (hop' : op =
 /-- D-Neg. -/
 theorem neg_sound {e : Expr (fpy decode)} {τ : Term}
     (hdl : DEvalList decode Φ Δ (some .real) n₀ [e] [.num l₁ m₁ (some τ)] Ψ n₁)
-    (hok : ArithOK decode (some .real) .neg [(l₁, m₁)] n₁ n₂ Ψ' l m) (hΔ : Δ.Below n₀)
+    (hok : ArithOK decode (some .real) .neg [(l₁, m₁, some τ)] n₁ n₂ Ψ' l m) (hΔ : Δ.Below n₀)
     (hop : (fpy decode).arith .neg ns = some u) (hr : C.rnd (fpy decode) = some r)
     (hC : ∀ K ∈ some SCtx.real, K.Admits ι C)
     (ih : ∃ ι₁, Agree n₀ ι ι₁ ∧ Sat ι₁ Ψ ∧
@@ -305,7 +305,7 @@ theorem neg_sound {e : Expr (fpy decode)} {τ : Term}
   obtain rfl : _ = id := (Option.some.inj hr).symm
   have hτ := ((DEvalList.wf hdl).2 hΔ (ctxBelow_real _) _ (List.mem_cons_self ..)).2.2 _ rfl
   obtain ⟨u₁, rfl, hu₁⟩ := args_one hds
-  obtain ⟨ι₂, a₂, hs₂, hu⟩ := hok ι₁ _ _ _ _ (.cons hu₁.forget .nil) hop (admits_real' _) rfl
+  obtain ⟨ι₂, a₂, hs₂, hu⟩ := hok ι₁ _ _ _ _ (.cons hu₁ .nil) hop (admits_real' _) rfl
   refine chain (DEvalList.wf hdl).1 a₁ hs₁ a₂.agree hs₂ (.num ?_)
   simp only [fpy, ArithOp.eval, Option.some.injEq] at hop
   subst hop
@@ -316,7 +316,7 @@ theorem neg_sound {e : Expr (fpy decode)} {τ : Term}
 /-- D-Logb. -/
 theorem logb_sound {e : Expr (fpy decode)} {τ : Option Term}
     (hdl : DEvalList decode Φ Δ (some .real) n₀ [e] [.num l₁ m₁ τ] Ψ n₁)
-    (hok : ArithOK decode (some .real) .logb [(l₁, m₁)] n₁ n₂ Ψ' l m) (hΔ : Δ.Below n₀)
+    (hok : ArithOK decode (some .real) .logb [(l₁, m₁, τ)] n₁ n₂ Ψ' l m) (hΔ : Δ.Below n₀)
     (hop : (fpy decode).arith .logb ns = some u) (hr : C.rnd (fpy decode) = some r)
     (hC : ∀ K ∈ some SCtx.real, K.Admits ι C)
     (ih : ∃ ι₁, Agree n₀ ι ι₁ ∧ Sat ι₁ Ψ ∧
@@ -327,7 +327,7 @@ theorem logb_sound {e : Expr (fpy decode)} {τ : Option Term}
   obtain rfl : _ = id := (Option.some.inj hr).symm
   have hm := ((DEvalList.wf hdl).2 hΔ (ctxBelow_real _) _ (List.mem_cons_self ..)).2.1
   obtain ⟨u₁, rfl, hu₁⟩ := args_one hds
-  obtain ⟨ι₂, a₂, hs₂, hu⟩ := hok ι₁ _ _ _ _ (.cons hu₁.forget .nil) hop (admits_real' _) rfl
+  obtain ⟨ι₂, a₂, hs₂, hu⟩ := hok ι₁ _ _ _ _ (.cons hu₁ .nil) hop (admits_real' _) rfl
   refine chain (DEvalList.wf hdl).1 a₁ hs₁ a₂.agree hs₂ (.num ?_)
   simp only [fpy, ArithOp.eval, Option.some.injEq] at hop
   subst hop
@@ -340,7 +340,7 @@ theorem ext_sound {op : ArithOp} {ge : Bool} {e₁ e₂ : Expr (fpy decode)}
     (hop' : op = (if ge then .max else .min)) (hτ₁ : τ₁.Below n₂) (hτ₂ : τ₂.Below n₂)
     (hdl : DEvalList decode Φ Δ (some .real) n₀ [e₁, e₂]
       [.num l₁ m₁ (some τ₁), .num l₂ m₂ (some τ₂)] Ψ n₁)
-    (hok : ArithOK decode (some .real) op [(l₁, m₁), (l₂, m₂)] n₁ n₂ Ψ' l m)
+    (hok : ArithOK decode (some .real) op [(l₁, m₁, some τ₁), (l₂, m₂, some τ₂)] n₁ n₂ Ψ' l m)
     (hF : Fresh n₁ n₂ Ψ') (hlb : l.Below n₂) (hmb : m.Below n₂) (hΔ : Δ.Below n₀)
     (hop : (fpy decode).arith op ns = some u) (hr : C.rnd (fpy decode) = some r)
     (hC : ∀ K ∈ some SCtx.real, K.Admits ι C)
@@ -353,7 +353,7 @@ theorem ext_sound {op : ArithOp} {ge : Bool} {e₁ e₂ : Expr (fpy decode)}
   obtain rfl : _ = id := (Option.some.inj hr).symm
   have hF₁ := (DEvalList.wf hdl).1
   obtain ⟨u₁, u₂, rfl, hu₁, hu₂⟩ := args_two hds
-  obtain ⟨ι₂, a₂, hs₂, hu⟩ := hok ι₁ _ _ _ _ (.cons hu₁.forget (.cons hu₂.forget .nil)) hop
+  obtain ⟨ι₂, a₂, hs₂, hu⟩ := hok ι₁ _ _ _ _ (.cons hu₁ (.cons hu₂ .nil)) hop
     (admits_real' _) rfl
   have hb := (DEvalList.wf hdl).2 hΔ (ctxBelow_real _)
   have hτ₁' := (hb _ (List.mem_cons_self ..)).2.2 _ rfl

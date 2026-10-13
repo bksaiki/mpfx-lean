@@ -20,6 +20,8 @@ theorem Term.Below.mono {n n' : ℕ} (h : n ≤ n') : ∀ {t : Term}, t.Below n 
   | .var _, hx => lt_of_lt_of_le hx h
   | .add a b, ⟨ha, hb⟩ => ⟨Term.Below.mono (t := a) h ha, Term.Below.mono (t := b) h hb⟩
   | .neg a, ha => Term.Below.mono (t := a) h ha
+  | .max a b, ⟨ha, hb⟩ => ⟨Term.Below.mono (t := a) h ha, Term.Below.mono (t := b) h hb⟩
+  | .min a b, ⟨ha, hb⟩ => ⟨Term.Below.mono (t := a) h ha, Term.Below.mono (t := b) h hb⟩
 
 theorem SCtx.Below.mono {n n' : ℕ} (h : n ≤ n') : ∀ {C : SCtx}, C.Below n → C.Below n'
   | .real, _ => trivial

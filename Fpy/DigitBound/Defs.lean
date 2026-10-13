@@ -62,12 +62,16 @@ inductive Term where
   | var (x : ℕ)
   | add (a b : Term)
   | neg (a : Term)
+  | max (a b : Term)
+  | min (a b : Term)
 
 def Term.eval (ι : Asgn) : Term → EInt
   | .const z => z
   | .var x => ι x
   | .add a b => a.eval ι + b.eval ι
   | .neg a => negE (a.eval ι)
+  | .max a b => Max.max (a.eval ι) (b.eval ι)
+  | .min a b => Min.min (a.eval ι) (b.eval ι)
 
 /-- Every variable of `t` is below `n`. -/
 def Term.Below (n : ℕ) : Term → Prop
@@ -75,6 +79,8 @@ def Term.Below (n : ℕ) : Term → Prop
   | .var x => x < n
   | .add a b => a.Below n ∧ b.Below n
   | .neg a => a.Below n
+  | .max a b => a.Below n ∧ b.Below n
+  | .min a b => a.Below n ∧ b.Below n
 
 theorem Term.eval_congr {n : ℕ} {ι ι' : Asgn} (h : ∀ x < n, ι x = ι' x) :
     ∀ {t : Term}, t.Below n → t.eval ι = t.eval ι'
@@ -82,6 +88,8 @@ theorem Term.eval_congr {n : ℕ} {ι ι' : Asgn} (h : ∀ x < n, ι x = ι' x) 
   | .var x, hx => h x hx
   | .add _ _, ⟨ha, hb⟩ => congrArg₂ (· + ·) (Term.eval_congr h ha) (Term.eval_congr h hb)
   | .neg _, ha => congrArg negE (Term.eval_congr h ha)
+  | .max _ _, ⟨ha, hb⟩ => congrArg₂ Max.max (Term.eval_congr h ha) (Term.eval_congr h hb)
+  | .min _ _, ⟨ha, hb⟩ => congrArg₂ Min.min (Term.eval_congr h ha) (Term.eval_congr h hb)
 
 /-- `ι` and `ι'` agree below `n`. -/
 def Agree (n : ℕ) (ι ι' : Asgn) : Prop := ∀ x < n, ι x = ι' x
@@ -218,9 +226,10 @@ variable (decode) in
 /-- `rnd♮_κ(op♮(Is))`: the interval `[l, m]`, with fresh variables `[n₀, n₁)`
 bounded by `Ψ`, bounds `op` on values with digits `Is`, rounded under any
 context `κ` admits. -/
-def ArithOK (κ : Option SCtx) (op : ArithOp) (Is : List (Term × Term)) (n₀ n₁ : ℕ)
-    (Ψ : List Con) (l m : Term) : Prop :=
-  ∀ ι ns u C r, List.Forall₂ (fun (I : Term × Term) n => NumIn ι I.1 I.2 none n) Is ns →
+def ArithOK (κ : Option SCtx) (op : ArithOp) (Is : List (Term × Term × Option Term))
+    (n₀ n₁ : ℕ) (Ψ : List Con) (l m : Term) : Prop :=
+  ∀ ι ns u C r, List.Forall₂ (fun (I : Term × Term × Option Term) n => NumIn ι I.1 I.2.1 I.2.2 n)
+    Is ns →
     op.eval ns = some u → (∀ K ∈ κ, K.Admits ι C) → C.rnd (fpy decode) = some r →
     ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ NumIn ι' l m none (r u)
 
@@ -281,25 +290,26 @@ inductive DEval : DEnv → Option SCtx → ℕ → Expr (fpy decode) → DVal �
       DEval Δ κ n₀ (.ctx e) ((ctxOf d).elim .other .ctx) Ψ n₁
   | arith {Δ κ n₀ op es Ψ n₁ Ψ' n₂ l m} {Is : List (Term × Term × Option Term)} :
       DEvalList Δ κ n₀ es (Is.map fun I => .num I.1 I.2.1 I.2.2) Ψ n₁ →
-      ArithOK decode κ op (Is.map fun I => (I.1, I.2.1)) n₁ n₂ Ψ' l m → Fresh n₁ n₂ Ψ' →
+      ArithOK decode κ op Is n₁ n₂ Ψ' l m → Fresh n₁ n₂ Ψ' →
       l.Below n₂ → m.Below n₂ → DEval Δ κ n₀ (.arith op es) (.num l m none) (Ψ ++ Ψ') n₂
   /-- D-Linear, under `R`. -/
   | linear {Δ n₀ op e₁ e₂ l₁ m₁ τ₁ l₂ m₂ τ₂ Ψ n₁ Ψ' n₂ l m} (hop : op = .add ∨ op = .sub) :
       DEvalList Δ (some .real) n₀ [e₁, e₂] [.num l₁ m₁ (some τ₁), .num l₂ m₂ (some τ₂)] Ψ n₁ →
-      ArithOK decode (some .real) op [(l₁, m₁), (l₂, m₂)] n₁ n₂ Ψ' l m → Fresh n₁ n₂ Ψ' →
+      ArithOK decode (some .real) op [(l₁, m₁, some τ₁), (l₂, m₂, some τ₂)] n₁ n₂ Ψ' l m →
+      Fresh n₁ n₂ Ψ' →
       l.Below n₂ → m.Below n₂ →
       DEval Δ (some .real) n₀ (.arith op [e₁, e₂])
         (.num l m (some (if op = .add then .add τ₁ τ₂ else .add τ₁ (.neg τ₂)))) (Ψ ++ Ψ') n₂
   /-- D-Neg, under `R`. -/
   | neg {Δ n₀ e l₁ m₁ τ Ψ n₁ Ψ' n₂ l m} :
       DEvalList Δ (some .real) n₀ [e] [.num l₁ m₁ (some τ)] Ψ n₁ →
-      ArithOK decode (some .real) .neg [(l₁, m₁)] n₁ n₂ Ψ' l m → Fresh n₁ n₂ Ψ' →
+      ArithOK decode (some .real) .neg [(l₁, m₁, some τ)] n₁ n₂ Ψ' l m → Fresh n₁ n₂ Ψ' →
       l.Below n₂ → m.Below n₂ →
       DEval Δ (some .real) n₀ (.arith .neg [e]) (.num l m (some (.neg τ))) (Ψ ++ Ψ') n₂
   /-- D-Logb, under `R`: the value is the argument's most significant digit. -/
   | logb {Δ n₀ e l₁ m₁ τ Ψ n₁ Ψ' n₂ l m} :
       DEvalList Δ (some .real) n₀ [e] [.num l₁ m₁ τ] Ψ n₁ →
-      ArithOK decode (some .real) .logb [(l₁, m₁)] n₁ n₂ Ψ' l m → Fresh n₁ n₂ Ψ' →
+      ArithOK decode (some .real) .logb [(l₁, m₁, τ)] n₁ n₂ Ψ' l m → Fresh n₁ n₂ Ψ' →
       l.Below n₂ → m.Below n₂ →
       DEval Δ (some .real) n₀ (.arith .logb [e]) (.num l m (some m₁)) (Ψ ++ Ψ') n₂
   /-- D-Max (`ge = true`, `op = max`) and D-Min, under `R`: a fresh `val(e)`
@@ -307,7 +317,8 @@ inductive DEval : DEnv → Option SCtx → ℕ → Expr (fpy decode) → DVal �
   | ext {Δ n₀ op ge e₁ e₂ l₁ m₁ τ₁ l₂ m₂ τ₂ Ψ n₁ Ψ' n₂ l m}
       (hop : op = (if ge then .max else .min)) (h₁ : τ₁.Below n₂) (h₂ : τ₂.Below n₂) :
       DEvalList Δ (some .real) n₀ [e₁, e₂] [.num l₁ m₁ (some τ₁), .num l₂ m₂ (some τ₂)] Ψ n₁ →
-      ArithOK decode (some .real) op [(l₁, m₁), (l₂, m₂)] n₁ n₂ Ψ' l m → Fresh n₁ n₂ Ψ' →
+      ArithOK decode (some .real) op [(l₁, m₁, some τ₁), (l₂, m₂, some τ₂)] n₁ n₂ Ψ' l m →
+      Fresh n₁ n₂ Ψ' →
       l.Below n₂ → m.Below n₂ →
       DEval Δ (some .real) n₀ (.arith op [e₁, e₂]) (.num l m (some (.var n₂)))
         (Ψ ++ Ψ' ++ [Con.ext n₂ ge τ₁ τ₂ h₁ h₂]) (n₂ + 1)
