@@ -86,9 +86,8 @@ theorem equiv_reround {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr 
       L.arith op ns = some n → r n = r' n) :
     Equiv Φ X Γ (some C) (.assign x (.arith op (ys.map .var)))
       (.withCtx c (.assign x (.arith op (ys.map .var)))) := by
-  intro σ C₀ hΓ hκ
-  obtain rfl := hκ C rfl
-  refine ⟨fun o hs => ?_, fun o hs => ?_⟩
+  refine Equiv.of_fwd (fun σ C₀ o hΓ hκ hs => ?_) (fun σ C₀ _ _ hκ hs => ?_) <;>
+    obtain rfl := hκ C rfl
   · cases hs with
     | assign he =>
       cases he with
@@ -98,17 +97,9 @@ theorem equiv_reround {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr 
           (.assign (.arith (evalList_vars.mpr (evalList_vars.mp hl)) hop hr')), ?_⟩
         rw [h σ _ _ hΓ (forall₂_of_evalList hl) hop]
         exact Store.Agree.refl _
-  · cases hs with
-    | withCtx hc' _ hs =>
-      obtain rfl := (hc σ _).mp hc'
-      cases hs with
-      | assign he =>
-        cases he with
-        | arith hl hop hr₀ =>
-          obtain rfl := Option.some.inj (hr₀.symm.trans hr')
-          refine ⟨_, .assign (.arith (evalList_vars.mpr (evalList_vars.mp hl)) hop hr), ?_⟩
-          rw [h σ _ _ hΓ (forall₂_of_evalList hl) hop]
-          exact Store.Agree.refl _
+  · obtain ⟨_, _, he⟩ := hs.withCtx_assign
+    cases he with
+    | arith hl hop _ => exact ⟨_, .assign (.arith (evalList_vars.mpr (evalList_vars.mp hl)) hop hr)⟩
 
 variable {A : Analysis L D}
 
@@ -147,9 +138,8 @@ theorem equiv_split_of {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr
     Equiv Φ {t} Γ (some C) (.assign x (.arith op (ys.map .var)))
       (.seq (.withCtx c (.assign t (.arith op (ys.map .var))))
         (.assign x (.arith rd [.var t]))) := by
-  intro σ C₀ hΓ hκ
-  obtain rfl := hκ C rfl
-  refine ⟨fun o hs => ?_, fun o hs => ?_⟩
+  refine Equiv.of_fwd (fun σ C₀ o hΓ hκ hs => ?_) (fun σ C₀ _ _ hκ hs => ?_) <;>
+    obtain rfl := hκ C rfl
   · cases hs with
     | assign he =>
       cases he with
@@ -161,37 +151,10 @@ theorem equiv_split_of {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr
           ?_⟩
         rw [h σ _ _ hΓ (forall₂_of_evalList hl) hop]
         exact Store.Agree.update_fresh _ _ _
-  · cases hs with
-    | seqRet h₁ => cases h₁ with | withCtx _ _ h₁ => cases h₁
-    | seqNormal h₁ h₂ =>
-      cases h₁ with
-      | withCtx hc' _ h₁ =>
-        obtain rfl := (hc σ _).mp hc'
-        cases h₁ with
-        | assign he =>
-          cases he with
-          | @arith _ _ _ _ _ n _ hl hop hr₀ =>
-            obtain rfl := Option.some.inj (hr₀.symm.trans hr')
-            cases h₂ with
-            | assign he₂ =>
-              cases he₂ with
-              | @arith _ _ _ _ ns₂ m _ hl₂ hop₂ hr₂ =>
-                obtain rfl := Option.some.inj (hr₂.symm.trans hr)
-                rcases ns₂ with _ | ⟨u, _ | ⟨_, _⟩⟩
-                · cases hl₂
-                · cases hl₂ with
-                  | cons hv _ =>
-                    cases hv with
-                    | var hx =>
-                      simp only [Store.update, Function.update_self, Option.some.injEq,
-                        Val.num.injEq] at hx
-                      subst hx
-                      obtain rfl := Option.some.inj (hop₂.symm.trans (hrd _))
-                      refine ⟨_, .assign (.arith (evalList_vars.mpr (evalList_vars.mp hl)) hop hr),
-                        ?_⟩
-                      rw [h σ _ _ hΓ (forall₂_of_evalList hl) hop]
-                      exact Store.Agree.update_fresh _ _ _
-                · cases hl₂ with | cons _ hl => cases hl
+  · obtain ⟨_, h₁⟩ := hs.seq_left
+    obtain ⟨_, _, he⟩ := h₁.withCtx_assign
+    cases he with
+    | arith hl hop _ => exact ⟨_, .assign (.arith (evalList_vars.mpr (evalList_vars.mp hl)) hop hr)⟩
 
 /-- **Split**: `[C] x = op(y⃗) ⇝ with C' in t = op(y⃗); x = round(t)` if
 `C(C'(v)) = C(v)` for every `v`. -/

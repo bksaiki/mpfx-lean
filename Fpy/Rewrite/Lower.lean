@@ -223,60 +223,6 @@ theorem round_scale {c c₀ : RoundCtx} {k : ℤ} (h : c.Scaled c₀ k) (v : Num
 
 end RoundCtx
 
-/-! ## Inversion -/
-
-section Inversion
-
-variable {L : Signature} {Φ : Program L} {σ : Store} {C : Val}
-
-theorem eval_var_inv {x : Var} {v : Val} (h : Eval Φ σ C (.var x) v) : σ x = some v := by
-  cases h with | var h => exact h
-
-theorem EvalList.num_of_mem : ∀ {es : List (Expr L)} {ns : List Num},
-    EvalList Φ σ C es (ns.map .num) → ∀ e ∈ es, ∃ u, Eval Φ σ C e (.num u) := by
-  intro es
-  induction es with
-  | nil => intro _ _ e he; exact absurd he List.not_mem_nil
-  | cons e es ih =>
-    intro ns h e' he
-    rcases ns with _ | ⟨u, ns⟩
-    · cases h
-    · cases h with
-      | cons h₁ hs =>
-        rcases List.mem_cons.mp he with rfl | he
-        · exact ⟨u, h₁⟩
-        · exact ih hs e' he
-
-/-- An argument of a rounded operator evaluates to a number. -/
-theorem Eval.num_of_arith {op : L.ArithOp} {es : List (Expr L)} {v : Val} {e : Expr L}
-    (h : Eval Φ σ C (.arith op es) v) (he : e ∈ es) : ∃ u, Eval Φ σ C e (.num u) := by
-  cases h with | arith hl _ _ => exact hl.num_of_mem e he
-
-theorem Exec.seq_left {s₁ s₂ : Stmt L} {o : Outcome} (h : Exec Φ σ C (.seq s₁ s₂) o) :
-    ∃ o₁, Exec Φ σ C s₁ o₁ := by
-  cases h with
-  | seqNormal h₁ _ => exact ⟨_, h₁⟩
-  | seqRet h₁ => exact ⟨_, h₁⟩
-
-theorem Exec.ite_guard {e : Expr L} {s₁ s₂ : Stmt L} {o : Outcome}
-    (h : Exec Φ σ C (.ite e s₁ s₂) o) : ∃ b, Eval Φ σ C e (.bool b) := by
-  cases h with
-  | iteTrue he _ => exact ⟨_, he⟩
-  | iteFalse he _ => exact ⟨_, he⟩
-
-theorem Exec.ite_dec {e : Expr L} {s₁ s₂ : Stmt L} {o : Outcome} {b : Prop} [Decidable b]
-    (he : Eval Φ σ C e (.bool (decide b))) (h₁ : b → Exec Φ σ C s₁ o)
-    (h₂ : ¬ b → Exec Φ σ C s₂ o) : Exec Φ σ C (.ite e s₁ s₂) o := by
-  by_cases hb : b
-  · exact .iteTrue (by rwa [decide_eq_true hb] at he) (h₁ hb)
-  · exact .iteFalse (by rwa [decide_eq_false hb] at he) (h₂ hb)
-
-theorem Exec.withCtx_assign {e e' : Expr L} {y : Var} {o : Outcome}
-    (h : Exec Φ σ C (.withCtx e (.assign y e')) o) : ∃ C' v, Eval Φ σ C' e' v := by
-  cases h with | withCtx _ _ h => cases h with | assign he => exact ⟨_, _, he⟩
-
-end Inversion
-
 /-! ## The rewrites -/
 
 variable {decode : List (Label × Val) → Option RoundCtx} {Φ : Program (fpy decode)}

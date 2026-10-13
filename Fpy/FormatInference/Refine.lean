@@ -304,9 +304,8 @@ noncomputable def refine (κ : Option Val) (e : Expr (fpy decode)) (b : Bool)
     if (show ExactOp from op) = .not then refine κ e₁ (!b) Γ
     else (parseAtom κ e).elim Γ (·.refine b Γ)
   | .exact op [e₁, e₂] =>
-    if (show ExactOp from op) = .and ∧ b = true then refine κ e₂ true (refine κ e₁ true Γ)
-    else if (show ExactOp from op) = .or ∧ b = false then
-      refine κ e₂ false (refine κ e₁ false Γ)
+    if (show ExactOp from op) = .and ∧ b = true ∨ (show ExactOp from op) = .or ∧ b = false then
+      refine κ e₂ b (refine κ e₁ b Γ)
     else (parseAtom κ e).elim Γ (·.refine b Γ)
   | e => (parseAtom κ e).elim Γ (·.refine b Γ)
 
@@ -345,7 +344,6 @@ theorem refine_sound {κ : Option Val} {C : Val} (hκ : Admits κ C) :
     unfold refine
     split
     · next hop =>
-      obtain ⟨hop, rfl⟩ := hop
       cases h with
       | exact hl hev =>
         cases hl with
@@ -354,30 +352,12 @@ theorem refine_sound {κ : Option Val} {C : Val} (hκ : Admits κ C) :
           | @cons _ _ _ _ v₂ _ h₂ hl =>
             cases hl
             change ExactOp.eval op [v₁, v₂] = _ at hev
-            rw [hop] at hev
-            rcases v₁ with b₁ | _ | _ | _ | _ | _ <;> rcases v₂ with b₂ | _ | _ | _ | _ | _ <;>
-              simp only [ExactOp.eval, Option.some.injEq, reduceCtorEq, Val.bool.injEq,
-                Bool.and_eq_true] at hev
-            obtain ⟨rfl, rfl⟩ := hev
+            obtain ⟨rfl, rfl⟩ : v₁ = .bool b ∧ v₂ = .bool b := by
+              rcases hop with ⟨hop, rfl⟩ | ⟨hop, rfl⟩ <;> rw [hop] at hev <;>
+                rcases v₁ with b₁ | _ | _ | _ | _ | _ <;> rcases v₂ with b₂ | _ | _ | _ | _ | _ <;>
+                simp_all [ExactOp.eval, Bool.and_eq_true, Bool.or_eq_false_iff]
             exact refine_sound hκ e₂ (refine_sound hκ e₁ hΓ h₁) h₂
-    · split
-      · next hop =>
-        obtain ⟨hop, rfl⟩ := hop
-        cases h with
-        | exact hl hev =>
-          cases hl with
-          | @cons _ _ _ _ v₁ _ h₁ hl =>
-            cases hl with
-            | @cons _ _ _ _ v₂ _ h₂ hl =>
-              cases hl
-              change ExactOp.eval op [v₁, v₂] = _ at hev
-              rw [hop] at hev
-              rcases v₁ with b₁ | _ | _ | _ | _ | _ <;> rcases v₂ with b₂ | _ | _ | _ | _ | _ <;>
-                simp only [ExactOp.eval, Option.some.injEq, reduceCtorEq, Val.bool.injEq,
-                  Bool.or_eq_false_iff] at hev
-              obtain ⟨rfl, rfl⟩ := hev
-              exact refine_sound hκ e₂ (refine_sound hκ e₁ hΓ h₁) h₂
-      · exact holds_refine_atom hΓ hκ h
+    · exact holds_refine_atom hΓ hκ h
   | .bool _, _, _, _, hΓ, h | .num _, _, _, _, hΓ, h | .var _, _, _, _, hΓ, h
   | .arith _ _, _, _, _, hΓ, h | .list _, _, _, _, hΓ, h | .index _ _, _, _, _, hΓ, h
   | .record _, _, _, _, hΓ, h | .proj _ _, _, _, _, hΓ, h | .call _ _, _, _, _, hΓ, h
