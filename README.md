@@ -194,6 +194,7 @@ contexts that round through `Mpfx.rnd` and any record layout `decode`.
 | Paper | Lean | File |
 | --- | --- | --- |
 | Rules (Fig. 8, 12) | `DEval`, `DExec` | `Fpy/DigitBound/Defs.lean` |
+| D-Int; constraints from inferred formats | `DEval.int`, `DEval.fmt` | `Fpy/DigitBound/Defs.lean` |
 | Theorem 4.2 | `eval_sound`, `exec_sound`, `run_sound` | `Fpy/DigitBound/Sound.lean` |
 | Table 2, operators | `opOK_add`, `opOK_mul`, `opOK_exact`, `opOK_ext`, `opOK_exp2`, `opOK_logb`, `opOK_any` | `Fpy/DigitBound/Table.lean` |
 | Table 2, rounding | `rndOK_real`, `rndOK_fixedRTZ`, `rndOK_fixed`, `rndOK_precRTZ`, `rndOK_prec`, `rndOK_any` | `Fpy/DigitBound/Table.lean` |
@@ -235,9 +236,9 @@ unbounded intermediate format. Digit positions range over `ℤ ∪ {±∞}`; D-W
 takes an invariant; Table 2's rounding rows join the context's overflow and
 special values' digits.
 
-Not mechanized: D-Int and the format-inference constraints of the digit-bound
-analysis, the composition of rewrites (e.g. Fig. 9), and the implementation's
-fixpoint algorithm, which only constructs derivations of the rules.
+Not mechanized: the composition of rewrites (e.g. Fig. 9), and the
+implementation's fixpoint algorithm, which only constructs derivations of the
+rules.
 
 ## Verifying
 

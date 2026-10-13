@@ -52,7 +52,7 @@ Split in three: 4a the domain, Fig. 12's judgment and Theorem 4.2 with every
 operator and rounding transfer as a semantic premise; 4b Table 2's rows as
 lemmas discharging those premises for Mpfx contexts; 4c D-Int and the
 format-inference constraints, which couple the judgment to format inference.
-4a and 4b are done; 4c remains.
+All three are done.
 
 4a (`Fpy/DigitBound/Sound.lean`, namespace `Fpy.DigitBound`): `eval_sound`,
 `exec_sound`, `run_sound` (D-Program). Design:
@@ -102,6 +102,24 @@ format-inference constraints, which couple the judgment to format inference.
   `rndOK_precRTZ`, `rndOK_prec`, `rndOK_any`. The rounding rows rest on
   `RoundsFinite.exists_mul_zpow` and `RoundsFinite.mul_zpow_of_mul_zpow`
   (Mpfx `Rounding/Ulp.lean`).
+
+4c (`Defs.lean`, `Sound.lean`):
+
+- **Coupling.** The judgment carries format inference's `Γ` and context `χ`,
+  advanced as format inference does: by an `AExec` premise for `s₁` in D-Seq,
+  by `refine` in D-If, by an invariant `Γᵢ` in D-While (as A-While), by the
+  context's abstract value in D-Context, and by `[y ↦ a]` in D-App. Soundness
+  also assumes `σ ∈ γ(Γ)` and gets `fmt(e)` from Theorem 4.1.
+- **D-Int** (`DEval.int`): `fmt(e) ⊆ ℤ ∩ [a, b]` gives a fresh `val(e)` with
+  `a ≤ val(e) ≤ b`, for `a ≤ b` (which makes the constraint satisfiable).
+- **D-Fmt** (`DEval.fmt`), the dynamic-range constraints: if every value of
+  `fmt(e)` has digits in `[lo, hi]`, `e`'s interval becomes fresh `[λ, μ]`
+  with `λ ≥ max(l, lo)`, `μ ≤ min(m, hi)`. The draft states these as
+  constraints on `e`'s endpoints; a constraint here bounds only its own fresh
+  variable.
+- **Recursion on the analysis derivation.** D-Int and D-Fmt apply to any
+  expression, so the soundness theorems recurse on the analysis derivation,
+  and loops iterate in `loop_sound`, given the body's soundness.
 
 Test: `~/.elan/bin/lake build Fpy.DigitBound.Sound Fpy.DigitBound.Table FpyTest.DigitBound`.
 

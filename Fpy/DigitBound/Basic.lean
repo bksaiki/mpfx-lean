@@ -15,14 +15,6 @@ open Mpfx
 
 /-! ## Bounds on variables -/
 
-theorem Term.Below.mono {n n' : ℕ} (h : n ≤ n') : ∀ {t : Term}, t.Below n → t.Below n'
-  | .const _, _ => trivial
-  | .var _, hx => lt_of_lt_of_le hx h
-  | .add a b, ⟨ha, hb⟩ => ⟨Term.Below.mono (t := a) h ha, Term.Below.mono (t := b) h hb⟩
-  | .neg a, ha => Term.Below.mono (t := a) h ha
-  | .max a b, ⟨ha, hb⟩ => ⟨Term.Below.mono (t := a) h ha, Term.Below.mono (t := b) h hb⟩
-  | .min a b, ⟨ha, hb⟩ => ⟨Term.Below.mono (t := a) h ha, Term.Below.mono (t := b) h hb⟩
-
 theorem SCtx.Below.mono {n n' : ℕ} (h : n ≤ n') : ∀ {C : SCtx}, C.Below n → C.Below n'
   | .real, _ => trivial
   | .record _, hC => fun f hf => (hC f hf).mono h
@@ -242,9 +234,59 @@ theorem Sat.extend {n₀ n₁ : ℕ} {Ψ : List Con} (hΨ : Fresh n₀ n₁ Ψ) 
         exact ⟨ι', Agree.mono (Nat.le_succ j) hι', hs⟩
   exact key _ n₀ rfl ι fun c hc hlt => absurd (hΨ.2.2 c hc).1 (by omega)
 
-/-! ## Symbolic values -/
-
 local notation "nan" => (WithSpecial.special Special.nan : Num)
+
+theorem NumIn.eq {ι : Asgn} {l m : Term} {τ : Option Term} {u : Num} (h : NumIn ι l m τ u)
+    (hu : u ≠ nan) : lsbOf u = l.eval ι ∧ msbOf u = m.eval ι :=
+  (h.resolve_left hu).imp_right And.left
+
+theorem eval_update {n : ℕ} {t : Term} (h : t.Below n) (ι : Asgn) (z : EInt) :
+    t.eval (Function.update ι n z) = t.eval ι :=
+  (Term.eval_congr (fun _ hx => (Function.update_of_ne hx.ne _ _).symm) h).symm
+
+/-! ## Fresh intervals -/
+
+theorem fresh_bounds (n : ℕ) {Lo Hi : Term} (hLo : Lo.Below (n + 1)) (hHi : Hi.Below n) :
+    Fresh n (n + 2) (bounds n Lo Hi hLo hHi) :=
+  ⟨by omega, by simp [bounds, Con.upper, Con.lower], fun c hc => by
+    simp only [bounds, List.mem_cons, List.not_mem_nil, or_false] at hc
+    rcases hc with rfl | rfl <;> simp [Con.upper, Con.lower]⟩
+
+/-- `w` lies in the fresh interval `[n + 1, n]` once its digits meet the bounds;
+`n` takes `w`'s most significant digit, which `Lo` may mention. -/
+theorem fresh_numIn {n : ℕ} {Lo Hi : Term} (hLo : Lo.Below (n + 1)) (hHi : Hi.Below n)
+    (ι : Asgn) (w : Num)
+    (h : w ≠ nan → msbOf w ≤ Hi.eval ι ∧ Lo.eval (Function.update ι n (msbOf w)) ≤ lsbOf w) :
+    ∃ ι', AgreeOut n (n + 2) ι ι' ∧ Sat ι' (bounds n Lo Hi hLo hHi) ∧
+      NumIn ι' (.var (n + 1)) (.var n) none w := by
+  have key : ∀ a b : EInt, b ≤ Hi.eval ι → Lo.eval (Function.update ι n b) ≤ a →
+      (w = nan ∨ a = lsbOf w ∧ b = msbOf w) →
+      ∃ ι', AgreeOut n (n + 2) ι ι' ∧ Sat ι' (bounds n Lo Hi hLo hHi) ∧
+        NumIn ι' (.var (n + 1)) (.var n) none w := by
+    intro a b hb ha hw
+    let ι₁ := Function.update ι n b
+    let ι' := Function.update ι₁ (n + 1) a
+    have e₁ : Agree n ι ι₁ := fun x hx => (Function.update_of_ne hx.ne _ _).symm
+    have e' : Agree (n + 1) ι₁ ι' := fun x hx => (Function.update_of_ne hx.ne _ _).symm
+    have hn : ι' n = b := by simp [ι', ι₁]
+    have hn1 : ι' (n + 1) = a := by simp [ι']
+    refine ⟨ι', fun x hx => ?_, fun c hc => ?_, ?_⟩
+    · simp only [ι', ι₁]
+      rw [Function.update_of_ne (by omega), Function.update_of_ne (by omega)]
+    · simp only [bounds, List.mem_cons, List.not_mem_nil, or_false] at hc
+      rcases hc with rfl | rfl
+      · simp only [Con.upper, hn]
+        rwa [← Term.eval_congr (e₁.trans (e'.mono (Nat.le_succ n))) hHi]
+      · simp only [Con.lower, hn1]
+        rwa [← Term.eval_congr e' hLo]
+    · rcases hw with hw | ⟨rfl, rfl⟩
+      · exact .inl hw
+      · exact .inr ⟨hn1.symm, hn.symm, fun _ h => absurd h (by simp)⟩
+  by_cases hw : w = nan
+  · exact key ⊤ ⊥ bot_le le_top (.inl hw)
+  · exact key _ _ (h hw).1 (h hw).2 (.inr ⟨rfl, rfl⟩)
+
+/-! ## Symbolic values -/
 
 @[simp] theorem numOfE_bot : numOfE ⊥ = .special (.inf true) := rfl
 @[simp] theorem numOfE_top : numOfE ⊤ = .special (.inf false) := rfl

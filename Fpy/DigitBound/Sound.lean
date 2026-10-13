@@ -1,14 +1,17 @@
 import Fpy.DigitBound.Basic
+import Fpy.FormatInference.Sound
 
 /-!
 # Soundness of the digit-bound analysis (Theorem 4.2)
 
-`eval_sound` and `exec_sound`, by induction on the evaluation, in prefix form:
-from an assignment describing the store, one agreeing with it below the
-derivation's first fresh variable satisfies the derivation's constraints and
+`eval_sound` and `exec_sound`, by induction on the analysis derivation, in
+prefix form: from an assignment describing the store, one agreeing with it below
+the derivation's first fresh variable satisfies the derivation's constraints and
 describes the result. Untaken branches, and loop bodies run zero times, have
-their variables re-chosen in head order (`Sat.extend`). `DEval.wf` gives the
-fresh ranges and variable bounds every derivation has.
+their variables re-chosen in head order (`Sat.extend`); loops iterate by
+`loop_sound`. The store also lies in format inference's `Γ`, so `fmt(e)` bounds
+`e`'s value (Theorem 4.1), which D-Int and D-Fmt use. `DEval.wf` gives the fresh
+ranges and variable bounds every derivation has.
 -/
 
 namespace Fpy.DigitBound
@@ -16,6 +19,7 @@ namespace Fpy.DigitBound
 open Mpfx
 
 variable {decode : List (Label × Val) → Option RoundCtx} {Φ : Program (fpy decode)}
+  {D : FormatDomain} {A : Analysis (fpy decode) D}
 
 /-! ## Well-formed derivations -/
 
@@ -24,9 +28,9 @@ theorem ctxBelow_real (n : ℕ) : CtxBelow n (some SCtx.real) :=
 
 mutual
 
-theorem DEval.wf {Δ : DEnv} {κ : Option SCtx} {n₀ : ℕ} {e : Expr (fpy decode)} {d : DVal}
-    {Ψ : List Con} {n₁ : ℕ} :
-    DEval decode Φ Δ κ n₀ e d Ψ n₁ →
+theorem DEval.wf {Δ : DEnv} {Γ : AEnv D} {κ : Option SCtx} {χ : Option Val} {n₀ : ℕ}
+    {e : Expr (fpy decode)} {d : DVal} {Ψ : List Con} {n₁ : ℕ} :
+    DEval decode Φ A Δ Γ κ χ n₀ e d Ψ n₁ →
       Fresh n₀ n₁ Ψ ∧ (Δ.Below n₀ → CtxBelow n₀ κ → d.Below n₁)
   | .const hτ => ⟨Fresh.nil _, fun _ _ => ⟨trivial, trivial, fun t ht => by
       obtain ⟨z, rfl, -⟩ := hτ t ht
@@ -72,14 +76,22 @@ theorem DEval.wf {Δ : DEnv} {κ : Option SCtx} {n₀ : ℕ} {e : Expr (fpy deco
   | .exact hl _ => ⟨(DEvalList.wf hl).1, fun _ _ => trivial⟩
   | .len hl => ⟨(DEvalList.wf hl).1.mono_right (by omega), fun _ _ =>
       ⟨show _ < _ by omega, show _ < _ by omega, fun t ht => absurd ht (by simp)⟩⟩
-  | .call _ he hs => ⟨(DEval.wf he).1.append (DExec.wf hs).1, fun hΔ hκ =>
+  | .call _ he _ hs => ⟨(DEval.wf he).1.append (DExec.wf hs).1, fun hΔ hκ =>
       ((DExec.wf hs).2 (DEnv.Below.single ((DEval.wf he).2 hΔ hκ))
         (hκ.mono (DEval.wf he).1.le)).2 _ rfl⟩
+  | .int (n₁ := n₁) _ h _ _ => ⟨(DEval.wf h).1.append (Fresh.single n₁ rfl), fun hΔ hκ =>
+      have hb := (DEval.wf h).2 hΔ hκ
+      ⟨hb.1.mono (Nat.le_succ _), hb.2.1.mono (Nat.le_succ _), fun t ht => by
+        obtain rfl := Option.mem_some_iff.mp ht
+        exact Nat.lt_succ_self _⟩⟩
+  | .fmt (n₁ := n₁) h _ _ _ _ => ⟨(DEval.wf h).1.append (fresh_bounds n₁ _ _), fun hΔ hκ =>
+      ⟨show _ < _ by omega, show _ < _ by omega, fun t ht =>
+        ((DEval.wf h).2 hΔ hκ).2.2 t ht |>.mono (by omega)⟩⟩
 termination_by structural h => h
 
-theorem DEvalList.wf {Δ : DEnv} {κ : Option SCtx} {n₀ : ℕ} {es : List (Expr (fpy decode))}
-    {ds : List DVal} {Ψ : List Con} {n₁ : ℕ} :
-    DEvalList decode Φ Δ κ n₀ es ds Ψ n₁ →
+theorem DEvalList.wf {Δ : DEnv} {Γ : AEnv D} {κ : Option SCtx} {χ : Option Val} {n₀ : ℕ}
+    {es : List (Expr (fpy decode))} {ds : List DVal} {Ψ : List Con} {n₁ : ℕ} :
+    DEvalList decode Φ A Δ Γ κ χ n₀ es ds Ψ n₁ →
       Fresh n₀ n₁ Ψ ∧ (Δ.Below n₀ → CtxBelow n₀ κ → ∀ d ∈ ds, d.Below n₁)
   | .nil => ⟨Fresh.nil _, fun _ _ _ h => absurd h List.not_mem_nil⟩
   | .cons h hs => ⟨(DEval.wf h).1.append (DEvalList.wf hs).1, fun hΔ hκ => by
@@ -92,9 +104,9 @@ theorem DEvalList.wf {Δ : DEnv} {κ : Option SCtx} {n₀ : ℕ} {es : List (Exp
       · exact hds d hd⟩
 termination_by structural h => h
 
-theorem DEvalFields.wf {Δ : DEnv} {κ : Option SCtx} {n₀ : ℕ}
+theorem DEvalFields.wf {Δ : DEnv} {Γ : AEnv D} {κ : Option SCtx} {χ : Option Val} {n₀ : ℕ}
     {fs : List (Label × Expr (fpy decode))} {afs : List (Label × DVal)} {Ψ : List Con} {n₁ : ℕ} :
-    DEvalFields decode Φ Δ κ n₀ fs afs Ψ n₁ →
+    DEvalFields decode Φ A Δ Γ κ χ n₀ fs afs Ψ n₁ →
       Fresh n₀ n₁ Ψ ∧ (Δ.Below n₀ → CtxBelow n₀ κ → DVal.BelowFields n₁ afs)
   | .nil => ⟨Fresh.nil _, fun _ _ => trivial⟩
   | .cons h hs => ⟨(DEval.wf h).1.append (DEvalFields.wf hs).1, fun hΔ hκ =>
@@ -103,9 +115,10 @@ theorem DEvalFields.wf {Δ : DEnv} {κ : Option SCtx} {n₀ : ℕ}
         (DEvalFields.wf hs).2 (hΔ.mono h₀₁) (hκ.mono h₀₁)⟩⟩
 termination_by structural h => h
 
-theorem DExec.wf {Δ : DEnv} {κ : Option SCtx} {n₀ : ℕ} {s : Stmt (fpy decode)} {Δ' : DEnv}
+theorem DExec.wf {Δ : DEnv} {Γ : AEnv D} {κ : Option SCtx} {χ : Option Val} {n₀ : ℕ}
+    {s : Stmt (fpy decode)} {Δ' : DEnv}
     {a : Option DVal} {Ψ : List Con} {n₁ : ℕ} :
-    DExec decode Φ Δ κ n₀ s Δ' a Ψ n₁ →
+    DExec decode Φ A Δ Γ κ χ n₀ s Δ' a Ψ n₁ →
       Fresh n₀ n₁ Ψ ∧ (Δ.Below n₀ → CtxBelow n₀ κ → Δ'.Below n₁ ∧ RetBelow n₁ a)
   | .assign h => ⟨(DEval.wf h).1, fun hΔ hκ =>
       ⟨(hΔ.mono (DEval.wf h).1.le).update _ ((DEval.wf h).2 hΔ hκ), fun _ h => absurd h (by simp)⟩⟩
@@ -115,18 +128,18 @@ theorem DExec.wf {Δ : DEnv} {κ : Option SCtx} {n₀ : ℕ} {s : Stmt (fpy deco
       exact ⟨hΔ.mono (DEval.wf h).1.le, fun _ hd => Option.mem_some_iff.mp hd ▸ hd₀⟩⟩
   | .assert h => ⟨(DEval.wf h).1, fun hΔ _ =>
       ⟨hΔ.mono (DEval.wf h).1.le, fun _ h => absurd h (by simp)⟩⟩
-  | .seq h₁ h₂ _ _ hF ha => ⟨((DExec.wf h₁).1.append (DExec.wf h₂).1).append hF, fun hΔ hκ =>
+  | .seq h₁ _ h₂ _ _ hF ha => ⟨((DExec.wf h₁).1.append (DExec.wf h₂).1).append hF, fun hΔ hκ =>
       have h₀₁ := (DExec.wf h₁).1.le
       ⟨(((DExec.wf h₂).2 ((DExec.wf h₁).2 hΔ hκ).1 (hκ.mono h₀₁)).1).mono hF.le, ha⟩⟩
   | .ite h₁ h₂ _ _ _ _ hF hΔ' ha => ⟨((DExec.wf h₁).1.append (DExec.wf h₂).1).append hF,
       fun _ _ => ⟨hΔ', ha⟩⟩
-  | .whileDo _ hFᵢ hbᵢ hs _ => ⟨hFᵢ.append (DExec.wf hs).1, fun _ hκ =>
+  | .whileDo _ hFᵢ hbᵢ _ _ _ hs _ => ⟨hFᵢ.append (DExec.wf hs).1, fun _ hκ =>
       ⟨hbᵢ.mono (DExec.wf hs).1.le, ((DExec.wf hs).2 hbᵢ (hκ.mono hFᵢ.le)).2⟩⟩
-  | .withCtx he hs => ⟨(DEval.wf he).1.append (DExec.wf hs).1, fun hΔ _ => by
+  | .withCtx he _ hs => ⟨(DEval.wf he).1.append (DExec.wf hs).1, fun hΔ _ => by
       have hC₀ := (DEval.wf he).2 hΔ (ctxBelow_real _)
       exact (DExec.wf hs).2 (hΔ.mono (DEval.wf he).1.le)
         (fun C hC => Option.mem_some_iff.mp hC ▸ hC₀)⟩
-  | .withUnknown he hs => ⟨(DEval.wf he).1.append (DExec.wf hs).1, fun hΔ _ =>
+  | .withUnknown he _ hs => ⟨(DEval.wf he).1.append (DExec.wf hs).1, fun hΔ _ =>
       (DExec.wf hs).2 (hΔ.mono (DEval.wf he).1.le) (fun _ h => absurd h (by simp))⟩
 termination_by structural h => h
 
@@ -249,12 +262,13 @@ Each takes the soundness of the argument list. -/
 
 section Rules
 
-variable {Δ : DEnv} {n₀ n₁ n₂ : ℕ} {Ψ Ψ' : List Con} {ι : Asgn} {C : Val} {ns : List Num}
+variable {Δ : DEnv} {Γ : AEnv D} {χ : Option Val} {n₀ n₁ n₂ : ℕ} {Ψ Ψ' : List Con} {ι : Asgn}
+  {C : Val} {ns : List Num}
   {u : Num} {r : Num → Num} {l m l₁ m₁ l₂ m₂ τ₁ τ₂ : Term}
 
 /-- D-Linear. -/
 theorem linear_sound {op : ArithOp} {e₁ e₂ : Expr (fpy decode)} (hop' : op = .add ∨ op = .sub)
-    (hdl : DEvalList decode Φ Δ (some .real) n₀ [e₁, e₂]
+    (hdl : DEvalList decode Φ A Δ Γ (some .real) χ n₀ [e₁, e₂]
       [.num l₁ m₁ (some τ₁), .num l₂ m₂ (some τ₂)] Ψ n₁)
     (hok : ArithOK decode (some .real) op [(l₁, m₁, some τ₁), (l₂, m₂, some τ₂)] n₁ n₂ Ψ' l m)
     (hΔ : Δ.Below n₀)
@@ -292,7 +306,7 @@ theorem linear_sound {op : ArithOp} {e₁ e₂ : Expr (fpy decode)} (hop' : op =
 
 /-- D-Neg. -/
 theorem neg_sound {e : Expr (fpy decode)} {τ : Term}
-    (hdl : DEvalList decode Φ Δ (some .real) n₀ [e] [.num l₁ m₁ (some τ)] Ψ n₁)
+    (hdl : DEvalList decode Φ A Δ Γ (some .real) χ n₀ [e] [.num l₁ m₁ (some τ)] Ψ n₁)
     (hok : ArithOK decode (some .real) .neg [(l₁, m₁, some τ)] n₁ n₂ Ψ' l m) (hΔ : Δ.Below n₀)
     (hop : (fpy decode).arith .neg ns = some u) (hr : C.rnd (fpy decode) = some r)
     (hC : ∀ K ∈ some SCtx.real, K.Admits ι C)
@@ -315,7 +329,7 @@ theorem neg_sound {e : Expr (fpy decode)} {τ : Term}
 
 /-- D-Logb. -/
 theorem logb_sound {e : Expr (fpy decode)} {τ : Option Term}
-    (hdl : DEvalList decode Φ Δ (some .real) n₀ [e] [.num l₁ m₁ τ] Ψ n₁)
+    (hdl : DEvalList decode Φ A Δ Γ (some .real) χ n₀ [e] [.num l₁ m₁ τ] Ψ n₁)
     (hok : ArithOK decode (some .real) .logb [(l₁, m₁, τ)] n₁ n₂ Ψ' l m) (hΔ : Δ.Below n₀)
     (hop : (fpy decode).arith .logb ns = some u) (hr : C.rnd (fpy decode) = some r)
     (hC : ∀ K ∈ some SCtx.real, K.Admits ι C)
@@ -338,7 +352,7 @@ theorem logb_sound {e : Expr (fpy decode)} {τ : Option Term}
 /-- D-Max and D-Min: the fresh `val(e)` is the max (min) of the arguments' values. -/
 theorem ext_sound {op : ArithOp} {ge : Bool} {e₁ e₂ : Expr (fpy decode)}
     (hop' : op = (if ge then .max else .min)) (hτ₁ : τ₁.Below n₂) (hτ₂ : τ₂.Below n₂)
-    (hdl : DEvalList decode Φ Δ (some .real) n₀ [e₁, e₂]
+    (hdl : DEvalList decode Φ A Δ Γ (some .real) χ n₀ [e₁, e₂]
       [.num l₁ m₁ (some τ₁), .num l₂ m₂ (some τ₂)] Ψ n₁)
     (hok : ArithOK decode (some .real) op [(l₁, m₁, some τ₁), (l₂, m₂, some τ₂)] n₁ n₂ Ψ' l m)
     (hF : Fresh n₁ n₂ Ψ') (hlb : l.Below n₂) (hmb : m.Below n₂) (hΔ : Δ.Below n₀)
@@ -385,81 +399,131 @@ theorem ext_sound {op : ArithOp} {ge : Bool} {e₁ e₂ : Expr (fpy decode)}
 
 end Rules
 
+/-! ## Loops -/
+
+theorem knownCtx_admits {a : AVal D} {v : Val} (h : Fpy.Describes a v) : Admits (knownCtx a) v := by
+  cases a with
+  | known C => cases h; exact admits_some _
+  | _ => exact admits_none _
+
+/-- The loop invariant: from a store `Δᵢ` and `Γᵢ` describe, the rest of a loop
+ends in `Δᵢ` or returns within its bound, given the soundness of its body. -/
+theorem loop_sound (hA : A.Sound Φ) {e : Expr (fpy decode)} {s : Stmt (fpy decode)}
+    {Δᵢ Δ' : DEnv} {Γᵢ Γ' : AEnv D} {b : AVal D} {κ : Option SCtx} {χ : Option Val}
+    {n₀ n₁ n₂ : ℕ} {Ψᵢ Ψ : List Con} {a : Option DVal} (hFᵢ : Fresh n₀ n₁ Ψᵢ)
+    (hbᵢ : Δᵢ.Below n₁) (hF : Fresh n₁ n₂ Ψ) (hAx : AExec A Φ (A.refine χ e true Γᵢ) χ s Γ' b)
+    (hΓ' : Γ'.Le Γᵢ) (hle' : DEnv.Le n₀ n₁ Ψᵢ Δ' Δᵢ) (hκ : CtxBelow n₀ κ)
+    (hbody : ∀ {σ C o ι}, Exec Φ σ C s o → Δᵢ.Holds ι σ → (A.refine χ e true Γᵢ).Holds σ →
+      (∀ K ∈ κ, K.Admits ι C) → Admits χ C →
+      ∃ ι', Agree n₁ ι ι' ∧ Sat ι' Ψ ∧ Within ι' Δ' a o) :
+    ∀ {σ C w o ι}, Exec Φ σ C w o → w = .whileDo e s → Δᵢ.Holds ι σ → Γᵢ.Holds σ →
+      Sat ι Ψᵢ → (∀ K ∈ κ, K.Admits ι C) → Admits χ C →
+      ∃ ι', Agree n₀ ι ι' ∧ Sat ι' (Ψᵢ ++ Ψ) ∧ Within ι' Δᵢ a o
+  | _, _, _, _, ι, .whileFalse _, rfl, hσ, _, hsᵢ, _, _ => by
+      obtain ⟨ι₁, a₁, hs₁⟩ := Sat.extend hF ι
+      exact ⟨ι₁, a₁.mono hFᵢ.le, (Sat.congr hFᵢ a₁ hsᵢ).append hs₁, hσ.congr a₁ hbᵢ⟩
+  | _, _, _, _, _, .whileTrue hg (.seqNormal hs hw), rfl, hσ, hΓ, _, hC, hχ => by
+      have hΓr := hA.refine hΓ hχ hg
+      obtain ⟨ι₂, a₂, -, hσ₂⟩ := hbody hs hσ hΓr hC hχ
+      obtain ⟨ι₃, a₃, hs₃, hσ₃⟩ := hle' _ _ hσ₂
+      have a₁₃ := (a₂.mono hFᵢ.le).trans a₃.agree
+      obtain ⟨ι₄, a₄, hs₄, hw'⟩ := loop_sound hA hFᵢ hbᵢ hF hAx hΓ' hle' hκ hbody hw rfl hσ₃
+        (hΓ' _ (Fpy.exec_sound hA hs hΓr hχ hAx)) hs₃ (admits_congr a₁₃ hκ hC) hχ
+      exact ⟨ι₄, a₁₃.trans a₄, hs₄, hw'⟩
+  | _, _, _, _, _, .whileTrue hg (.seqRet hs), rfl, hσ, hΓ, hsᵢ, hC, hχ => by
+      obtain ⟨ι₂, a₂, hs₂, hw⟩ := hbody hs hσ (hA.refine hΓ hχ hg) hC hχ
+      exact ⟨ι₂, a₂.mono hFᵢ.le, (Sat.congr hFᵢ a₂ hsᵢ).append hs₂, hw⟩
+  | _, _, _, _, _, .assign _, h, _, _, _, _, _ | _, _, _, _, _, .skip, h, _, _, _, _, _
+  | _, _, _, _, _, .ret _, h, _, _, _, _, _ | _, _, _, _, _, .assert _, h, _, _, _, _, _
+  | _, _, _, _, _, .seqNormal _ _, h, _, _, _, _, _ | _, _, _, _, _, .seqRet _, h, _, _, _, _, _
+  | _, _, _, _, _, .iteTrue _ _, h, _, _, _, _, _ | _, _, _, _, _, .iteFalse _ _, h, _, _, _, _, _
+  | _, _, _, _, _, .withCtx _ _, h, _, _, _, _, _ => by cases h
+termination_by structural _ _ _ _ _ h => h
+
 /-! ## Theorem 4.2 -/
 
 mutual
 
 /-- **Theorem 4.2** (soundness of digit-bound analysis), in prefix form. If
 `Δ, κ ⊢♮ e : d` with fresh variables from `n₀`, `ι` describes the store and `κ`
-the context, and `⟨σ, C, e⟩ ⇓ v`, then an assignment agreeing with `ι` below
-`n₀` satisfies the derivation's constraints and describes `v` by `d`. -/
-theorem eval_sound {σ : Store} {C : Val} {e : Expr (fpy decode)} {v : Val} :
-    Eval Φ σ C e v → ∀ {Δ κ n₀ d Ψ n₁ ι}, DEval decode Φ Δ κ n₀ e d Ψ n₁ → Δ.Below n₀ →
-      CtxBelow n₀ κ → Δ.Holds ι σ → (∀ K ∈ κ, K.Admits ι C) →
+the context, the store lies in `Γ` and the context in `χ`, and `⟨σ, C, e⟩ ⇓ v`,
+then an assignment agreeing with `ι` below `n₀` satisfies the derivation's
+constraints and describes `v` by `d`. -/
+theorem eval_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ e d Ψ n₁},
+    DEval decode Φ A Δ Γ κ χ n₀ e d Ψ n₁ → ∀ {σ C v ι}, Eval Φ σ C e v → Δ.Below n₀ →
+      CtxBelow n₀ κ → Δ.Holds ι σ → Γ.Holds σ → (∀ K ∈ κ, K.Admits ι C) → Admits χ C →
       ∃ ι', Agree n₀ ι ι' ∧ Sat ι' Ψ ∧ Describes ι' d v
-  | .bool, _, _, _, _, _, _, ι, .bool, _, _, _, _ =>
+  | _, _, _, _, _, _, _, _, _, .bool, _, _, _, ι, .bool, _, _, _, _, _, _ =>
       ⟨ι, Agree.refl _ _, fun _ h => absurd h List.not_mem_nil, .bool⟩
-  | .num, _, _, _, _, _, _, ι, .const hτ, _, _, _, _ =>
+  | _, _, _, _, _, _, _, _, _, .const hτ, _, _, _, ι, .num, _, _, _, _, _, _ =>
       ⟨ι, Agree.refl _ _, fun _ h => absurd h List.not_mem_nil, .num (.inr ⟨rfl, rfl, fun t ht => by
         obtain ⟨z, rfl, hz⟩ := hτ t ht
         exact hz⟩)⟩
-  | .real, _, _, _, _, _, _, ι, .real, _, _, _, _ =>
+  | _, _, _, _, _, _, _, _, _, .real, _, _, _, ι, .real, _, _, _, _, _, _ =>
       ⟨ι, Agree.refl _ _, fun _ h => absurd h List.not_mem_nil, .sctx rfl⟩
-  | .var hx, _, _, _, _, _, _, ι, .var hΔx, _, _, hσ, _ => by
+  | _, _, _, _, _, _, _, _, _, .var hΔx, _, _, _, ι, .var hx, _, _, hσ, _, _, _ => by
       obtain ⟨v', hv', hd⟩ := hσ _ _ hΔx
       exact ⟨ι, Agree.refl _ _, fun _ h => absurd h List.not_mem_nil,
         (Option.some.inj (hv'.symm.trans hx)) ▸ hd⟩
-  | .list hl, _, _, _, _, _, _, _, .list hdl hle hF, hΔ, hκ, hσ, hC => by
-      obtain ⟨ι₁, h₁, hs₁, hds⟩ := evalList_sound hl hdl hΔ hκ hσ hC
+  | _, _, _, _, _, _, _, _, _, .list hdl hle hF, _, _, _, _, .list hl, hΔ, hκ, hσ, hΓ, hC, hχ => by
+      obtain ⟨ι₁, h₁, hs₁, hds⟩ := evalList_sound hA hdl hl hΔ hκ hσ hΓ hC hχ
       have hF₁ := (DEvalList.wf hdl).1
       obtain ⟨ι₂, h₂, hs₂⟩ := Sat.extend hF ι₁
       exact chain hF₁ h₁ hs₁ h₂ hs₂ (.list (describesAll_of_le hds hle))
-  | .index h₁ h₂ hk, _, _, _, _, _, _, _, .index hd₁ hd₂ hcopy hF _, hΔ, hκ, hσ, hC => by
+  | _, _, _, _, _, _, _, _, _, .index hd₁ hd₂ hcopy hF _, _, _, _, _, .index h₁ h₂ hk,
+      hΔ, hκ, hσ, hΓ, hC, hχ => by
       have hF₁ := (DEval.wf hd₁).1
       have hF₂ := (DEval.wf hd₂).1
-      obtain ⟨ι₁, a₁, hs₁, hl⟩ := eval_sound h₁ hd₁ hΔ hκ hσ hC
+      obtain ⟨ι₁, a₁, hs₁, hl⟩ := eval_sound hA hd₁ h₁ hΔ hκ hσ hΓ hC hχ
       cases hl with
       | list hall =>
         obtain ⟨ι₀, hv₀⟩ := hall.mem (List.mem_of_getElem? hk)
-        obtain ⟨ι₂, a₂, hs₂, -⟩ := eval_sound h₂ hd₂ (hΔ.mono hF₁.le) (hκ.mono hF₁.le)
-          (hσ.congr a₁ hΔ) (admits_congr a₁ hκ hC)
+        obtain ⟨ι₂, a₂, hs₂, -⟩ := eval_sound hA hd₂ h₂ (hΔ.mono hF₁.le) (hκ.mono hF₁.le)
+          (hσ.congr a₁ hΔ) hΓ (admits_congr a₁ hκ hC) hχ
         obtain ⟨ι₃, a₃, hs₃, hv⟩ := hcopy ι₀ ι₂ _ hv₀
         have a₃' := a₃.agree
         exact ⟨ι₃, a₁.trans ((a₂.trans (a₃'.mono hF₂.le)).mono hF₁.le),
           ((Sat.congr hF₁ (a₂.trans (a₃'.mono hF₂.le)) hs₁).append
             (Sat.congr hF₂ a₃' hs₂)).append hs₃, hv⟩
-  | .record hf, _, _, _, _, _, _, _, .record hdf, hΔ, hκ, hσ, hC => by
-      obtain ⟨ι₁, a₁, hs₁, hfs⟩ := evalFields_sound hf hdf hΔ hκ hσ hC
+  | _, _, _, _, _, _, _, _, _, .record hdf, _, _, _, _, .record hf, hΔ, hκ, hσ, hΓ, hC, hχ => by
+      obtain ⟨ι₁, a₁, hs₁, hfs⟩ := evalFields_sound hA hdf hf hΔ hκ hσ hΓ hC hχ
       exact ⟨ι₁, a₁, hs₁, .record hfs⟩
-  | .proj h hl, _, _, _, _, _, _, _, .proj hd hal, hΔ, hκ, hσ, hC => by
-      obtain ⟨ι₁, a₁, hs₁, hr⟩ := eval_sound h hd hΔ hκ hσ hC
+  | _, _, _, _, _, _, _, _, _, .proj hd hal, _, _, _, _, .proj h hl, hΔ, hκ, hσ, hΓ, hC, hχ => by
+      obtain ⟨ι₁, a₁, hs₁, hr⟩ := eval_sound hA hd h hΔ hκ hσ hΓ hC hχ
       cases hr with
       | record hfs => exact ⟨ι₁, a₁, hs₁, hfs.lookup hal hl⟩
-  | .ctx h _, _, _, _, _, _, _, _, .ctx (d := d) hd, hΔ, hκ, hσ, hC => by
-      obtain ⟨ι₁, a₁, hs₁, hr⟩ := eval_sound h hd hΔ hκ hσ hC
+  | _, _, _, _, _, _, _, _, _, .ctx (d := d) hd, _, _, _, _, .ctx h _, hΔ, hκ, hσ, hΓ, hC, hχ => by
+      obtain ⟨ι₁, a₁, hs₁, hr⟩ := eval_sound hA hd h hΔ hκ hσ hΓ hC hχ
       refine ⟨ι₁, a₁, hs₁, ?_⟩
       cases hc : ctxOf d with
       | none => exact .ctxv
       | some C' => exact .sctx (ctxOf_admits hr hc)
-  | .arith hl hop hr, _, _, _, _, _, _, _, .arith hdl hok hF _ _, hΔ, hκ, hσ, hC => by
-      obtain ⟨ι₁, a₁, hs₁, hds⟩ := evalList_sound hl hdl hΔ hκ hσ hC
-      have hF₁ := (DEvalList.wf hdl).1
+  | _, _, _, _, _, _, _, _, _, .arith hdl hok _ _ _, _, _, _, _, .arith hl hop hr,
+      hΔ, hκ, hσ, hΓ, hC, hχ => by
+      obtain ⟨ι₁, a₁, hs₁, hds⟩ := evalList_sound hA hdl hl hΔ hκ hσ hΓ hC hχ
       obtain ⟨ι₂, a₂, hs₂, hu⟩ := hok ι₁ _ _ _ _ (numIns hds) hop (admits_congr a₁ hκ hC) hr
-      exact chain hF₁ a₁ hs₁ a₂.agree hs₂ (.num hu)
-  | .arith hl hop hr, _, _, _, _, _, _, _, .linear hop' hdl hok _ _ _, hΔ, hκ, hσ, hC =>
-      linear_sound hop' hdl hok hΔ hop hr hC (evalList_sound hl hdl hΔ hκ hσ hC)
-  | .arith hl hop hr, _, _, _, _, _, _, _, .neg hdl hok _ _ _, hΔ, hκ, hσ, hC =>
-      neg_sound hdl hok hΔ hop hr hC (evalList_sound hl hdl hΔ hκ hσ hC)
-  | .arith hl hop hr, _, _, _, _, _, _, _, .logb hdl hok _ _ _, hΔ, hκ, hσ, hC =>
-      logb_sound hdl hok hΔ hop hr hC (evalList_sound hl hdl hΔ hκ hσ hC)
-  | .arith hl hop hr, _, _, _, _, _, _, _, .ext hop' hτ₁ hτ₂ hdl hok hF hlb hmb, hΔ, hκ, hσ, hC =>
-      ext_sound hop' hτ₁ hτ₂ hdl hok hF hlb hmb hΔ hop hr hC (evalList_sound hl hdl hΔ hκ hσ hC)
-  | .exact hl hop, _, _, _, _, _, _, _, .exact hdl hne, hΔ, hκ, hσ, hC => by
-      obtain ⟨ι₁, a₁, hs₁, -⟩ := evalList_sound hl hdl hΔ hκ hσ hC
+      exact chain (DEvalList.wf hdl).1 a₁ hs₁ a₂.agree hs₂ (.num hu)
+  | _, _, _, _, _, _, _, _, _, .linear hop' hdl hok _ _ _, _, _, _, _, .arith hl hop hr,
+      hΔ, hκ, hσ, hΓ, hC, hχ =>
+      linear_sound hop' hdl hok hΔ hop hr hC (evalList_sound hA hdl hl hΔ hκ hσ hΓ hC hχ)
+  | _, _, _, _, _, _, _, _, _, .neg hdl hok _ _ _, _, _, _, _, .arith hl hop hr,
+      hΔ, hκ, hσ, hΓ, hC, hχ =>
+      neg_sound hdl hok hΔ hop hr hC (evalList_sound hA hdl hl hΔ hκ hσ hΓ hC hχ)
+  | _, _, _, _, _, _, _, _, _, .logb hdl hok _ _ _, _, _, _, _, .arith hl hop hr,
+      hΔ, hκ, hσ, hΓ, hC, hχ =>
+      logb_sound hdl hok hΔ hop hr hC (evalList_sound hA hdl hl hΔ hκ hσ hΓ hC hχ)
+  | _, _, _, _, _, _, _, _, _, .ext hop' hτ₁ hτ₂ hdl hok hF hlb hmb, _, _, _, _, .arith hl hop hr,
+      hΔ, hκ, hσ, hΓ, hC, hχ =>
+      ext_sound hop' hτ₁ hτ₂ hdl hok hF hlb hmb hΔ hop hr hC
+        (evalList_sound hA hdl hl hΔ hκ hσ hΓ hC hχ)
+  | _, _, _, _, _, _, _, _, _, .exact hdl hne, _, _, _, _, .exact hl hop,
+      hΔ, hκ, hσ, hΓ, hC, hχ => by
+      obtain ⟨ι₁, a₁, hs₁, -⟩ := evalList_sound hA hdl hl hΔ hκ hσ hΓ hC hχ
       obtain ⟨b, rfl⟩ := ExactOp.eval_bool hop hne
       exact ⟨ι₁, a₁, hs₁, .bool⟩
-  | .exact hl hop, _, _, _, _, _, _, _, .len (n₁ := n₁) hdl, hΔ, hκ, hσ, hC => by
-      obtain ⟨ι₁, a₁, hs₁, -⟩ := evalList_sound hl hdl hΔ hκ hσ hC
+  | _, _, _, _, _, _, _, _, _, .len (n₁ := n₁) hdl, _, _, _, _, .exact hl hop,
+      hΔ, hκ, hσ, hΓ, hC, hχ => by
+      obtain ⟨ι₁, a₁, hs₁, -⟩ := evalList_sound hA hdl hl hΔ hκ hσ hΓ hC hχ
       have hF₁ := (DEvalList.wf hdl).1
       obtain ⟨k, rfl⟩ := ExactOp.eval_len hop
       let ι₂ := Function.update (Function.update ι₁ n₁ (lsbOf (.finite k))) (n₁ + 1)
@@ -471,79 +535,118 @@ theorem eval_sound {σ : Store} {C : Val} {e : Expr (fpy decode)} {v : Val} :
       · simp [ι₂, Term.eval]
       · simp [ι₂, Term.eval]
       · intro t ht; exact absurd ht (by simp)
-  | .call hΦ he hs, _, _, _, _, _, _, _, .call hΦ' hd hbody, hΔ, hκ, hσ, hC => by
+  | _, _, _, _, _, _, _, _, _, .call hΦ' hd ha hbody, _, _, _, _, .call hΦ he hs,
+      hΔ, hκ, hσ, hΓ, hC, hχ => by
+      have ih := @exec_sound hA _ _ _ _ _ _ _ _ _ _ hbody
       rw [hΦ] at hΦ'
       obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hΦ')
       have hF₁ := (DEval.wf hd).1
-      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound he hd hΔ hκ hσ hC
-      obtain ⟨ι₂, a₂, hs₂, d', hd', hv'⟩ := exec_sound hs hbody
+      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound hA hd he hΔ hκ hσ hΓ hC hχ
+      obtain ⟨ι₂, a₂, hs₂, d', hd', hv'⟩ := ih hs
         (DEnv.Below.single ((DEval.wf hd).2 hΔ hκ)) (hκ.mono hF₁.le) (DEnv.Holds.single hv)
-        (admits_congr a₁ hκ hC)
+        (AEnv.holds_single (Fpy.eval_sound hA he hΓ hχ ha)) (admits_congr a₁ hκ hC) hχ
       obtain rfl := Option.mem_some_iff.mp hd'
       exact chain hF₁ a₁ hs₁ a₂ hs₂ hv'
-termination_by structural h => h
+  | _, _, _, _, _, _, _, _, _, .int (n₁ := n₁) (a := lo) (b := hi) _ hd ha hint, _, _, _, _, h,
+      hΔ, hκ, hσ, hΓ, hC, hχ => by
+      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound hA hd h hΔ hκ hσ hΓ hC hχ
+      have hb := (DEval.wf hd).2 hΔ hκ
+      have hf := Fpy.eval_sound hA h hΓ hχ ha
+      cases hv with
+      | num hu =>
+        obtain ⟨k, rfl, hlo, hhi⟩ := hint _ hf
+        let ι₂ := Function.update ι₁ n₁ (k : EInt)
+        have a₂ : Agree n₁ ι₁ ι₂ := fun x hx => (Function.update_of_ne hx.ne _ _).symm
+        refine chain (DEval.wf hd).1 a₁ hs₁ a₂ (fun c hc => ?_) (.num ?_)
+        · obtain rfl := List.mem_singleton.mp hc
+          simpa [Con.between, ι₂] using ⟨hlo, hhi⟩
+        · refine (hu.congr a₂ hb.1 hb.2.1 (fun _ h => absurd h (by simp))).withTerm (.inr ?_)
+          simp [Term.eval, ι₂]
+  | _, _, _, _, _, _, _, _, _, .fmt (n₁ := n₁) (lo := lo) (hi := hi) hd hl hm ha hin, _, _, _, _,
+      h, hΔ, hκ, hσ, hΓ, hC, hχ => by
+      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound hA hd h hΔ hκ hσ hΓ hC hχ
+      have hb := (DEval.wf hd).2 hΔ hκ
+      have hf := Fpy.eval_sound hA h hΓ hχ ha
+      cases hv with
+      | @num _ _ _ τ w hu =>
+        obtain ⟨ι₂, a₂, hs₂, hw⟩ := fresh_numIn (n := n₁) (Lo := .max _ (.const lo))
+          (Hi := .min _ (.const hi)) ⟨hl.mono (Nat.le_succ n₁), trivial⟩ ⟨hm, trivial⟩ ι₁ w
+          fun hn => by
+            obtain ⟨hl', hm'⟩ := hu.eq hn
+            obtain ⟨h₁, h₂⟩ := (hin _ hf).resolve_left hn
+            simp only [Term.eval, eval_update hl]
+            exact ⟨le_min hm'.le h₂, max_le hl'.ge h₁⟩
+        refine chain (DEval.wf hd).1 a₁ hs₁ a₂.agree hs₂ (.num ?_)
+        rcases hu with hn | ⟨-, -, ht⟩
+        · exact .inl hn
+        · rcases hw with hn | ⟨hl₂, hm₂, -⟩
+          · exact .inl hn
+          · exact .inr ⟨hl₂, hm₂, fun t h' => by
+              rw [ht t h', Term.eval_congr a₂.agree (hb.2.2 t h')]⟩
+termination_by structural _ _ _ _ _ _ _ _ _ hd => hd
 
-theorem evalList_sound {σ : Store} {C : Val} {es : List (Expr (fpy decode))} {vs : List Val} :
-    EvalList Φ σ C es vs → ∀ {Δ κ n₀ ds Ψ n₁ ι}, DEvalList decode Φ Δ κ n₀ es ds Ψ n₁ →
-      Δ.Below n₀ → CtxBelow n₀ κ → Δ.Holds ι σ → (∀ K ∈ κ, K.Admits ι C) →
-      ∃ ι', Agree n₀ ι ι' ∧ Sat ι' Ψ ∧ List.Forall₂ (Describes ι') ds vs
-  | .nil, _, _, _, _, _, _, ι, .nil, _, _, _, _ =>
+theorem evalList_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ es ds Ψ n₁},
+    DEvalList decode Φ A Δ Γ κ χ n₀ es ds Ψ n₁ → ∀ {σ C vs ι}, EvalList Φ σ C es vs →
+      Δ.Below n₀ → CtxBelow n₀ κ → Δ.Holds ι σ → Γ.Holds σ → (∀ K ∈ κ, K.Admits ι C) →
+      Admits χ C → ∃ ι', Agree n₀ ι ι' ∧ Sat ι' Ψ ∧ List.Forall₂ (Describes ι') ds vs
+  | _, _, _, _, _, _, _, _, _, .nil, _, _, _, ι, .nil, _, _, _, _, _, _ =>
       ⟨ι, Agree.refl _ _, fun _ h => absurd h List.not_mem_nil, .nil⟩
-  | .cons h hs, _, _, _, _, _, _, _, .cons hd hds, hΔ, hκ, hσ, hC => by
+  | _, _, _, _, _, _, _, _, _, .cons hd hds, _, _, _, _, .cons h hs, hΔ, hκ, hσ, hΓ, hC, hχ => by
       have hF₁ := (DEval.wf hd).1
-      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound h hd hΔ hκ hσ hC
-      obtain ⟨ι₂, a₂, hs₂, hvs⟩ := evalList_sound hs hds (hΔ.mono hF₁.le) (hκ.mono hF₁.le)
-        (hσ.congr a₁ hΔ) (admits_congr a₁ hκ hC)
+      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound hA hd h hΔ hκ hσ hΓ hC hχ
+      obtain ⟨ι₂, a₂, hs₂, hvs⟩ := evalList_sound hA hds hs (hΔ.mono hF₁.le) (hκ.mono hF₁.le)
+        (hσ.congr a₁ hΔ) hΓ (admits_congr a₁ hκ hC) hχ
       exact chain hF₁ a₁ hs₁ a₂ hs₂ (.cons (hv.congr a₂ ((DEval.wf hd).2 hΔ hκ)) hvs)
-termination_by structural h => h
+termination_by structural _ _ _ _ _ _ _ _ _ hd => hd
 
-theorem evalFields_sound {σ : Store} {C : Val} {fs : List (Label × Expr (fpy decode))}
-    {vs : List (Label × Val)} :
-    EvalFields Φ σ C fs vs → ∀ {Δ κ n₀ afs Ψ n₁ ι}, DEvalFields decode Φ Δ κ n₀ fs afs Ψ n₁ →
-      Δ.Below n₀ → CtxBelow n₀ κ → Δ.Holds ι σ → (∀ K ∈ κ, K.Admits ι C) →
-      ∃ ι', Agree n₀ ι ι' ∧ Sat ι' Ψ ∧ DescribesFields ι' afs vs
-  | .nil, _, _, _, _, _, _, ι, .nil, _, _, _, _ =>
+theorem evalFields_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ fs afs Ψ n₁},
+    DEvalFields decode Φ A Δ Γ κ χ n₀ fs afs Ψ n₁ → ∀ {σ C vs ι}, EvalFields Φ σ C fs vs →
+      Δ.Below n₀ → CtxBelow n₀ κ → Δ.Holds ι σ → Γ.Holds σ → (∀ K ∈ κ, K.Admits ι C) →
+      Admits χ C → ∃ ι', Agree n₀ ι ι' ∧ Sat ι' Ψ ∧ DescribesFields ι' afs vs
+  | _, _, _, _, _, _, _, _, _, .nil, _, _, _, ι, .nil, _, _, _, _, _, _ =>
       ⟨ι, Agree.refl _ _, fun _ h => absurd h List.not_mem_nil, .nil⟩
-  | .cons h hs, _, _, _, _, _, _, _, .cons hd hds, hΔ, hκ, hσ, hC => by
+  | _, _, _, _, _, _, _, _, _, .cons hd hds, _, _, _, _, .cons h hs, hΔ, hκ, hσ, hΓ, hC, hχ => by
       have hF₁ := (DEval.wf hd).1
-      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound h hd hΔ hκ hσ hC
-      obtain ⟨ι₂, a₂, hs₂, hvs⟩ := evalFields_sound hs hds (hΔ.mono hF₁.le) (hκ.mono hF₁.le)
-        (hσ.congr a₁ hΔ) (admits_congr a₁ hκ hC)
+      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound hA hd h hΔ hκ hσ hΓ hC hχ
+      obtain ⟨ι₂, a₂, hs₂, hvs⟩ := evalFields_sound hA hds hs (hΔ.mono hF₁.le) (hκ.mono hF₁.le)
+        (hσ.congr a₁ hΔ) hΓ (admits_congr a₁ hκ hC) hχ
       exact chain hF₁ a₁ hs₁ a₂ hs₂ (.cons (hv.congr a₂ ((DEval.wf hd).2 hΔ hκ)) hvs)
-termination_by structural h => h
+termination_by structural _ _ _ _ _ _ _ _ _ hd => hd
 
-theorem exec_sound {σ : Store} {C : Val} {s : Stmt (fpy decode)} {o : Outcome} :
-    Exec Φ σ C s o → ∀ {Δ κ n₀ Δ' a Ψ n₁ ι}, DExec decode Φ Δ κ n₀ s Δ' a Ψ n₁ →
-      Δ.Below n₀ → CtxBelow n₀ κ → Δ.Holds ι σ → (∀ K ∈ κ, K.Admits ι C) →
+theorem exec_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ s Δ' a Ψ n₁},
+    DExec decode Φ A Δ Γ κ χ n₀ s Δ' a Ψ n₁ → ∀ {σ C o ι}, Exec Φ σ C s o → Δ.Below n₀ →
+      CtxBelow n₀ κ → Δ.Holds ι σ → Γ.Holds σ → (∀ K ∈ κ, K.Admits ι C) → Admits χ C →
       ∃ ι', Agree n₀ ι ι' ∧ Sat ι' Ψ ∧ Within ι' Δ' a o
-  | .assign he, _, _, _, _, _, _, _, _, .assign hd, hΔ, hκ, hσ, hC => by
-      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound he hd hΔ hκ hσ hC
+  | _, _, _, _, _, _, _, _, _, _, .assign hd, _, _, _, _, .assign he, hΔ, hκ, hσ, hΓ, hC, hχ => by
+      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound hA hd he hΔ hκ hσ hΓ hC hχ
       exact ⟨ι₁, a₁, hs₁, (hσ.congr a₁ hΔ).update _ hv⟩
-  | .skip, _, _, _, _, _, _, _, ι, .skip, _, _, hσ, _ =>
+  | _, _, _, _, _, _, _, _, _, _, .skip, _, _, _, ι, .skip, _, _, hσ, _, _, _ =>
       ⟨ι, Agree.refl _ _, fun _ h => absurd h List.not_mem_nil, hσ⟩
-  | .ret he, _, _, _, _, _, _, _, _, .ret hd, hΔ, hκ, hσ, hC => by
-      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound he hd hΔ hκ hσ hC
+  | _, _, _, _, _, _, _, _, _, _, .ret hd, _, _, _, _, .ret he, hΔ, hκ, hσ, hΓ, hC, hχ => by
+      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound hA hd he hΔ hκ hσ hΓ hC hχ
       exact ⟨ι₁, a₁, hs₁, _, rfl, hv⟩
-  | .assert he, _, _, _, _, _, _, _, _, .assert hd, hΔ, hκ, hσ, hC => by
-      obtain ⟨ι₁, a₁, hs₁, -⟩ := eval_sound he hd hΔ hκ hσ hC
+  | _, _, _, _, _, _, _, _, _, _, .assert hd, _, _, _, _, .assert he, hΔ, hκ, hσ, hΓ, hC, hχ => by
+      obtain ⟨ι₁, a₁, hs₁, -⟩ := eval_sound hA hd he hΔ hκ hσ hΓ hC hχ
       exact ⟨ι₁, a₁, hs₁, hσ.congr a₁ hΔ⟩
-  | .seqNormal h₁ h₂, _, _, _, _, _, _, _, _, .seq hd₁ hd₂ _ hra₂ hF _, hΔ, hκ, hσ, hC => by
+  | _, _, _, _, _, _, _, _, _, _, .seq hd₁ hAx hd₂ _ hra₂ hF _, _, _, _, _, .seqNormal h₁ h₂,
+      hΔ, hκ, hσ, hΓ, hC, hχ => by
       have hF₁ := (DExec.wf hd₁).1
       have hF₂ := (DExec.wf hd₂).1
       have hb₁ := (DExec.wf hd₁).2 hΔ hκ
       have hb₂ := (DExec.wf hd₂).2 hb₁.1 (hκ.mono hF₁.le)
-      obtain ⟨ι₁, a₁, hs₁, hw₁⟩ := exec_sound h₁ hd₁ hΔ hκ hσ hC
-      obtain ⟨ι₂, a₂, hs₂, hw₂⟩ := exec_sound h₂ hd₂ hb₁.1 (hκ.mono hF₁.le) hw₁
-        (admits_congr a₁ hκ hC)
+      obtain ⟨ι₁, a₁, hs₁, hw₁⟩ := exec_sound hA hd₁ h₁ hΔ hκ hσ hΓ hC hχ
+      obtain ⟨ι₂, a₂, hs₂, hw₂⟩ := exec_sound hA hd₂ h₂ hb₁.1 (hκ.mono hF₁.le) hw₁
+        (Fpy.exec_sound hA h₁ hΓ hχ hAx) (admits_congr a₁ hκ hC) hχ
       obtain ⟨ι₃, a₃, hs₃, hw⟩ := within_seq hw₂ hb₂.1 hF hra₂
       have a₂₃ := a₂.trans (a₃.mono hF₂.le)
       exact ⟨ι₃, a₁.trans (a₂₃.mono hF₁.le),
         ((Sat.congr hF₁ a₂₃ hs₁).append (Sat.congr hF₂ a₃ hs₂)).append hs₃, hw⟩
-  | .seqRet h₁, _, _, _, _, _, _, _, _, .seq hd₁ hd₂ hra₁ _ hF _, hΔ, hκ, hσ, hC => by
+  | _, _, _, _, _, _, _, _, _, _, .seq hd₁ _ hd₂ hra₁ _ hF _, _, _, _, _, .seqRet h₁,
+      hΔ, hκ, hσ, hΓ, hC, hχ => by
       have hF₁ := (DExec.wf hd₁).1
       have hF₂ := (DExec.wf hd₂).1
       have hb₁ := (DExec.wf hd₁).2 hΔ hκ
-      obtain ⟨ι₁, a₁, hs₁, hw₁⟩ := exec_sound h₁ hd₁ hΔ hκ hσ hC
+      obtain ⟨ι₁, a₁, hs₁, hw₁⟩ := exec_sound hA hd₁ h₁ hΔ hκ hσ hΓ hC hχ
       obtain ⟨ι₂, a₂, hs₂⟩ := Sat.extend hF₂ ι₁
       obtain ⟨d, hd, hv⟩ := hw₁
       obtain ⟨d', hd', hle⟩ := hra₁ d hd
@@ -551,114 +654,76 @@ theorem exec_sound {σ : Store} {C : Val} {s : Stmt (fpy decode)} {o : Outcome} 
       have a₂₃ := a₂.trans (a₃.agree.mono hF₂.le)
       exact ⟨ι₃, a₁.trans (a₂₃.mono hF₁.le),
         ((Sat.congr hF₁ a₂₃ hs₁).append (Sat.congr hF₂ a₃.agree hs₂)).append hs₃, d', hd', hv'⟩
-  | .iteTrue _ h₁, _, _, _, _, _, _, _, _, .ite hd₁ hd₂ hle₁ _ hra₁ _ hF _ _, hΔ, hκ, hσ, hC => by
+  | _, _, _, _, _, _, _, _, _, _, .ite hd₁ hd₂ hle₁ _ hra₁ _ hF _ _, _, _, _, _, .iteTrue hg h₁,
+      hΔ, hκ, hσ, hΓ, hC, hχ => by
       have hF₁ := (DExec.wf hd₁).1
       have hF₂ := (DExec.wf hd₂).1
       have hb₁ := (DExec.wf hd₁).2 hΔ hκ
-      obtain ⟨ι₁, a₁, hs₁, hw₁⟩ := exec_sound h₁ hd₁ hΔ hκ hσ hC
+      obtain ⟨ι₁, a₁, hs₁, hw₁⟩ := exec_sound hA hd₁ h₁ hΔ hκ hσ (hA.refine hΓ hχ hg) hC hχ
       obtain ⟨ι₂, a₂, hs₂⟩ := Sat.extend hF₂ ι₁
       obtain ⟨ι₃, a₃, hs₃, hw⟩ := within_join (hw₁.congr a₂ hb₁.1 hb₁.2) hle₁ hra₁
       have a₂₃ := a₂.trans (a₃.mono hF₂.le)
       exact ⟨ι₃, a₁.trans (a₂₃.mono hF₁.le),
         ((Sat.congr hF₁ a₂₃ hs₁).append (Sat.congr hF₂ a₃ hs₂)).append hs₃, hw⟩
-  | .iteFalse _ h₂, _, _, _, _, _, _, _, ι, .ite hd₁ hd₂ _ hle₂ _ hra₂ hF _ _, hΔ, hκ, hσ, hC => by
+  | _, _, _, _, _, _, _, _, _, _, .ite hd₁ hd₂ _ hle₂ _ hra₂ hF _ _, _, _, _, ι, .iteFalse hg h₂,
+      hΔ, hκ, hσ, hΓ, hC, hχ => by
       have hF₁ := (DExec.wf hd₁).1
       have hF₂ := (DExec.wf hd₂).1
       obtain ⟨ι₁, a₁, hs₁⟩ := Sat.extend hF₁ ι
-      obtain ⟨ι₂, a₂, hs₂, hw₂⟩ := exec_sound h₂ hd₂ (hΔ.mono hF₁.le) (hκ.mono hF₁.le)
-        (hσ.congr a₁ hΔ) (admits_congr a₁ hκ hC)
+      obtain ⟨ι₂, a₂, hs₂, hw₂⟩ := exec_sound hA hd₂ h₂ (hΔ.mono hF₁.le) (hκ.mono hF₁.le)
+        (hσ.congr a₁ hΔ) (hA.refine hΓ hχ hg) (admits_congr a₁ hκ hC) hχ
       obtain ⟨ι₃, a₃, hs₃, hw⟩ := within_join hw₂ hle₂ hra₂
       have a₂₃ := a₂.trans (a₃.mono hF₂.le)
       exact ⟨ι₃, a₁.trans (a₂₃.mono hF₁.le),
         ((Sat.congr hF₁ a₂₃ hs₁).append (Sat.congr hF₂ a₃ hs₂)).append hs₃, hw⟩
-  | .whileFalse _, _, _, _, _, _, _, _, _, .whileDo hle hFᵢ hbᵢ hd _, _, _, hσ, _ => by
-      have hF := (DExec.wf hd).1
+  | _, _, _, _, _, _, _, _, _, _, .whileDo hle hFᵢ hbᵢ hΓᵢ hAx hΓ' hbody hle', _, _, _, _, h,
+      _, hκ, hσ, hΓ, hC, hχ => by
       obtain ⟨ι₁, a₁, hs₁, hσ₁⟩ := hle _ _ hσ
-      obtain ⟨ι₂, a₂, hs₂⟩ := Sat.extend hF ι₁
-      exact chain hFᵢ a₁.agree hs₁ a₂ hs₂ (hσ₁.congr a₂ hbᵢ)
-  | .whileTrue _ (.seqNormal hs hw), _, _, _, _, _, _, _, _, .whileDo hle hFᵢ hbᵢ hd hle',
-      _, hκ, hσ, hC => by
-      obtain ⟨ι₁, a₁, hs₁, hσ₁⟩ := hle _ _ hσ
-      obtain ⟨ι₂, a₂, hs₂, hσ₂⟩ := exec_sound hs hd hbᵢ (hκ.mono hFᵢ.le) hσ₁
-        (admits_congr a₁.agree hκ hC)
-      obtain ⟨ι₃, a₃, hs₃, hσ₃⟩ := hle' _ _ hσ₂
-      have a₁₃ := (a₁.agree.trans (a₂.mono hFᵢ.le)).trans a₃.agree
-      obtain ⟨ι₄, a₄, hs₄, hw'⟩ := loop_sound hw rfl hFᵢ hbᵢ hd hle' hκ hσ₃ hs₃
-        (admits_congr a₁₃ hκ hC)
-      exact ⟨ι₄, a₁₃.trans a₄, hs₄, hw'⟩
-  | .whileTrue _ (.seqRet hs), _, _, _, _, _, _, _, _, .whileDo hle hFᵢ hbᵢ hd _,
-      _, hκ, hσ, hC => by
-      obtain ⟨ι₁, a₁, hs₁, hσ₁⟩ := hle _ _ hσ
-      obtain ⟨ι₂, a₂, hs₂, hw⟩ := exec_sound hs hd hbᵢ (hκ.mono hFᵢ.le) hσ₁
-        (admits_congr a₁.agree hκ hC)
-      exact chain hFᵢ a₁.agree hs₁ a₂ hs₂ hw
-  | .withCtx he hs, _, _, _, _, _, _, _, _, .withCtx hd hbody, hΔ, _, hσ, _ => by
+      obtain ⟨ι₂, a₂, hs₂, hw⟩ := loop_sound hA hFᵢ hbᵢ (DExec.wf hbody).1 hAx hΓ' hle' hκ
+        (fun hE hσ' hΓ'' hC' hχ' => exec_sound hA hbody hE hbᵢ (hκ.mono hFᵢ.le) hσ' hΓ'' hC' hχ')
+        h rfl hσ₁ (hΓᵢ _ hΓ) hs₁ (admits_congr a₁.agree hκ hC) hχ
+      exact ⟨ι₂, a₁.agree.trans a₂, hs₂, hw⟩
+  | _, _, _, _, _, _, _, _, _, _, .withCtx hd ha hbody, _, _, _, _, .withCtx he hs,
+      hΔ, _, hσ, hΓ, _, _ => by
       have hF₁ := (DEval.wf hd).1
       have hb := (DEval.wf hd).2 hΔ (ctxBelow_real _)
-      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound he hd hΔ (ctxBelow_real _) hσ (admits_real' _)
+      obtain ⟨ι₁, a₁, hs₁, hv⟩ := eval_sound hA hd he hΔ (ctxBelow_real _) hσ hΓ (admits_real' _)
+        (admits_some _)
+      have hk := knownCtx_admits (Fpy.eval_sound hA he hΓ (admits_some _) ha)
       cases hv with
-      | sctx hA =>
-        obtain ⟨ι₂, a₂, hs₂, hw⟩ := exec_sound hs hbody (hΔ.mono hF₁.le)
-          (fun K hK => Option.mem_some_iff.mp hK ▸ hb) (hσ.congr a₁ hΔ)
-          (fun K hK => Option.mem_some_iff.mp hK ▸ hA)
+      | sctx hC' =>
+        obtain ⟨ι₂, a₂, hs₂, hw⟩ := exec_sound hA hbody hs (hΔ.mono hF₁.le)
+          (fun K hK => Option.mem_some_iff.mp hK ▸ hb) (hσ.congr a₁ hΔ) hΓ
+          (fun K hK => Option.mem_some_iff.mp hK ▸ hC') hk
         exact chain hF₁ a₁ hs₁ a₂ hs₂ hw
-  | .withCtx he hs, _, _, _, _, _, _, _, _, .withUnknown hd hbody, hΔ, _, hσ, _ => by
+  | _, _, _, _, _, _, _, _, _, _, .withUnknown hd ha hbody, _, _, _, _, .withCtx he hs,
+      hΔ, _, hσ, hΓ, _, _ => by
       have hF₁ := (DEval.wf hd).1
-      obtain ⟨ι₁, a₁, hs₁, -⟩ := eval_sound he hd hΔ (ctxBelow_real _) hσ (admits_real' _)
-      obtain ⟨ι₂, a₂, hs₂, hw⟩ := exec_sound hs hbody (hΔ.mono hF₁.le)
-        (fun _ h => absurd h (by simp)) (hσ.congr a₁ hΔ) (fun _ h => absurd h (by simp))
+      obtain ⟨ι₁, a₁, hs₁, -⟩ := eval_sound hA hd he hΔ (ctxBelow_real _) hσ hΓ (admits_real' _)
+        (admits_some _)
+      have hk := knownCtx_admits (Fpy.eval_sound hA he hΓ (admits_some _) ha)
+      obtain ⟨ι₂, a₂, hs₂, hw⟩ := exec_sound hA hbody hs (hΔ.mono hF₁.le)
+        (fun _ h => absurd h (by simp)) (hσ.congr a₁ hΔ) hΓ (fun _ h => absurd h (by simp)) hk
       exact chain hF₁ a₁ hs₁ a₂ hs₂ hw
-termination_by structural h => h
-
-/-- The loop invariant: from a store `Δᵢ` describes, the rest of a loop ends in
-`Δᵢ` or returns within its bound. -/
-theorem loop_sound {σ : Store} {C : Val} {w : Stmt (fpy decode)} {o : Outcome} :
-    Exec Φ σ C w o → ∀ {e s Δᵢ κ n₀ n₁ Ψᵢ Δ' a Ψ n₂ ι}, w = .whileDo e s →
-      Fresh n₀ n₁ Ψᵢ → Δᵢ.Below n₁ → DExec decode Φ Δᵢ κ n₁ s Δ' a Ψ n₂ →
-      DEnv.Le n₀ n₁ Ψᵢ Δ' Δᵢ → CtxBelow n₀ κ → Δᵢ.Holds ι σ → Sat ι Ψᵢ →
-      (∀ K ∈ κ, K.Admits ι C) → ∃ ι', Agree n₀ ι ι' ∧ Sat ι' (Ψᵢ ++ Ψ) ∧ Within ι' Δᵢ a o
-  | .whileFalse _, _, _, _, _, _, _, _, _, _, _, _, ι, rfl, hFᵢ, hbᵢ, hd, _, _, hσ, hsᵢ, _ => by
-      have hF := (DExec.wf hd).1
-      obtain ⟨ι₁, a₁, hs₁⟩ := Sat.extend hF ι
-      exact ⟨ι₁, a₁.mono hFᵢ.le, (Sat.congr hFᵢ a₁ hsᵢ).append hs₁, hσ.congr a₁ hbᵢ⟩
-  | .whileTrue _ (.seqNormal hs hw), _, _, _, _, _, _, _, _, _, _, _, _, rfl, hFᵢ, hbᵢ, hd, hle',
-      hκ, hσ, _, hC => by
-      obtain ⟨ι₂, a₂, hs₂, hσ₂⟩ := exec_sound hs hd hbᵢ (hκ.mono hFᵢ.le) hσ hC
-      obtain ⟨ι₃, a₃, hs₃, hσ₃⟩ := hle' _ _ hσ₂
-      have a₁₃ := (a₂.mono hFᵢ.le).trans a₃.agree
-      obtain ⟨ι₄, a₄, hs₄, hw'⟩ := loop_sound hw rfl hFᵢ hbᵢ hd hle' hκ hσ₃ hs₃
-        (admits_congr a₁₃ hκ hC)
-      exact ⟨ι₄, a₁₃.trans a₄, hs₄, hw'⟩
-  | .whileTrue _ (.seqRet hs), _, _, _, _, _, _, _, _, _, _, _, _, rfl, hFᵢ, hbᵢ, hd, _, hκ, hσ,
-      hsᵢ, hC => by
-      obtain ⟨ι₂, a₂, hs₂, hw⟩ := exec_sound hs hd hbᵢ (hκ.mono hFᵢ.le) hσ hC
-      exact ⟨ι₂, a₂.mono hFᵢ.le, (Sat.congr hFᵢ a₂ hsᵢ).append hs₂, hw⟩
-  | .assign _, _, _, _, _, _, _, _, _, _, _, _, _, h, _, _, _, _, _, _, _, _
-  | .skip, _, _, _, _, _, _, _, _, _, _, _, _, h, _, _, _, _, _, _, _, _
-  | .ret _, _, _, _, _, _, _, _, _, _, _, _, _, h, _, _, _, _, _, _, _, _
-  | .assert _, _, _, _, _, _, _, _, _, _, _, _, _, h, _, _, _, _, _, _, _, _
-  | .seqNormal _ _, _, _, _, _, _, _, _, _, _, _, _, _, h, _, _, _, _, _, _, _, _
-  | .seqRet _, _, _, _, _, _, _, _, _, _, _, _, _, h, _, _, _, _, _, _, _, _
-  | .iteTrue _ _, _, _, _, _, _, _, _, _, _, _, _, _, h, _, _, _, _, _, _, _, _
-  | .iteFalse _ _, _, _, _, _, _, _, _, _, _, _, _, _, h, _, _, _, _, _, _, _, _
-  | .withCtx _ _, _, _, _, _, _, _, _, _, _, _, _, _, h, _, _, _, _, _, _, _, _ => by cases h
-termination_by structural h => h
+termination_by structural _ _ _ _ _ _ _ _ _ _ hd => hd
 
 end
 
-/-- **Theorem 4.2** for a program (D-Program): an argument described by `d`
-gives a result described by `a`. -/
-theorem run_sound {f : Fn} {y : Var} {s : Stmt (fpy decode)} {d a : DVal} {Δ' : DEnv}
-    {Ψ : List Con} {n₀ n₁ : ℕ} (hΦ : Φ f = some (y, s))
-    (hs : DExec decode Φ (.single y d) (some .real) n₀ s Δ' (some a) Ψ n₁) (hd : d.Below n₀)
-    {ι : Asgn} {v v' : Val} (hv : Describes ι d v) (hrun : Run Φ f v v') :
-    ∃ ι', Agree n₀ ι ι' ∧ Sat ι' Ψ ∧ Describes ι' a v' := by
+/-- **Theorem 4.2** for a program (D-Program): an argument described by `d`,
+and by `a` for format inference, gives a result described by `d'`. -/
+theorem run_sound (hA : A.Sound Φ) {f : Fn} {y : Var} {s : Stmt (fpy decode)} {d d' : DVal}
+    {a : AVal D} {Δ' : DEnv} {Ψ : List Con} {n₀ n₁ : ℕ} (hΦ : Φ f = some (y, s))
+    (hs : DExec decode Φ A (.single y d) (.single y a) (some .real) (some .real) n₀ s Δ'
+      (some d') Ψ n₁) (hd : d.Below n₀) {ι : Asgn} {v v' : Val} (hv : Describes ι d v)
+    (ha : Fpy.Describes a v) (hrun : Run Φ f v v') :
+    ∃ ι', Agree n₀ ι ι' ∧ Sat ι' Ψ ∧ Describes ι' d' v' := by
   obtain ⟨y', s', hΦ', hexec⟩ := hrun
   rw [hΦ] at hΦ'
   obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hΦ')
-  obtain ⟨ι', h, hsat, d', hd', hv'⟩ := exec_sound hexec hs (DEnv.Below.single hd)
-    (ctxBelow_real _) (DEnv.Holds.single hv) (admits_real' _)
-  obtain rfl := Option.mem_some_iff.mp hd'
+  obtain ⟨ι', h, hsat, d'', hd'', hv'⟩ := exec_sound hA hs hexec (DEnv.Below.single hd)
+    (ctxBelow_real _) (DEnv.Holds.single hv) (AEnv.holds_single ha) (admits_real' _)
+    (admits_some _)
+  obtain rfl := Option.mem_some_iff.mp hd''
   exact ⟨ι', h, hsat, hv'⟩
 
 end Fpy.DigitBound

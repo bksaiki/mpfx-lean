@@ -53,68 +53,6 @@ theorem ArithOK.comp {κ : Option SCtx} {op : ArithOp} {Is : List (Term × Term 
   have := hF₂.le
   rw [a₂ x (by omega), a₁ x (by omega)]
 
-/-! ## Fresh intervals -/
-
-/-- `t ≤ v`. -/
-def Con.lower (v : ℕ) (t : Term) (h : t.Below v) : Con where
-  head := v
-  P ι := t.eval ι ≤ ι v
-  dep {ι ι'} he hP := by
-    rw [← Term.eval_congr (fun x hx => he x hx.le) h, ← he v le_rfl]; exact hP
-  sat _ := ⟨⊤, by simp⟩
-
-/-- `v ≤ t`. -/
-def Con.upper (v : ℕ) (t : Term) (h : t.Below v) : Con where
-  head := v
-  P ι := ι v ≤ t.eval ι
-  dep {ι ι'} he hP := by
-    rw [← Term.eval_congr (fun x hx => he x hx.le) h, ← he v le_rfl]; exact hP
-  sat _ := ⟨⊥, by simp⟩
-
-/-- The constraints of a fresh interval `[n + 1, n]`. -/
-def bounds (n : ℕ) (Lo Hi : Term) (hLo : Lo.Below (n + 1)) (hHi : Hi.Below n) : List Con :=
-  [Con.upper n Hi hHi, Con.lower (n + 1) Lo hLo]
-
-theorem fresh_bounds (n : ℕ) {Lo Hi : Term} (hLo : Lo.Below (n + 1)) (hHi : Hi.Below n) :
-    Fresh n (n + 2) (bounds n Lo Hi hLo hHi) :=
-  ⟨by omega, by simp [bounds, Con.upper, Con.lower], fun c hc => by
-    simp only [bounds, List.mem_cons, List.not_mem_nil, or_false] at hc
-    rcases hc with rfl | rfl <;> simp [Con.upper, Con.lower]⟩
-
-/-- `w` lies in the fresh interval `[n + 1, n]` once its digits meet the bounds;
-`n` takes `w`'s most significant digit, which `Lo` may mention. -/
-theorem fresh_numIn {n : ℕ} {Lo Hi : Term} (hLo : Lo.Below (n + 1)) (hHi : Hi.Below n)
-    (ι : Asgn) (w : Num)
-    (h : w ≠ nan → msbOf w ≤ Hi.eval ι ∧ Lo.eval (Function.update ι n (msbOf w)) ≤ lsbOf w) :
-    ∃ ι', AgreeOut n (n + 2) ι ι' ∧ Sat ι' (bounds n Lo Hi hLo hHi) ∧
-      NumIn ι' (.var (n + 1)) (.var n) none w := by
-  have key : ∀ a b : EInt, b ≤ Hi.eval ι → Lo.eval (Function.update ι n b) ≤ a →
-      (w = nan ∨ a = lsbOf w ∧ b = msbOf w) →
-      ∃ ι', AgreeOut n (n + 2) ι ι' ∧ Sat ι' (bounds n Lo Hi hLo hHi) ∧
-        NumIn ι' (.var (n + 1)) (.var n) none w := by
-    intro a b hb ha hw
-    let ι₁ := Function.update ι n b
-    let ι' := Function.update ι₁ (n + 1) a
-    have e₁ : Agree n ι ι₁ := fun x hx => (Function.update_of_ne hx.ne _ _).symm
-    have e' : Agree (n + 1) ι₁ ι' := fun x hx => (Function.update_of_ne hx.ne _ _).symm
-    have hn : ι' n = b := by simp [ι', ι₁]
-    have hn1 : ι' (n + 1) = a := by simp [ι']
-    refine ⟨ι', fun x hx => ?_, fun c hc => ?_, ?_⟩
-    · simp only [ι', ι₁]
-      rw [Function.update_of_ne (by omega), Function.update_of_ne (by omega)]
-    · simp only [bounds, List.mem_cons, List.not_mem_nil, or_false] at hc
-      rcases hc with rfl | rfl
-      · simp only [Con.upper, hn]
-        rwa [← Term.eval_congr (e₁.trans (e'.mono (Nat.le_succ n))) hHi]
-      · simp only [Con.lower, hn1]
-        rwa [← Term.eval_congr e' hLo]
-    · rcases hw with hw | ⟨rfl, rfl⟩
-      · exact .inl hw
-      · exact .inr ⟨hn1.symm, hn.symm, fun _ h => absurd h (by simp)⟩
-  by_cases hw : w = nan
-  · exact key ⊤ ⊥ bot_le le_top (.inl hw)
-  · exact key _ _ (h hw).1 (h hw).2 (.inr ⟨rfl, rfl⟩)
-
 /-! ## Operator rows -/
 
 theorem forall₂_one {α β : Type} {R : α → β → Prop} {a : α} {l : List β}
@@ -124,10 +62,6 @@ theorem forall₂_one {α β : Type} {R : α → β → Prop} {a : α} {l : List
 theorem forall₂_two {α β : Type} {R : α → β → Prop} {a₁ a₂ : α} {l : List β}
     (h : List.Forall₂ R [a₁, a₂] l) : ∃ b₁ b₂, l = [b₁, b₂] ∧ R a₁ b₁ ∧ R a₂ b₂ := by
   rcases h with _ | ⟨h₁, _ | ⟨h₂, h'⟩⟩; cases h'; exact ⟨_, _, rfl, h₁, h₂⟩
-
-theorem NumIn.eq {ι : Asgn} {l m : Term} {τ : Option Term} {u : Num} (h : NumIn ι l m τ u)
-    (hu : u ≠ nan) : lsbOf u = l.eval ι ∧ msbOf u = m.eval ι :=
-  (h.resolve_left hu).imp_right And.left
 
 /-- A row whose interval is fresh, bounded by `Lo` and `Hi` on the operands'
 endpoints. -/
@@ -242,9 +176,6 @@ theorem opOK_any {op : ArithOp} {Is : List (Term × Term × Option Term)} :
 
 /-! ## Rounding rows -/
 
-/-- `w` has digits in `[lo, hi]`; NaN lies in every interval. -/
-def InRange (lo hi : EInt) (w : Num) : Prop := w = nan ∨ (lo ≤ lsbOf w ∧ msbOf w ≤ hi)
-
 /-- `c`'s overflow and special values have digits in `[lo, hi]`, except an
 infinity sent to an infinity. -/
 def ImagesIn (c : RoundCtx) (lo hi : EInt) : Prop :=
@@ -260,10 +191,6 @@ def Decodes (κ : Option SCtx) (P : Asgn → RoundCtx → Prop) (Lo Ho : Term) :
 
 /-- The quantum of `c` is `2^τ`. -/
 def QuantumIs (τ : Term) (ι : Asgn) (c : RoundCtx) : Prop := ∃ k : ℤ, τ.eval ι = k ∧ c.F.exp = k
-
-theorem eval_update {t : Term} (h : t.Below n) (ι : Asgn) (z : EInt) :
-    t.eval (Function.update ι n z) = t.eval ι :=
-  (Term.eval_congr (fun _ hx => (Function.update_of_ne hx.ne _ _).symm) h).symm
 
 /-- `R`: `[l, m]`. -/
 theorem rndOK_real : RndOK decode (some .real) l m n n [] l m := by
