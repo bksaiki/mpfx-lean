@@ -1,3 +1,4 @@
+import Fpy.DigitBound.Copy
 import Fpy.DigitBound.Table
 import FpyTest.Rewrite.Lower
 
@@ -71,5 +72,15 @@ example (ι : Asgn) :
     simp only [Term.eval] at hm
     rw [← hm] at h10
     exact absurd (WithBotTop.coe_le_coe.mp h10) (by norm_num)
+
+/-- D-Index's copy premises hold for a numeric element whose summary has
+variables `[0, 2)`, copied to `[5, 7)` with its constraints. -/
+example {Ψg : List Con} (hnd : (Ψg.map Con.head).Nodup) {l m : Term} (hl : l.Below 2)
+    (hm : m.Below 2) :
+    DVal.Copy 5 7 Ψg (copyCons Ψg 0 2 5 (by omega)) (.num l m none) 0
+        (.num (l.rename (shift 0 2 5)) (m.rename (shift 0 2 5)) none) ∧
+      Fresh 5 7 (copyCons Ψg 0 2 5 (by omega)) :=
+  ⟨copy_num (a := 0) (b := 2) (n := 5) (by omega) (by omega) hl hm (by simp),
+    fresh_copyCons (a := 0) (b := 2) (n := 5) (by omega) (by omega) hnd⟩
 
 end FpyTest

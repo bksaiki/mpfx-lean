@@ -1,6 +1,8 @@
 import Fpy.DigitBound.Basic
+import Fpy.DigitBound.Copy
 import Fpy.DigitBound.Defs
 import Fpy.DigitBound.Digits
+import Fpy.DigitBound.Join
 import Fpy.DigitBound.Sound
 import Fpy.DigitBound.Sum
 import Fpy.DigitBound.Table

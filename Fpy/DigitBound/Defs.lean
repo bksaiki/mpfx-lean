@@ -212,25 +212,25 @@ def CtxBelow (n : ℕ) (κ : Option SCtx) : Prop := ∀ C ∈ κ, C.Below n
 
 /-! ## Joins and transfers -/
 
-/-- `d ⊑ d'`, with the fresh variables `[n₀, n₁)` of `d'` bounded by `Ψ`:
-whatever `d` describes under constraints `Ψg` below `n₀`, `d'` describes under
-`Ψg` and `Ψ` once those variables are re-chosen. -/
-def DVal.Le (n₀ n₁ : ℕ) (Ψ : List Con) (d d' : DVal) : Prop :=
-  ∀ Ψg ι v, Before n₀ Ψg → Sat ι Ψg → Describes Ψg ι d v →
+/-- `d ⊑ d'` under the constraints `Ψg` so far, with the fresh variables
+`[n₀, n₁)` of `d'` bounded by `Ψ`: whatever `d` describes, `d'` describes once
+those variables are re-chosen. -/
+def DVal.Le (n₀ n₁ : ℕ) (Ψg Ψ : List Con) (d d' : DVal) : Prop :=
+  Before n₀ Ψg → ∀ ι v, Sat ι Ψg → Describes Ψg ι d v →
     ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Describes (Ψg ++ Ψ) ι' d' v
 
-def RetLe (n₀ n₁ : ℕ) (Ψ : List Con) (a a' : Option DVal) : Prop :=
-  ∀ d ∈ a, ∃ d' ∈ a', DVal.Le n₀ n₁ Ψ d d'
+def RetLe (n₀ n₁ : ℕ) (Ψg Ψ : List Con) (a a' : Option DVal) : Prop :=
+  ∀ d ∈ a, ∃ d' ∈ a', DVal.Le n₀ n₁ Ψg Ψ d d'
 
-def DEnv.Le (n₀ n₁ : ℕ) (Ψ : List Con) (Δ Δ' : DEnv) : Prop :=
-  ∀ Ψg ι σ, Before n₀ Ψg → Sat ι Ψg → Δ.Holds Ψg ι σ →
+def DEnv.Le (n₀ n₁ : ℕ) (Ψg Ψ : List Con) (Δ Δ' : DEnv) : Prop :=
+  Before n₀ Ψg → ∀ ι σ, Sat ι Ψg → Δ.Holds Ψg ι σ →
     ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Δ'.Holds (Ψg ++ Ψ) ι' σ
 
 /-- The abstract value `d` of a list's elements, re-chosen from `a` on, copied
-to `d'` with fresh variables: whatever `d` describes under an element's
-assignment, `d'` describes. -/
-def DVal.Copy (n₀ n₁ : ℕ) (Ψ : List Con) (d : DVal) (a : ℕ) (d' : DVal) : Prop :=
-  ∀ Ψg ι ι₀ v, Before n₀ Ψg → Sat ι Ψg → Agree a ι ι₀ → Sat ι₀ Ψg → Describes Ψg ι₀ d v →
+to `d'` with fresh variables, under the constraints `Ψg` so far: whatever `d`
+describes under an element's assignment, `d'` describes. -/
+def DVal.Copy (n₀ n₁ : ℕ) (Ψg Ψ : List Con) (d : DVal) (a : ℕ) (d' : DVal) : Prop :=
+  Before n₀ Ψg → ∀ ι ι₀ v, Sat ι Ψg → Agree a ι ι₀ → Sat ι₀ Ψg → Describes Ψg ι₀ d v →
     ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Describes (Ψg ++ Ψ) ι' d' v
 
 variable {decode : List (Label × Val) → Option RoundCtx}
@@ -319,132 +319,140 @@ variable (decode) (Φ : Program (fpy decode)) {D : FormatDomain} (A : Analysis (
 
 mutual
 
-/-- `Δ, κ ⊢♮ e : d`, with fresh variables `[n₀, n₁)` bounded by `Ψ`. Format
-inference's environment `Γ` and context `χ` at `e` give `fmt(e)` (D-Int, D-Fmt). -/
-inductive DEval : DEnv → AEnv D → Option SCtx → Option Val → ℕ → Expr (fpy decode) → DVal →
-    List Con → ℕ → Prop
-  | const {Δ Γ κ χ n₀ n τ} : (∀ t ∈ τ, ∃ z, t = .const z ∧ n = numOfE z) →
-      DEval Δ Γ κ χ n₀ (.num n) (.num (.const (lsbOf n)) (.const (msbOf n)) τ) [] n₀
-  | bool {Δ Γ κ χ n₀ b} : DEval Δ Γ κ χ n₀ (.bool b) .other [] n₀
-  | real {Δ Γ κ χ n₀} : DEval Δ Γ κ χ n₀ .real (.ctx .real) [] n₀
-  | var {Δ Γ κ χ n₀ x d} : Δ x = some d → DEval Δ Γ κ χ n₀ (.var x) d [] n₀
-  | list {Δ Γ κ χ n₀ es ds Ψ n₁ d Ψ' n₂} : DEvalList Δ Γ κ χ n₀ es ds Ψ n₁ →
-      (∀ d' ∈ ds, DVal.Le n₁ n₂ Ψ' d' d) → Fresh n₁ n₂ Ψ' → d.Below n₂ →
-      DEval Δ Γ κ χ n₀ (.list es) (.list d n₁) (Ψ ++ Ψ') n₂
-  | index {Δ Γ κ χ n₀ e₁ e₂ d a Ψ₁ n₁ d₂ Ψ₂ n₂ d' Ψ' n₃} :
-      DEval Δ Γ κ χ n₀ e₁ (.list d a) Ψ₁ n₁ → DEval Δ Γ κ χ n₁ e₂ d₂ Ψ₂ n₂ →
-      DVal.Copy n₂ n₃ Ψ' d a d' → Fresh n₂ n₃ Ψ' → d'.Below n₃ →
-      DEval Δ Γ κ χ n₀ (.index e₁ e₂) d' (Ψ₁ ++ Ψ₂ ++ Ψ') n₃
-  | record {Δ Γ κ χ n₀ fs afs Ψ n₁} : DEvalFields Δ Γ κ χ n₀ fs afs Ψ n₁ →
-      DEval Δ Γ κ χ n₀ (.record fs) (.record afs) Ψ n₁
-  | proj {Δ Γ κ χ n₀ e afs Ψ n₁ l d} : DEval Δ Γ κ χ n₀ e (.record afs) Ψ n₁ →
-      afs.lookup l = some d → DEval Δ Γ κ χ n₀ (.proj e l) d Ψ n₁
-  | ctx {Δ Γ κ χ n₀ e d Ψ n₁} : DEval Δ Γ κ χ n₀ e d Ψ n₁ →
-      DEval Δ Γ κ χ n₀ (.ctx e) ((ctxOf d).elim .other .ctx) Ψ n₁
-  | arith {Δ Γ κ χ n₀ op es Ψ n₁ Ψ' n₂ l m} {Is : List (Term × Term × Option Term)} :
-      DEvalList Δ Γ κ χ n₀ es (Is.map fun I => .num I.1 I.2.1 I.2.2) Ψ n₁ →
+/-- `Δ, κ ⊢♮ e : d` after the constraints `Ψg`, with fresh variables `[n₀, n₁)`
+bounded by `Ψ`. Format inference's environment `Γ` and context `χ` at `e` give
+`fmt(e)` (D-Int, D-Fmt). -/
+inductive DEval : DEnv → AEnv D → Option SCtx → Option Val → List Con → ℕ → Expr (fpy decode) →
+    DVal → List Con → ℕ → Prop
+  | const {Δ Γ κ χ Ψg n₀ n τ} : (∀ t ∈ τ, ∃ z, t = .const z ∧ n = numOfE z) →
+      DEval Δ Γ κ χ Ψg n₀ (.num n) (.num (.const (lsbOf n)) (.const (msbOf n)) τ) [] n₀
+  | bool {Δ Γ κ χ Ψg n₀ b} : DEval Δ Γ κ χ Ψg n₀ (.bool b) .other [] n₀
+  | real {Δ Γ κ χ Ψg n₀} : DEval Δ Γ κ χ Ψg n₀ .real (.ctx .real) [] n₀
+  | var {Δ Γ κ χ Ψg n₀ x d} : Δ x = some d → DEval Δ Γ κ χ Ψg n₀ (.var x) d [] n₀
+  | list {Δ Γ κ χ Ψg n₀ es ds Ψ n₁ d Ψ' n₂} : DEvalList Δ Γ κ χ Ψg n₀ es ds Ψ n₁ →
+      (∀ d' ∈ ds, DVal.Le n₁ n₂ (Ψg ++ Ψ) Ψ' d' d) → Fresh n₁ n₂ Ψ' → d.Below n₂ →
+      DEval Δ Γ κ χ Ψg n₀ (.list es) (.list d n₁) (Ψ ++ Ψ') n₂
+  | index {Δ Γ κ χ Ψg n₀ e₁ e₂ d a Ψ₁ n₁ d₂ Ψ₂ n₂ d' Ψ' n₃} :
+      DEval Δ Γ κ χ Ψg n₀ e₁ (.list d a) Ψ₁ n₁ → DEval Δ Γ κ χ (Ψg ++ Ψ₁) n₁ e₂ d₂ Ψ₂ n₂ →
+      DVal.Copy n₂ n₃ (Ψg ++ Ψ₁ ++ Ψ₂) Ψ' d a d' → Fresh n₂ n₃ Ψ' → d'.Below n₃ →
+      DEval Δ Γ κ χ Ψg n₀ (.index e₁ e₂) d' (Ψ₁ ++ Ψ₂ ++ Ψ') n₃
+  | record {Δ Γ κ χ Ψg n₀ fs afs Ψ n₁} : DEvalFields Δ Γ κ χ Ψg n₀ fs afs Ψ n₁ →
+      DEval Δ Γ κ χ Ψg n₀ (.record fs) (.record afs) Ψ n₁
+  | proj {Δ Γ κ χ Ψg n₀ e afs Ψ n₁ l d} : DEval Δ Γ κ χ Ψg n₀ e (.record afs) Ψ n₁ →
+      afs.lookup l = some d → DEval Δ Γ κ χ Ψg n₀ (.proj e l) d Ψ n₁
+  | ctx {Δ Γ κ χ Ψg n₀ e d Ψ n₁} : DEval Δ Γ κ χ Ψg n₀ e d Ψ n₁ →
+      DEval Δ Γ κ χ Ψg n₀ (.ctx e) ((ctxOf d).elim .other .ctx) Ψ n₁
+  | arith {Δ Γ κ χ Ψg n₀ op es Ψ n₁ Ψ' n₂ l m} {Is : List (Term × Term × Option Term)} :
+      DEvalList Δ Γ κ χ Ψg n₀ es (Is.map fun I => .num I.1 I.2.1 I.2.2) Ψ n₁ →
       ArithOK decode κ op Is n₁ n₂ Ψ' l m → Fresh n₁ n₂ Ψ' →
-      l.Below n₂ → m.Below n₂ → DEval Δ Γ κ χ n₀ (.arith op es) (.num l m none) (Ψ ++ Ψ') n₂
+      l.Below n₂ → m.Below n₂ → DEval Δ Γ κ χ Ψg n₀ (.arith op es) (.num l m none) (Ψ ++ Ψ') n₂
   /-- D-Linear, under `R`. -/
-  | linear {Δ Γ χ n₀ op e₁ e₂ l₁ m₁ τ₁ l₂ m₂ τ₂ Ψ n₁ Ψ' n₂ l m} (hop : op = .add ∨ op = .sub) :
-      DEvalList Δ Γ (some .real) χ n₀ [e₁, e₂]
+  | linear {Δ Γ χ Ψg n₀ op e₁ e₂ l₁ m₁ τ₁ l₂ m₂ τ₂ Ψ n₁ Ψ' n₂ l m}
+      (hop : op = .add ∨ op = .sub) :
+      DEvalList Δ Γ (some .real) χ Ψg n₀ [e₁, e₂]
         [.num l₁ m₁ (some τ₁), .num l₂ m₂ (some τ₂)] Ψ n₁ →
       ArithOK decode (some .real) op [(l₁, m₁, some τ₁), (l₂, m₂, some τ₂)] n₁ n₂ Ψ' l m →
       Fresh n₁ n₂ Ψ' → l.Below n₂ → m.Below n₂ →
-      DEval Δ Γ (some .real) χ n₀ (.arith op [e₁, e₂])
+      DEval Δ Γ (some .real) χ Ψg n₀ (.arith op [e₁, e₂])
         (.num l m (some (if op = .add then .add τ₁ τ₂ else .add τ₁ (.neg τ₂)))) (Ψ ++ Ψ') n₂
   /-- D-Neg, under `R`. -/
-  | neg {Δ Γ χ n₀ e l₁ m₁ τ Ψ n₁ Ψ' n₂ l m} :
-      DEvalList Δ Γ (some .real) χ n₀ [e] [.num l₁ m₁ (some τ)] Ψ n₁ →
+  | neg {Δ Γ χ Ψg n₀ e l₁ m₁ τ Ψ n₁ Ψ' n₂ l m} :
+      DEvalList Δ Γ (some .real) χ Ψg n₀ [e] [.num l₁ m₁ (some τ)] Ψ n₁ →
       ArithOK decode (some .real) .neg [(l₁, m₁, some τ)] n₁ n₂ Ψ' l m → Fresh n₁ n₂ Ψ' →
       l.Below n₂ → m.Below n₂ →
-      DEval Δ Γ (some .real) χ n₀ (.arith .neg [e]) (.num l m (some (.neg τ))) (Ψ ++ Ψ') n₂
+      DEval Δ Γ (some .real) χ Ψg n₀ (.arith .neg [e]) (.num l m (some (.neg τ))) (Ψ ++ Ψ') n₂
   /-- D-Logb, under `R`: the value is the argument's most significant digit. -/
-  | logb {Δ Γ χ n₀ e l₁ m₁ τ Ψ n₁ Ψ' n₂ l m} :
-      DEvalList Δ Γ (some .real) χ n₀ [e] [.num l₁ m₁ τ] Ψ n₁ →
+  | logb {Δ Γ χ Ψg n₀ e l₁ m₁ τ Ψ n₁ Ψ' n₂ l m} :
+      DEvalList Δ Γ (some .real) χ Ψg n₀ [e] [.num l₁ m₁ τ] Ψ n₁ →
       ArithOK decode (some .real) .logb [(l₁, m₁, τ)] n₁ n₂ Ψ' l m → Fresh n₁ n₂ Ψ' →
       l.Below n₂ → m.Below n₂ →
-      DEval Δ Γ (some .real) χ n₀ (.arith .logb [e]) (.num l m (some m₁)) (Ψ ++ Ψ') n₂
+      DEval Δ Γ (some .real) χ Ψg n₀ (.arith .logb [e]) (.num l m (some m₁)) (Ψ ++ Ψ') n₂
   /-- D-Max (`ge = true`, `op = max`) and D-Min, under `R`: a fresh `val(e)`
   bounded by the arguments' values. -/
-  | ext {Δ Γ χ n₀ op ge e₁ e₂ l₁ m₁ τ₁ l₂ m₂ τ₂ Ψ n₁ Ψ' n₂ l m}
+  | ext {Δ Γ χ Ψg n₀ op ge e₁ e₂ l₁ m₁ τ₁ l₂ m₂ τ₂ Ψ n₁ Ψ' n₂ l m}
       (hop : op = (if ge then .max else .min)) (h₁ : τ₁.Below n₂) (h₂ : τ₂.Below n₂) :
-      DEvalList Δ Γ (some .real) χ n₀ [e₁, e₂]
+      DEvalList Δ Γ (some .real) χ Ψg n₀ [e₁, e₂]
         [.num l₁ m₁ (some τ₁), .num l₂ m₂ (some τ₂)] Ψ n₁ →
       ArithOK decode (some .real) op [(l₁, m₁, some τ₁), (l₂, m₂, some τ₂)] n₁ n₂ Ψ' l m →
       Fresh n₁ n₂ Ψ' → l.Below n₂ → m.Below n₂ →
-      DEval Δ Γ (some .real) χ n₀ (.arith op [e₁, e₂]) (.num l m (some (.var n₂)))
+      DEval Δ Γ (some .real) χ Ψg n₀ (.arith op [e₁, e₂]) (.num l m (some (.var n₂)))
         (Ψ ++ Ψ' ++ [Con.ext n₂ ge τ₁ τ₂ h₁ h₂]) (n₂ + 1)
-  | exact {Δ Γ κ χ n₀ op es ds Ψ n₁} : DEvalList Δ Γ κ χ n₀ es ds Ψ n₁ → op ≠ .len →
-      DEval Δ Γ κ χ n₀ (.exact op es) .other Ψ n₁
-  | len {Δ Γ κ χ n₀ es ds Ψ n₁} : DEvalList Δ Γ κ χ n₀ es ds Ψ n₁ →
-      DEval Δ Γ κ χ n₀ (.exact .len es) (.num (.var n₁) (.var (n₁ + 1)) none) Ψ (n₁ + 2)
-  | call {Δ Γ κ χ n₀ f e y s d a Ψ n₁ Δ' d' Ψ' n₂} : Φ f = some (y, s) →
-      DEval Δ Γ κ χ n₀ e d Ψ n₁ → AEval A Φ Γ χ e a →
-      DExec (.single y d) (.single y a) κ χ n₁ s Δ' (some d') Ψ' n₂ →
-      DEval Δ Γ κ χ n₀ (.call f e) d' (Ψ ++ Ψ') n₂
+  | exact {Δ Γ κ χ Ψg n₀ op es ds Ψ n₁} : DEvalList Δ Γ κ χ Ψg n₀ es ds Ψ n₁ → op ≠ .len →
+      DEval Δ Γ κ χ Ψg n₀ (.exact op es) .other Ψ n₁
+  | len {Δ Γ κ χ Ψg n₀ es ds Ψ n₁} : DEvalList Δ Γ κ χ Ψg n₀ es ds Ψ n₁ →
+      DEval Δ Γ κ χ Ψg n₀ (.exact .len es) (.num (.var n₁) (.var (n₁ + 1)) none) Ψ (n₁ + 2)
+  | call {Δ Γ κ χ Ψg n₀ f e y s d a Ψ n₁ Δ' d' Ψ' n₂} : Φ f = some (y, s) →
+      DEval Δ Γ κ χ Ψg n₀ e d Ψ n₁ → AEval A Φ Γ χ e a →
+      DExec (.single y d) (.single y a) κ χ (Ψg ++ Ψ) n₁ s Δ' (some d') Ψ' n₂ →
+      DEval Δ Γ κ χ Ψg n₀ (.call f e) d' (Ψ ++ Ψ') n₂
   /-- D-Int: `fmt(e) ⊆ ℤ ∩ [a, b]` gives `e` a fresh value `a ≤ val(e) ≤ b`. -/
-  | int {Δ Γ κ χ n₀ e l m Ψ n₁ a₀ a b} (hab : a ≤ b) : DEval Δ Γ κ χ n₀ e (.num l m none) Ψ n₁ →
-      AEval A Φ Γ χ e a₀ →
+  | int {Δ Γ κ χ Ψg n₀ e l m Ψ n₁ a₀ a b} (hab : a ≤ b) :
+      DEval Δ Γ κ χ Ψg n₀ e (.num l m none) Ψ n₁ → AEval A Φ Γ χ e a₀ →
       (∀ w, Fpy.Describes a₀ (.num w) → ∃ k : ℤ, w = .finite k ∧ a ≤ k ∧ k ≤ b) →
-      DEval Δ Γ κ χ n₀ e (.num l m (some (.var n₁))) (Ψ ++ [Con.between n₁ a b hab]) (n₁ + 1)
+      DEval Δ Γ κ χ Ψg n₀ e (.num l m (some (.var n₁))) (Ψ ++ [Con.between n₁ a b hab]) (n₁ + 1)
   /-- D-Fmt: `e`'s interval lies within the digits `[lo, hi]` of `fmt(e)`. -/
-  | fmt {Δ Γ κ χ n₀ e l m τ Ψ n₁ a₀ lo hi} : DEval Δ Γ κ χ n₀ e (.num l m τ) Ψ n₁ →
+  | fmt {Δ Γ κ χ Ψg n₀ e l m τ Ψ n₁ a₀ lo hi} : DEval Δ Γ κ χ Ψg n₀ e (.num l m τ) Ψ n₁ →
       (hl : l.Below n₁) → (hm : m.Below n₁) → AEval A Φ Γ χ e a₀ →
       (∀ w, Fpy.Describes a₀ (.num w) → InRange lo hi w) →
-      DEval Δ Γ κ χ n₀ e (.num (.var (n₁ + 1)) (.var n₁) τ)
+      DEval Δ Γ κ χ Ψg n₀ e (.num (.var (n₁ + 1)) (.var n₁) τ)
         (Ψ ++ bounds n₁ (.max l (.const lo)) (.min m (.const hi))
           ⟨hl.mono (Nat.le_succ n₁), trivial⟩ ⟨hm, trivial⟩) (n₁ + 2)
 
-inductive DEvalList : DEnv → AEnv D → Option SCtx → Option Val → ℕ → List (Expr (fpy decode)) →
-    List DVal → List Con → ℕ → Prop
-  | nil {Δ Γ κ χ n₀} : DEvalList Δ Γ κ χ n₀ [] [] [] n₀
-  | cons {Δ Γ κ χ n₀ e es d ds Ψ n₁ Ψ' n₂} : DEval Δ Γ κ χ n₀ e d Ψ n₁ →
-      DEvalList Δ Γ κ χ n₁ es ds Ψ' n₂ → DEvalList Δ Γ κ χ n₀ (e :: es) (d :: ds) (Ψ ++ Ψ') n₂
+inductive DEvalList : DEnv → AEnv D → Option SCtx → Option Val → List Con → ℕ →
+    List (Expr (fpy decode)) → List DVal → List Con → ℕ → Prop
+  | nil {Δ Γ κ χ Ψg n₀} : DEvalList Δ Γ κ χ Ψg n₀ [] [] [] n₀
+  | cons {Δ Γ κ χ Ψg n₀ e es d ds Ψ n₁ Ψ' n₂} : DEval Δ Γ κ χ Ψg n₀ e d Ψ n₁ →
+      DEvalList Δ Γ κ χ (Ψg ++ Ψ) n₁ es ds Ψ' n₂ →
+      DEvalList Δ Γ κ χ Ψg n₀ (e :: es) (d :: ds) (Ψ ++ Ψ') n₂
 
-inductive DEvalFields : DEnv → AEnv D → Option SCtx → Option Val → ℕ →
+inductive DEvalFields : DEnv → AEnv D → Option SCtx → Option Val → List Con → ℕ →
     List (Label × Expr (fpy decode)) → List (Label × DVal) → List Con → ℕ → Prop
-  | nil {Δ Γ κ χ n₀} : DEvalFields Δ Γ κ χ n₀ [] [] [] n₀
-  | cons {Δ Γ κ χ n₀ l e fs d afs Ψ n₁ Ψ' n₂} : DEval Δ Γ κ χ n₀ e d Ψ n₁ →
-      DEvalFields Δ Γ κ χ n₁ fs afs Ψ' n₂ →
-      DEvalFields Δ Γ κ χ n₀ ((l, e) :: fs) ((l, d) :: afs) (Ψ ++ Ψ') n₂
+  | nil {Δ Γ κ χ Ψg n₀} : DEvalFields Δ Γ κ χ Ψg n₀ [] [] [] n₀
+  | cons {Δ Γ κ χ Ψg n₀ l e fs d afs Ψ n₁ Ψ' n₂} : DEval Δ Γ κ χ Ψg n₀ e d Ψ n₁ →
+      DEvalFields Δ Γ κ χ (Ψg ++ Ψ) n₁ fs afs Ψ' n₂ →
+      DEvalFields Δ Γ κ χ Ψg n₀ ((l, e) :: fs) ((l, d) :: afs) (Ψ ++ Ψ') n₂
 
-/-- `Δ, κ ⊢♮ s : ⟨Δ', a⟩`, with fresh variables `[n₀, n₁)` bounded by `Ψ`. `Γ`
-and `χ` follow format inference: through `s₁` in D-Seq, refined by the guard
-in D-If, by an invariant in D-While, and by the context in D-Context. -/
-inductive DExec : DEnv → AEnv D → Option SCtx → Option Val → ℕ → Stmt (fpy decode) → DEnv →
-    Option DVal → List Con → ℕ → Prop
-  | assign {Δ Γ κ χ n₀ x e d Ψ n₁} : DEval Δ Γ κ χ n₀ e d Ψ n₁ →
-      DExec Δ Γ κ χ n₀ (.assign x e) (Δ.update x d) none Ψ n₁
-  | skip {Δ Γ κ χ n₀} : DExec Δ Γ κ χ n₀ .skip Δ none [] n₀
-  | ret {Δ Γ κ χ n₀ e d Ψ n₁} : DEval Δ Γ κ χ n₀ e d Ψ n₁ →
-      DExec Δ Γ κ χ n₀ (.ret e) Δ (some d) Ψ n₁
-  | assert {Δ Γ κ χ n₀ e d Ψ n₁} : DEval Δ Γ κ χ n₀ e d Ψ n₁ →
-      DExec Δ Γ κ χ n₀ (.assert e) Δ none Ψ n₁
-  | seq {Δ Γ κ χ n₀ s₁ s₂ Δ₁ a₁ Ψ₁ n₁ Γ₁ b₁ Δ₂ a₂ Ψ₂ n₂ a Ψ' n₃} :
-      DExec Δ Γ κ χ n₀ s₁ Δ₁ a₁ Ψ₁ n₁ → AExec A Φ Γ χ s₁ Γ₁ b₁ →
-      DExec Δ₁ Γ₁ κ χ n₁ s₂ Δ₂ a₂ Ψ₂ n₂ → RetLe n₂ n₃ Ψ' a₁ a → RetLe n₂ n₃ Ψ' a₂ a →
-      Fresh n₂ n₃ Ψ' → RetBelow n₃ a → DExec Δ Γ κ χ n₀ (.seq s₁ s₂) Δ₂ a (Ψ₁ ++ Ψ₂ ++ Ψ') n₃
-  | ite {Δ Γ κ χ n₀ e s₁ s₂ Δ₁ a₁ Ψ₁ n₁ Δ₂ a₂ Ψ₂ n₂ Δ' a Ψ' n₃} :
-      DExec Δ (A.refine χ e true Γ) κ χ n₀ s₁ Δ₁ a₁ Ψ₁ n₁ →
-      DExec Δ (A.refine χ e false Γ) κ χ n₁ s₂ Δ₂ a₂ Ψ₂ n₂ →
-      DEnv.Le n₂ n₃ Ψ' Δ₁ Δ' → DEnv.Le n₂ n₃ Ψ' Δ₂ Δ' →
-      RetLe n₂ n₃ Ψ' a₁ a → RetLe n₂ n₃ Ψ' a₂ a → Fresh n₂ n₃ Ψ' → Δ'.Below n₃ →
-      RetBelow n₃ a → DExec Δ Γ κ χ n₀ (.ite e s₁ s₂) Δ' a (Ψ₁ ++ Ψ₂ ++ Ψ') n₃
+/-- `Δ, κ ⊢♮ s : ⟨Δ', a⟩` after the constraints `Ψg`, with fresh variables
+`[n₀, n₁)` bounded by `Ψ`. `Γ` and `χ` follow format inference: through `s₁`
+in D-Seq, refined by the guard in D-If, by an invariant in D-While, and by the
+context in D-Context. -/
+inductive DExec : DEnv → AEnv D → Option SCtx → Option Val → List Con → ℕ → Stmt (fpy decode) →
+    DEnv → Option DVal → List Con → ℕ → Prop
+  | assign {Δ Γ κ χ Ψg n₀ x e d Ψ n₁} : DEval Δ Γ κ χ Ψg n₀ e d Ψ n₁ →
+      DExec Δ Γ κ χ Ψg n₀ (.assign x e) (Δ.update x d) none Ψ n₁
+  | skip {Δ Γ κ χ Ψg n₀} : DExec Δ Γ κ χ Ψg n₀ .skip Δ none [] n₀
+  | ret {Δ Γ κ χ Ψg n₀ e d Ψ n₁} : DEval Δ Γ κ χ Ψg n₀ e d Ψ n₁ →
+      DExec Δ Γ κ χ Ψg n₀ (.ret e) Δ (some d) Ψ n₁
+  | assert {Δ Γ κ χ Ψg n₀ e d Ψ n₁} : DEval Δ Γ κ χ Ψg n₀ e d Ψ n₁ →
+      DExec Δ Γ κ χ Ψg n₀ (.assert e) Δ none Ψ n₁
+  | seq {Δ Γ κ χ Ψg n₀ s₁ s₂ Δ₁ a₁ Ψ₁ n₁ Γ₁ b₁ Δ₂ a₂ Ψ₂ n₂ a Ψ' n₃} :
+      DExec Δ Γ κ χ Ψg n₀ s₁ Δ₁ a₁ Ψ₁ n₁ → AExec A Φ Γ χ s₁ Γ₁ b₁ →
+      DExec Δ₁ Γ₁ κ χ (Ψg ++ Ψ₁) n₁ s₂ Δ₂ a₂ Ψ₂ n₂ →
+      RetLe n₂ n₃ (Ψg ++ Ψ₁ ++ Ψ₂) Ψ' a₁ a → RetLe n₂ n₃ (Ψg ++ Ψ₁ ++ Ψ₂) Ψ' a₂ a →
+      Fresh n₂ n₃ Ψ' → RetBelow n₃ a →
+      DExec Δ Γ κ χ Ψg n₀ (.seq s₁ s₂) Δ₂ a (Ψ₁ ++ Ψ₂ ++ Ψ') n₃
+  | ite {Δ Γ κ χ Ψg n₀ e s₁ s₂ Δ₁ a₁ Ψ₁ n₁ Δ₂ a₂ Ψ₂ n₂ Δ' a Ψ' n₃} :
+      DExec Δ (A.refine χ e true Γ) κ χ Ψg n₀ s₁ Δ₁ a₁ Ψ₁ n₁ →
+      DExec Δ (A.refine χ e false Γ) κ χ (Ψg ++ Ψ₁) n₁ s₂ Δ₂ a₂ Ψ₂ n₂ →
+      DEnv.Le n₂ n₃ (Ψg ++ Ψ₁ ++ Ψ₂) Ψ' Δ₁ Δ' → DEnv.Le n₂ n₃ (Ψg ++ Ψ₁ ++ Ψ₂) Ψ' Δ₂ Δ' →
+      RetLe n₂ n₃ (Ψg ++ Ψ₁ ++ Ψ₂) Ψ' a₁ a → RetLe n₂ n₃ (Ψg ++ Ψ₁ ++ Ψ₂) Ψ' a₂ a →
+      Fresh n₂ n₃ Ψ' → Δ'.Below n₃ → RetBelow n₃ a →
+      DExec Δ Γ κ χ Ψg n₀ (.ite e s₁ s₂) Δ' a (Ψ₁ ++ Ψ₂ ++ Ψ') n₃
   /-- D-While with an invariant `Δᵢ`, as A-While, and format inference's
   invariant `Γᵢ`. -/
-  | whileDo {Δ Γ κ χ n₀ e s Δᵢ Ψᵢ n₁ Γᵢ Γ' b Δ' a Ψ n₂} : DEnv.Le n₀ n₁ Ψᵢ Δ Δᵢ →
+  | whileDo {Δ Γ κ χ Ψg n₀ e s Δᵢ Ψᵢ n₁ Γᵢ Γ' b Δ' a Ψ n₂} : DEnv.Le n₀ n₁ Ψg Ψᵢ Δ Δᵢ →
       Fresh n₀ n₁ Ψᵢ → Δᵢ.Below n₁ → Γ.Le Γᵢ → AExec A Φ (A.refine χ e true Γᵢ) χ s Γ' b →
-      Γ'.Le Γᵢ → DExec Δᵢ (A.refine χ e true Γᵢ) κ χ n₁ s Δ' a Ψ n₂ →
-      DEnv.Le n₀ n₁ Ψᵢ Δ' Δᵢ → DExec Δ Γ κ χ n₀ (.whileDo e s) Δᵢ a (Ψᵢ ++ Ψ) n₂
-  | withCtx {Δ Γ κ χ n₀ e C Ψ n₁ a₀ s Δ' a Ψ' n₂} :
-      DEval Δ Γ (some .real) (some .real) n₀ e (.ctx C) Ψ n₁ →
-      AEval A Φ Γ (some .real) e a₀ → DExec Δ Γ (some C) (knownCtx a₀) n₁ s Δ' a Ψ' n₂ →
-      DExec Δ Γ κ χ n₀ (.withCtx e s) Δ' a (Ψ ++ Ψ') n₂
-  | withUnknown {Δ Γ κ χ n₀ e d Ψ n₁ a₀ s Δ' a Ψ' n₂} :
-      DEval Δ Γ (some .real) (some .real) n₀ e d Ψ n₁ →
-      AEval A Φ Γ (some .real) e a₀ → DExec Δ Γ none (knownCtx a₀) n₁ s Δ' a Ψ' n₂ →
-      DExec Δ Γ κ χ n₀ (.withCtx e s) Δ' a (Ψ ++ Ψ') n₂
+      Γ'.Le Γᵢ → DExec Δᵢ (A.refine χ e true Γᵢ) κ χ (Ψg ++ Ψᵢ) n₁ s Δ' a Ψ n₂ →
+      DEnv.Le n₀ n₁ Ψg Ψᵢ Δ' Δᵢ → DExec Δ Γ κ χ Ψg n₀ (.whileDo e s) Δᵢ a (Ψᵢ ++ Ψ) n₂
+  | withCtx {Δ Γ κ χ Ψg n₀ e C Ψ n₁ a₀ s Δ' a Ψ' n₂} :
+      DEval Δ Γ (some .real) (some .real) Ψg n₀ e (.ctx C) Ψ n₁ →
+      AEval A Φ Γ (some .real) e a₀ →
+      DExec Δ Γ (some C) (knownCtx a₀) (Ψg ++ Ψ) n₁ s Δ' a Ψ' n₂ →
+      DExec Δ Γ κ χ Ψg n₀ (.withCtx e s) Δ' a (Ψ ++ Ψ') n₂
+  | withUnknown {Δ Γ κ χ Ψg n₀ e d Ψ n₁ a₀ s Δ' a Ψ' n₂} :
+      DEval Δ Γ (some .real) (some .real) Ψg n₀ e d Ψ n₁ →
+      AEval A Φ Γ (some .real) e a₀ → DExec Δ Γ none (knownCtx a₀) (Ψg ++ Ψ) n₁ s Δ' a Ψ' n₂ →
+      DExec Δ Γ κ χ Ψg n₀ (.withCtx e s) Δ' a (Ψ ++ Ψ') n₂
 
 end
 

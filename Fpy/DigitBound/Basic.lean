@@ -506,10 +506,10 @@ the summary `d` once its fresh variables `[n₀, n₁)` are re-chosen. -/
 theorem describesAll_of_le {n₀ n₁ : ℕ} {Ψ Ψ' : List Con} {d : DVal} {ι ι' : Asgn}
     (hb : Before n₀ Ψ) (hs : Sat ι Ψ) (h : Agree n₀ ι ι') :
     ∀ {ds : List DVal} {vs : List Val}, List.Forall₂ (Describes Ψ ι) ds vs →
-      (∀ d' ∈ ds, DVal.Le n₀ n₁ Ψ' d' d) → DescribesAll (Ψ ++ Ψ') ι' d n₀ vs
+      (∀ d' ∈ ds, DVal.Le n₀ n₁ Ψ Ψ' d' d) → DescribesAll (Ψ ++ Ψ') ι' d n₀ vs
   | _, _, .nil, _ => .nil
   | _, _, .cons hd tl, hle => by
-    obtain ⟨ι₁, a₁, hs₁, hd'⟩ := hle _ (List.mem_cons_self ..) _ _ _ hb hs hd
+    obtain ⟨ι₁, a₁, hs₁, hd'⟩ := hle _ (List.mem_cons_self ..) hb _ _ hs hd
     exact .cons (fun x hx => (h x hx).symm.trans (a₁.agree x hx))
       ((Sat.congr hb a₁.agree hs).append hs₁) hd'
       (describesAll_of_le hb hs h tl fun d' hd' => hle d' (List.mem_cons_of_mem _ hd'))
