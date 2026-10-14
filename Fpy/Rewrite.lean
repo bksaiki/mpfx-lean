@@ -122,7 +122,7 @@ theorem Equiv.of_fwd {Φ : Program L} {X : Set Var} {Γ : AEnv D} {κ : Option V
     obtain ⟨o₂, hs₂, hag⟩ := hfwd σ C o hΓ hκ hs
     exact ⟨o, hs, Exec.det _ hs₂ hs' ▸ hag⟩⟩
 
-/-! ## Inversion -/
+/-! ## Inverting and building derivations -/
 
 section Inversion
 

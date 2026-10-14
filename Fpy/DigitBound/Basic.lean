@@ -127,10 +127,6 @@ theorem Sat.left {ι : Asgn} {Ψ Ψ' : List Con} (h : Sat ι (Ψ ++ Ψ')) : Sat 
 theorem Sat.right {ι : Asgn} {Ψ Ψ' : List Con} (h : Sat ι (Ψ ++ Ψ')) : Sat ι Ψ' :=
   fun c hc => h c (List.mem_append_right _ hc)
 
-theorem Sat.congr {n₀ n₁ : ℕ} {Ψ : List Con} (hΨ : Fresh n₀ n₁ Ψ) {ι ι' : Asgn}
-    (h : Agree n₁ ι ι') (hs : Sat ι Ψ) : Sat ι' Ψ := fun c hc =>
-  c.dep (fun x hx => h x (lt_of_le_of_lt hx (hΨ.2.2 c hc).2)) (hs c hc)
-
 theorem Fresh.nil (n : ℕ) : Fresh n n [] :=
   ⟨le_rfl, List.nodup_nil, fun _ h => absurd h List.not_mem_nil⟩
 
@@ -196,14 +192,11 @@ theorem Sat.extend {n₀ n₁ : ℕ} {Ψ : List Con} (hΨ : Fresh n₀ n₁ Ψ) 
 theorem Fresh.before {n₀ n₁ : ℕ} {Ψ : List Con} (h : Fresh n₀ n₁ Ψ) : Before n₁ Ψ :=
   fun c hc => (h.2.2 c hc).2
 
-theorem Before.mono {n n' : ℕ} {Ψ : List Con} (h : n ≤ n') (hΨ : Before n Ψ) : Before n' Ψ :=
-  fun c hc => lt_of_lt_of_le (hΨ c hc) h
-
 theorem Before.append {n₀ n₁ : ℕ} {Ψ Ψ' : List Con} (hΨ : Before n₀ Ψ) (h : Fresh n₀ n₁ Ψ') :
     Before n₁ (Ψ ++ Ψ') := fun c hc =>
   (List.mem_append.mp hc).elim (fun hc => lt_of_lt_of_le (hΨ c hc) h.le) (h.before c)
 
-theorem Sat.congr_before {n : ℕ} {Ψ : List Con} (hΨ : Before n Ψ) {ι ι' : Asgn}
+theorem Sat.congr {n : ℕ} {Ψ : List Con} (hΨ : Before n Ψ) {ι ι' : Asgn}
     (h : Agree n ι ι') (hs : Sat ι Ψ) : Sat ι' Ψ := fun c hc =>
   c.dep (fun x hx => h x (lt_of_le_of_lt hx (hΨ c hc))) (hs c hc)
 
@@ -211,7 +204,7 @@ theorem Sat.congr_before {n : ℕ} {Ψ : List Con} (hΨ : Before n Ψ) {ι ι' :
 
 mutual
 
-/-- **Growth.** A description under `ι` holds under any `ι'` agreeing below `n`,
+/-- A description under `ι` holds under any `ι'` agreeing below `n`,
 with constraints on fresh variables from `n` added: each list element's
 assignment re-chooses those variables. -/
 theorem Describes.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ) (hF : Fresh n n' Ψ') :
@@ -233,7 +226,7 @@ theorem DescribesAll.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ) (h
     obtain ⟨ι₁, a₁, hs₁⟩ := Sat.extend hF ι₀
     exact .cons (fun x hx => (h x (lt_of_lt_of_le hx ha)).symm.trans
         ((h₀ x hx).trans (a₁ x (lt_of_lt_of_le hx ha))))
-      ((Sat.congr_before hb a₁ hs).append hs₁) (Describes.grow hb hF a₁ hd hdb)
+      ((Sat.congr hb a₁ hs).append hs₁) (Describes.grow hb hF a₁ hd hdb)
       (DescribesAll.grow hb hF h tl ha hdb)
 
 theorem DescribesFields.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ)
@@ -246,21 +239,42 @@ theorem DescribesFields.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ)
 
 end
 
-theorem Describes.congr {n : ℕ} {Ψ : List Con} (hb : Before n Ψ) {ι ι' : Asgn}
-    (h : Agree n ι ι') {d : DVal} {v : Val} (hd : Describes Ψ ι d v) (hdb : d.Below n) :
-    Describes Ψ ι' d v := by
-  simpa using Describes.grow hb (Fresh.nil n) h hd hdb
+mutual
+
+theorem Describes.of_append {Ψ Ψ' : List Con} :
+    ∀ {ι : Asgn} {d : DVal} {v : Val}, Describes (Ψ ++ Ψ') ι d v → Describes Ψ ι d v
+  | _, _, _, .num hu => .num hu
+  | _, _, _, .list hall => .list (DescribesAll.of_append hall)
+  | _, _, _, .record hfs => .record (DescribesFields.of_append hfs)
+  | _, _, _, .bool => .bool
+  | _, _, _, .real => .real
+  | _, _, _, .ctxv => .ctxv
+  | _, _, _, .sctx hC => .sctx hC
+
+theorem DescribesAll.of_append {Ψ Ψ' : List Con} :
+    ∀ {ι : Asgn} {d : DVal} {a : ℕ} {vs : List Val}, DescribesAll (Ψ ++ Ψ') ι d a vs →
+      DescribesAll Ψ ι d a vs
+  | _, _, _, _, .nil => .nil
+  | _, _, _, _, .cons h hs hd tl =>
+    .cons h hs.left (Describes.of_append hd) (DescribesAll.of_append tl)
+
+theorem DescribesFields.of_append {Ψ Ψ' : List Con} :
+    ∀ {ι : Asgn} {afs : List (Label × DVal)} {fs : List (Label × Val)},
+      DescribesFields (Ψ ++ Ψ') ι afs fs → DescribesFields Ψ ι afs fs
+  | _, _, _, .nil => .nil
+  | _, _, _, .cons hd hfs => .cons (Describes.of_append hd) (DescribesFields.of_append hfs)
+
+end
+
+theorem DEnv.Holds.of_append {Ψ Ψ' : List Con} {Δ : DEnv} {ι : Asgn} {σ : Store}
+    (h : Δ.Holds (Ψ ++ Ψ') ι σ) : Δ.Holds Ψ ι σ := fun x d hx =>
+  (h x d hx).imp fun _ ⟨hv, hd⟩ => ⟨hv, hd.of_append⟩
 
 theorem DEnv.Holds.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ) (hF : Fresh n n' Ψ')
     {ι ι' : Asgn} (h : Agree n ι ι') {Δ : DEnv} {σ : Store} (hΔ : Δ.Below n)
     (hσ : Δ.Holds Ψ ι σ) : Δ.Holds (Ψ ++ Ψ') ι' σ := fun x d hx => by
   obtain ⟨v, hv, hd⟩ := hσ x d hx
   exact ⟨v, hv, hd.grow hb hF h (hΔ x d hx)⟩
-
-theorem DEnv.Holds.congr {n : ℕ} {Ψ : List Con} (hb : Before n Ψ) {ι ι' : Asgn}
-    (h : Agree n ι ι') {Δ : DEnv} {σ : Store} (hΔ : Δ.Below n) (hσ : Δ.Holds Ψ ι σ) :
-    Δ.Holds Ψ ι' σ := by
-  simpa using hσ.grow hb (Fresh.nil n) h hΔ
 
 theorem DEnv.Holds.update {Δ : DEnv} {Ψ : List Con} {ι : Asgn} {σ : Store}
     (hσ : Δ.Holds Ψ ι σ) (x : Var) {d : DVal} {v : Val} (hd : Describes Ψ ι d v) :
@@ -495,10 +509,9 @@ theorem describesAll_of_le {n₀ n₁ : ℕ} {Ψ Ψ' : List Con} {d : DVal} {ι 
       (∀ d' ∈ ds, DVal.Le n₀ n₁ Ψ' d' d) → DescribesAll (Ψ ++ Ψ') ι' d n₀ vs
   | _, _, .nil, _ => .nil
   | _, _, .cons hd tl, hle => by
-    obtain ⟨ι₁, a₁, hs₁, hd'⟩ :=
-      hle _ (List.mem_cons_self ..) _ [] _ _ hb (by simpa using hs) (by simpa using hd)
+    obtain ⟨ι₁, a₁, hs₁, hd'⟩ := hle _ (List.mem_cons_self ..) _ _ _ hb hs hd
     exact .cons (fun x hx => (h x hx).symm.trans (a₁.agree x hx))
-      ((Sat.congr_before hb a₁.agree hs).append hs₁) hd'
+      ((Sat.congr hb a₁.agree hs).append hs₁) hd'
       (describesAll_of_le hb hs h tl fun d' hd' => hle d' (List.mem_cons_of_mem _ hd'))
 
 theorem DescribesAll.mem {Ψ : List Con} {ι : Asgn} {d : DVal} {a : ℕ} :

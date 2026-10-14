@@ -6,10 +6,8 @@ and provisional decisions with their reopen conditions.
 
 ## Working policy
 
-- **Pause after each phase for review.**
 - **Do not commit.** Commits are made by the repository owner.
-- **Run only the tests relevant to the change.** The full suite runs at the
-  end (below).
+- **Run only the tests relevant to the change.** The full suite is below.
 - **Comments stay succinct**, and notes about process belong here, not in
   source comments.
 - **The Lean is the source of truth.** A bug found in the draft goes into the
@@ -33,7 +31,7 @@ Each fix is a change to the draft; the Lean states the fixed rule.
 | Fig. 12 `D-Logb`, at zero | `logb(e) : ⟨[0, μ], m⟩` | Every interval concretizes `0` under every assignment, but `logb 0 = −∞`, so the symbolic value `m` is unconstrained by a zero `e`. `e = max(logb(x), 5)` with `σ(x) = 0` and `ι(msb(x)) = 100`: `ι` satisfies `val(e) ≥ msb(x)`, `val(e) ≥ 5`, yet `e` evaluates to `5`, and no `ι'` agreeing with `ι` on `msb(x)` (a variable of `Δ`) has `ι'(val(e)) = 5`. `max_e` in `fdpa` applies `logb` to inputs that may be `0`. | Extended endpoints: `0` has `[+∞, −∞]`, so `logb 0 = −∞ = msb(0)` (`lsbOf`, `msbOf`). |
 | Theorem 4.2, values with infinitely many digits | `γ_ι([l, m])` requires `min digits(v) = ι(l)` | `0.1`, or `√2` and `x / 3` under `R`, have no least significant digit, so no interval concretizes them; yet D-Const gives `0.1` the value `⟨[λ, μ], _⟩` and Table 2's "all others" covers `√` and `÷`. | Extended endpoints: such a value has lsb `−∞`. |
 | Fig. 12 `D-While` | `Δ_I = Δ ⊔ Δ′` | The invariant's variables depend on the body's outputs, which depend on the invariant, so the constraints are cyclic and the proof cannot re-choose variables in order. For a variable the body leaves unchanged, `μ_I ≤ max(m, μ_I)` bounds nothing. | An invariant with `Δ ⊑ Δ_I` and `Δ′ ⊑ Δ_I`, as A-While; the join is an instance. |
-| Fig. 12 `D-Index` | `e₁[e₂] : d` | Each list element is described under its own assignment of `d`'s variables, but once the list is in a variable those are variables of `Δ`, which the theorem keeps fixed. `xs = [1, 4]; z = xs[1]` needs `val = 4` while `Δ` fixes it at the value describing another element. | The result is a copy of `d` with fresh variables, justified for every assignment of `d`'s variables. |
+| Fig. 12 `D-Index` | `e₁[e₂] : d` | Each list element is described under its own assignment of `d`'s variables, but once the list is in a variable those are variables of `Δ`, which the theorem keeps fixed. `xs = [1, 4]; z = xs[1]` needs `val = 4` while `Δ` fixes it at the value describing another element. | The result is a fresh copy of `d`, with `Ψ`'s constraints on `d`'s variables renamed onto the copy. |
 | §4.3, list concretization | `vⱼ ∈ γ_ιⱼ(d)` for some `ιⱼ ⊨ Ψ` agreeing with `ι` outside the variables of `d` | `Ψ` keeps growing, and a later constraint can mention `d`'s variables (`ν ≤ μ + 1` after the list): `ιⱼ` changes `μ` but must keep `ι`'s `ν`, so `ιⱼ ⊨ Ψ` can fail. | `ιⱼ` agrees with `ι` on the variables created before `d`'s, and re-chooses the rest. |
 | Fig. 12 `D-Logb`, `D-Max`, `D-Min` | under any context `C` | Each rounds under `C`, which can change an integer result (`Fixed(3, RTZ)` sends `5` to `0`), so the symbolic value no longer matches. | State them under `R`, as `D-Linear`. |
 | §5.2 Overflow, the test | `if \|r\| > b` under `C` | `\|·\|` is a rounded operator, so the test sees `C(\|r\|)`. When `C` overflows to NaN (MX E4M3, the running example) or saturates to `b`, an `r` beyond `b` fails the test and `x = r` leaves `F`. | Compare exactly: `r < −b`, `b < r` (unrounded `<`), or under `R`. |
@@ -57,7 +55,9 @@ The claim is each rewrite on its own. Not mechanized:
 - **SplitOp with a bounded intermediate format.** The instances
   (`splitOp_add`, …) need `F₂.b = ⊤`; a bounded `F₂` would need
   `OverflowAgrees` at one input, which Mpfx states only for all inputs.
-- **The `p = 1` failure of FloatToFixed**, argued by hand, not proved.
+- **D-Index keeps none of a list summary's bounds.** `DVal.Copy` must hold for
+  any constraints generated before the derivation, which Theorem 4.2 cannot
+  name. Threading the global `Ψ` through the judgment would close this.
 - **The paper's concrete setting**: a decoding of `IEEE754`, `Fixed` and `Int`
   records into Mpfx contexts, the second pass refining formats by digit bounds,
   and the worked examples (`mac`, `fdpa`, `fused_sum`).
@@ -75,7 +75,7 @@ The claim is each rewrite on its own. Not mechanized:
 - **Theorem 4.2's assignments.** One assignment per value of an expression,
   and per loop iteration, agreeing on `Δ`'s variables. Descriptions take the
   constraints generated so far; a list's elements each get an assignment
-  satisfying them (the list row above).
+  satisfying them (§4.3 list concretization, above).
 - **Rules only, not the implementation's algorithm.** The theorems cover any
   derivation; widening, the set-size cap and Z3 only construct derivations.
   The draft should say "the rules are sound". Reopen if it wants an extracted

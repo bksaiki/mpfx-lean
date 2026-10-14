@@ -207,8 +207,8 @@ Names are in `namespace Fpy.DigitBound`.
 
 ### §5 — Rewrites
 
-Each rewrite is an `Equiv`. A rewrite's fresh variables are kept apart from the
-rest of the program by `Rw`, not by the `equiv_*` statements.
+A rewrite's fresh variables are kept apart from the rest of the program by `Rw`,
+not by the `equiv_*` statements.
 
 | Paper | Lean | File |
 | --- | --- | --- |
@@ -227,11 +227,8 @@ rest of the program by `Rw`, not by the `equiv_*` statements.
 ### Differences from the draft
 
 Where a rule of the draft is unsound or underspecified, the Lean states a fixed
-rule; the list is in [`docs/agents/FPY_PLAN.md`](docs/agents/FPY_PLAN.md).
-
-Not mechanized: the composition of rewrites (e.g. Fig. 9), and the
-implementation's fixpoint algorithm, which only constructs derivations of the
-rules.
+rule; the list, and what is not mechanized, is in
+[`docs/agents/FPY_PLAN.md`](docs/agents/FPY_PLAN.md).
 
 ## Verifying
 

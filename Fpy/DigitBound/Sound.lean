@@ -9,7 +9,8 @@ under the constraints `Ψg` generated before it; descriptions carry over as
 constraints are added (`Describes.grow`).
 Untaken branches and zero-iteration loops re-choose their variables
 (`Sat.extend`); loops iterate by `loop_sound`; D-Int and D-Fmt use Theorem 4.1.
-`DEval.wf` gives each derivation's fresh ranges.
+`DEval.wf` gives each derivation's fresh ranges; `run_precision` bounds a result's
+precision.
 -/
 
 namespace Fpy.DigitBound
@@ -19,7 +20,7 @@ open Mpfx
 variable {decode : List (Label × Val) → Option RoundCtx} {Φ : Program (fpy decode)}
   {D : FormatDomain} {A : Analysis (fpy decode) D}
 
-/-! ## Well-formed derivations -/
+/-! ## Fresh ranges of derivations -/
 
 theorem ctxBelow_real (n : ℕ) : CtxBelow n (some SCtx.real) :=
   fun K hK => by obtain rfl := Option.mem_some_iff.mp hK; trivial
@@ -53,9 +54,7 @@ theorem DEval.wf {Δ : DEnv} {Γ : AEnv D} {κ : Option SCtx} {χ : Option Val} 
       have hle := hF.le
       refine ⟨hlb, hmb, fun t ht => ?_⟩
       obtain rfl := Option.mem_some_iff.mp ht
-      split
-      · exact ⟨h₁.mono hle, h₂.mono hle⟩
-      · exact ⟨h₁.mono hle, h₂.mono hle⟩⟩
+      split <;> exact ⟨h₁.mono hle, h₂.mono hle⟩⟩
   | .neg hl _ hF hlb hmb => ⟨(DEvalList.wf hl).1.append hF, fun hΔ hκ => by
       have h₁ := ((DEvalList.wf hl).2 hΔ hκ _ (List.mem_cons_self ..)).2.2 _ rfl
       refine ⟨hlb, hmb, fun t ht => ?_⟩
@@ -210,12 +209,28 @@ theorem admits_real {ι : Asgn} {C : Val} (h : ∀ K ∈ some SCtx.real, K.Admit
 theorem admits_real' (ι : Asgn) : ∀ K ∈ some SCtx.real, K.Admits ι .real :=
   fun K hK => by obtain rfl := Option.mem_some_iff.mp hK; rfl
 
-/-- Moving to the next step: the constraints so far, with those of the step
-just taken, are below its end and hold. -/
+theorem knownCtx_admits {a : AVal D} {v : Val} (h : Fpy.Describes a v) :
+    Admits (knownCtx a) v := by
+  cases a with
+  | known C => cases h; exact admits_some _
+  | _ => exact admits_none _
+
+/-- The constraints so far, with the last step's appended, stay below its end
+and hold. -/
 theorem step {n₀ n₁ : ℕ} {Ψg Ψ : List Con} {ι ι₁ : Asgn} (hb : Before n₀ Ψg) (hs : Sat ι Ψg)
     (hF : Fresh n₀ n₁ Ψ) (a : Agree n₀ ι ι₁) (hs₁ : Sat ι₁ Ψ) :
     Before n₁ (Ψg ++ Ψ) ∧ Sat ι₁ (Ψg ++ Ψ) :=
-  ⟨hb.append hF, (Sat.congr_before hb a hs).append hs₁⟩
+  ⟨hb.append hF, (Sat.congr hb a hs).append hs₁⟩
+
+/-- A returned value, with the return bounds joined. -/
+theorem ret_join {n₂ n₃ : ℕ} {Ψg Ψ : List Con} {ι : Asgn} {a₁ a : Option DVal} {v : Val}
+    (hw : ∃ d ∈ a₁, Describes Ψg ι d v) (hb : Before n₂ Ψg) (hs : Sat ι Ψg)
+    (hra : RetLe n₂ n₃ Ψ a₁ a) :
+    ∃ ι', Agree n₂ ι ι' ∧ Sat ι' Ψ ∧ ∃ d ∈ a, Describes (Ψg ++ Ψ) ι' d v := by
+  obtain ⟨d, hd, hv⟩ := hw
+  obtain ⟨d', hd', hle⟩ := hra d hd
+  obtain ⟨ι', h, hs', hv'⟩ := hle Ψg ι v hb hs hv
+  exact ⟨ι', h.agree, hs', d', hd', hv'⟩
 
 /-- The end of `s₁; s₂`: the outcome of `s₂`, with the return bounds joined. -/
 theorem within_seq {n₂ n₃ : ℕ} {Ψg Ψ : List Con} {ι : Asgn} {Δ : DEnv} {a₂ a : Option DVal}
@@ -226,11 +241,7 @@ theorem within_seq {n₂ n₃ : ℕ} {Ψg Ψ : List Con} {ι : Asgn} {Δ : DEnv}
   | normal σ =>
     obtain ⟨ι', h, hs'⟩ := Sat.extend hF ι
     exact ⟨ι', h, hs', hw.grow hb hF h hΔ ha⟩
-  | ret v =>
-    obtain ⟨d, hd, hv⟩ := hw
-    obtain ⟨d', hd', hle⟩ := hra d hd
-    obtain ⟨ι', h, hs', hv'⟩ := hle Ψg [] ι v hb (by simpa using hs) (by simpa using hv)
-    exact ⟨ι', h.agree, hs', d', hd', hv'⟩
+  | ret v => exact ret_join hw hb hs hra
 
 /-- The end of a branch: its outcome, with environments and return bounds joined. -/
 theorem within_join {n₂ n₃ : ℕ} {Ψg Ψ : List Con} {ι : Asgn} {Δ₁ Δ' : DEnv}
@@ -239,26 +250,23 @@ theorem within_join {n₂ n₃ : ℕ} {Ψg Ψ : List Con} {ι : Asgn} {Δ₁ Δ'
     ∃ ι', Agree n₂ ι ι' ∧ Sat ι' Ψ ∧ Within (Ψg ++ Ψ) ι' Δ' a o := by
   cases o with
   | normal σ =>
-    obtain ⟨ι', h, hs', hσ⟩ := hle Ψg [] ι σ hb (by simpa using hs) (by simpa using hw)
+    obtain ⟨ι', h, hs', hσ⟩ := hle Ψg ι σ hb hs hw
     exact ⟨ι', h.agree, hs', hσ⟩
-  | ret v =>
-    obtain ⟨d, hd, hv⟩ := hw
-    obtain ⟨d', hd', hle'⟩ := hra d hd
-    obtain ⟨ι', h, hs', hv'⟩ := hle' Ψg [] ι v hb (by simpa using hs) (by simpa using hv)
-    exact ⟨ι', h.agree, hs', d', hd', hv'⟩
+  | ret v => exact ret_join hw hb hs hra
 
 /-- Composes two steps of a prefix-form soundness proof. -/
 theorem chain {P : Asgn → Prop} {n₀ n₁ : ℕ} {Ψ Ψ' : List Con} {ι ι₁ ι₂ : Asgn}
     (hF : Fresh n₀ n₁ Ψ) (a₁ : Agree n₀ ι ι₁) (hs₁ : Sat ι₁ Ψ) (a₂ : Agree n₁ ι₁ ι₂)
     (hs₂ : Sat ι₂ Ψ') (h : P ι₂) : ∃ ι', Agree n₀ ι ι' ∧ Sat ι' (Ψ ++ Ψ') ∧ P ι' :=
-  ⟨ι₂, a₁.trans (a₂.mono hF.le), (Sat.congr hF a₂ hs₁).append hs₂, h⟩
+  ⟨ι₂, a₁.trans (a₂.mono hF.le), (Sat.congr hF.before a₂ hs₁).append hs₂, h⟩
 
 /-- `chain` over three steps. -/
 theorem chain₃ {P : Asgn → Prop} {n₀ n₁ n₂ : ℕ} {Ψ₁ Ψ₂ Ψ₃ : List Con} {ι ι₁ ι₂ ι₃ : Asgn}
     (hF₁ : Fresh n₀ n₁ Ψ₁) (hF₂ : Fresh n₁ n₂ Ψ₂) (a₁ : Agree n₀ ι ι₁) (hs₁ : Sat ι₁ Ψ₁)
     (a₂ : Agree n₁ ι₁ ι₂) (hs₂ : Sat ι₂ Ψ₂) (a₃ : Agree n₂ ι₂ ι₃) (hs₃ : Sat ι₃ Ψ₃) (h : P ι₃) :
     ∃ ι', Agree n₀ ι ι' ∧ Sat ι' (Ψ₁ ++ Ψ₂ ++ Ψ₃) ∧ P ι' :=
-  chain (hF₁.append hF₂) (a₁.trans (a₂.mono hF₁.le)) ((Sat.congr hF₁ a₂ hs₁).append hs₂) a₃ hs₃ h
+  chain (hF₁.append hF₂) (a₁.trans (a₂.mono hF₁.le)) ((Sat.congr hF₁.before a₂ hs₁).append hs₂)
+    a₃ hs₃ h
 
 /-! ## Integer rules
 
@@ -407,11 +415,6 @@ end Rules
 
 /-! ## Loops -/
 
-theorem knownCtx_admits {a : AVal D} {v : Val} (h : Fpy.Describes a v) : Admits (knownCtx a) v := by
-  cases a with
-  | known C => cases h; exact admits_some _
-  | _ => exact admits_none _
-
 /-- The loop invariant: from a store `Δᵢ` and `Γᵢ` describe, the rest of a loop
 ends in `Δᵢ` or returns within its bound, given the soundness of its body. -/
 theorem loop_sound (hA : A.Sound Φ) {e : Expr (fpy decode)} {s : Stmt (fpy decode)}
@@ -428,22 +431,21 @@ theorem loop_sound (hA : A.Sound Φ) {e : Expr (fpy decode)} {s : Stmt (fpy deco
       ∃ ι', Agree n₀ ι ι' ∧ Sat ι' (Ψᵢ ++ Ψ) ∧ Within (Ψg ++ (Ψᵢ ++ Ψ)) ι' Δᵢ a o
   | _, _, _, _, ι, .whileFalse _, rfl, hsᵢ, hσ, _, _, _ => by
       obtain ⟨ι₁, a₁, hs₁⟩ := Sat.extend hF ι
-      refine ⟨ι₁, a₁.mono hFᵢ.le, (Sat.congr hFᵢ a₁ hsᵢ.right).append hs₁, ?_⟩
+      refine ⟨ι₁, a₁.mono hFᵢ.le, (Sat.congr hFᵢ.before a₁ hsᵢ.right).append hs₁, ?_⟩
       simpa using hσ.grow (hbg.append hFᵢ) hF a₁ hbᵢ
   | _, _, _, _, ι, .whileTrue hg (.seqNormal hs hw), rfl, hsᵢ, hσ, hΓ, hC, hχ => by
       have hΓr := hA.refine hΓ hχ hg
       obtain ⟨ι₂, a₂, hs₂, hσ₂⟩ := hbody hs hsᵢ hσ hΓr hC hχ
-      have hsg₂ : Sat ι₂ Ψg := Sat.congr_before (hbg.mono hFᵢ.le) a₂ hsᵢ.left
-      obtain ⟨ι₃, a₃, hs₃, hσ₃⟩ := hle' Ψg (Ψᵢ ++ Ψ) ι₂ _ hbg
-        (by simpa using (step (hbg.append hFᵢ) hsᵢ hF a₂ hs₂).2) (by simpa using hσ₂)
+      obtain ⟨-, hsg₂⟩ := step (hbg.append hFᵢ) hsᵢ hF a₂ hs₂
+      obtain ⟨ι₃, a₃, hs₃, hσ₃⟩ := hle' Ψg ι₂ _ hbg hsg₂.left.left hσ₂.of_append.of_append
       have a₁₃ := (a₂.mono hFᵢ.le).trans a₃.agree
       obtain ⟨ι₄, a₄, hs₄, hw'⟩ := loop_sound hA hbg hFᵢ hbᵢ hF hAx hΓ' hle' hκ hbody hw rfl
-        ((Sat.congr_before hbg a₃.agree hsg₂).append hs₃) hσ₃
+        ((Sat.congr hbg a₃.agree hsg₂.left.left).append hs₃) hσ₃
         (hΓ' _ (Fpy.exec_sound hA hs hΓr hχ hAx)) (admits_congr a₁₃ hκ hC) hχ
       exact ⟨ι₄, a₁₃.trans a₄, hs₄, hw'⟩
   | _, _, _, _, _, .whileTrue hg (.seqRet hs), rfl, hsᵢ, hσ, hΓ, hC, hχ => by
       obtain ⟨ι₂, a₂, hs₂, hw⟩ := hbody hs hsᵢ hσ (hA.refine hΓ hχ hg) hC hχ
-      exact ⟨ι₂, a₂.mono hFᵢ.le, (Sat.congr hFᵢ a₂ hsᵢ.right).append hs₂, by simpa using hw⟩
+      exact ⟨ι₂, a₂.mono hFᵢ.le, (Sat.congr hFᵢ.before a₂ hsᵢ.right).append hs₂, by simpa using hw⟩
   | _, _, _, _, _, .assign _, h, _, _, _, _, _ | _, _, _, _, _, .skip, h, _, _, _, _, _
   | _, _, _, _, _, .ret _, h, _, _, _, _, _ | _, _, _, _, _, .assert _, h, _, _, _, _, _
   | _, _, _, _, _, .seqNormal _ _, h, _, _, _, _, _ | _, _, _, _, _, .seqRet _, h, _, _, _, _, _
@@ -489,20 +491,15 @@ theorem eval_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ e d Ψ n₁},
       hbg, hsg, hΔ, hκ, hσ, hΓ, hC, hχ => by
       have hF₁ := (DEval.wf hd₁).1
       have hF₂ := (DEval.wf hd₂).1
-      obtain ⟨ha, hdb⟩ := (DEval.wf hd₁).2 hΔ hκ
       obtain ⟨ι₁, a₁, hs₁, hl⟩ := eval_sound hA hd₁ h₁ hbg hsg hΔ hκ hσ hΓ hC hχ
       obtain ⟨hb₁, hsg₁⟩ := step hbg hsg hF₁ a₁ hs₁
-      cases hl with
+      obtain ⟨ι₂, a₂, hs₂, -⟩ := eval_sound hA hd₂ h₂ hb₁ hsg₁ (hΔ.mono hF₁.le)
+        (hκ.mono hF₁.le) (hσ.grow hbg hF₁ a₁ hΔ) hΓ (admits_congr a₁ hκ hC) hχ
+      obtain ⟨hb₂, hsg₂⟩ := step hb₁ hsg₁ hF₂ a₂ hs₂
+      cases hl.grow hb₁ hF₂ a₂ ((DEval.wf hd₁).2 hΔ hκ) with
       | list hall =>
         obtain ⟨ι₀, h₀, hs₀, hv₀⟩ := hall.mem (List.mem_of_getElem? hk)
-        obtain ⟨ι₂, a₂, hs₂, -⟩ := eval_sound hA hd₂ h₂ hb₁ hsg₁ (hΔ.mono hF₁.le)
-          (hκ.mono hF₁.le) (hσ.grow hbg hF₁ a₁ hΔ) hΓ (admits_congr a₁ hκ hC) hχ
-        obtain ⟨hb₂, hsg₂⟩ := step hb₁ hsg₁ hF₂ a₂ hs₂
-        obtain ⟨ι₀', a₀, hs₀'⟩ := Sat.extend hF₂ ι₀
-        obtain ⟨ι₃, a₃, hs₃, hv⟩ := hcopy _ ι₂ ι₀' _ hb₂ hsg₂
-          (fun x hx => (a₂ x (lt_of_lt_of_le hx ha)).symm.trans
-            ((h₀ x hx).trans (a₀ x (lt_of_lt_of_le hx ha))))
-          ((Sat.congr_before hb₁ a₀ hs₀).append hs₀') (hv₀.grow hb₁ hF₂ a₀ hdb)
+        obtain ⟨ι₃, a₃, hs₃, hv⟩ := hcopy _ ι₂ ι₀ _ hb₂ hsg₂ h₀ hs₀ hv₀
         exact chain₃ hF₁ hF₂ a₁ hs₁ a₂ hs₂ a₃.agree hs₃ (by simpa using hv)
   | _, _, _, _, _, _, _, _, _, .record hdf, _, _, _, _, _, .record hf,
       hbg, hsg, hΔ, hκ, hσ, hΓ, hC, hχ => by
@@ -553,7 +550,7 @@ theorem eval_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ e d Ψ n₁},
       have a₂ : Agree n₁ ι₁ ι₂ := fun x hx => by
         simp only [ι₂, Function.update_of_ne (show x ≠ n₁ + 1 by omega),
           Function.update_of_ne (show x ≠ n₁ by omega)]
-      refine ⟨ι₂, a₁.trans (a₂.mono hF₁.le), Sat.congr hF₁ a₂ hs₁, .num (.inr ⟨?_, ?_, ?_⟩)⟩
+      refine ⟨ι₂, a₁.trans (a₂.mono hF₁.le), Sat.congr hF₁.before a₂ hs₁, .num (.inr ⟨?_, ?_, ?_⟩)⟩
       · simp [ι₂, Term.eval]
       · simp [ι₂, Term.eval]
       · intro t ht; exact absurd ht (by simp)
@@ -683,13 +680,11 @@ theorem exec_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ s Δ' a Ψ n₁},
       have hF₁ := (DExec.wf hd₁).1
       have hF₂ := (DExec.wf hd₂).1
       have hb₁ := (DExec.wf hd₁).2 hΔ hκ
-      have hb₂ := (DExec.wf hd₂).2 hb₁.1 (hκ.mono hF₁.le)
       obtain ⟨ι₁, a₁, hs₁, hw₁⟩ := exec_sound hA hd₁ h₁ hbg hsg hΔ hκ hσ hΓ hC hχ
       obtain ⟨hp₁, hsg₁⟩ := step hbg hsg hF₁ a₁ hs₁
       obtain ⟨ι₂, a₂, hs₂⟩ := Sat.extend hF₂ ι₁
       obtain ⟨hp₂, hsg₂⟩ := step hp₁ hsg₁ hF₂ a₂ hs₂
-      obtain ⟨ι₃, a₃, hs₃, hw⟩ := within_seq (Δ := _) (o := .ret _)
-        (hw₁.grow hp₁ hF₂ a₂ hb₁.1 hb₁.2) hp₂ hsg₂ (hb₁.1.mono hF₂.le) (hb₁.2.mono hF₂.le) hF hra₁
+      obtain ⟨ι₃, a₃, hs₃, hw⟩ := ret_join (hw₁.grow hp₁ hF₂ a₂ hb₁.1 hb₁.2) hp₂ hsg₂ hra₁
       exact chain₃ hF₁ hF₂ a₁ hs₁ a₂ hs₂ a₃ hs₃ (by simpa using hw)
   | _, _, _, _, _, _, _, _, _, _, .ite hd₁ hd₂ hle₁ _ hra₁ _ hF _ _, _, _, _, _, _,
       .iteTrue hg h₁, hbg, hsg, hΔ, hκ, hσ, hΓ, hC, hχ => by
@@ -717,11 +712,11 @@ theorem exec_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ n₀ s Δ' a Ψ n₁},
       exact chain₃ hF₁ hF₂ a₁ hs₁ a₂ hs₂ a₃ hs₃ (by simpa using hw)
   | _, _, _, _, _, _, _, _, _, _, .whileDo hle hFᵢ hbᵢ hΓᵢ hAx hΓ' hbody hle', _, _, _, _, _, h,
       hbg, hsg, _, hκ, hσ, hΓ, hC, hχ => by
-      obtain ⟨ι₁, a₁, hs₁, hσ₁⟩ := hle _ [] _ _ hbg (by simpa using hsg) (by simpa using hσ)
+      obtain ⟨ι₁, a₁, hs₁, hσ₁⟩ := hle _ _ _ hbg hsg hσ
       obtain ⟨ι₂, a₂, hs₂, hw⟩ := loop_sound hA hbg hFᵢ hbᵢ (DExec.wf hbody).1 hAx hΓ' hle' hκ
         (fun hE hs' hσ' hΓ'' hC' hχ' => exec_sound hA hbody hE (hbg.append hFᵢ) hs' hbᵢ
           (hκ.mono hFᵢ.le) hσ' hΓ'' hC' hχ')
-        h rfl ((Sat.congr_before hbg a₁.agree hsg).append hs₁) hσ₁ (hΓᵢ _ hΓ)
+        h rfl ((Sat.congr hbg a₁.agree hsg).append hs₁) hσ₁ (hΓᵢ _ hΓ)
         (admits_congr a₁.agree hκ hC) hχ
       exact ⟨ι₂, a₁.agree.trans a₂, hs₂, hw⟩
   | _, _, _, _, _, _, _, _, _, _, .withCtx hd ha hbody, _, _, _, _, _, .withCtx he _ hs,
@@ -770,9 +765,38 @@ theorem run_sound (hA : A.Sound Φ) {f : Fn} {y : Var} {s : Stmt (fpy decode)} {
   obtain rfl := Option.mem_some_iff.mp hd''
   exact ⟨ι', h, hsat, by simpa using hv'⟩
 
-/-- Theorem 4.2's precision bound: if every assignment satisfying the
-constraints has `msb ≤ lsb + p − 1` for the result, a finite result has at most
-`p` significant digits. -/
+/-! ## Precision -/
+
+/-- A finite value described by `⟨[l, m], _⟩`
+under `Ψ`, where every assignment satisfying `Ψ` has `m ≤ l + p − 1`, has at
+most `p` significant digits. -/
+theorem precision_of_bound {Ψ : List Con} {ι : Asgn} {l m : Term} {τ : Option Term} {x : ℝ}
+    {p : ℕ} (hs : Sat ι Ψ) (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
+    (hp : ∀ ι, Sat ι Ψ → m.eval ι ≤ l.eval ι + ((p - 1 : ℤ) : EInt)) :
+    ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p := by
+  by_cases hx : x = 0
+  · exact ⟨0, 0, by simp [hx], by simp⟩
+  cases hd with
+  | num hu =>
+    obtain ⟨hl, hm⟩ := hu.eq (by simp)
+    have h := hp ι hs
+    rw [← hl, ← hm, msbOf_of_ne_zero hx] at h
+    cases ha : lsbOf (.finite x) using WithBotTop.rec with
+    | bot => simp [ha] at h
+    | top => exact absurd ha (lsbOf_ne_top hx)
+    | coe a =>
+      rw [ha, coe_add_coe, WithBotTop.coe_le_coe] at h
+      obtain ⟨c, rfl⟩ := coe_le_lsbOf.mp ha.ge
+      refine ⟨c, a, rfl, ?_⟩
+      have hlt : |(c : ℝ) * 2 ^ a| < 2 ^ ((p : ℤ) + a) :=
+        (msbOf_le_coe.mp (msbOf_of_ne_zero hx).le).trans_le
+          (zpow_le_zpow_right₀ (by norm_num) (by omega))
+      rw [abs_mul_two_zpow, zpow_add₀ two_ne_zero] at hlt
+      have := lt_of_mul_lt_mul_right hlt (zpow_pos two_pos a).le
+      rw [zpow_natCast] at this
+      exact_mod_cast this
+
+/-- `precision_of_bound` for a program's result. -/
 theorem run_precision (hA : A.Sound Φ) {f : Fn} {y : Var} {s : Stmt (fpy decode)} {d : DVal}
     {l m : Term} {τ : Option Term} {a : AVal D} {Δ' : DEnv} {Ψ : List Con} {n₀ n₁ : ℕ}
     (hΦ : Φ f = some (y, s))

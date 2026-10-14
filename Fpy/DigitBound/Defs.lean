@@ -7,9 +7,7 @@ import Mathlib.Order.WithBotTop
 
 Digit positions (`lsbOf`, `msbOf`) are extended integers: `0` has `[+∞, −∞]`,
 an infinity `[+∞, +∞]`, a value with infinitely many digits lsb `−∞`; NaN lies
-in every interval. Symbolic values are terms, matched through `numOfE`.
-Descriptions take the constraints so far, which each list element's assignment
-satisfies. Fresh
+in every interval. Symbolic values are terms, matched through `numOfE`. Fresh
 variables are numbered from a threaded counter (`n₀ → n₁`), each bounded by one
 `Con`. Transfers are a semantic premise (`ArithOK`) and joins an order with
 fresh variables (`DVal.Le`, `DEnv.Le`). The judgment carries format inference's
@@ -140,8 +138,8 @@ def SCtx.Below (n : ℕ) : SCtx → Prop
   | .record fs => ∀ f ∈ fs, f.2.Below n
 
 /-- Abstract values: `num l m τ` is `⟨[l, m], τ⟩`, `list d a` a list whose
-elements share the abstract value `d`, with variables from `a`, `other` is `•`,
-and `ctx C` a symbolic context. -/
+elements share the abstract value `d`, with the variables from `a` on re-chosen
+per element, `other` is `•`, and `ctx C` a symbolic context. -/
 inductive DVal where
   | num (l m : Term) (τ : Option Term)
   | list (d : DVal) (a : ℕ)
@@ -215,20 +213,20 @@ def CtxBelow (n : ℕ) (κ : Option SCtx) : Prop := ∀ C ∈ κ, C.Below n
 /-! ## Joins and transfers -/
 
 /-- `d ⊑ d'`, with the fresh variables `[n₀, n₁)` of `d'` bounded by `Ψ`:
-whatever `d` describes under the constraints `Ψg` below `n₀`, and any `Ψx`
-above, `d'` describes under `Ψg` and `Ψ` once those variables are re-chosen. -/
+whatever `d` describes under constraints `Ψg` below `n₀`, `d'` describes under
+`Ψg` and `Ψ` once those variables are re-chosen. -/
 def DVal.Le (n₀ n₁ : ℕ) (Ψ : List Con) (d d' : DVal) : Prop :=
-  ∀ Ψg Ψx ι v, Before n₀ Ψg → Sat ι (Ψg ++ Ψx) → Describes (Ψg ++ Ψx) ι d v →
+  ∀ Ψg ι v, Before n₀ Ψg → Sat ι Ψg → Describes Ψg ι d v →
     ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Describes (Ψg ++ Ψ) ι' d' v
 
 def RetLe (n₀ n₁ : ℕ) (Ψ : List Con) (a a' : Option DVal) : Prop :=
   ∀ d ∈ a, ∃ d' ∈ a', DVal.Le n₀ n₁ Ψ d d'
 
 def DEnv.Le (n₀ n₁ : ℕ) (Ψ : List Con) (Δ Δ' : DEnv) : Prop :=
-  ∀ Ψg Ψx ι σ, Before n₀ Ψg → Sat ι (Ψg ++ Ψx) → Δ.Holds (Ψg ++ Ψx) ι σ →
+  ∀ Ψg ι σ, Before n₀ Ψg → Sat ι Ψg → Δ.Holds Ψg ι σ →
     ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Δ'.Holds (Ψg ++ Ψ) ι' σ
 
-/-- The abstract value `d` of a list's elements, with variables from `a`, copied
+/-- The abstract value `d` of a list's elements, re-chosen from `a` on, copied
 to `d'` with fresh variables: whatever `d` describes under an element's
 assignment, `d'` describes. -/
 def DVal.Copy (n₀ n₁ : ℕ) (Ψ : List Con) (d : DVal) (a : ℕ) (d' : DVal) : Prop :=

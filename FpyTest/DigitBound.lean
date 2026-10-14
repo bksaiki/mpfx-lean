@@ -25,8 +25,7 @@ example {decode : List (Label × Val) → Option RoundCtx} (l₁ m₁ l₂ m₂ 
 theorem log_two_zpow (z : ℤ) : Int.log 2 ((2 : ℝ) ^ z) = z := by
   simpa using Int.log_zpow (R := ℝ) (b := 2) (by norm_num) z
 
-/-- Under the unknown context `?`, which admits `R`, the "all others" row applies,
-here joined with every context's overflow and special values. -/
+/-- Under the unknown context `?`, which admits `R`, the "all others" row applies. -/
 example {decode : List (Label × Val) → Option RoundCtx} {l m : Term} (hl : l.Below 0) :
     RndOK decode none l m 0 2
       (bounds 0 (.min l (.const ⊥)) (.max (.const ⊤) (.const ⊤)) ⟨hl.mono (Nat.le_succ 0), trivial⟩

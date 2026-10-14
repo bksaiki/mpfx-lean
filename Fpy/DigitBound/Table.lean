@@ -6,9 +6,10 @@ import Mpfx.Rounding.Ulp
 
 D-Arith's premise `ArithOK` is `rnd♮_C(op♮(Is))`: an operator transfer
 `OpOK` followed by a rounding transfer `RndOK` (`ArithOK.comp`). Each row of
-Table 2 discharges one. Each row's result is a fresh interval `[n + 1, n]`
-(`fresh_numIn`). Rounding rows take their contexts through `Decodes` and join
-the row with the digits of the context's overflow and special values.
+Table 2 discharges one. Rows other than `−x`, `|x|`, `round(x)` and `R` give a
+fresh interval `[n + 1, n]` (`fresh_numIn`). Rounding rows take their contexts
+through `Decodes` (the "all others" row also admits `R`), and join the row with
+the digits of the context's overflow and special values.
 -/
 
 namespace Fpy.DigitBound
@@ -43,7 +44,7 @@ theorem ArithOK.comp {κ : Option SCtx} {op : ArithOp} {Is : List (Term × Term 
   intro ι ns u C r hns hop hC hr'
   obtain ⟨ι₁, a₁, s₁, h₁⟩ := ho ι ns u hns hop
   obtain ⟨ι₂, a₂, s₂, h₂⟩ := hr ι₁ u C r h₁ (admits_congr a₁.agree hκ hC) hr'
-  refine ⟨ι₂, fun x hx => ?_, (Sat.congr hF₁ a₂.agree s₁).append s₂, h₂⟩
+  refine ⟨ι₂, fun x hx => ?_, (Sat.congr hF₁.before a₂.agree s₁).append s₂, h₂⟩
   have := hF₁.le
   have := hF₂.le
   rw [a₂ x (by omega), a₁ x (by omega)]
@@ -372,7 +373,7 @@ theorem rndOK_prec {p : ℕ} {t : Term} (hl : l.Below n) (ht : t.Below n) (hm : 
     · simp only [Term.eval, eval_update hl, Function.update_self]
       exact max_le (hl' ▸ lsb_round hy) (msb_add_le_lsb hp hy.1 hy0)
 
-/-- All other contexts: `[l, μ]`. -/
+/-- All other contexts, including `R`: `[l, μ]`. -/
 theorem rndOK_any (hl : l.Below n) (hLo : Lo.Below n) (hHo : Ho.Below n)
     (hκ : ∀ ι C r, (∀ K ∈ κ, K.Admits ι C) → C.rnd (fpy decode) = some r →
       r = id ∨ ∃ c : RoundCtx, r = c.round ∧ ImagesIn c (Lo.eval ι) (Ho.eval ι)) :
