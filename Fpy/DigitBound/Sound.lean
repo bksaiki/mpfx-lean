@@ -1,4 +1,4 @@
-import Fpy.DigitBound.Basic
+import Fpy.DigitBound.Digits
 import Fpy.FormatInference.Sound
 
 /-!
@@ -769,5 +769,19 @@ theorem run_sound (hA : A.Sound Φ) {f : Fn} {y : Var} {s : Stmt (fpy decode)} {
     (DEnv.Holds.single hv) (AEnv.holds_single ha) (admits_real' _) (admits_some _)
   obtain rfl := Option.mem_some_iff.mp hd''
   exact ⟨ι', h, hsat, by simpa using hv'⟩
+
+/-- Theorem 4.2's precision bound: if every assignment satisfying the
+constraints has `msb ≤ lsb + p − 1` for the result, a finite result has at most
+`p` significant digits. -/
+theorem run_precision (hA : A.Sound Φ) {f : Fn} {y : Var} {s : Stmt (fpy decode)} {d : DVal}
+    {l m : Term} {τ : Option Term} {a : AVal D} {Δ' : DEnv} {Ψ : List Con} {n₀ n₁ : ℕ}
+    (hΦ : Φ f = some (y, s))
+    (hs : DExec decode Φ A (.single y d) (.single y a) (some .real) (some .real) n₀ s Δ'
+      (some (.num l m τ)) Ψ n₁) (hd : d.Below n₀) {ι : Asgn} {v : Val} {x : ℝ} {p : ℕ}
+    (hv : Describes [] ι d v) (ha : Fpy.Describes a v) (hrun : Run Φ f v (.num (.finite x)))
+    (hp : ∀ ι, Sat ι Ψ → m.eval ι ≤ l.eval ι + ((p - 1 : ℤ) : EInt)) :
+    ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p :=
+  let ⟨_, _, hsat, hd'⟩ := run_sound hA hΦ hs hd hv ha hrun
+  precision_of_bound hsat hd' hp
 
 end Fpy.DigitBound

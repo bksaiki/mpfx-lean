@@ -254,4 +254,36 @@ theorem lsb_logb (u : Num) : ((0 : ℤ) : EInt) ≤ lsbOf (Num.logb u) := by
     · exact coe_le_lsbOf.mpr ⟨Int.log 2 |x|, by simp⟩
   all_goals exact le_top
 
+/-! ## Precision -/
+
+/-- **Precision from digit bounds.** A finite value described by `⟨[l, m], _⟩`
+under `Ψ`, where every assignment satisfying `Ψ` has `m ≤ l + p − 1`, has at
+most `p` significant digits. -/
+theorem precision_of_bound {Ψ : List Con} {ι : Asgn} {l m : Term} {τ : Option Term} {x : ℝ}
+    {p : ℕ} (hs : Sat ι Ψ) (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
+    (hp : ∀ ι, Sat ι Ψ → m.eval ι ≤ l.eval ι + ((p - 1 : ℤ) : EInt)) :
+    ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p := by
+  by_cases hx : x = 0
+  · exact ⟨0, 0, by simp [hx], by simp⟩
+  cases hd with
+  | num hu =>
+    obtain ⟨hl, hm⟩ := hu.eq (by simp)
+    have h := hp ι hs
+    rw [← hl, ← hm, msbOf_of_ne_zero hx] at h
+    cases ha : lsbOf (.finite x) using WithBotTop.rec with
+    | bot => simp [ha] at h
+    | top => exact absurd ha (lsbOf_ne_top hx)
+    | coe a =>
+      rw [ha, coe_add_coe, WithBotTop.coe_le_coe] at h
+      obtain ⟨c, rfl⟩ := coe_le_lsbOf.mp ha.ge
+      refine ⟨c, a, rfl, ?_⟩
+      have hlt : |(c : ℝ) * 2 ^ a| < 2 ^ ((p : ℤ) + a) :=
+        (msbOf_le_coe.mp (msbOf_of_ne_zero hx).le).trans_le
+          (zpow_le_zpow_right₀ (by norm_num) (by omega))
+      rw [abs_mul_two_zpow, zpow_add₀ two_ne_zero] at hlt
+      have := lt_of_mul_lt_mul_right hlt (zpow_pos two_pos a).le
+      rw [zpow_natCast] at this
+      exact_mod_cast this
+
 end Fpy.DigitBound
+

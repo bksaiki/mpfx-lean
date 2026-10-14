@@ -58,6 +58,9 @@ The claim is each rewrite on its own. Not mechanized:
   (`splitOp_add`, …) need `F₂.b = ⊤`; a bounded `F₂` would need
   `OverflowAgrees` at one input, which Mpfx states only for all inputs.
 - **The `p = 1` failure of FloatToFixed**, argued by hand, not proved.
+- **The paper's concrete setting**: a decoding of `IEEE754`, `Fixed` and `Int`
+  records into Mpfx contexts, the second pass refining formats by digit bounds,
+  and the worked examples (`mac`, `fdpa`, `fused_sum`).
 
 ## Provisional decisions
 

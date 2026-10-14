@@ -200,6 +200,7 @@ Names are in `namespace Fpy.DigitBound`.
 | Rules (Fig. 8, 12) | `DEval`, `DExec` | `Fpy/DigitBound/Defs.lean` |
 | D-Int; constraints from inferred formats | `DEval.int`, `DEval.fmt` | `Fpy/DigitBound/Defs.lean` |
 | Theorem 4.2 | `eval_sound`, `exec_sound`, `run_sound` | `Fpy/DigitBound/Sound.lean` |
+| Precision bound (after Theorem 4.2) | `precision_of_bound`, `run_precision` | `Fpy/DigitBound/Digits.lean`, `Sound.lean` |
 | Table 2, operators | `opOK_add`, `opOK_mul`, `opOK_exact`, `opOK_ext`, `opOK_exp2`, `opOK_logb`, `opOK_any` | `Fpy/DigitBound/Table.lean` |
 | Table 2, rounding | `rndOK_real`, `rndOK_fixedRTZ`, `rndOK_fixed`, `rndOK_precRTZ`, `rndOK_prec`, `rndOK_any` | `Fpy/DigitBound/Table.lean` |
 | D-Arith from Table 2 | `ArithOK.comp` | `Fpy/DigitBound/Table.lean` |
