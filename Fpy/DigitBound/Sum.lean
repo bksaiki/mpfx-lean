@@ -1,14 +1,15 @@
-import Fpy.DigitBound.Digits
+import Fpy.DigitBound.Sound
 import Fpy.Sum
 
 /-!
 # D-Sum
 
-The arithmetic content of D-Sum, proved against the definition of `sum`: under
-`R`, if each of `L ≥ 1` elements has digits in `[lo, hi]`, their sum has digits
-in `[lo, hi + ⌈log₂ L⌉]`. It is stated on values: the analysis's list summaries
-re-choose their variables per element, so their bounds are not visible here
-(as for D-Index).
+D-Sum, proved against the definition of `sum`. On values (`sumVal_inRange`,
+`eval_sum_inRange`): under `R`, if each of `L ≥ 1` elements has digits in
+`[lo, hi]`, their sum has digits in `[lo, hi + ⌈log₂ L⌉]`. Over the analysis
+(`eval_sum_sound`): if the constraints so far bound a list summary
+`⟨[l, m], τ⟩` by terms `lo ≤ l`, `m ≤ hi` over earlier variables, `sum(e)`
+lies in a fresh `[λ, μ]` with `λ ≥ lo`, `μ ≤ hi + ⌈log₂ L⌉`.
 -/
 
 namespace Fpy.DigitBound
@@ -136,5 +137,57 @@ theorem eval_sum_inRange (hsum : Φ "sum" = some ("xs", sumBody)) {σ : Store}
     rw [List.length_map] at hlen
     subst hlen
     exact ⟨_, rfl, sumVal_inRange hL hus⟩
+
+variable {D : FormatDomain} {A : Analysis (fpy decode) D}
+
+/-- **D-Sum**, over the analysis: a list summary bounded by `lo` and `hi` under
+the constraints so far gives `sum(e)` the fresh interval `[n₁ + 1, n₁]` with
+`lo ≤ λ` and `μ ≤ hi + ⌈log₂ L⌉`. -/
+theorem eval_sum_sound (hA : A.Sound Φ) (hsum : Φ "sum" = some ("xs", sumBody))
+    {Δ : DEnv} {Γ : AEnv D} {χ : Option Val} {Ψg Ψ : List Con} {n₀ n₁ a : ℕ}
+    {e : Expr (fpy decode)} {l m lo hi : Term} {τ : Option Term} {L : ℕ}
+    (hd : DEval decode Φ A Δ Γ (some .real) χ Ψg n₀ e (.list (.num l m τ) a) Ψ n₁)
+    (hlo : lo.Below a) (hhi : hi.Below a) (ha : a ≤ n₁)
+    (hbnd : ∀ ι, Sat ι (Ψg ++ Ψ) → lo.eval ι ≤ l.eval ι ∧ m.eval ι ≤ hi.eval ι) (hL : 1 ≤ L)
+    (hlen : ∀ σ vs, Eval Φ σ .real e (.list vs) → vs.length = L) {σ : Store} {v : Val}
+    {ι : Asgn} (h : Eval Φ σ .real (.call "sum" e) v) (hbg : Before n₀ Ψg) (hsg : Sat ι Ψg)
+    (hΔ : Δ.Below n₀) (hσ : Δ.Holds Ψg ι σ) (hΓ : Γ.Holds σ) (hχ : Admits χ .real) :
+    ∃ ι', Agree n₀ ι ι' ∧
+      Sat ι' (Ψ ++ bounds n₁ lo (.add hi (.const ((Nat.clog 2 L : ℕ) : ℤ)))
+        ((hlo.mono ha).mono (Nat.le_succ n₁)) ⟨hhi.mono ha, trivial⟩) ∧
+      Describes (Ψg ++ (Ψ ++ bounds n₁ lo (.add hi (.const ((Nat.clog 2 L : ℕ) : ℤ)))
+        ((hlo.mono ha).mono (Nat.le_succ n₁)) ⟨hhi.mono ha, trivial⟩)) ι'
+        (.num (.var (n₁ + 1)) (.var n₁) none) v := by
+  cases h with
+  | call hΦ he hs =>
+    rw [hsum] at hΦ
+    obtain ⟨rfl, rfl⟩ := Prod.mk.inj (Option.some.inj hΦ)
+    obtain ⟨ι₁, a₁, hs₁, hdl⟩ := eval_sound hA hd he hbg hsg hΔ (ctxBelow_real _) hσ hΓ
+      (admits_real' _) hχ
+    cases hdl with
+    | list hall =>
+      rename_i vs
+      have hel : ∀ w ∈ vs, ∃ u, w = .num u ∧ InRange (lo.eval ι₁) (hi.eval ι₁) u := by
+        intro w hw
+        obtain ⟨ι₀, h₀, hs₀, hd₀⟩ := hall.mem hw
+        cases hd₀ with
+        | num hu =>
+          refine ⟨_, rfl, hu.imp id fun ⟨hl', hm', _⟩ => ?_⟩
+          obtain ⟨b₁, b₂⟩ := hbnd ι₀ hs₀
+          rw [Term.eval_congr h₀ hlo, Term.eval_congr h₀ hhi, hl', hm']
+          exact ⟨b₁, b₂⟩
+      obtain ⟨us, rfl, hus⟩ := exists_map_num hel
+      obtain ⟨⟩ := exec_sumBody (r := id) rfl hs
+      have hlen' := hlen σ _ he
+      rw [List.length_map] at hlen'
+      have hr := sumVal_inRange (by omega) hus
+      rw [hlen'] at hr
+      obtain ⟨ι₂, a₂, hs₂, hw⟩ := fresh_numIn (n := n₁)
+        ((hlo.mono ha).mono (Nat.le_succ n₁)) (Hi := .add hi (.const ((Nat.clog 2 L : ℕ) : ℤ)))
+        ⟨hhi.mono ha, trivial⟩ ι₁ _ fun hn => by
+          obtain ⟨h₁, h₂⟩ := hr.resolve_left hn
+          rw [eval_update (hlo.mono ha)]
+          exact ⟨h₂, h₁⟩
+      exact chain (DEval.wf hd).1 a₁ hs₁ a₂.agree hs₂ (.num hw)
 
 end Fpy.DigitBound
