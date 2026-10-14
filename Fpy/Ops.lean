@@ -259,4 +259,14 @@ noncomputable def fpy (decode : List (Label × Val) → Option RoundCtx) : Signa
   exact := ExactOp.eval
   ρ fs := (decode fs).map RoundCtx.round
 
+variable {decode : List (Label × Val) → Option RoundCtx}
+
+/-- `op(e⃗)` with a rounded FPy operator. -/
+abbrev Expr.arithOp (op : ArithOp) (es : List (Expr (fpy decode))) : Expr (fpy decode) :=
+  .arith op es
+
+/-- `op(e⃗)` with an unrounded FPy operator. -/
+abbrev Expr.exactOp (op : ExactOp) (es : List (Expr (fpy decode))) : Expr (fpy decode) :=
+  .exact op es
+
 end Fpy

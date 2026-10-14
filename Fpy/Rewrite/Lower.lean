@@ -228,14 +228,6 @@ end RoundCtx
 variable {decode : List (Label × Val) → Option RoundCtx} {Φ : Program (fpy decode)}
   {D : FormatDomain} {Γ : AEnv D} {X : Set Var}
 
-/-- `op(e⃗)` with a rounded FPy operator. -/
-abbrev Expr.arithOp (op : ArithOp) (es : List (Expr (fpy decode))) : Expr (fpy decode) :=
-  .arith op es
-
-/-- `op(e⃗)` with an unrounded FPy operator. -/
-abbrev Expr.exactOp (op : ExactOp) (es : List (Expr (fpy decode))) : Expr (fpy decode) :=
-  .exact op es
-
 theorem exec_round {σ : Store} {C : Val} {r : Num → Num} {x t : Var} {u : Num}
     (hr : C.rnd (fpy decode) = some r) (ht : σ t = some (.num u)) :
     Exec Φ σ C (.assign x (.arithOp .round [.var t])) (.normal (σ.update x (.num (r u)))) :=

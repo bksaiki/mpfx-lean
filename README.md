@@ -177,6 +177,7 @@ contexts that round through `Mpfx.rnd` and any record layout `decode`.
 | Syntax (Fig. 2) | `Expr`, `Stmt`, `Program` | `Fpy/Syntax.lean` |
 | Big-step semantics (Fig. 3, 10) | `Eval`, `Exec`, `Run` | `Fpy/Semantics.lean` |
 | Determinism (beyond the paper) | `Eval.det`, `Exec.det` | `Fpy/Semantics.lean` |
+| `sum` (Appendix A) | `sumBody`, `exec_sumBody` | `Fpy/Sum.lean` |
 | FPy's operators and contexts | `fpy`, `ArithOp`, `ExactOp`, `RoundCtx` | `Fpy/Ops.lean` |
 
 ### §4.2 — Format inference (Fig. 4, 5, 11; Table 1)
@@ -190,6 +191,7 @@ contexts that round through `Mpfx.rnd` and any record layout `decode`.
 | Table 1 | `ArithOp.fmt`, `ArithOp.fmt_sound`, `ExactOp.aval_sound` | `Fpy/FormatInference/Ops.lean` |
 | Condition refinement | `refine`, `refine_sound` | `Fpy/FormatInference/Refine.lean` |
 | Theorem 4.1 for FPy | `fpy_run_sound` | `Fpy/FormatInference/Analysis.lean` |
+| A-Sum | `sumFmt`, `eval_sum` | `Fpy/FormatInference/Sum.lean` |
 
 ### §4.3 — Digit-bound analysis (Fig. 7, 8, 12; Table 2)
 
@@ -200,7 +202,8 @@ Names are in `namespace Fpy.DigitBound`.
 | Rules (Fig. 8, 12) | `DEval`, `DExec` | `Fpy/DigitBound/Defs.lean` |
 | D-Int; constraints from inferred formats | `DEval.int`, `DEval.fmt` | `Fpy/DigitBound/Defs.lean` |
 | Theorem 4.2 | `eval_sound`, `exec_sound`, `run_sound` | `Fpy/DigitBound/Sound.lean` |
-| Precision bound (after Theorem 4.2) | `precision_of_bound`, `run_precision` | `Fpy/DigitBound/Digits.lean`, `Sound.lean` |
+| Precision bound (after Theorem 4.2) | `precision_of_bound`, `run_precision` | `Fpy/DigitBound/Sound.lean` |
+| D-Sum, on values | `sumVal_inRange`, `eval_sum_inRange` | `Fpy/DigitBound/Sum.lean` |
 | Table 2, operators | `opOK_add`, `opOK_mul`, `opOK_exact`, `opOK_ext`, `opOK_exp2`, `opOK_logb`, `opOK_any` | `Fpy/DigitBound/Table.lean` |
 | Table 2, rounding | `rndOK_real`, `rndOK_fixedRTZ`, `rndOK_fixed`, `rndOK_precRTZ`, `rndOK_prec`, `rndOK_any` | `Fpy/DigitBound/Table.lean` |
 | D-Arith from Table 2 | `ArithOK.comp` | `Fpy/DigitBound/Table.lean` |
@@ -287,10 +290,11 @@ standard axioms.
 | `Fpy/FormatInference/Defs.lean`, `Sound.lean` | Format inference over any domain; Theorem 4.1. |
 | `Fpy/FormatInference/Domain.lean`, `Ops.lean`, `Refine.lean`, `Analysis.lean` | The Fig. 4 domain, Table 1, condition refinement; Theorem 4.1 for FPy. |
 | `Fpy/DigitBound/Defs.lean`, `Basic.lean`, `Digits.lean`, `Sound.lean`, `Table.lean` | §4.3 rules, their lemmas, digit positions of each operator, Theorem 4.2, Table 2. |
+| `Fpy/Sum.lean`, `FormatInference/Sum.lean`, `DigitBound/Sum.lean` | `sum` as an FPy program; A-Sum and D-Sum proved against it. |
 | `Fpy/Rewrite.lean` | `Equiv`, `Rw`, congruence, the whole-program theorem. |
 | `Fpy/Rewrite/Separate.lean` | §5.1 rewrites and their FPy instances. |
 | `Fpy/Rewrite/Lower.lean` | §5.2 rewrites and their rounding identities. |
-| `FpyTest/` | `lake build FpyTest` examples: a toy signature, Table 1 checks, Split/SplitOp instances, the E4M3 threshold, Table 2 checks. |
+| `FpyTest/` | `lake build FpyTest` examples: a toy signature, Table 1 checks, Split/SplitOp instances, the E4M3 threshold, Table 2 checks, a run of `sum`. |
 
 Formalization design notes are in [`docs/DESIGN.md`](docs/DESIGN.md); status and
 remaining work in [`docs/agents/TODO.md`](docs/agents/TODO.md) (Mpfx) and

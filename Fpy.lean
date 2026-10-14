@@ -2,6 +2,7 @@ import Fpy.DigitBound.Basic
 import Fpy.DigitBound.Defs
 import Fpy.DigitBound.Digits
 import Fpy.DigitBound.Sound
+import Fpy.DigitBound.Sum
 import Fpy.DigitBound.Table
 import Fpy.FormatInference.Analysis
 import Fpy.FormatInference.Defs
@@ -9,10 +10,12 @@ import Fpy.FormatInference.Domain
 import Fpy.FormatInference.Ops
 import Fpy.FormatInference.Refine
 import Fpy.FormatInference.Sound
+import Fpy.FormatInference.Sum
 import Fpy.Ops
 import Fpy.Rewrite
 import Fpy.Rewrite.Lower
 import Fpy.Rewrite.Separate
 import Fpy.Semantics
+import Fpy.Sum
 import Fpy.Syntax
 import Fpy.Value
