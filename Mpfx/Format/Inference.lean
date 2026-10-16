@@ -196,6 +196,10 @@ def opMul (F₁ F₂ : Format) : Format where
     | _, _ => ⊤
   specials := mulSpecials F₁ F₂
 
+/-- `⌈log₂(⌊B / 2^m⌋ + 1)⌉`: the precision a value with quantum `2^m` and
+magnitude at most `B` needs. -/
+noncomputable def bitsFor (B : ℝ) (m : ℤ) : ℕ := Nat.clog 2 (Int.toNat ⌊B / (2 : ℝ) ^ m⌋ + 1)
+
 /-- Tight precision bound for `⊕`:
 `p = ⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉`, or `⊤` when either operand bound
 or exponent is infinite.  The floor ratio is computed over `ℝ`. -/
@@ -203,7 +207,7 @@ noncomputable def opAddPrec (F₁ F₂ : Format) : Prec :=
   match (F₁.b : Bound), (F₂.b : Bound),
         (min F₁.exp F₂.exp : QExp) with
   | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic), (m : ℤ) =>
-      (Nat.clog 2 (Int.toNat ⌊(((b₁.1 + b₂.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌋ + 1) : Prec)
+      (bitsFor ((b₁.1 + b₂.1 : Dyadic) : ℝ) m : Prec)
   | _, _, _ => ⊤
 
 /-- Paper's `⊕`: additive format inference.  Returns the inferred `Format`
@@ -260,17 +264,39 @@ theorem mul_subset_finite (F₁ F₂ : Format) :
       have hb1_nn : 0 ≤ ((b₁.1 : Dyadic) : ℚ) := b₁.2
       exact mul_le_mul hbx hby (abs_nonneg _) hb1_nn
 
+/-- A value with quantum `2^m` and magnitude at most `B` has a significand of
+magnitude at most `⌊B / 2^m⌋`, so it needs at most `bitsFor B m` digits. -/
+theorem precisionAtMost_bitsFor {x : Dyadic} {m : ℤ} {B : ℝ}
+    (hq : Dyadic.quantumAtLeast (m : QExp) x) (hb : |(x : ℝ)| ≤ B) :
+    Dyadic.precisionAtMost (bitsFor B m : Prec) x := by
+  obtain ⟨c, hc⟩ := (Dyadic.quantumAtLeast_coe_real m x).mp hq
+  have h2m_pos : (0 : ℝ) < (2 : ℝ) ^ m := zpow_pos (by norm_num) _
+  have h_c_le_ratio : |(c : ℝ)| ≤ B / (2 : ℝ) ^ m := by
+    rw [le_div_iff₀ h2m_pos, ← abs_mul_two_zpow, ← hc]
+    exact hb
+  have h_floor_nn : 0 ≤ ⌊B / (2 : ℝ) ^ m⌋ :=
+    Int.floor_nonneg.mpr ((abs_nonneg _).trans h_c_le_ratio)
+  set N : ℕ := Int.toNat ⌊B / (2 : ℝ) ^ m⌋ with hN_def
+  have h_abs_c_le : |c| ≤ (N : ℤ) := by
+    rw [hN_def, Int.toNat_of_nonneg h_floor_nn]
+    exact Int.le_floor.mpr (by rw [Int.cast_abs]; exact h_c_le_ratio)
+  refine (Dyadic.precisionAtMost_coe_real _ x).mpr ⟨c, m, hc, ?_⟩
+  have h_natAbs_le : c.natAbs ≤ N := by
+    have : (c.natAbs : ℤ) ≤ (N : ℤ) := by rw [Int.natCast_natAbs]; exact h_abs_c_le
+    exact_mod_cast this
+  have h_clog : N + 1 ≤ 2 ^ Nat.clog 2 (N + 1) := Nat.le_pow_clog (by norm_num : 1 < 2) _
+  rw [Int.abs_eq_natAbs]
+  exact_mod_cast Nat.lt_of_lt_of_le (by omega : c.natAbs < N + 1) h_clog
+
 /-- Precision bound for the tight `opAdd`: if both bounds and exponents are
-finite, the significand of `x + y` at the finer quantum is bounded by
-`⌊(b₁+b₂)/2^m⌋`, so its bit-length fits the floor-based precision formula. -/
+finite, `x + y` has quantum `2^(min e₁ e₂)` and magnitude at most `b₁ + b₂`. -/
 private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
     {b1 b2 : NonNegDyadic} {e1 e2 : ℤ}
     (hF1_b : F₁.b = (b1 : Bound)) (hF2_b : F₂.b = (b2 : Bound))
     (hF1_exp : F₁.exp = (e1 : QExp)) (hF2_exp : F₂.exp = (e2 : QExp))
     (hx : x ∈ F₁) (hy : y ∈ F₂) :
     Dyadic.precisionAtMost
-      ((Nat.clog 2
-          (Int.toNat ⌊(((b1.1 + b2.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ (min e1 e2)⌋ + 1) : Prec))
+      (bitsFor ((b1.1 + b2.1 : Dyadic) : ℝ) (min e1 e2) : Prec)
       (x + y) := by
   obtain ⟨_, hqx, hbx⟩ := hx
   obtain ⟨_, hqy, hby⟩ := hy
@@ -280,64 +306,14 @@ private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
   rw [hF2_b] at hby
   change |(x : ℚ)| ≤ ((b1.1 : Dyadic) : ℚ) at hbx
   change |(y : ℚ)| ≤ ((b2.1 : Dyadic) : ℚ) at hby
-  rw [Dyadic.quantumAtLeast_coe] at hqx hqy
-  obtain ⟨c1, hxeq⟩ := hqx
-  obtain ⟨c2, hyeq⟩ := hqy
-  -- bridge bounds to ℝ
-  have hbxR : |(x : ℝ)| ≤ ((b1.1 : Dyadic) : ℝ) := by
-    exact_mod_cast hbx
-  have hbyR : |(y : ℝ)| ≤ ((b2.1 : Dyadic) : ℝ) := by
-    exact_mod_cast hby
-  have hxeqR : (x : ℝ) = (c1 : ℝ) * (2 : ℝ) ^ e1 := by
-    rw [Dyadic.coe_real_eq_ratCast, hxeq]; push_cast; ring
-  have hyeqR : (y : ℝ) = (c2 : ℝ) * (2 : ℝ) ^ e2 := by
-    rw [Dyadic.coe_real_eq_ratCast, hyeq]; push_cast; ring
-  set m := min e1 e2 with hm
-  have he1_ge : m ≤ e1 := min_le_left _ _
-  have he2_ge : m ≤ e2 := min_le_right _ _
-  set c : ℤ := c1 * 2 ^ (e1 - m).toNat + c2 * 2 ^ (e2 - m).toNat with hc_def
-  have h_xy_eqR : ((x + y : Dyadic) : ℝ) = (c : ℝ) * (2 : ℝ) ^ m := by
-    rw [Dyadic.coe_real_add, hxeqR, hyeqR, hc_def]
-    push_cast
-    rw [two_zpow_split_toNat he1_ge, two_zpow_split_toNat he2_ge]
-    ring
-  have h2m_pos : (0 : ℝ) < (2 : ℝ) ^ m := zpow_pos (by norm_num) _
-  have h_b1_nn : 0 ≤ ((b1.1 : Dyadic) : ℝ) := by
-    exact_mod_cast b1.2
-  have h_b2_nn : 0 ≤ ((b2.1 : Dyadic) : ℝ) := by
-    exact_mod_cast b2.2
-  have h_c_bound : |(c : ℝ)| * (2 : ℝ) ^ m ≤ ((b1.1 : Dyadic) : ℝ) + ((b2.1 : Dyadic) : ℝ) := by
-    calc |(c : ℝ)| * (2 : ℝ) ^ m
-        = |((x + y : Dyadic) : ℝ)| := by rw [h_xy_eqR, abs_mul_two_zpow]
-      _ ≤ |(x : ℝ)| + |(y : ℝ)| := by rw [Dyadic.coe_real_add]; exact abs_add_le _ _
-      _ ≤ ((b1.1 : Dyadic) : ℝ) + ((b2.1 : Dyadic) : ℝ) := add_le_add hbxR hbyR
-  have h_c_le_ratio : |(c : ℝ)| ≤ (((b1.1 + b2.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ m := by
-    rw [le_div_iff₀ h2m_pos]; rw [Dyadic.coe_real_add]; linarith
-  set N : ℕ := Int.toNat ⌊(((b1.1 + b2.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌋ with hN_def
-  have h_ratio_nn : 0 ≤ (((b1.1 + b2.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ m :=
-    div_nonneg (by rw [Dyadic.coe_real_add]; linarith) (le_of_lt h2m_pos)
-  have h_floor_nn : 0 ≤ ⌊(((b1.1 + b2.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌋ :=
-    Int.floor_nonneg.mpr h_ratio_nn
-  have hN_floor : (N : ℤ) = ⌊(((b1.1 + b2.1 : Dyadic) : ℝ)) / (2 : ℝ) ^ m⌋ := by
-    rw [hN_def, Int.toNat_of_nonneg h_floor_nn]
-  have h_abs_c_le : |c| ≤ (N : ℤ) := by
-    rw [hN_floor]
-    refine Int.le_floor.mpr ?_
-    rw [Int.cast_abs]
-    exact h_c_le_ratio
-  -- Build the precisionAtMost witness (over ℚ).
-  rw [Dyadic.precisionAtMost_coe]
-  refine ⟨c, m, ?_, ?_⟩
-  · have hq : (((x + y : Dyadic) : ℚ) : ℝ) = (((c : ℚ) * (2 : ℚ) ^ m : ℚ) : ℝ) := by
-      rw [← Dyadic.coe_real_eq_ratCast, h_xy_eqR]; push_cast; ring
-    exact_mod_cast hq
-  · have h_natAbs_le : c.natAbs ≤ N := by
-      have : (c.natAbs : ℤ) ≤ (N : ℤ) := by rw [Int.natCast_natAbs]; exact h_abs_c_le
-      exact_mod_cast this
-    have h_clog : N + 1 ≤ 2 ^ Nat.clog 2 (N + 1) :=
-      Nat.le_pow_clog (by norm_num : 1 < 2) _
-    rw [Int.abs_eq_natAbs]
-    exact_mod_cast Nat.lt_of_lt_of_le (by omega : c.natAbs < N + 1) h_clog
+  have hq := Dyadic.quantumAtLeast_add
+    (Dyadic.quantumAtLeast_anti (WithBot.coe_le_coe.mpr (min_le_left e1 e2)) hqx)
+    (Dyadic.quantumAtLeast_anti (WithBot.coe_le_coe.mpr (min_le_right e1 e2)) hqy)
+  refine precisionAtMost_bitsFor hq ?_
+  have hbxR : |(x : ℝ)| ≤ ((b1.1 : Dyadic) : ℝ) := by exact_mod_cast hbx
+  have hbyR : |(y : ℝ)| ≤ ((b2.1 : Dyadic) : ℝ) := by exact_mod_cast hby
+  rw [Dyadic.coe_real_add, Dyadic.coe_real_add]
+  exact (abs_add_le _ _).trans (add_le_add hbxR hbyR)
 
 /-- Finite form of `add_subset`: `{x + y | x ∈ F₁, y ∈ F₂} ⊆ opAdd F₁ F₂`. -/
 theorem add_subset_finite (F₁ F₂ : Format) :

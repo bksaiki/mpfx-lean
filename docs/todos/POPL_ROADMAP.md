@@ -1,10 +1,12 @@
-# Roadmap
+# Roadmap: *When Double Rounding is Correct*
 
-Open threads the paper revision needs from this development,
-forward-looking only; check an item off when it lands. The
-formalization's own backlog stays in `docs/agents/`; this file holds
-only what the paper depends on. References are Lean names under
-`namespace Mpfx` and files under `Mpfx/`, never line numbers.
+Open threads the paper needs from this development, forward-looking only;
+check an item off when it lands. The formalization's own backlog stays in
+`docs/agents/`; this file holds only what the paper depends on. The
+mechanization is the source of truth: where the paper and the Lean disagree,
+the paper changes. References are Lean names under `namespace Mpfx` and files
+under `Mpfx/`, never line numbers. The FPy paper's open threads are in
+`docs/agents/FPY_PLAN.md`.
 
 ## Paper revision
 
