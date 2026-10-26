@@ -10,7 +10,7 @@ constraints are added (`Describes.grow`).
 Untaken branches and zero-iteration loops re-choose their variables
 (`Sat.extend`); loops iterate by `loop_sound`; D-Int and D-Fmt use Theorem 4.1.
 `DEval.wf` gives each derivation's fresh ranges; `run_precision` bounds a result's
-precision.
+precision by `precBound`.
 -/
 
 namespace Fpy.DigitBound
@@ -799,16 +799,43 @@ theorem precision_of_bound {Ψ : List Con} {ι : Asgn} {l m : Term} {τ : Option
       rw [zpow_natCast] at this
       exact_mod_cast this
 
-/-- `precision_of_bound` for a program's result. -/
+theorem le_of_width {a b : EInt} {p : ℤ} (h : a + negE b + ((1 : ℤ) : EInt) ≤ p) :
+    a ≤ b + ((p - 1 : ℤ) : EInt) := by
+  cases a using WithBotTop.rec with
+  | bot => exact bot_le
+  | top =>
+    cases b using WithBotTop.rec with
+    | top => exact le_of_eq rfl
+    | _ => simp [negE, EInt.top_add] at h
+  | coe j =>
+    cases b using WithBotTop.rec with
+    | bot => simp [negE, EInt.add_top] at h
+    | top => exact le_top
+    | coe k =>
+      simp only [negE, WithBotTop.rec_coe, coe_add_coe, WithBotTop.coe_le_coe] at h ⊢
+      omega
+
+/-- The query `prec♮ Ψ l m`: the largest `m − l + 1` over assignments satisfying `Ψ`. -/
+noncomputable def precBound (Ψ : List Con) (l m : Term) : EInt :=
+  ⨆ (ι : Asgn) (_ : Sat ι Ψ), m.eval ι + negE (l.eval ι) + ((1 : ℤ) : EInt)
+
+/-- `precision_of_bound` with the bound given by `precBound`. -/
+theorem precision_of_precBound {Ψ : List Con} {ι : Asgn} {l m : Term} {τ : Option Term} {x : ℝ}
+    {p : ℕ} (hs : Sat ι Ψ) (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
+    (hp : precBound Ψ l m ≤ ((p : ℤ) : EInt)) : ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p :=
+  precision_of_bound hs hd fun ι' h => le_of_width <| (le_iSup₂ (f := fun ι (_ : Sat ι Ψ) =>
+    m.eval ι + negE (l.eval ι) + ((1 : ℤ) : EInt)) ι' h).trans hp
+
+/-- `precision_of_precBound` for a program's result. -/
 theorem run_precision (hA : A.Sound Φ) {f : Fn} {y : Var} {s : Stmt (fpy decode)} {d : DVal}
     {l m : Term} {τ : Option Term} {a : AVal D} {Δ' : DEnv} {Ψ : List Con} {n₀ n₁ : ℕ}
     (hΦ : Φ f = some (y, s))
     (hs : DExec decode Φ A (.single y d) (.single y a) (some .real) (some .real) [] n₀ s Δ'
       (some (.num l m τ)) Ψ n₁) (hd : d.Below n₀) {ι : Asgn} {v : Val} {x : ℝ} {p : ℕ}
     (hv : Describes [] ι d v) (ha : Fpy.Describes a v) (hrun : Run Φ f v (.num (.finite x)))
-    (hp : ∀ ι, Sat ι Ψ → m.eval ι ≤ l.eval ι + ((p - 1 : ℤ) : EInt)) :
+    (hp : precBound Ψ l m ≤ ((p : ℤ) : EInt)) :
     ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p :=
   let ⟨_, _, hsat, hd'⟩ := run_sound hA hΦ hs hd hv ha hrun
-  precision_of_bound hsat hd' hp
+  precision_of_precBound hsat hd' hp
 
 end Fpy.DigitBound

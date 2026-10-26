@@ -24,6 +24,11 @@ open Mpfx
 def negE (z : EInt) : EInt :=
   WithBotTop.rec (motive := fun _ => EInt) ⊤ (fun k => ((-k : ℤ) : EInt)) ⊥ z
 
+/-- `c · z` for an extended integer `z`, with `0 · ±∞ = 0`. -/
+def smulE (c : ℤ) (z : EInt) : EInt :=
+  WithBotTop.rec (motive := fun _ => EInt) (if 0 < c then ⊥ else if c < 0 then ⊤ else 0)
+    (fun k => ((c * k : ℤ) : EInt)) (if 0 < c then ⊤ else if c < 0 then ⊥ else 0) z
+
 /-- An extended integer as a number. -/
 def numOfE (z : EInt) : Num :=
   WithBotTop.rec (motive := fun _ => Num) (.special (.inf true)) (fun k : ℤ => .finite (k : ℝ))
@@ -52,12 +57,13 @@ noncomputable def msbOf : Num → EInt
 abbrev Asgn := ℕ → EInt
 
 /-- Terms (the paper's `τ`): constants in `ℤ ∪ {±∞}`, integer variables, `+`,
-`−`, `max` and `min`. -/
+`−`, scaling by an integer `c`, `max` and `min`. -/
 inductive Term where
   | const (z : EInt)
   | var (x : ℕ)
   | add (a b : Term)
   | neg (a : Term)
+  | smul (c : ℤ) (a : Term)
   | max (a b : Term)
   | min (a b : Term)
 
@@ -66,6 +72,7 @@ def Term.eval (ι : Asgn) : Term → EInt
   | .var x => ι x
   | .add a b => a.eval ι + b.eval ι
   | .neg a => negE (a.eval ι)
+  | .smul c a => smulE c (a.eval ι)
   | .max a b => Max.max (a.eval ι) (b.eval ι)
   | .min a b => Min.min (a.eval ι) (b.eval ι)
 
@@ -75,6 +82,7 @@ def Term.Below (n : ℕ) : Term → Prop
   | .var x => x < n
   | .add a b => a.Below n ∧ b.Below n
   | .neg a => a.Below n
+  | .smul _ a => a.Below n
   | .max a b => a.Below n ∧ b.Below n
   | .min a b => a.Below n ∧ b.Below n
 
@@ -83,6 +91,7 @@ theorem Term.Below.mono {n n' : ℕ} (h : n ≤ n') : ∀ {t : Term}, t.Below n 
   | .var _, hx => lt_of_lt_of_le hx h
   | .add a b, ⟨ha, hb⟩ => ⟨Term.Below.mono (t := a) h ha, Term.Below.mono (t := b) h hb⟩
   | .neg a, ha => Term.Below.mono (t := a) h ha
+  | .smul _ a, ha => Term.Below.mono (t := a) h ha
   | .max a b, ⟨ha, hb⟩ => ⟨Term.Below.mono (t := a) h ha, Term.Below.mono (t := b) h hb⟩
   | .min a b, ⟨ha, hb⟩ => ⟨Term.Below.mono (t := a) h ha, Term.Below.mono (t := b) h hb⟩
 
@@ -92,6 +101,7 @@ theorem Term.eval_congr {n : ℕ} {ι ι' : Asgn} (h : ∀ x < n, ι x = ι' x) 
   | .var x, hx => h x hx
   | .add _ _, ⟨ha, hb⟩ => congrArg₂ (· + ·) (Term.eval_congr h ha) (Term.eval_congr h hb)
   | .neg _, ha => congrArg negE (Term.eval_congr h ha)
+  | .smul c _, ha => congrArg (smulE c) (Term.eval_congr h ha)
   | .max _ _, ⟨ha, hb⟩ => congrArg₂ Max.max (Term.eval_congr h ha) (Term.eval_congr h hb)
   | .min _ _, ⟨ha, hb⟩ => congrArg₂ Min.min (Term.eval_congr h ha) (Term.eval_congr h hb)
 

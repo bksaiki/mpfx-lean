@@ -41,13 +41,13 @@ zones or linear templates match Z3's bounds.
 
 ## Lean
 
-- [ ] **Syntactic constraints.** `Con` becomes a fresh variable plus a list
+- [x] **Syntactic constraints.** `Con` becomes a fresh variable plus a list
   of `t ≤ t'` pairs over `Term`, with `P` defined by evaluation. Port the five
   constructions `Con.ext`, `Con.lower`, `Con.upper`, `Con.between`
   (`Defs.lean`) and `Con.copy` (`Copy.lean`), which becomes renaming
   variables inside a term. This is what makes "decidable constraints" a
   theorem rather than a claim.
-- [ ] **The query as a definition.** Define
+- [x] **The query as a definition.** Define
   `prec♮ Ψ l m := sup {m(ι) − l(ι) + 1 | ι ⊨ Ψ}` and state `run_precision`
   (`Sound.lean`) with it.
 - [ ] **A loop rule matching the implementation.** Today D-While
@@ -82,14 +82,14 @@ zones or linear templates match Z3's bounds.
 
 - [ ] **Figure 9 matches the Lean.** Apply the table under "Figure 9 and the
   Lean" (below) to `fig:inference:digits-domain` in
-  `pldi27-fpy/sections/04-inference.tex`, and drop `c` from its caption.
+  `pldi27-fpy/sections/04-inference.tex`.
   Under the constraint-based framing, also retitle it from "Abstract domain
   of digit-bound analysis" to "Constraints of digit-bound analysis".
   Proposed grammar:
 
   ```latex
   \begin{array}{rcl@{\qquad}l}
-  \tau & ::= & n \mid x \mid \tau_1 + \tau_2 \mid -\tau
+  \tau & ::= & n \mid x \mid \tau_1 + \tau_2 \mid -\tau \mid c \cdot \tau
     \mid \max(\tau_1, \tau_2) \mid \min(\tau_1, \tau_2)
     & \text{terms} \\
   x & ::= & \mathit{msb}(e) \mid \mathit{lsb}(e) \mid \mathit{val}(e) \mid \lambda \mid \mu
@@ -104,8 +104,8 @@ zones or linear templates match Z3's bounds.
   Caption changes:
   - `n ∈ ℤ ∪ {±∞}`;
   - `λ` and `μ` are fresh variables;
-  - `τ₁ = τ₂` abbreviates `τ₁ ≤ τ₂` and `τ₂ ≤ τ₁`;
-  - drop the sentence about `c`.
+  - `c ∈ ℤ`, with `0 · ±∞ = 0`;
+  - `τ₁ = τ₂` abbreviates `τ₁ ≤ τ₂` and `τ₂ ≤ τ₁`.
 - [ ] **§4.3 framing.** Present the analysis as the table above. Say there is
   no fixpoint iteration, and say why that is sound.
 - [ ] **Decidability.** Once constraints are syntactic, `prec♮` is a question
@@ -186,8 +186,8 @@ Table 2 lemmas (`Table.lean`) reuse them. The files that mention `Con` are
 - **The loop rule is primitive, not derived.** It is a new constructor
   proved sound inside `exec_sound`, beside `DExec.whileDo`, which stays.
 - **Constraint language:** a constraint is a fresh variable plus a list of
-  atoms `t ≤ t'` over the existing `Term` (`const`, `var`, `add`, `neg`,
-  `max`, `min`). Equalities are two atoms. This is the Lean counterpart of
+  atoms `t ≤ t'` over `Term` (`const`, `var`, `add`, `neg`, `smul`, `max`,
+  `min`). Equalities are two atoms. This is the Lean counterpart of
   the paper's Figure 9 (`fig:inference:digits-domain`), up to the
   differences under Open items.
 - **The query's name:** `precBound` in Lean, `prec♮` in the paper.
@@ -203,7 +203,7 @@ the Lean's `bounds`, so Figure 10 needs no change.
 |---|---|---|---|
 | Constants | integer `n` | `const` over ℤ ∪ {±∞} (D-Const gives `0` the interval `[+∞, −∞]`) | `n ∈ ℤ ∪ {±∞}` |
 | Variables | `msb(e)`, `lsb(e)`, `val(e)` | `var` (numbered) | those, plus the fresh `λ`, `μ` that Figure 10 already uses |
-| Operations | `τ₁ + τ₂`, `c · τ` | `add`, `neg`, `max`, `min` | `τ₁ + τ₂`, `−τ`, `max(τ₁, τ₂)`, `min(τ₁, τ₂)` |
+| Operations | `τ₁ + τ₂`, `c · τ` | `add`, `neg`, `smul`, `max`, `min` | `τ₁ + τ₂`, `−τ`, `c · τ`, `max(τ₁, τ₂)`, `min(τ₁, τ₂)` |
 | Constraints | `τ₁ ≤ τ₂`, `τ₁ = τ₂`, `τ ≤ max(τ₁, …, τₖ)` | atoms `t ≤ t'` | `τ₁ ≤ τ₂`, with `τ₁ = τ₂` as shorthand for two |
 | Abstract values | `⟨[τ₁, τ₂], τ⟩`, `⟨[τ₁, τ₂], _⟩` | `DVal.num l m (τ : Option Term)` | unchanged |
 
@@ -334,11 +334,8 @@ These are the same as CI (`.github/workflows/ci.yml`).
 
 #### Does the paper need `c · τ` with `c ≠ −1`?
 
-The Lean has only `neg`, and no Lean rule scales by any other constant. The
-implementation does scale terms (index terms `a + s · k`).
-**Provisional:** Figure 9 drops `c · τ` for `−τ`, as decided under "Figure 9
-and the Lean" below.  **Reopen** if the paper's rules need another `c`; then
-`Term` gains `smul`.
+**Resolved:** yes. `Term` has `smul c` (`smulE`, with `0 · ±∞ = 0`), for the
+implementation's index terms `a + s · k`. No rule uses it yet.
 
 #### Is `sat` a field or derived from the atoms?
 

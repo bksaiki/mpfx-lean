@@ -203,7 +203,8 @@ Names are in `namespace Fpy.DigitBound`.
 | Rules (Fig. 8, 12) | `DEval`, `DExec` | `Fpy/DigitBound/Defs.lean` |
 | D-Int; constraints from inferred formats | `DEval.int`, `DEval.fmt` | `Fpy/DigitBound/Defs.lean` |
 | Theorem 4.2 | `eval_sound`, `exec_sound`, `run_sound` | `Fpy/DigitBound/Sound.lean` |
-| Precision bound (after Theorem 4.2) | `precision_of_bound`, `run_precision` | `Fpy/DigitBound/Sound.lean` |
+| The query `prec♮` | `precBound` | `Fpy/DigitBound/Sound.lean` |
+| Precision bound (after Theorem 4.2) | `precision_of_bound`, `precision_of_precBound`, `run_precision` | `Fpy/DigitBound/Sound.lean` |
 | D-Sum, on values and over the analysis | `sumVal_inRange`, `eval_sum_inRange`, `eval_sum_sound` | `Fpy/DigitBound/Sum.lean` |
 | D-Index's fresh copy | `copy_num`, `copyCons`, `fresh_copyCons` | `Fpy/DigitBound/Copy.lean` |
 | Joins (D-List, D-If, D-While) | `le_num`, `DEnv.Le.refl`, `DEnv.Le.update`, `DEnv.Le.trans` | `Fpy/DigitBound/Join.lean` |

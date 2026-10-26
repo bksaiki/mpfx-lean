@@ -1,3 +1,4 @@
+import Fpy.DigitBound.Sound
 import Fpy.DigitBound.Copy
 import Fpy.DigitBound.Table
 import FpyTest.Rewrite.Lower
@@ -82,5 +83,28 @@ example {Ψg : List Con} (hnd : (Ψg.map Con.head).Nodup) {l m : Term} (hl : l.B
       Fresh 5 7 (copyCons Ψg 0 2 5 (by omega)) :=
   ⟨copy_num (a := 0) (b := 2) (n := 5) (by omega) (by omega) hl hm (by simp),
     fresh_copyCons (a := 0) (b := 2) (n := 5) (by omega) (by omega) hnd⟩
+
+/-- `precBound` under `−2 ≤ λ ≤ 0` and `μ ≤ λ + 3` is `4`, at `λ = 0`, `μ = 3`. -/
+example : precBound [Con.between 0 (-2) 0 (by omega),
+    Con.upper 1 (.add (.var 0) (.const (3 : ℤ))) ⟨Nat.zero_lt_one, trivial⟩]
+    (.var 0) (.var 1) = ((4 : ℤ) : EInt) := by
+  refine le_antisymm (iSup₂_le fun ι h => ?_)
+    (le_iSup₂_of_le (fun x => if x = 0 then ((0 : ℤ) : EInt) else ((3 : ℤ) : EInt)) ?_ ?_)
+  · have h0 := Con.P_between.mp (h _ (List.mem_cons_self ..))
+    have h1 := Con.P_upper.mp (h _ (List.mem_cons_of_mem _ (List.mem_cons_self ..)))
+    simp only [Term.eval] at h0 h1 ⊢
+    generalize ι 0 = a, ι 1 = b at h0 h1 ⊢
+    cases a using WithBotTop.rec with
+    | bot => exact absurd h0.1 (by simp)
+    | top => exact absurd h0.2 (by simp)
+    | coe k =>
+      cases b using WithBotTop.rec with
+      | bot => exact bot_le
+      | top => exact absurd h1 (by simp [coe_add_coe])
+      | coe j =>
+        simp only [negE, WithBotTop.rec_coe, coe_add_coe, WithBotTop.coe_le_coe] at h0 h1 ⊢
+        omega
+  · simp [Sat, Con.P_between, Con.P_upper, Term.eval, coe_add_coe]
+  · simp [Term.eval, negE, coe_add_coe]
 
 end FpyTest
