@@ -7,7 +7,9 @@ D-List, D-If, D-Seq and D-While take an order (`DVal.Le`, `DEnv.Le`) in place of
 the draft's joins. The interval join `[l₁, m₁] ⊔ [l₂, m₂] = [min(l₁, l₂),
 max(m₁, m₂)]`, with fresh endpoints, is an instance (`le_num`); environment
 joins are built from reflexivity, one changed variable at a time
-(`DEnv.Le.update`), and composition (`DEnv.Le.trans`).
+(`DEnv.Le.update`), and composition (`DEnv.Le.trans`). D-While-Fmt's `Covers`
+is built from the unassigned variables (`Covers.without`) and one number per
+assigned variable (`Covers.fmt`).
 -/
 
 namespace Fpy.DigitBound
@@ -54,12 +56,46 @@ theorem DEnv.Le.trans {Ψg Ψ₁ Ψ₂ : List Con} {n₀ n₁ n₂ : ℕ} {Δ Δ
   obtain ⟨ι₁, a₁, hs₁, hσ₁⟩ := h₁ hb ι σ hs hσ
   obtain ⟨ι₂, a₂, hs₂, hσ₂⟩ := h₂ (hb.append hF₁) ι₁ σ
     ((Sat.congr hb a₁.agree hs).append hs₁) hσ₁
-  refine ⟨ι₂, fun z hz => ?_, (Sat.congr hF₁.before a₂.agree hs₁).append hs₂,
+  exact ⟨ι₂, a₁.trans hF₁.le hF₂.le a₂, (Sat.congr hF₁.before a₂.agree hs₁).append hs₂,
     by simpa using hσ₂⟩
-  have := hF₁.le
-  have := hF₂.le
-  rcases hz with hz | hz
-  · rw [a₂ z (.inl (by omega)), a₁ z (.inl hz)]
-  · rw [a₂ z (.inr hz), a₁ z (.inr (by omega))]
+
+/-! ## Loop covers -/
+
+theorem DEnv.Below.without {n : ℕ} {Δ : DEnv} (hΔ : Δ.Below n) (X : List Var) :
+    (Δ.without X).Below n := fun x d hx => by
+  unfold DEnv.without at hx
+  split at hx
+  · cases hx
+  · exact hΔ x d hx
+
+/-- Variables outside `X` keep their description. -/
+theorem Covers.without {D : FormatDomain} {Ψg : List Con} (n : ℕ) (X : List Var) (Γᵢ : AEnv D)
+    (Δ : DEnv) : Covers n n Ψg [] X Γᵢ Δ (Δ.without X) := by
+  intro _ ι σ _ _ hU
+  refine ⟨ι, fun _ _ => rfl, fun _ h => absurd h List.not_mem_nil, fun x d hx => ?_⟩
+  unfold DEnv.without at hx
+  split at hx
+  · cases hx
+  · next hX => simpa using hU x hX d hx
+
+/-- D-Fmt for a loop variable: a number in the format `F`, whose values have
+digits in `[lo, hi]`, gets a fresh interval. -/
+theorem Covers.fmt {D : FormatDomain} {Ψg Ψ : List Con} {n₀ n₁ : ℕ} {X : List Var}
+    {Γᵢ : AEnv D} {Δ Δᵢ : DEnv} {x : Var} {F : D.Fmt} {lo hi : EInt}
+    (h : Covers n₀ n₁ Ψg Ψ X Γᵢ Δ Δᵢ) (hF : Fresh n₀ n₁ Ψ) (hΔᵢ : Δᵢ.Below n₁)
+    (hx : Γᵢ x = some (.fmt F)) (hin : ∀ w ∈ D.γ F, InRange lo hi w) :
+    Covers n₀ (n₁ + 2) Ψg (Ψ ++ bounds n₁ (.const lo) (.const hi) trivial trivial) X Γᵢ Δ
+      (Δᵢ.update x (.num (.var (n₁ + 1)) (.var n₁) none)) := by
+  intro hb ι σ hs hΓ hU
+  obtain ⟨ι₁, a₁, hs₁, hσ₁⟩ := h hb ι σ hs hΓ hU
+  obtain ⟨v, hv, hd⟩ := hΓ x _ hx
+  cases hd with
+  | fmt hw =>
+    obtain ⟨ι₂, a₂, hs₂, hn⟩ := fresh_numIn (n := n₁) (Lo := .const lo) (Hi := .const hi)
+      trivial trivial ι₁ _ fun hnan => ((hin _ hw).resolve_left hnan).symm
+    have hFb := fresh_bounds n₁ (Lo := .const lo) (Hi := .const hi) trivial trivial
+    have hσ₂ := (hσ₁.grow (hb.append hF) hFb a₂.agree hΔᵢ).update x (.num hn)
+    rw [Store.update, ← hv, Function.update_eq_self, List.append_assoc] at hσ₂
+    exact ⟨ι₂, a₁.trans hF.le (by omega) a₂, (Sat.congr hF.before a₂.agree hs₁).append hs₂, hσ₂⟩
 
 end Fpy.DigitBound

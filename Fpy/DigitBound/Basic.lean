@@ -88,6 +88,12 @@ theorem Agree.refl (n : ℕ) (ι : Asgn) : Agree n ι ι := fun _ _ => rfl
 theorem AgreeOut.agree {n₀ n₁ : ℕ} {ι ι' : Asgn} (h : AgreeOut n₀ n₁ ι ι') : Agree n₀ ι ι' :=
   fun x hx => (h x (.inl hx)).symm
 
+theorem AgreeOut.trans {n₀ n₁ n₂ : ℕ} {ι₀ ι₁ ι₂ : Asgn} (h₀₁ : n₀ ≤ n₁) (h₁₂ : n₁ ≤ n₂)
+    (a₁ : AgreeOut n₀ n₁ ι₀ ι₁) (a₂ : AgreeOut n₁ n₂ ι₁ ι₂) : AgreeOut n₀ n₂ ι₀ ι₂ := fun z hz => by
+  rcases hz with hz | hz
+  · rw [a₂ z (.inl (by omega)), a₁ z (.inl hz)]
+  · rw [a₂ z (.inr hz), a₁ z (.inr (by omega))]
+
 theorem NumIn.congr {n : ℕ} {ι ι' : Asgn} (h : Agree n ι ι') {l m : Term} {τ : Option Term}
     {u : Num} (hl : l.Below n) (hm : m.Below n) (hτ : ∀ t ∈ τ, t.Below n) (hu : NumIn ι l m τ u) :
     NumIn ι' l m τ u := by

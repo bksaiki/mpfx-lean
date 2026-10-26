@@ -38,7 +38,8 @@ Found by the mechanization and adopted by the draft:
   `FpyTest.draft_ieee_rm_bound`).
 - §4.3: endpoints range over `ℤ ∪ {±∞}`, so `0` and values with infinitely
   many digits have intervals, and `logb 0 = −∞ = msb(0)`.
-- D-While takes an invariant; D-Index returns a fresh copy with its
+- D-While takes an invariant, or (D-While-Fmt) starts each iteration from
+  fresh variables bounded by format inference's invariant; D-Index returns a fresh copy with its
   constraints; list elements agree with `ι` on the variables created before
   the summary's; D-Logb, D-Max, D-Min are under `R`.
 - §5.2: Overflow compares exactly and needs finite `t`; Special and Overflow
@@ -77,7 +78,8 @@ The claim is each rewrite on its own. Not mechanized:
   satisfying them and agreeing below the summary's variables.
 - **Rules only, not the implementation's algorithm.** The theorems cover any
   derivation; widening, the set-size cap and Z3 only construct derivations.
-  The draft should say "the rules are sound". Reopen if it wants an extracted
+  The draft should say "the rules are sound". D-While-Fmt is the exception:
+  it is the implementation's loop rule. Reopen if it wants an extracted
   checker.
 - **`min`/`max` propagate NaN** (IEEE 754-2019 `minimum`/`maximum`). Reopen if
   a specification needs `minimumNumber`/`maximumNumber`; the fix is a second

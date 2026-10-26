@@ -156,6 +156,36 @@ termination_by structural h _ => h
 
 end
 
+/-! ## Frame -/
+
+/-- The variables a statement may assign. -/
+def Stmt.assigned : Stmt L → List Var
+  | .assign x _ => [x]
+  | .seq s₁ s₂ | .ite _ s₁ s₂ => s₁.assigned ++ s₂.assigned
+  | .whileDo _ s | .withCtx _ s => s.assigned
+  | .ret _ | .assert _ | .skip => []
+
+/-- A statement leaves every variable it does not assign unchanged. -/
+theorem Exec.frame : ∀ {σ : Store} {C : Val} {s : Stmt L} {o : Outcome} {σ' : Store},
+    Exec Φ σ C s o → o = .normal σ' → ∀ x ∉ s.assigned, σ' x = σ x
+  | _, _, _, _, _, .assign _, h, _, hx => by
+    cases h
+    exact Function.update_of_ne (List.ne_of_not_mem_cons hx) _ _
+  | _, _, _, _, _, .skip, h, _, _ | _, _, _, _, _, .assert _, h, _, _
+  | _, _, _, _, _, .whileFalse _, h, _, _ => by cases h; rfl
+  | _, _, _, _, _, .ret _, h, _, _ | _, _, _, _, _, .seqRet _, h, _, _ => by cases h
+  | _, _, _, _, _, .seqNormal h₁ h₂, h, x, hx =>
+    (Exec.frame h₂ h x fun hm => hx (List.mem_append_right _ hm)).trans
+      (Exec.frame h₁ rfl x fun hm => hx (List.mem_append_left _ hm))
+  | _, _, _, _, _, .iteTrue _ h₁, h, x, hx =>
+    Exec.frame h₁ h x fun hm => hx (List.mem_append_left _ hm)
+  | _, _, _, _, _, .iteFalse _ h₂, h, x, hx =>
+    Exec.frame h₂ h x fun hm => hx (List.mem_append_right _ hm)
+  | _, _, _, _, _, .whileTrue _ hs, h, x, hx =>
+    Exec.frame hs h x fun hm => hx (by simpa [Stmt.assigned] using hm)
+  | _, _, _, _, _, .withCtx _ _ hs, h, x, hx => Exec.frame hs h x hx
+termination_by structural _ _ _ _ _ h => h
+
 /-- `(Φ, f)(v) ⇓ v'`: the entry function `f`, called on `v` under `R`, returns `v'`. -/
 def Run (f : Fn) (v v' : Val) : Prop :=
   ∃ y s, Φ f = some (y, s) ∧ Exec Φ (.single y v) .real s (.ret v')

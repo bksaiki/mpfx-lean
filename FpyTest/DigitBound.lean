@@ -1,5 +1,6 @@
 import Fpy.DigitBound.Sound
 import Fpy.DigitBound.Copy
+import Fpy.DigitBound.Join
 import Fpy.DigitBound.Table
 import FpyTest.Rewrite.Lower
 
@@ -106,5 +107,27 @@ example : precBound [Con.between 0 (-2) 0 (by omega),
         omega
   · simp [Sat, Con.P_between, Con.P_upper, Term.eval, coe_add_coe]
   · simp [Term.eval, negE, coe_add_coe]
+
+/-- D-While-Fmt's premises for a loop assigning only `x`, a number in `F`: `y`
+keeps its description, and `x` gets the fresh interval `[1, 0]` within `F`'s digits. -/
+example {decode : List (Label × Val) → Option RoundCtx} {Φ : Program (fpy decode)}
+    {D : FormatDomain} {A : Analysis (fpy decode) D} {Γ Γᵢ Γ' : AEnv D} {b : AVal D}
+    {κ : Option SCtx} {χ : Option Val} {e e₀ : Expr (fpy decode)} {F : D.Fmt} {lo hi : EInt}
+    {Δ' : DEnv} {a : Option DVal} {Ψ : List Con} {n₂ : ℕ}
+    (hx : Γᵢ "x" = some (.fmt F)) (hin : ∀ w ∈ D.γ F, InRange lo hi w) (hΓ : Γ.Le Γᵢ)
+    (hAx : AExec A Φ (A.refine χ e true Γᵢ) χ (.assign "x" e₀) Γ' b) (hΓ' : Γ'.Le Γᵢ)
+    (hbody : DExec decode Φ A (((DEnv.single "y" .other).without ["x"]).update "x"
+        (.num (.var 1) (.var 0) none)) (A.refine χ e true Γᵢ) κ χ
+        ([] ++ ([] ++ bounds 0 (.const lo) (.const hi) trivial trivial)) 2 (.assign "x" e₀)
+        Δ' a Ψ n₂) :
+    DExec decode Φ A (DEnv.single "y" .other) Γ κ χ [] 0 (.whileDo e (.assign "x" e₀))
+      (((DEnv.single "y" .other).without ["x"]).update "x" (.num (.var 1) (.var 0) none)) a
+      (([] ++ bounds 0 (.const lo) (.const hi) trivial trivial) ++ Ψ) n₂ :=
+  have hΔ := (DEnv.Below.single (n := 0) (d := .other) trivial).without ["x"]
+  .whileFmt (Covers.fmt (Covers.without 0 _ _ _) (Fresh.nil 0) hΔ hx hin)
+    ((Fresh.nil 0).append (fresh_bounds 0 _ _))
+    ((hΔ.mono (by omega)).update _
+      ⟨show 1 < 2 by omega, show 0 < 2 by omega, fun _ h => absurd h (by simp)⟩)
+    hΓ hAx hΓ' hbody
 
 end FpyTest

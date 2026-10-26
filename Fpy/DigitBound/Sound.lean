@@ -8,7 +8,7 @@ import Fpy.FormatInference.Sound
 under the constraints `Ψg` generated before it; descriptions carry over as
 constraints are added (`Describes.grow`).
 Untaken branches and zero-iteration loops re-choose their variables
-(`Sat.extend`); loops iterate by `loop_sound`; D-Int and D-Fmt use Theorem 4.1.
+(`Sat.extend`); loops iterate by `loop_sound` and `loopFmt_sound`; D-Int and D-Fmt use Theorem 4.1.
 `DEval.wf` gives each derivation's fresh ranges; `run_precision` bounds a result's
 precision by `precBound`.
 -/
@@ -135,6 +135,8 @@ theorem DExec.wf {Δ : DEnv} {Γ : AEnv D} {κ : Option SCtx} {χ : Option Val}
   | .ite h₁ h₂ _ _ _ _ hF hΔ' ha => ⟨((DExec.wf h₁).1.append (DExec.wf h₂).1).append hF,
       fun _ _ => ⟨hΔ', ha⟩⟩
   | .whileDo _ hFᵢ hbᵢ _ _ _ hs _ => ⟨hFᵢ.append (DExec.wf hs).1, fun _ hκ =>
+      ⟨hbᵢ.mono (DExec.wf hs).1.le, ((DExec.wf hs).2 hbᵢ (hκ.mono hFᵢ.le)).2⟩⟩
+  | .whileFmt _ hFᵢ hbᵢ _ _ _ hs => ⟨hFᵢ.append (DExec.wf hs).1, fun _ hκ =>
       ⟨hbᵢ.mono (DExec.wf hs).1.le, ((DExec.wf hs).2 hbᵢ (hκ.mono hFᵢ.le)).2⟩⟩
   | .withCtx he _ hs => ⟨(DEval.wf he).1.append (DExec.wf hs).1, fun hΔ _ => by
       have hC₀ := (DEval.wf he).2 hΔ (ctxBelow_real _)
@@ -456,6 +458,52 @@ theorem loop_sound (hA : A.Sound Φ) {e : Expr (fpy decode)} {s : Stmt (fpy deco
   | _, _, _, _, _, .withCtx _ _ _, h, _, _, _, _, _ => by cases h
 termination_by structural _ _ _ _ _ h => h
 
+/-- `loop_sound` for D-While-Fmt: each iteration rebuilds `Δᵢ` from `Γᵢ` by
+`Covers`, with the variables `s` does not assign still described by `Δ`. -/
+theorem loopFmt_sound (hA : A.Sound Φ) {e : Expr (fpy decode)} {s : Stmt (fpy decode)}
+    {Δ Δᵢ Δ' : DEnv} {Γᵢ Γ' : AEnv D} {b : AVal D} {κ : Option SCtx} {χ : Option Val}
+    {n₀ n₁ n₂ : ℕ} {Ψg Ψᵢ Ψ : List Con} {a : Option DVal} (hbg : Before n₀ Ψg)
+    (hΔ : Δ.Below n₀) (hcov : Covers n₀ n₁ Ψg Ψᵢ s.assigned Γᵢ Δ Δᵢ) (hFᵢ : Fresh n₀ n₁ Ψᵢ)
+    (hbᵢ : Δᵢ.Below n₁) (hF : Fresh n₁ n₂ Ψ) (hAx : AExec A Φ (A.refine χ e true Γᵢ) χ s Γ' b)
+    (hΓ' : Γ'.Le Γᵢ) (hκ : CtxBelow n₀ κ)
+    (hbody : ∀ {σ C o ι}, Exec Φ σ C s o → Sat ι (Ψg ++ Ψᵢ) → Δᵢ.Holds (Ψg ++ Ψᵢ) ι σ →
+      (A.refine χ e true Γᵢ).Holds σ → (∀ K ∈ κ, K.Admits ι C) → Admits χ C →
+      ∃ ι', Agree n₁ ι ι' ∧ Sat ι' Ψ ∧ Within (Ψg ++ Ψᵢ ++ Ψ) ι' Δ' a o) :
+    ∀ {σ C w o ι}, Exec Φ σ C w o → w = .whileDo e s → Sat ι Ψg →
+      (∀ x ∉ s.assigned, ∀ d, Δ x = some d → ∃ v, σ x = some v ∧ Describes Ψg ι d v) →
+      Γᵢ.Holds σ → (∀ K ∈ κ, K.Admits ι C) → Admits χ C →
+      ∃ ι', Agree n₀ ι ι' ∧ Sat ι' (Ψᵢ ++ Ψ) ∧ Within (Ψg ++ (Ψᵢ ++ Ψ)) ι' Δᵢ a o
+  | _, _, _, _, ι, .whileFalse _, rfl, hsg, hU, hΓ, _, _ => by
+      obtain ⟨ι₁, a₁, hs₁, hσ₁⟩ := hcov hbg ι _ hsg hΓ hU
+      obtain ⟨ι₂, a₂, hs₂⟩ := Sat.extend hF ι₁
+      refine ⟨ι₂, a₁.agree.trans (a₂.mono hFᵢ.le), (Sat.congr hFᵢ.before a₂ hs₁).append hs₂, ?_⟩
+      simpa using hσ₁.grow (hbg.append hFᵢ) hF a₂ hbᵢ
+  | _, _, _, _, ι, .whileTrue hg (.seqNormal hs hw), rfl, hsg, hU, hΓ, hC, hχ => by
+      have hΓr := hA.refine hΓ hχ hg
+      obtain ⟨ι₁, a₁, hs₁, hσ₁⟩ := hcov hbg ι _ hsg hΓ hU
+      obtain ⟨ι₂, a₂, -, -⟩ := hbody hs ((Sat.congr hbg a₁.agree hsg).append hs₁) hσ₁ hΓr
+        (admits_congr a₁.agree hκ hC) hχ
+      have a₀₂ := a₁.agree.trans (a₂.mono hFᵢ.le)
+      obtain ⟨ι₃, a₃, hs₃, hw'⟩ := loopFmt_sound hA hbg hΔ hcov hFᵢ hbᵢ hF hAx hΓ' hκ hbody hw
+        rfl (Sat.congr hbg a₀₂ hsg) (fun x hx d hd => by
+          obtain ⟨v, hv, hdv⟩ := hU x hx d hd
+          refine ⟨v, (Exec.frame _ hs rfl x hx).trans hv, ?_⟩
+          simpa using hdv.grow hbg (Fresh.nil _) a₀₂ (hΔ x d hd))
+        (hΓ' _ (Fpy.exec_sound hA hs hΓr hχ hAx)) (admits_congr a₀₂ hκ hC) hχ
+      exact ⟨ι₃, a₀₂.trans a₃, hs₃, hw'⟩
+  | _, _, _, _, ι, .whileTrue hg (.seqRet hs), rfl, hsg, hU, hΓ, hC, hχ => by
+      obtain ⟨ι₁, a₁, hs₁, hσ₁⟩ := hcov hbg ι _ hsg hΓ hU
+      obtain ⟨ι₂, a₂, hs₂, hw⟩ := hbody hs ((Sat.congr hbg a₁.agree hsg).append hs₁) hσ₁
+        (hA.refine hΓ hχ hg) (admits_congr a₁.agree hκ hC) hχ
+      exact ⟨ι₂, a₁.agree.trans (a₂.mono hFᵢ.le), (Sat.congr hFᵢ.before a₂ hs₁).append hs₂,
+        by simpa using hw⟩
+  | _, _, _, _, _, .assign _, h, _, _, _, _, _ | _, _, _, _, _, .skip, h, _, _, _, _, _
+  | _, _, _, _, _, .ret _, h, _, _, _, _, _ | _, _, _, _, _, .assert _, h, _, _, _, _, _
+  | _, _, _, _, _, .seqNormal _ _, h, _, _, _, _, _ | _, _, _, _, _, .seqRet _, h, _, _, _, _, _
+  | _, _, _, _, _, .iteTrue _ _, h, _, _, _, _, _ | _, _, _, _, _, .iteFalse _ _, h, _, _, _, _, _
+  | _, _, _, _, _, .withCtx _ _ _, h, _, _, _, _, _ => by cases h
+termination_by structural _ _ _ _ _ h => h
+
 /-! ## Theorem 4.2 -/
 
 mutual
@@ -722,6 +770,12 @@ theorem exec_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ Ψg n₀ s Δ' a Ψ n₁
         h rfl ((Sat.congr hbg a₁.agree hsg).append hs₁) hσ₁ (hΓᵢ _ hΓ)
         (admits_congr a₁.agree hκ hC) hχ
       exact ⟨ι₂, a₁.agree.trans a₂, hs₂, hw⟩
+  | _, _, _, _, _, _, _, _, _, _, _, .whileFmt hcov hFᵢ hbᵢ hΓᵢ hAx hΓ' hbody, _, _, _, _, h,
+      hbg, hsg, hΔ, hκ, hσ, hΓ, hC, hχ =>
+      loopFmt_sound hA hbg hΔ hcov hFᵢ hbᵢ (DExec.wf hbody).1 hAx hΓ' hκ
+        (fun hE hs' hσ' hΓ'' hC' hχ' => exec_sound hA hbody hE (hbg.append hFᵢ) hs' hbᵢ
+          (hκ.mono hFᵢ.le) hσ' hΓ'' hC' hχ')
+        h rfl hsg (fun x _ d hd => hσ x d hd) (hΓᵢ _ hΓ) hC hχ
   | _, _, _, _, _, _, _, _, _, _, _, .withCtx hd ha hbody, _, _, _, _, .withCtx he _ hs,
       hbg, hsg, hΔ, _, hσ, hΓ, _, _ => by
       have hF₁ := (DEval.wf hd).1

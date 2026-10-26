@@ -50,7 +50,7 @@ zones or linear templates match Z3's bounds.
 - [x] **The query as a definition.** Define
   `prec♮ Ψ l m := sup {m(ι) − l(ι) + 1 | ι ⊨ Ψ}` and state `run_precision`
   (`Sound.lean`) with it.
-- [ ] **A loop rule matching the implementation.** Today D-While
+- [x] **A loop rule matching the implementation.** Today D-While
   (`DExec.whileDo`) takes an invariant, and its back-edge premise compares
   digit-bound states without format inference's facts, so it may not accept
   the implementation's invariant. Here, replace or supplement it with a
@@ -285,6 +285,11 @@ them.
 - **Tests:** add an example to `FpyTest/DigitBound.lean` deriving
   `whileFmt` for a one-variable loop, as a check that the premises can be
   met.
+- **As built:** `covers_fmt` is two builders, `Covers.without` (drop the
+  assigned variables) and `Covers.fmt` (one number per assigned variable).
+  Lists and records have no builder yet (see Open items). `Covers`' premise
+  on unassigned variables is stated per store, so `loopFmt_sound` carries it
+  across iterations with `Exec.frame`.
 
       lake build Fpy.Semantics Fpy.DigitBound.Sound FpyTest.DigitBound
 
@@ -354,9 +359,9 @@ constraint is satisfiable" as a syntactic fact.
 Format inference's values (`AVal`) can be lists, records, contexts or `top`.
 `DVal` has no top element, so a loop-carried `top` value cannot be covered.
 **Provisional:**
-- cover numbers with a fresh interval;
-- cover lists of numbers with a fresh element interval;
-- cover records field by field;
+- cover numbers with a fresh interval (`Covers.fmt`, built);
+- cover lists of numbers with a fresh element interval (not built);
+- cover records field by field (not built);
 - leave `whileFmt` inapplicable when any assigned variable is `top`, and use
   D-While there.
 
@@ -368,8 +373,7 @@ add a top element to `DVal`.
 A callee runs on its own store, so a call cannot assign the caller's
 variables. If the semantics shares stores in some case, the frame lemma
 needs a premise.
-**Provisional:** syntactic assignments only.  **Reopen** if the frame lemma
-fails.
+**Resolved:** syntactic assignments only; `Exec.frame` needs no premise.
 
 #### Which encoding: a clean one, or exactly the implementation's?
 

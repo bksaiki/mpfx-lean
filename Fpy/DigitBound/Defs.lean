@@ -359,6 +359,18 @@ def knownCtx {D : FormatDomain} : AVal D → Option Val
   | .known C => some C
   | _ => none
 
+/-- `Δ` without the variables `X`. -/
+def DEnv.without (Δ : DEnv) (X : List Var) : DEnv := fun x => if x ∈ X then none else Δ x
+
+/-- D-While-Fmt's premise: whatever store `Γᵢ` describes, outside `X` described
+by `Δ` under the constraints `Ψg` so far, `Δᵢ` describes once the fresh
+variables `[n₀, n₁)` bounded by `Ψ` are re-chosen. -/
+def Covers {D : FormatDomain} (n₀ n₁ : ℕ) (Ψg Ψ : List Con) (X : List Var) (Γᵢ : AEnv D)
+    (Δ Δᵢ : DEnv) : Prop :=
+  Before n₀ Ψg → ∀ ι σ, Sat ι Ψg → Γᵢ.Holds σ →
+    (∀ x ∉ X, ∀ d, Δ x = some d → ∃ v, σ x = some v ∧ Describes Ψg ι d v) →
+    ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Δᵢ.Holds (Ψg ++ Ψ) ι' σ
+
 /-! ## The analysis -/
 
 variable (decode) (Φ : Program (fpy decode)) {D : FormatDomain} (A : Analysis (fpy decode) D)
@@ -490,6 +502,13 @@ inductive DExec : DEnv → AEnv D → Option SCtx → Option Val → List Con �
       Fresh n₀ n₁ Ψᵢ → Δᵢ.Below n₁ → Γ.Le Γᵢ → AExec A Φ (A.refine χ e true Γᵢ) χ s Γ' b →
       Γ'.Le Γᵢ → DExec Δᵢ (A.refine χ e true Γᵢ) κ χ (Ψg ++ Ψᵢ) n₁ s Δ' a Ψ n₂ →
       DEnv.Le n₀ n₁ Ψg Ψᵢ Δ' Δᵢ → DExec Δ Γ κ χ Ψg n₀ (.whileDo e s) Δᵢ a (Ψᵢ ++ Ψ) n₂
+  /-- D-While-Fmt: each iteration starts from `Δᵢ`, which `Γᵢ` covers (`Covers`);
+  no back edge. -/
+  | whileFmt {Δ Γ κ χ Ψg n₀ e s Δᵢ Ψᵢ n₁ Γᵢ Γ' b Δ' a Ψ n₂} :
+      Covers n₀ n₁ Ψg Ψᵢ s.assigned Γᵢ Δ Δᵢ → Fresh n₀ n₁ Ψᵢ → Δᵢ.Below n₁ → Γ.Le Γᵢ →
+      AExec A Φ (A.refine χ e true Γᵢ) χ s Γ' b → Γ'.Le Γᵢ →
+      DExec Δᵢ (A.refine χ e true Γᵢ) κ χ (Ψg ++ Ψᵢ) n₁ s Δ' a Ψ n₂ →
+      DExec Δ Γ κ χ Ψg n₀ (.whileDo e s) Δᵢ a (Ψᵢ ++ Ψ) n₂
   | withCtx {Δ Γ κ χ Ψg n₀ e C Ψ n₁ a₀ s Δ' a Ψ' n₂} :
       DEval Δ Γ (some .real) (some .real) Ψg n₀ e (.ctx C) Ψ n₁ →
       AEval A Φ Γ (some .real) e a₀ →
