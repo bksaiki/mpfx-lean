@@ -67,9 +67,9 @@ zones or linear templates match Z3's bounds.
   holds exactly when its integer encoding with "not `+∞`" / "not `−∞`" guard
   literals does, as `DigitBoundStore.high` and `DigitBoundStore.not_neg_inf`
   build it. New file `Encode.lean`.
-- [ ] **Every rounding, not only the result.** A semantics that records each
-  evaluation of a subexpression (`Fpy/Semantics.lean`), and a corollary of
-  `eval_sound` over it.
+- ~~**Every rounding, not only the result.**~~ Dropped: the paper claims
+  precision per expression under Theorem 4.2's hypotheses (§4.3, "Solving
+  constraints"), not per site of a run; see Phase 5.
 - [ ] **Docs.** Add the new theorems to the README's §4.3 table. The "Rules
   only, not the implementation's algorithm" decision in
   `docs/agents/FPY_PLAN.md` stands, except that the loop rule now matches the
@@ -170,7 +170,6 @@ items are tracked separately above.
 | The bound is a premise, `∀ ι, Sat ι Ψ → m ≤ l + p − 1` | `run_precision`, `precision_of_bound` (`Sound.lean`) | The paper has no named quantity for "what Z3 computes" |
 | D-While takes an invariant, checked by `DEnv.Le` on entry and on the back edge | `DExec.whileDo` (`Defs.lean`); `loop_sound` (`Sound.lean`) | It may not accept the implementation's invariant (fresh variables bounded by format inference), because `DEnv.Le` cannot use format inference's facts |
 | Constraints range over ℤ ∪ {±∞} (`EInt`) | `Term.eval` (`Defs.lean`) | Z3 sees integers plus guard literals; the translation is unverified |
-| Only the program's result is bounded | `run_precision` | The implementation bounds every rounding site |
 
 Five constructions build constraints: `Con.ext`, `Con.lower`, `Con.upper`,
 `Con.between` (`Defs.lean`) and `Con.copy` (`Copy.lean`). `bounds` and the
@@ -331,22 +330,13 @@ them.
 
       lake build Fpy.DigitBound.Encode FpyTest.DigitBound
 
-#### Phase 5 -- Every rounding, not only the result
+#### Phase 5 -- Every rounding, not only the result (dropped)
 
-- **Changes:**
-  - `Fpy/Semantics.lean`: a semantics that records each evaluated
-    subexpression and its value (see Open items for the shape). Prove it
-    agrees with `Eval`/`Exec`.
-  - `Sound.lean`: a corollary of `eval_sound`. For every recorded evaluation
-    of a rounding `e` whose derivation gives `⟨[l, m], τ⟩`, the value has at
-    most `precBound` digits.
-  - Add a README row.
-- **Why separate:** largest semantic change, and independent of Phases 3–4.
-  It goes last, so it does not block the loop rule.
-- **Tests:** an example in `FpyTest/DigitBound.lean` bounding an
-  intermediate rounding in a two-statement program.
-
-      lake build Fpy.Semantics Fpy.DigitBound.Sound FpyTest.DigitBound
+The paper claims precision per expression, under Theorem 4.2's hypotheses;
+bounding every rounding of a run serves the second pass, which `FPY_PLAN.md`
+lists as not claimed. Doing it would need a sites output on all four judgments
+(the Lean cannot key bounds by AST node, as `by_expr` does), a recording
+semantics, and a trace conclusion on `eval_sound`/`exec_sound`.
 
 #### After the last phase
 
@@ -405,16 +395,6 @@ correspondence argued in prose.
 **Provisional:** clean encoding plus a written correspondence (under Phase 4,
 "As built").  **Reopen** if a reviewer asks for the implementation's encoding
 itself.
-
-#### How should Phase 5 record evaluations?
-
-- A semantics that records each evaluation is explicit, and agreement
-  follows from determinism (`Eval.det`).
-- An "occurs in this run" relation over subderivations avoids a new
-  semantics, but is harder to state for loops, where one expression is
-  evaluated many times.
-
-**Provisional:** the recording semantics.
 
 #### Is a `for` rule needed?
 

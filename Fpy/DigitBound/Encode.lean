@@ -190,7 +190,7 @@ theorem sat_exists (Ψ : List Con) : (∃ ι, Sat ι Ψ) ↔ ∃ M : IModel, ∀
 satisfies the encoded `m − l + 1 ≤ p`. -/
 theorem precBound_le_iff (Ψ : List Con) (l m : Term) (p : ℤ) :
     precBound Ψ l m ≤ p ↔ ∀ M : IModel, (∀ φ ∈ encode Ψ, φ.holds M) →
-      (Atom.enc ⟨.add (.add m (.neg l)) (.const (1 : ℤ)), .const p⟩).holds M := by
+      (Atom.enc ⟨l.width m, .const p⟩).holds M := by
   simp only [precBound, iSup₂_le_iff, ← Atom.holds_decode]
   refine ⟨fun h M hM => h _ ((sat_decode M Ψ).mpr hM), fun h ι hι => ?_⟩
   have := h _ ((sat_iff ι Ψ).mp hι)
@@ -216,7 +216,7 @@ encoded `m − l + 1 ≤ p`. -/
 theorem precBoundFin_le_iff (Ψ : List Con) (l m : Term) (p : ℤ) :
     precBoundFin Ψ l m ≤ p ↔ ∀ M : IModel, (∀ φ ∈ encode Ψ, φ.holds M) →
       l.enc.bot.holds M = false → m.enc.top.holds M = false →
-      (Atom.enc ⟨.add (.add m (.neg l)) (.const (1 : ℤ)), .const p⟩).holds M := by
+      (Atom.enc ⟨l.width m, .const p⟩).holds M := by
   simp only [precBoundFin, iSup₂_le_iff, ← Atom.holds_decode, ← Term.ne_bot_decode,
     ← Term.ne_top_decode]
   refine ⟨fun h M hM hl hm => h _ ⟨(sat_decode M Ψ).mpr hM, hl, hm⟩,

@@ -470,8 +470,7 @@ theorem loopFmt_sound (hA : A.Sound Φ) {e : Expr (fpy decode)} {s : Stmt (fpy d
       (A.refine χ e true Γᵢ).Holds σ → (∀ K ∈ κ, K.Admits ι C) → Admits χ C →
       ∃ ι', Agree n₁ ι ι' ∧ Sat ι' Ψ ∧ Within (Ψg ++ Ψᵢ ++ Ψ) ι' Δ' a o) :
     ∀ {σ C w o ι}, Exec Φ σ C w o → w = .whileDo e s → Sat ι Ψg →
-      (∀ x ∉ s.assigned, ∀ d, Δ x = some d → ∃ v, σ x = some v ∧ Describes Ψg ι d v) →
-      Γᵢ.Holds σ → (∀ K ∈ κ, K.Admits ι C) → Admits χ C →
+      (Δ.without s.assigned).Holds Ψg ι σ → Γᵢ.Holds σ → (∀ K ∈ κ, K.Admits ι C) → Admits χ C →
       ∃ ι', Agree n₀ ι ι' ∧ Sat ι' (Ψᵢ ++ Ψ) ∧ Within (Ψg ++ (Ψᵢ ++ Ψ)) ι' Δᵢ a o
   | _, _, _, _, ι, .whileFalse _, rfl, hsg, hU, hΓ, _, _ => by
       obtain ⟨ι₁, a₁, hs₁, hσ₁⟩ := hcov hbg ι _ hsg hΓ hU
@@ -485,10 +484,10 @@ theorem loopFmt_sound (hA : A.Sound Φ) {e : Expr (fpy decode)} {s : Stmt (fpy d
         (admits_congr a₁.agree hκ hC) hχ
       have a₀₂ := a₁.agree.trans (a₂.mono hFᵢ.le)
       obtain ⟨ι₃, a₃, hs₃, hw'⟩ := loopFmt_sound hA hbg hΔ hcov hFᵢ hbᵢ hF hAx hΓ' hκ hbody hw
-        rfl (Sat.congr hbg a₀₂ hsg) (fun x hx d hd => by
-          obtain ⟨v, hv, hdv⟩ := hU x hx d hd
-          refine ⟨v, (Exec.frame _ hs rfl x hx).trans hv, ?_⟩
-          simpa using hdv.grow hbg (Fresh.nil _) a₀₂ (hΔ x d hd))
+        rfl (Sat.congr hbg a₀₂ hsg) (fun x d hd => by
+          obtain ⟨v, hv, hdv⟩ := hU x d hd
+          refine ⟨v, (Exec.frame _ hs rfl x (DEnv.without_eq_some.mp hd).1).trans hv, ?_⟩
+          simpa using hdv.grow hbg (Fresh.nil _) a₀₂ (hΔ.without _ x d hd))
         (hΓ' _ (Fpy.exec_sound hA hs hΓr hχ hAx)) (admits_congr a₀₂ hκ hC) hχ
       exact ⟨ι₃, a₀₂.trans a₃, hs₃, hw'⟩
   | _, _, _, _, ι, .whileTrue hg (.seqRet hs), rfl, hsg, hU, hΓ, hC, hχ => by
@@ -775,7 +774,7 @@ theorem exec_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ Ψg n₀ s Δ' a Ψ n₁
       loopFmt_sound hA hbg hΔ hcov hFᵢ hbᵢ (DExec.wf hbody).1 hAx hΓ' hκ
         (fun hE hs' hσ' hΓ'' hC' hχ' => exec_sound hA hbody hE (hbg.append hFᵢ) hs' hbᵢ
           (hκ.mono hFᵢ.le) hσ' hΓ'' hC' hχ')
-        h rfl hsg (fun x _ d hd => hσ x d hd) (hΓᵢ _ hΓ) hC hχ
+        h rfl hsg (hσ.without _) (hΓᵢ _ hΓ) hC hχ
   | _, _, _, _, _, _, _, _, _, _, _, .withCtx hd ha hbody, _, _, _, _, .withCtx he _ hs,
       hbg, hsg, hΔ, _, hσ, hΓ, _, _ => by
       have hF₁ := (DEval.wf hd).1
@@ -835,13 +834,12 @@ theorem precision_of_bound {Ψ : List Con} {ι : Asgn} {l m : Term} {τ : Option
   cases hd with
   | num hu =>
     obtain ⟨hl, hm⟩ := hu.eq (by simp)
-    have h := hp
-    rw [← hl, ← hm, msbOf_of_ne_zero hx] at h
+    rw [← hl, ← hm, msbOf_of_ne_zero hx] at hp
     cases ha : lsbOf (.finite x) using WithBotTop.rec with
-    | bot => simp [ha] at h
+    | bot => simp [ha] at hp
     | top => exact absurd ha (lsbOf_ne_top hx)
     | coe a =>
-      rw [ha, coe_add_coe, WithBotTop.coe_le_coe] at h
+      rw [ha, coe_add_coe, WithBotTop.coe_le_coe] at hp
       obtain ⟨c, rfl⟩ := coe_le_lsbOf.mp ha.ge
       refine ⟨c, a, rfl, ?_⟩
       have hlt : |(c : ℝ) * 2 ^ a| < 2 ^ ((p : ℤ) + a) :=
@@ -868,22 +866,24 @@ theorem le_of_width {a b : EInt} {p : ℤ} (h : a + negE b + ((1 : ℤ) : EInt) 
       simp only [negE, WithBotTop.rec_coe, coe_add_coe, WithBotTop.coe_le_coe] at h ⊢
       omega
 
+/-- `m − l + 1`. -/
+def Term.width (l m : Term) : Term := .add (.add m (.neg l)) (.const (1 : ℤ))
+
 /-- The query `prec♮ Ψ l m`: the largest `m − l + 1` over assignments satisfying `Ψ`. -/
 noncomputable def precBound (Ψ : List Con) (l m : Term) : EInt :=
-  ⨆ (ι : Asgn) (_ : Sat ι Ψ), m.eval ι + negE (l.eval ι) + ((1 : ℤ) : EInt)
+  ⨆ (ι : Asgn) (_ : Sat ι Ψ), (l.width m).eval ι
 
 /-- `precision_of_bound` with the bound given by `precBound`. -/
 theorem precision_of_precBound {Ψ : List Con} {ι : Asgn} {l m : Term} {τ : Option Term} {x : ℝ}
     {p : ℕ} (hs : Sat ι Ψ) (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
     (hp : precBound Ψ l m ≤ ((p : ℤ) : EInt)) : ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p :=
-  precision_of_bound hd <| le_of_width <| (le_iSup₂ (f := fun ι (_ : Sat ι Ψ) =>
-    m.eval ι + negE (l.eval ι) + ((1 : ℤ) : EInt)) ι hs).trans hp
+  precision_of_bound hd <| le_of_width <|
+    (le_iSup₂ (f := fun ι (_ : Sat ι Ψ) => (l.width m).eval ι) ι hs).trans hp
 
 /-- `precBound` over the assignments where `l` is not `−∞` and `m` not `+∞`, as
 the implementation queries. -/
 noncomputable def precBoundFin (Ψ : List Con) (l m : Term) : EInt :=
-  ⨆ (ι : Asgn) (_ : Sat ι Ψ ∧ l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤),
-    m.eval ι + negE (l.eval ι) + ((1 : ℤ) : EInt)
+  ⨆ (ι : Asgn) (_ : Sat ι Ψ ∧ l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤), (l.width m).eval ι
 
 /-- `precision_of_precBound` for a dyadic value, by `precBoundFin`: its digits
 are finite. -/
@@ -894,16 +894,14 @@ theorem precision_of_precBoundFin {Ψ : List Con} {ι : Asgn} {l m : Term} {τ :
   by_cases h0 : x = 0
   · exact ⟨0, 0, by simp [h0], by simp⟩
   obtain ⟨c, e, rfl⟩ := hx
-  cases hd with
-  | num hu =>
-    obtain ⟨hl, hm⟩ := hu.eq (by simp)
-    have hfin : l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤ := by
-      rw [← hl, ← hm, msbOf_of_ne_zero h0]
-      exact ⟨ne_bot_of_le_ne_bot (WithBotTop.coe_ne_bot e) (coe_le_lsbOf.mpr ⟨c, rfl⟩),
-        WithBotTop.coe_ne_top _⟩
-    exact precision_of_bound (Ψ := Ψ) (.num hu) <| le_of_width <| (le_iSup₂ (f := fun ι
-      (_ : Sat ι Ψ ∧ l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤) => m.eval ι + negE (l.eval ι) +
-        ((1 : ℤ) : EInt)) ι ⟨hs, hfin⟩).trans hp
+  obtain ⟨hl, hm⟩ : lsbOf _ = l.eval ι ∧ msbOf _ = m.eval ι := by
+    cases hd with | num hu => exact hu.eq (by simp)
+  have hfin : l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤ := by
+    rw [← hl, ← hm, msbOf_of_ne_zero h0]
+    exact ⟨ne_bot_of_le_ne_bot (WithBotTop.coe_ne_bot e) (coe_le_lsbOf.mpr ⟨c, rfl⟩),
+      WithBotTop.coe_ne_top _⟩
+  exact precision_of_bound hd <| le_of_width <| (le_iSup₂ (f := fun ι
+    (_ : Sat ι Ψ ∧ l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤) => (l.width m).eval ι) ι ⟨hs, hfin⟩).trans hp
 
 /-- `precision_of_precBound` for a program's result. -/
 theorem run_precision (hA : A.Sound Φ) {f : Fn} {y : Var} {s : Stmt (fpy decode)} {d : DVal}

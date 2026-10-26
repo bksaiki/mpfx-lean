@@ -282,6 +282,17 @@ theorem DEnv.Holds.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ) (hF 
   obtain ⟨v, hv, hd⟩ := hσ x d hx
   exact ⟨v, hv, hd.grow hb hF h (hΔ x d hx)⟩
 
+theorem DEnv.without_eq_some {Δ : DEnv} {X : List Var} {x : Var} {d : DVal} :
+    Δ.without X x = some d ↔ x ∉ X ∧ Δ x = some d := by
+  unfold DEnv.without; split <;> simp_all
+
+theorem DEnv.Below.without {n : ℕ} {Δ : DEnv} (hΔ : Δ.Below n) (X : List Var) :
+    (Δ.without X).Below n := fun x d hx => hΔ x d (DEnv.without_eq_some.mp hx).2
+
+theorem DEnv.Holds.without {Δ : DEnv} {Ψ : List Con} {ι : Asgn} {σ : Store}
+    (hσ : Δ.Holds Ψ ι σ) (X : List Var) : (Δ.without X).Holds Ψ ι σ := fun x d hx =>
+  hσ x d (DEnv.without_eq_some.mp hx).2
+
 theorem DEnv.Holds.update {Δ : DEnv} {Ψ : List Con} {ι : Asgn} {σ : Store}
     (hσ : Δ.Holds Ψ ι σ) (x : Var) {d : DVal} {v : Val} (hd : Describes Ψ ι d v) :
     (Δ.update x d).Holds Ψ ι (σ.update x v) := by

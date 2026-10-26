@@ -61,22 +61,11 @@ theorem DEnv.Le.trans {Ψg Ψ₁ Ψ₂ : List Con} {n₀ n₁ n₂ : ℕ} {Δ Δ
 
 /-! ## Loop covers -/
 
-theorem DEnv.Below.without {n : ℕ} {Δ : DEnv} (hΔ : Δ.Below n) (X : List Var) :
-    (Δ.without X).Below n := fun x d hx => by
-  unfold DEnv.without at hx
-  split at hx
-  · cases hx
-  · exact hΔ x d hx
-
 /-- Variables outside `X` keep their description. -/
 theorem Covers.without {D : FormatDomain} {Ψg : List Con} (n : ℕ) (X : List Var) (Γᵢ : AEnv D)
     (Δ : DEnv) : Covers n n Ψg [] X Γᵢ Δ (Δ.without X) := by
   intro _ ι σ _ _ hU
-  refine ⟨ι, fun _ _ => rfl, fun _ h => absurd h List.not_mem_nil, fun x d hx => ?_⟩
-  unfold DEnv.without at hx
-  split at hx
-  · cases hx
-  · next hX => simpa using hU x hX d hx
+  exact ⟨ι, fun _ _ => rfl, fun _ h => absurd h List.not_mem_nil, by simpa using hU⟩
 
 /-- D-Fmt for a loop variable: a number in the format `F`, whose values have
 digits in `[lo, hi]`, gets a fresh interval. -/

@@ -362,13 +362,12 @@ def knownCtx {D : FormatDomain} : AVal D → Option Val
 /-- `Δ` without the variables `X`. -/
 def DEnv.without (Δ : DEnv) (X : List Var) : DEnv := fun x => if x ∈ X then none else Δ x
 
-/-- D-While-Fmt's premise: whatever store `Γᵢ` describes, outside `X` described
-by `Δ` under the constraints `Ψg` so far, `Δᵢ` describes once the fresh
-variables `[n₀, n₁)` bounded by `Ψ` are re-chosen. -/
+/-- D-While-Fmt's premise: every store in `Γᵢ` whose variables outside `X` are
+described by `Δ` is described by `Δᵢ`, once the fresh variables `[n₀, n₁)`
+bounded by `Ψ` are re-chosen. -/
 def Covers {D : FormatDomain} (n₀ n₁ : ℕ) (Ψg Ψ : List Con) (X : List Var) (Γᵢ : AEnv D)
     (Δ Δᵢ : DEnv) : Prop :=
-  Before n₀ Ψg → ∀ ι σ, Sat ι Ψg → Γᵢ.Holds σ →
-    (∀ x ∉ X, ∀ d, Δ x = some d → ∃ v, σ x = some v ∧ Describes Ψg ι d v) →
+  Before n₀ Ψg → ∀ ι σ, Sat ι Ψg → Γᵢ.Holds σ → (Δ.without X).Holds Ψg ι σ →
     ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Δᵢ.Holds (Ψg ++ Ψ) ι' σ
 
 /-! ## The analysis -/

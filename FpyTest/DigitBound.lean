@@ -93,7 +93,7 @@ example : precBound [Con.between 0 (-2) 0 (by omega),
     (le_iSup₂_of_le (fun x => if x = 0 then ((0 : ℤ) : EInt) else ((3 : ℤ) : EInt)) ?_ ?_)
   · have h0 := Con.P_between.mp (h _ (List.mem_cons_self ..))
     have h1 := Con.P_upper.mp (h _ (List.mem_cons_of_mem _ (List.mem_cons_self ..)))
-    simp only [Term.eval] at h0 h1 ⊢
+    simp only [Term.width, Term.eval] at h0 h1 ⊢
     generalize ι 0 = a, ι 1 = b at h0 h1 ⊢
     cases a using WithBotTop.rec with
     | bot => exact absurd h0.1 (by simp)
@@ -106,7 +106,7 @@ example : precBound [Con.between 0 (-2) 0 (by omega),
         simp only [negE, WithBotTop.rec_coe, coe_add_coe, WithBotTop.coe_le_coe] at h0 h1 ⊢
         omega
   · simp [Sat, Con.P_between, Con.P_upper, Term.eval, coe_add_coe]
-  · simp [Term.eval, negE, coe_add_coe]
+  · simp [Term.width, Term.eval, negE, coe_add_coe]
 
 /-- D-While-Fmt's premises for a loop assigning only `x`, a number in `F`: `y`
 keeps its description, and `x` gets the fresh interval `[1, 0]` within `F`'s digits. -/
