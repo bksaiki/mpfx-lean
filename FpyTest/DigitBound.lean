@@ -1,4 +1,4 @@
-import Fpy.DigitBound.Sound
+import Fpy.DigitBound.Encode
 import Fpy.DigitBound.Copy
 import Fpy.DigitBound.Join
 import Fpy.DigitBound.Table
@@ -129,5 +129,14 @@ example {decode : List (Label × Val) → Option RoundCtx} {Φ : Program (fpy de
     ((hΔ.mono (by omega)).update _
       ⟨show 1 < 2 by omega, show 0 < 2 by omega, fun _ h => absurd h (by simp)⟩)
     hΓ hAx hΓ' hbody
+
+/-- Encoding an infinite endpoint: `x₀ ≤ +∞` holds in every model, and
+`+∞ ≤ x₀` exactly where `x₀`'s flag "not `+∞`" is off. -/
+example (M : IModel) : (Atom.enc ⟨.var 0, .const ⊤⟩).holds M := by
+  simp [Atom.enc, Term.enc, IForm.holds]
+
+example (M : IModel) : (Atom.enc ⟨.const ⊤, .var 0⟩).holds M = !M.notTop 0 := by
+  simp only [Atom.enc, Term.enc, IForm.holds]
+  cases M.notTop 0 <;> cases M.notBot 0 <;> rfl
 
 end FpyTest

@@ -63,7 +63,7 @@ zones or linear templates match Z3's bounds.
   Prove it sound directly in `exec_sound`, from format inference's soundness
   at every iteration. This avoids changing the order (`DEnv.Le`), which the
   abstract-interpretation roadmap needs.
-- [ ] **Integer encoding.** A lemma that a constraint over ℤ ∪ {±∞} (`EInt`)
+- [x] **Integer encoding.** A lemma that a constraint over ℤ ∪ {±∞} (`EInt`)
   holds exactly when its integer encoding with "not `+∞`" / "not `−∞`" guard
   literals does, as `DigitBoundStore.high` and `DigitBoundStore.not_neg_inf`
   build it. New file `Encode.lean`.
@@ -307,6 +307,27 @@ them.
 - **Why separate:** needs Phase 1's syntax, and touches nothing else.
 - **Tests:** examples in `FpyTest/DigitBound.lean` encoding a constraint with
   an infinite endpoint.
+- **As built:** `Term.enc` gives each term an "is `+∞`" formula, an "is
+  `−∞`" formula and an integer value; `max`/`min` become `ite`.
+  `sat_decode`/`sat_iff` make the encoding exact, and `precBound_le_iff`
+  states the query as validity of `encode Ψ → Atom.enc (m − l + 1 ≤ p)`.
+- **Correspondence with `store.py`:**
+  - `IModel.notTop x` is `x`'s `high` literal, and `IModel.notBot x` its
+    `not_neg_inf` literal (`_own_literal(x, True/False)`).
+  - For a linear term, `¬(Term.enc t).top` holds where `high(t)` holds: each
+    variable is not `+∞` (positive coefficient) or not `−∞` (negative).
+    `not_neg_inf(t)` is dual.
+  - The implementation states `guard → lhs ≤ rhs`, with ±∞ as unboundedly
+    high or low integers. Every model of `Atom.enc` satisfies it, so its
+    constraints are a relaxation of the exact encoding, and its maxima are
+    at least `precBound`.
+- **The query under the queried flags.** `store.py` maximizes `m − l + 1`
+  assuming `high(m)` and `not_neg_inf(l)`: `precBoundFin`, which can be less
+  than `precBound` where `Ψ` lets `l` be `−∞`. That loses nothing for a
+  dyadic value: its `lsbOf` is finite, and so is a finite value's `msbOf`
+  unless it is `0` (`precision_of_precBoundFin`). `precBoundFin_le_iff` is
+  its encoded form. Rounded values are dyadic; only exact operations under
+  `R` can produce others, whose precision is unbounded anyway.
 
       lake build Fpy.DigitBound.Encode FpyTest.DigitBound
 
@@ -381,8 +402,9 @@ needs a premise.
 coefficient sign. Mirroring it exactly ties the proof to the
 implementation's details. A clean encoding is easier to prove, with the
 correspondence argued in prose.
-**Provisional:** clean encoding plus a written correspondence.  **Reopen** if
-a reviewer asks for the implementation's encoding itself.
+**Provisional:** clean encoding plus a written correspondence (under Phase 4,
+"As built").  **Reopen** if a reviewer asks for the implementation's encoding
+itself.
 
 #### How should Phase 5 record evaluations?
 

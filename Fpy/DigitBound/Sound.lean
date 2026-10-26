@@ -824,19 +824,18 @@ theorem run_sound (hA : A.Sound Φ) {f : Fn} {y : Var} {s : Stmt (fpy decode)} {
 
 /-! ## Precision -/
 
-/-- A finite value described by `⟨[l, m], _⟩`
-under `Ψ`, where every assignment satisfying `Ψ` has `m ≤ l + p − 1`, has at
-most `p` significant digits. -/
+/-- A finite value described by `⟨[l, m], _⟩` under `ι`, where
+`m ≤ l + p − 1`, has at most `p` significant digits. -/
 theorem precision_of_bound {Ψ : List Con} {ι : Asgn} {l m : Term} {τ : Option Term} {x : ℝ}
-    {p : ℕ} (hs : Sat ι Ψ) (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
-    (hp : ∀ ι, Sat ι Ψ → m.eval ι ≤ l.eval ι + ((p - 1 : ℤ) : EInt)) :
+    {p : ℕ} (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
+    (hp : m.eval ι ≤ l.eval ι + ((p - 1 : ℤ) : EInt)) :
     ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p := by
   by_cases hx : x = 0
   · exact ⟨0, 0, by simp [hx], by simp⟩
   cases hd with
   | num hu =>
     obtain ⟨hl, hm⟩ := hu.eq (by simp)
-    have h := hp ι hs
+    have h := hp
     rw [← hl, ← hm, msbOf_of_ne_zero hx] at h
     cases ha : lsbOf (.finite x) using WithBotTop.rec with
     | bot => simp [ha] at h
@@ -877,8 +876,34 @@ noncomputable def precBound (Ψ : List Con) (l m : Term) : EInt :=
 theorem precision_of_precBound {Ψ : List Con} {ι : Asgn} {l m : Term} {τ : Option Term} {x : ℝ}
     {p : ℕ} (hs : Sat ι Ψ) (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
     (hp : precBound Ψ l m ≤ ((p : ℤ) : EInt)) : ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p :=
-  precision_of_bound hs hd fun ι' h => le_of_width <| (le_iSup₂ (f := fun ι (_ : Sat ι Ψ) =>
-    m.eval ι + negE (l.eval ι) + ((1 : ℤ) : EInt)) ι' h).trans hp
+  precision_of_bound hd <| le_of_width <| (le_iSup₂ (f := fun ι (_ : Sat ι Ψ) =>
+    m.eval ι + negE (l.eval ι) + ((1 : ℤ) : EInt)) ι hs).trans hp
+
+/-- `precBound` over the assignments where `l` is not `−∞` and `m` not `+∞`, as
+the implementation queries. -/
+noncomputable def precBoundFin (Ψ : List Con) (l m : Term) : EInt :=
+  ⨆ (ι : Asgn) (_ : Sat ι Ψ ∧ l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤),
+    m.eval ι + negE (l.eval ι) + ((1 : ℤ) : EInt)
+
+/-- `precision_of_precBound` for a dyadic value, by `precBoundFin`: its digits
+are finite. -/
+theorem precision_of_precBoundFin {Ψ : List Con} {ι : Asgn} {l m : Term} {τ : Option Term}
+    {x : ℝ} {p : ℕ} (hs : Sat ι Ψ) (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
+    (hx : ∃ c e : ℤ, x = c * 2 ^ e) (hp : precBoundFin Ψ l m ≤ ((p : ℤ) : EInt)) :
+    ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p := by
+  by_cases h0 : x = 0
+  · exact ⟨0, 0, by simp [h0], by simp⟩
+  obtain ⟨c, e, rfl⟩ := hx
+  cases hd with
+  | num hu =>
+    obtain ⟨hl, hm⟩ := hu.eq (by simp)
+    have hfin : l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤ := by
+      rw [← hl, ← hm, msbOf_of_ne_zero h0]
+      exact ⟨ne_bot_of_le_ne_bot (WithBotTop.coe_ne_bot e) (coe_le_lsbOf.mpr ⟨c, rfl⟩),
+        WithBotTop.coe_ne_top _⟩
+    exact precision_of_bound (Ψ := Ψ) (.num hu) <| le_of_width <| (le_iSup₂ (f := fun ι
+      (_ : Sat ι Ψ ∧ l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤) => m.eval ι + negE (l.eval ι) +
+        ((1 : ℤ) : EInt)) ι ⟨hs, hfin⟩).trans hp
 
 /-- `precision_of_precBound` for a program's result. -/
 theorem run_precision (hA : A.Sound Φ) {f : Fn} {y : Var} {s : Stmt (fpy decode)} {d : DVal}
