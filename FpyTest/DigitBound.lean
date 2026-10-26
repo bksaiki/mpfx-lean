@@ -1,4 +1,6 @@
+import Fpy.DigitBound.Encode
 import Fpy.DigitBound.Copy
+import Fpy.DigitBound.Join
 import Fpy.DigitBound.Table
 import FpyTest.Rewrite.Lower
 
@@ -67,7 +69,7 @@ example (ι : Asgn) :
   rcases hu with h | ⟨-, hm, -⟩
   · cases h
   · have h10 := hs _ (List.mem_singleton_self _)
-    simp only [Con.upper, Term.eval] at h10
+    simp only [Con.P_upper, Term.eval] at h10
     rw [msbOf_of_ne_zero (by positivity), abs_of_pos (by positivity), log_two_zpow] at hm
     simp only [Term.eval] at hm
     rw [← hm] at h10
@@ -82,5 +84,59 @@ example {Ψg : List Con} (hnd : (Ψg.map Con.head).Nodup) {l m : Term} (hl : l.B
       Fresh 5 7 (copyCons Ψg 0 2 5 (by omega)) :=
   ⟨copy_num (a := 0) (b := 2) (n := 5) (by omega) (by omega) hl hm (by simp),
     fresh_copyCons (a := 0) (b := 2) (n := 5) (by omega) (by omega) hnd⟩
+
+/-- `precBound` under `−2 ≤ λ ≤ 0` and `μ ≤ λ + 3` is `4`, at `λ = 0`, `μ = 3`. -/
+example : precBound [Con.between 0 (-2) 0 (by omega),
+    Con.upper 1 (.add (.var 0) (.const (3 : ℤ))) ⟨Nat.zero_lt_one, trivial⟩]
+    (.var 0) (.var 1) = ((4 : ℤ) : EInt) := by
+  refine le_antisymm (iSup₂_le fun ι h => ?_)
+    (le_iSup₂_of_le (fun x => if x = 0 then ((0 : ℤ) : EInt) else ((3 : ℤ) : EInt)) ?_ ?_)
+  · have h0 := Con.P_between.mp (h _ (List.mem_cons_self ..))
+    have h1 := Con.P_upper.mp (h _ (List.mem_cons_of_mem _ (List.mem_cons_self ..)))
+    simp only [Term.width, Term.eval] at h0 h1 ⊢
+    generalize ι 0 = a, ι 1 = b at h0 h1 ⊢
+    cases a using WithBotTop.rec with
+    | bot => exact absurd h0.1 (by simp)
+    | top => exact absurd h0.2 (by simp)
+    | coe k =>
+      cases b using WithBotTop.rec with
+      | bot => exact bot_le
+      | top => exact absurd h1 (by simp [coe_add_coe])
+      | coe j =>
+        simp only [negE, WithBotTop.rec_coe, coe_add_coe, WithBotTop.coe_le_coe] at h0 h1 ⊢
+        omega
+  · simp [Sat, Con.P_between, Con.P_upper, Term.eval, coe_add_coe]
+  · simp [Term.width, Term.eval, negE, coe_add_coe]
+
+/-- D-While-Fmt's premises for a loop assigning only `x`, a number in `F`: `y`
+keeps its description, and `x` gets the fresh interval `[1, 0]` within `F`'s digits. -/
+example {decode : List (Label × Val) → Option RoundCtx} {Φ : Program (fpy decode)}
+    {D : FormatDomain} {A : Analysis (fpy decode) D} {Γ Γᵢ Γ' : AEnv D} {b : AVal D}
+    {κ : Option SCtx} {χ : Option Val} {e e₀ : Expr (fpy decode)} {F : D.Fmt} {lo hi : EInt}
+    {Δ' : DEnv} {a : Option DVal} {Ψ : List Con} {n₂ : ℕ}
+    (hx : Γᵢ "x" = some (.fmt F)) (hin : ∀ w ∈ D.γ F, InRange lo hi w) (hΓ : Γ.Le Γᵢ)
+    (hAx : AExec A Φ (A.refine χ e true Γᵢ) χ (.assign "x" e₀) Γ' b) (hΓ' : Γ'.Le Γᵢ)
+    (hbody : DExec decode Φ A (((DEnv.single "y" .other).without ["x"]).update "x"
+        (.num (.var 1) (.var 0) none)) (A.refine χ e true Γᵢ) κ χ
+        ([] ++ ([] ++ bounds 0 (.const lo) (.const hi) trivial trivial)) 2 (.assign "x" e₀)
+        Δ' a Ψ n₂) :
+    DExec decode Φ A (DEnv.single "y" .other) Γ κ χ [] 0 (.whileDo e (.assign "x" e₀))
+      (((DEnv.single "y" .other).without ["x"]).update "x" (.num (.var 1) (.var 0) none)) a
+      (([] ++ bounds 0 (.const lo) (.const hi) trivial trivial) ++ Ψ) n₂ :=
+  have hΔ := (DEnv.Below.single (n := 0) (d := .other) trivial).without ["x"]
+  .whileFmt (Covers.fmt (Covers.without 0 _ _ _) (Fresh.nil 0) hΔ hx hin)
+    ((Fresh.nil 0).append (fresh_bounds 0 _ _))
+    ((hΔ.mono (by omega)).update _
+      ⟨show 1 < 2 by omega, show 0 < 2 by omega, fun _ h => absurd h (by simp)⟩)
+    hΓ hAx hΓ' hbody
+
+/-- Encoding an infinite endpoint: `x₀ ≤ +∞` holds in every model, and
+`+∞ ≤ x₀` exactly where `x₀`'s flag "not `+∞`" is off. -/
+example (M : IModel) : (Atom.enc ⟨.var 0, .const ⊤⟩).holds M := by
+  simp [Atom.enc, Term.enc, IForm.holds]
+
+example (M : IModel) : (Atom.enc ⟨.const ⊤, .var 0⟩).holds M = !M.notTop 0 := by
+  simp only [Atom.enc, Term.enc, IForm.holds]
+  cases M.notTop 0 <;> cases M.notBot 0 <;> rfl
 
 end FpyTest

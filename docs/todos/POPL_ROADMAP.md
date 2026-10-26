@@ -28,17 +28,33 @@ under `Mpfx/`, never line numbers. The FPy paper's open threads are in
 - [x] A bounded negative for the nearest intermediate. The `Mpfx.Cex`
   counterexamples now take any `F₁` with one, two or three positive
   values (`Format.HasPositive`), with every rounding in bound.
-- [ ] Tightness of the counterexample counts. The paper's "only in
+- [x] Tightness of the counterexample counts. The paper's "only in
   trivial cases" can name the counts: RNE→RTZ, RAZ→RTZ, RTZ→RNE and
   RNE→RNE fail once `F₁` is nontrivial, RTZ→RAZ, RNE→RAZ, RAZ→RTO,
   RNE→RTO and RAZ→RNE with two positive values, RTZ→RTO with three.
   That one fewer admits no in-bound counterexample for some `F₂`
   (without a minimum quantum) is argued by hand, not proved. Decide
   whether the paper states the converse; if so, mechanize it.
-- [ ] Decide whether the paper claims the per-operation
+  Decided (PLDI'27 draft): Table 2 states the counts as sufficient (a
+  "Values" column) and the paper does not claim the converse, so nothing
+  further to mechanize.
+- [x] The positive half of the paper's RNE claim (end of §5.1, PLDI'27
+  draft): RNE as the intermediate "permits correct double rounding only
+  in trivial cases (e.g., F₂ ∩ [−b₁, b₁] = F₁)". The failures are in
+  `Mpfx.Cex`; that RNE → RNE is correct when F₂ adds no values within
+  F₁'s range is not mechanized. Formalize it, or the paper drops the
+  example.
+  Resolved (paper side): the example is false for RNE → RTZ/RAZ/RTO,
+  whose `Mpfx.Cex` counterexamples hold at F₂ = F₁. The paper now states
+  the mechanized converse instead: RNE fails as an intermediate for every
+  final mode once F₁ has two positive values and F₁.extend 1 ⊆ F₂. Only
+  the RNE → RNE positive case (F₂ = F₁, idempotence) remains unproved and
+  unclaimed.
+- [x] Decide whether the paper claims the per-operation
   double-rounding theorems (Roux 2014: `rndMul_*`, `rndAdd`,
   `rndSqrt_*`, `rndDiv_*`). The README lists them as beyond the
-  paper.
+  paper. Decided (PLDI'27 draft): not claimed; the paper cites Roux and
+  Rump as prior work, since the mechanization adds no new result.
 
 **Containment** (`Mpfx/Format/Containment.lean`)
 

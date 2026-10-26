@@ -88,6 +88,12 @@ theorem Agree.refl (n : ℕ) (ι : Asgn) : Agree n ι ι := fun _ _ => rfl
 theorem AgreeOut.agree {n₀ n₁ : ℕ} {ι ι' : Asgn} (h : AgreeOut n₀ n₁ ι ι') : Agree n₀ ι ι' :=
   fun x hx => (h x (.inl hx)).symm
 
+theorem AgreeOut.trans {n₀ n₁ n₂ : ℕ} {ι₀ ι₁ ι₂ : Asgn} (h₀₁ : n₀ ≤ n₁) (h₁₂ : n₁ ≤ n₂)
+    (a₁ : AgreeOut n₀ n₁ ι₀ ι₁) (a₂ : AgreeOut n₁ n₂ ι₁ ι₂) : AgreeOut n₀ n₂ ι₀ ι₂ := fun z hz => by
+  rcases hz with hz | hz
+  · rw [a₂ z (.inl (by omega)), a₁ z (.inl hz)]
+  · rw [a₂ z (.inr hz), a₁ z (.inr (by omega))]
+
 theorem NumIn.congr {n : ℕ} {ι ι' : Asgn} (h : Agree n ι ι') {l m : Term} {τ : Option Term}
     {u : Num} (hl : l.Below n) (hm : m.Below n) (hτ : ∀ t ∈ τ, t.Below n) (hu : NumIn ι l m τ u) :
     NumIn ι' l m τ u := by
@@ -276,6 +282,17 @@ theorem DEnv.Holds.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ) (hF 
   obtain ⟨v, hv, hd⟩ := hσ x d hx
   exact ⟨v, hv, hd.grow hb hF h (hΔ x d hx)⟩
 
+theorem DEnv.without_eq_some {Δ : DEnv} {X : List Var} {x : Var} {d : DVal} :
+    Δ.without X x = some d ↔ x ∉ X ∧ Δ x = some d := by
+  unfold DEnv.without; split <;> simp_all
+
+theorem DEnv.Below.without {n : ℕ} {Δ : DEnv} (hΔ : Δ.Below n) (X : List Var) :
+    (Δ.without X).Below n := fun x d hx => hΔ x d (DEnv.without_eq_some.mp hx).2
+
+theorem DEnv.Holds.without {Δ : DEnv} {Ψ : List Con} {ι : Asgn} {σ : Store}
+    (hσ : Δ.Holds Ψ ι σ) (X : List Var) : (Δ.without X).Holds Ψ ι σ := fun x d hx =>
+  hσ x d (DEnv.without_eq_some.mp hx).2
+
 theorem DEnv.Holds.update {Δ : DEnv} {Ψ : List Con} {ι : Asgn} {σ : Store}
     (hσ : Δ.Holds Ψ ι σ) (x : Var) {d : DVal} {v : Val} (hd : Describes Ψ ι d v) :
     (Δ.update x d).Holds Ψ ι (σ.update x v) := by
@@ -345,9 +362,9 @@ theorem fresh_numIn {n : ℕ} {Lo Hi : Term} (hLo : Lo.Below (n + 1)) (hHi : Hi.
       rw [Function.update_of_ne (by omega), Function.update_of_ne (by omega)]
     · simp only [bounds, List.mem_cons, List.not_mem_nil, or_false] at hc
       rcases hc with rfl | rfl
-      · simp only [Con.upper, hn]
+      · simp only [Con.P_upper, hn]
         rwa [← Term.eval_congr (e₁.trans (e'.mono (Nat.le_succ n))) hHi]
-      · simp only [Con.lower, hn1]
+      · simp only [Con.P_lower, hn1]
         rwa [← Term.eval_congr e' hLo]
     · rcases hw with hw | ⟨rfl, rfl⟩
       · exact .inl hw

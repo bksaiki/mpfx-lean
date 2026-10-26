@@ -9,9 +9,9 @@ Digit positions (`lsbOf`, `msbOf`) are extended integers: `0` has `[+∞, −∞
 an infinity `[+∞, +∞]`, a value with infinitely many digits lsb `−∞`; NaN lies
 in every interval. Symbolic values are terms, matched through `numOfE`. Fresh
 variables are numbered from a threaded counter (`n₀ → n₁`), each bounded by one
-`Con`. Transfers are a semantic premise (`ArithOK`) and joins an order with
-fresh variables (`DVal.Le`, `DEnv.Le`). The judgment carries format inference's
-`Γ` and context for D-Int and D-Fmt.
+`Con`, a conjunction of atoms `t ≤ t'`. Transfers are a semantic premise
+(`ArithOK`) and joins an order with fresh variables (`DVal.Le`, `DEnv.Le`). The
+judgment carries format inference's `Γ` and context for D-Int and D-Fmt.
 -/
 
 namespace Fpy.DigitBound
@@ -23,6 +23,11 @@ open Mpfx
 /-- Negation of an extended integer. -/
 def negE (z : EInt) : EInt :=
   WithBotTop.rec (motive := fun _ => EInt) ⊤ (fun k => ((-k : ℤ) : EInt)) ⊥ z
+
+/-- `c · z` for an extended integer `z`, with `0 · ±∞ = 0`. -/
+def smulE (c : ℤ) (z : EInt) : EInt :=
+  WithBotTop.rec (motive := fun _ => EInt) (if 0 < c then ⊥ else if c < 0 then ⊤ else 0)
+    (fun k => ((c * k : ℤ) : EInt)) (if 0 < c then ⊤ else if c < 0 then ⊥ else 0) z
 
 /-- An extended integer as a number. -/
 def numOfE (z : EInt) : Num :=
@@ -51,11 +56,14 @@ noncomputable def msbOf : Num → EInt
 /-- An integer assignment `ι`. -/
 abbrev Asgn := ℕ → EInt
 
+/-- Terms (the paper's `τ`): constants in `ℤ ∪ {±∞}`, integer variables, `+`,
+`−`, scaling by an integer `c`, `max` and `min`. -/
 inductive Term where
   | const (z : EInt)
   | var (x : ℕ)
   | add (a b : Term)
   | neg (a : Term)
+  | smul (c : ℤ) (a : Term)
   | max (a b : Term)
   | min (a b : Term)
 
@@ -64,6 +72,7 @@ def Term.eval (ι : Asgn) : Term → EInt
   | .var x => ι x
   | .add a b => a.eval ι + b.eval ι
   | .neg a => negE (a.eval ι)
+  | .smul c a => smulE c (a.eval ι)
   | .max a b => Max.max (a.eval ι) (b.eval ι)
   | .min a b => Min.min (a.eval ι) (b.eval ι)
 
@@ -73,6 +82,7 @@ def Term.Below (n : ℕ) : Term → Prop
   | .var x => x < n
   | .add a b => a.Below n ∧ b.Below n
   | .neg a => a.Below n
+  | .smul _ a => a.Below n
   | .max a b => a.Below n ∧ b.Below n
   | .min a b => a.Below n ∧ b.Below n
 
@@ -81,6 +91,7 @@ theorem Term.Below.mono {n n' : ℕ} (h : n ≤ n') : ∀ {t : Term}, t.Below n 
   | .var _, hx => lt_of_lt_of_le hx h
   | .add a b, ⟨ha, hb⟩ => ⟨Term.Below.mono (t := a) h ha, Term.Below.mono (t := b) h hb⟩
   | .neg a, ha => Term.Below.mono (t := a) h ha
+  | .smul _ a, ha => Term.Below.mono (t := a) h ha
   | .max a b, ⟨ha, hb⟩ => ⟨Term.Below.mono (t := a) h ha, Term.Below.mono (t := b) h hb⟩
   | .min a b, ⟨ha, hb⟩ => ⟨Term.Below.mono (t := a) h ha, Term.Below.mono (t := b) h hb⟩
 
@@ -90,6 +101,7 @@ theorem Term.eval_congr {n : ℕ} {ι ι' : Asgn} (h : ∀ x < n, ι x = ι' x) 
   | .var x, hx => h x hx
   | .add _ _, ⟨ha, hb⟩ => congrArg₂ (· + ·) (Term.eval_congr h ha) (Term.eval_congr h hb)
   | .neg _, ha => congrArg negE (Term.eval_congr h ha)
+  | .smul c _, ha => congrArg (smulE c) (Term.eval_congr h ha)
   | .max _ _, ⟨ha, hb⟩ => congrArg₂ Max.max (Term.eval_congr h ha) (Term.eval_congr h hb)
   | .min _ _, ⟨ha, hb⟩ => congrArg₂ Min.min (Term.eval_congr h ha) (Term.eval_congr h hb)
 
@@ -99,14 +111,30 @@ def Agree (n : ℕ) (ι ι' : Asgn) : Prop := ∀ x < n, ι x = ι' x
 /-- `ι'` differs from `ι` only on `[n₀, n₁)`. -/
 def AgreeOut (n₀ n₁ : ℕ) (ι ι' : Asgn) : Prop := ∀ x, x < n₀ ∨ n₁ ≤ x → ι' x = ι x
 
-/-- A constraint bounding the fresh variable `head`. It depends only on
-variables up to `head`, and some value of `head` satisfies it whatever the
+/-- An atomic constraint `lhs ≤ rhs` (the paper's `φ`). -/
+structure Atom where
+  lhs : Term
+  rhs : Term
+
+def Atom.Holds (ι : Asgn) (a : Atom) : Prop := a.lhs.eval ι ≤ a.rhs.eval ι
+
+/-- A constraint bounding the fresh variable `head`: a conjunction of atoms over
+variables up to `head`, which some value of `head` satisfies whatever the
 others are. -/
 structure Con where
   head : ℕ
-  P : Asgn → Prop
-  dep : ∀ {ι ι' : Asgn}, (∀ x ≤ head, ι x = ι' x) → P ι → P ι'
-  sat : ∀ ι : Asgn, ∃ z, P (Function.update ι head z)
+  atoms : List Atom
+  below : ∀ a ∈ atoms, a.lhs.Below (head + 1) ∧ a.rhs.Below (head + 1)
+  sat : ∀ ι : Asgn, ∃ z, ∀ a ∈ atoms, a.Holds (Function.update ι head z)
+
+def Con.P (c : Con) (ι : Asgn) : Prop := ∀ a ∈ c.atoms, a.Holds ι
+
+theorem Con.dep (c : Con) {ι ι' : Asgn} (h : ∀ x ≤ c.head, ι x = ι' x) (hP : c.P ι) :
+    c.P ι' := fun a ha => by
+  have h' : ∀ x < c.head + 1, ι x = ι' x := fun x hx => h x (Nat.lt_succ_iff.mp hx)
+  have hb := c.below a ha
+  have := hP a ha
+  rwa [Atom.Holds, Term.eval_congr h' hb.1, Term.eval_congr h' hb.2] at this
 
 /-- `ι ⊨ Ψ`. -/
 def Sat (ι : Asgn) (Ψ : List Con) : Prop := ∀ c ∈ Ψ, c.P ι
@@ -261,36 +289,46 @@ def ctxOf : DVal → Option SCtx
 (`ge = true`) or `v ≤ τ₁, τ₂`. -/
 def Con.ext (v : ℕ) (ge : Bool) (τ₁ τ₂ : Term) (h₁ : τ₁.Below v) (h₂ : τ₂.Below v) : Con where
   head := v
-  P ι := if ge then τ₁.eval ι ≤ ι v ∧ τ₂.eval ι ≤ ι v else ι v ≤ τ₁.eval ι ∧ ι v ≤ τ₂.eval ι
-  dep {ι ι'} h hP := by
-    have e₁ : τ₁.eval ι = τ₁.eval ι' := Term.eval_congr (fun x hx => h x hx.le) h₁
-    have e₂ : τ₂.eval ι = τ₂.eval ι' := Term.eval_congr (fun x hx => h x hx.le) h₂
-    rw [← e₁, ← e₂, ← h v le_rfl]
-    exact hP
-  sat ι := by
-    refine ⟨if ge then ⊤ else ⊥, ?_⟩
-    have e₁ : τ₁.eval (Function.update ι v (if ge then ⊤ else ⊥)) = τ₁.eval ι :=
-      (Term.eval_congr (fun x hx => Function.update_of_ne hx.ne _ _) h₁)
-    have e₂ : τ₂.eval (Function.update ι v (if ge then ⊤ else ⊥)) = τ₂.eval ι :=
-      (Term.eval_congr (fun x hx => Function.update_of_ne hx.ne _ _) h₂)
-    rw [e₁, e₂, Function.update_self]
-    cases ge <;> simp
+  atoms := if ge then [⟨τ₁, .var v⟩, ⟨τ₂, .var v⟩] else [⟨.var v, τ₁⟩, ⟨.var v, τ₂⟩]
+  below e ha := by
+    have := h₁.mono (Nat.le_succ v)
+    have := h₂.mono (Nat.le_succ v)
+    have : (Term.var v).Below (v + 1) := Nat.lt_succ_self v
+    cases ge <;> simp only [Bool.false_eq_true, if_true, if_false, List.mem_cons,
+      List.not_mem_nil, or_false] at ha <;> rcases ha with rfl | rfl <;>
+      exact ⟨by assumption, by assumption⟩
+  sat ι := ⟨if ge then ⊤ else ⊥, by cases ge <;> simp [Atom.Holds, Term.eval]⟩
+
+theorem Con.P_ext {v : ℕ} {ge : Bool} {τ₁ τ₂ : Term} {h₁ : τ₁.Below v} {h₂ : τ₂.Below v}
+    {ι : Asgn} : (Con.ext v ge τ₁ τ₂ h₁ h₂).P ι ↔
+      if ge then τ₁.eval ι ≤ ι v ∧ τ₂.eval ι ≤ ι v else ι v ≤ τ₁.eval ι ∧ ι v ≤ τ₂.eval ι := by
+  cases ge <;> simp [Con.P, Con.ext, Atom.Holds, Term.eval]
 
 /-- `t ≤ v`. -/
 def Con.lower (v : ℕ) (t : Term) (h : t.Below v) : Con where
   head := v
-  P ι := t.eval ι ≤ ι v
-  dep {ι ι'} he hP := by
-    rw [← Term.eval_congr (fun x hx => he x hx.le) h, ← he v le_rfl]; exact hP
-  sat _ := ⟨⊤, by simp⟩
+  atoms := [⟨t, .var v⟩]
+  below e ha := by
+    obtain rfl := List.mem_singleton.mp ha
+    exact ⟨h.mono (Nat.le_succ v), Nat.lt_succ_self v⟩
+  sat _ := ⟨⊤, by simp [Atom.Holds, Term.eval]⟩
+
+theorem Con.P_lower {v : ℕ} {t : Term} {h : t.Below v} {ι : Asgn} :
+    (Con.lower v t h).P ι ↔ t.eval ι ≤ ι v := by
+  simp [Con.P, Con.lower, Atom.Holds, Term.eval]
 
 /-- `v ≤ t`. -/
 def Con.upper (v : ℕ) (t : Term) (h : t.Below v) : Con where
   head := v
-  P ι := ι v ≤ t.eval ι
-  dep {ι ι'} he hP := by
-    rw [← Term.eval_congr (fun x hx => he x hx.le) h, ← he v le_rfl]; exact hP
-  sat _ := ⟨⊥, by simp⟩
+  atoms := [⟨.var v, t⟩]
+  below e ha := by
+    obtain rfl := List.mem_singleton.mp ha
+    exact ⟨Nat.lt_succ_self v, h.mono (Nat.le_succ v)⟩
+  sat _ := ⟨⊥, by simp [Atom.Holds, Term.eval]⟩
+
+theorem Con.P_upper {v : ℕ} {t : Term} {h : t.Below v} {ι : Asgn} :
+    (Con.upper v t h).P ι ↔ ι v ≤ t.eval ι := by
+  simp [Con.P, Con.upper, Atom.Holds, Term.eval]
 
 /-- The constraints of a fresh interval `[n + 1, n]`: `Lo ≤ n + 1`, `n ≤ Hi`. -/
 def bounds (n : ℕ) (Lo Hi : Term) (hLo : Lo.Below (n + 1)) (hHi : Hi.Below n) : List Con :=
@@ -299,9 +337,17 @@ def bounds (n : ℕ) (Lo Hi : Term) (hLo : Lo.Below (n + 1)) (hHi : Hi.Below n) 
 /-- `a ≤ v ≤ b`. -/
 def Con.between (v : ℕ) (a b : ℤ) (h : a ≤ b) : Con where
   head := v
-  P ι := (a : EInt) ≤ ι v ∧ ι v ≤ b
-  dep {_ _} he hP := he v le_rfl ▸ hP
-  sat _ := ⟨a, by simpa using h⟩
+  atoms := [⟨.const a, .var v⟩, ⟨.var v, .const b⟩]
+  below e ha := by
+    simp only [List.mem_cons, List.not_mem_nil, or_false] at ha
+    rcases ha with rfl | rfl
+    · exact ⟨trivial, Nat.lt_succ_self v⟩
+    · exact ⟨Nat.lt_succ_self v, trivial⟩
+  sat _ := ⟨a, by simpa [Atom.Holds, Term.eval] using h⟩
+
+theorem Con.P_between {v : ℕ} {a b : ℤ} {h : a ≤ b} {ι : Asgn} :
+    (Con.between v a b h).P ι ↔ (a : EInt) ≤ ι v ∧ ι v ≤ b := by
+  simp [Con.P, Con.between, Atom.Holds, Term.eval]
 
 local notation "nan" => (WithSpecial.special Special.nan : Num)
 
@@ -312,6 +358,17 @@ def InRange (lo hi : EInt) (w : Num) : Prop := w = nan ∨ (lo ≤ lsbOf w ∧ m
 def knownCtx {D : FormatDomain} : AVal D → Option Val
   | .known C => some C
   | _ => none
+
+/-- `Δ` without the variables `X`. -/
+def DEnv.without (Δ : DEnv) (X : List Var) : DEnv := fun x => if x ∈ X then none else Δ x
+
+/-- D-While-Fmt's premise: every store in `Γᵢ` whose variables outside `X` are
+described by `Δ` is described by `Δᵢ`, once the fresh variables `[n₀, n₁)`
+bounded by `Ψ` are re-chosen. -/
+def Covers {D : FormatDomain} (n₀ n₁ : ℕ) (Ψg Ψ : List Con) (X : List Var) (Γᵢ : AEnv D)
+    (Δ Δᵢ : DEnv) : Prop :=
+  Before n₀ Ψg → ∀ ι σ, Sat ι Ψg → Γᵢ.Holds σ → (Δ.without X).Holds Ψg ι σ →
+    ∃ ι', AgreeOut n₀ n₁ ι ι' ∧ Sat ι' Ψ ∧ Δᵢ.Holds (Ψg ++ Ψ) ι' σ
 
 /-! ## The analysis -/
 
@@ -444,6 +501,13 @@ inductive DExec : DEnv → AEnv D → Option SCtx → Option Val → List Con �
       Fresh n₀ n₁ Ψᵢ → Δᵢ.Below n₁ → Γ.Le Γᵢ → AExec A Φ (A.refine χ e true Γᵢ) χ s Γ' b →
       Γ'.Le Γᵢ → DExec Δᵢ (A.refine χ e true Γᵢ) κ χ (Ψg ++ Ψᵢ) n₁ s Δ' a Ψ n₂ →
       DEnv.Le n₀ n₁ Ψg Ψᵢ Δ' Δᵢ → DExec Δ Γ κ χ Ψg n₀ (.whileDo e s) Δᵢ a (Ψᵢ ++ Ψ) n₂
+  /-- D-While-Fmt: each iteration starts from `Δᵢ`, which `Γᵢ` covers (`Covers`);
+  no back edge. -/
+  | whileFmt {Δ Γ κ χ Ψg n₀ e s Δᵢ Ψᵢ n₁ Γᵢ Γ' b Δ' a Ψ n₂} :
+      Covers n₀ n₁ Ψg Ψᵢ s.assigned Γᵢ Δ Δᵢ → Fresh n₀ n₁ Ψᵢ → Δᵢ.Below n₁ → Γ.Le Γᵢ →
+      AExec A Φ (A.refine χ e true Γᵢ) χ s Γ' b → Γ'.Le Γᵢ →
+      DExec Δᵢ (A.refine χ e true Γᵢ) κ χ (Ψg ++ Ψᵢ) n₁ s Δ' a Ψ n₂ →
+      DExec Δ Γ κ χ Ψg n₀ (.whileDo e s) Δᵢ a (Ψᵢ ++ Ψ) n₂
   | withCtx {Δ Γ κ χ Ψg n₀ e C Ψ n₁ a₀ s Δ' a Ψ' n₂} :
       DEval Δ Γ (some .real) (some .real) Ψg n₀ e (.ctx C) Ψ n₁ →
       AEval A Φ Γ (some .real) e a₀ →

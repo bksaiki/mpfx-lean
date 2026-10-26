@@ -38,7 +38,7 @@ rules carry that conjunct.
 | --- | --- | --- |
 | Lemma 5.1 (digit position is a function of `(p, exp, x)`) | `FiniteFormat.numDigits` | `Mpfx/Format/Defs.lean` |
 | Lemma 5.2 (`w₂ = w₁ + k`) | `FiniteFormat.numDigits_extend` | `Mpfx/Format/Containment.lean` |
-| Lemma 5.3 (RTO padding preserves representability) | `IsOdd.transfer_of_subset` | `Mpfx/Format/Parity.lean` |
+| Lemma 5.3 (RTO padding preserves representability) | `toOdd_notMem_of_extend_subset`, `IsFaithfulRound.iff_of_between` | `Mpfx/DoubleRounding/Basic.lean`, `Mpfx/Rounding/Basic.lean` |
 
 ### §5.2 — Correct double rounding (Fig. 9)
 
@@ -199,13 +199,19 @@ Names are in `namespace Fpy.DigitBound`.
 
 | Paper | Lean | File |
 | --- | --- | --- |
+| Terms `τ` and constraints `φ` | `Term`, `Atom`, `Con` | `Fpy/DigitBound/Defs.lean` |
 | Rules (Fig. 8, 12) | `DEval`, `DExec` | `Fpy/DigitBound/Defs.lean` |
 | D-Int; constraints from inferred formats | `DEval.int`, `DEval.fmt` | `Fpy/DigitBound/Defs.lean` |
 | Theorem 4.2 | `eval_sound`, `exec_sound`, `run_sound` | `Fpy/DigitBound/Sound.lean` |
-| Precision bound (after Theorem 4.2) | `precision_of_bound`, `run_precision` | `Fpy/DigitBound/Sound.lean` |
+| The query `prec♮`; the implementation's, on finite digits | `precBound`, `precBoundFin` | `Fpy/DigitBound/Sound.lean` |
+| Integer encoding of constraints and the query | `Term.enc`, `Atom.enc`, `encode`, `sat_iff`, `sat_decode`, `sat_exists`, `precBound_le_iff`, `precBoundFin_le_iff` | `Fpy/DigitBound/Encode.lean` |
+| Precision bound (after Theorem 4.2) | `precision_of_bound`, `precision_of_precBound`, `precision_of_precBoundFin`, `run_precision` | `Fpy/DigitBound/Sound.lean` |
 | D-Sum, on values and over the analysis | `sumVal_inRange`, `eval_sum_inRange`, `eval_sum_sound` | `Fpy/DigitBound/Sum.lean` |
 | D-Index's fresh copy | `copy_num`, `copyCons`, `fresh_copyCons` | `Fpy/DigitBound/Copy.lean` |
 | Joins (D-List, D-If, D-While) | `le_num`, `DEnv.Le.refl`, `DEnv.Le.update`, `DEnv.Le.trans` | `Fpy/DigitBound/Join.lean` |
+| D-While-Fmt: loop state from format inference, no back edge | `DExec.whileFmt`, `Covers`, `loopFmt_sound` | `Fpy/DigitBound/Defs.lean`, `Sound.lean` |
+| D-While-Fmt's cover from formats | `Covers.without`, `Covers.fmt` | `Fpy/DigitBound/Join.lean` |
+| Frame: a statement changes only what it assigns | `Stmt.assigned`, `Exec.frame` | `Fpy/Semantics.lean` |
 | Table 2, operators | `opOK_add`, `opOK_mul`, `opOK_exact`, `opOK_ext`, `opOK_exp2`, `opOK_logb`, `opOK_any` | `Fpy/DigitBound/Table.lean` |
 | Table 2, rounding | `rndOK_real`, `rndOK_fixedRTZ`, `rndOK_fixed`, `rndOK_precRTZ`, `rndOK_prec`, `rndOK_any` | `Fpy/DigitBound/Table.lean` |
 | D-Arith from Table 2 | `ArithOK.comp` | `Fpy/DigitBound/Table.lean` |
@@ -291,7 +297,7 @@ standard axioms.
 | `Fpy/Ops.lean` | FPy's operators on `Num`, `RoundCtx`, the signature `fpy`. |
 | `Fpy/FormatInference/Defs.lean`, `Sound.lean` | Format inference over any domain; Theorem 4.1. |
 | `Fpy/FormatInference/Domain.lean`, `Ops.lean`, `Refine.lean`, `Analysis.lean` | The Fig. 4 domain, Table 1, condition refinement; Theorem 4.1 for FPy. |
-| `Fpy/DigitBound/Defs.lean`, `Basic.lean`, `Digits.lean`, `Sound.lean`, `Table.lean` | §4.3 rules, their lemmas, digit positions of each operator, Theorem 4.2, Table 2. |
+| `Fpy/DigitBound/Defs.lean`, `Basic.lean`, `Digits.lean`, `Sound.lean`, `Table.lean`, `Encode.lean` | §4.3 rules, their lemmas, digit positions of each operator, Theorem 4.2, Table 2, the integer encoding. |
 | `Fpy/DigitBound/Join.lean`, `Copy.lean` | The draft's joins and D-Index's copy as instances of the rules' premises. |
 | `Fpy/Sum.lean`, `FormatInference/Sum.lean`, `DigitBound/Sum.lean` | `sum` as an FPy program; A-Sum and D-Sum proved against it. |
 | `Fpy/Rewrite.lean` | `Equiv`, `Rw`, congruence, the whole-program theorem. |
