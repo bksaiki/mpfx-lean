@@ -38,7 +38,7 @@ rules carry that conjunct.
 | --- | --- | --- |
 | Lemma 5.1 (digit position is a function of `(p, exp, x)`) | `FiniteFormat.numDigits` | `Mpfx/Format/Defs.lean` |
 | Lemma 5.2 (`w₂ = w₁ + k`) | `FiniteFormat.numDigits_extend` | `Mpfx/Format/Containment.lean` |
-| Lemma 5.3 (RTO padding preserves representability) | `IsOdd.transfer_of_subset` | `Mpfx/Format/Parity.lean` |
+| Lemma 5.3 (RTO padding preserves representability) | `toOdd_notMem_of_extend_subset`, `IsFaithfulRound.iff_of_between` | `Mpfx/DoubleRounding/Basic.lean`, `Mpfx/Rounding/Basic.lean` |
 
 ### §5.2 — Correct double rounding (Fig. 9)
 
