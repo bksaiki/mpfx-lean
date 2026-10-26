@@ -403,8 +403,7 @@ theorem ext_sound {op : ArithOp} {ge : Bool} {e₁ e₂ : Expr (fpy decode)}
   refine chain₃ hF₁ hF a₁ hs₁ a₂.agree hs₂ a₃ ?_ (.num ?_)
   · intro c hc
     obtain rfl := List.mem_singleton.mp hc
-    simp only [Con.ext]
-    rw [f₁, f₂, hz]
+    rw [Con.P_ext, f₁, f₂, hz]
     cases ge
     · exact ⟨min_le_left _ _, min_le_right _ _⟩
     · exact ⟨le_max_left _ _, le_max_right _ _⟩
@@ -583,7 +582,7 @@ theorem eval_sound (hA : A.Sound Φ) : ∀ {Δ Γ κ χ Ψg n₀ e d Ψ n₁},
         have a₂ : Agree n₁ ι₁ ι₂ := fun x hx => (Function.update_of_ne hx.ne _ _).symm
         refine chain (DEval.wf hd).1 a₁ hs₁ a₂ (fun c hc => ?_) (.num ?_)
         · obtain rfl := List.mem_singleton.mp hc
-          simpa [Con.between, ι₂] using ⟨hlo, hhi⟩
+          simpa [Con.P_between, ι₂] using ⟨hlo, hhi⟩
         · refine (hu.congr a₂ hb.1 hb.2.1 (fun _ h => absurd h (by simp))).withTerm (.inr ?_)
           simp [Term.eval, ι₂]
   | _, _, _, _, _, _, _, _, _, _, .fmt (n₁ := n₁) (lo := lo) (hi := hi) hd hl hm ha hin, _, _, _, _,

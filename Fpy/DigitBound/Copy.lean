@@ -41,17 +41,43 @@ theorem Term.Below.rename_shift {a b n : ℕ} (hab : a ≤ b) (hbn : b ≤ n) :
     ⟨Term.Below.rename_shift hab hbn hs, Term.Below.rename_shift hab hbn ht⟩
   | .neg t, ht => Term.Below.rename_shift (t := t) hab hbn ht
 
+theorem Term.Below.rename {f : ℕ → ℕ} {k k' : ℕ} (hf : ∀ x < k, f x < k') :
+    ∀ {t : Term}, t.Below k → (t.rename f).Below k'
+  | .const _, _ => trivial
+  | .var x, hx => hf x hx
+  | .add s t, ⟨hs, ht⟩ | .max s t, ⟨hs, ht⟩ | .min s t, ⟨hs, ht⟩ =>
+    ⟨Term.Below.rename hf hs, Term.Below.rename hf ht⟩
+  | .neg t, ht => Term.Below.rename (t := t) hf ht
+
+def Atom.rename (f : ℕ → ℕ) (a : Atom) : Atom := ⟨a.lhs.rename f, a.rhs.rename f⟩
+
+theorem Atom.holds_rename (f : ℕ → ℕ) (ι : Asgn) (a : Atom) :
+    (a.rename f).Holds ι ↔ a.Holds (ι ∘ f) := by
+  simp only [Atom.Holds, Atom.rename, Term.eval_rename]
+
 /-- A constraint on `[a, b)`'s variable `c.head`, copied to `shift`'s range. -/
 def Con.copy (c : Con) (a b n : ℕ) (hc : a ≤ c.head ∧ c.head < b) (han : a ≤ n) : Con where
   head := c.head - a + n
-  P ι := c.P (ι ∘ shift a b n)
-  dep {ι ι'} h hP := c.dep (fun x hx => h _ (by unfold shift; split_ifs <;> omega)) hP
+  atoms := c.atoms.map (Atom.rename (shift a b n))
+  below e ha := by
+    obtain ⟨a₀, ha₀, rfl⟩ := List.mem_map.mp ha
+    have hf : ∀ x < c.head + 1, shift a b n x < c.head - a + n + 1 := fun x hx => by
+      unfold shift; split_ifs <;> omega
+    exact ⟨(c.below a₀ ha₀).1.rename hf, (c.below a₀ ha₀).2.rename hf⟩
   sat ι := by
     obtain ⟨z, hz⟩ := c.sat (ι ∘ shift a b n)
-    refine ⟨z, c.dep (fun x hx => ?_) hz⟩
+    refine ⟨z, fun e ha => ?_⟩
+    obtain ⟨a₀, ha₀, rfl⟩ := List.mem_map.mp ha
+    refine (Atom.holds_rename _ _ _).mpr (c.dep (ι := Function.update (ι ∘ shift a b n) c.head z)
+      (fun x hx => ?_) hz a₀ ha₀)
     simp only [Function.comp_apply, Function.update_apply]
     unfold shift
     split_ifs <;> first | rfl | omega
+
+theorem Con.P_copy {c : Con} {a b n : ℕ} {hc : a ≤ c.head ∧ c.head < b} {han : a ≤ n}
+    {ι : Asgn} : (c.copy a b n hc han).P ι ↔ c.P (ι ∘ shift a b n) := by
+  simp only [Con.P, Con.copy, List.mem_map, forall_exists_index, and_imp,
+    forall_apply_eq_imp_iff₂, Atom.holds_rename]
 
 /-- The constraints of `Ψ` on `[a, b)`, copied to `shift`'s range. -/
 def copyCons (Ψ : List Con) (a b n : ℕ) (han : a ≤ n) : List Con :=
@@ -112,7 +138,7 @@ theorem copy_num {Ψg : List Con} {a b n : ℕ} {l m : Term} {τ : Option Term} 
   · simp only [ι']
     rw [if_neg (by omega)]
   · obtain ⟨c₀, hc₀, hc₀', rfl⟩ := mem_copyCons hc
-    exact c₀.dep (fun x hx => (key x (by omega)).symm) (hs₀ c₀ hc₀)
+    exact Con.P_copy.mpr (c₀.dep (fun x hx => (key x (by omega)).symm) (hs₀ c₀ hc₀))
   · cases hd with
     | num hu =>
       refine .num (hu.imp id fun ⟨hl', hm', ht'⟩ => ⟨?_, ?_, fun t ht => ?_⟩)

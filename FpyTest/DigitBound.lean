@@ -67,7 +67,7 @@ example (ι : Asgn) :
   rcases hu with h | ⟨-, hm, -⟩
   · cases h
   · have h10 := hs _ (List.mem_singleton_self _)
-    simp only [Con.upper, Term.eval] at h10
+    simp only [Con.P_upper, Term.eval] at h10
     rw [msbOf_of_ne_zero (by positivity), abs_of_pos (by positivity), log_two_zpow] at hm
     simp only [Term.eval] at hm
     rw [← hm] at h10

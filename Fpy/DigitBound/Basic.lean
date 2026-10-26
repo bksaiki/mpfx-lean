@@ -345,9 +345,9 @@ theorem fresh_numIn {n : ℕ} {Lo Hi : Term} (hLo : Lo.Below (n + 1)) (hHi : Hi.
       rw [Function.update_of_ne (by omega), Function.update_of_ne (by omega)]
     · simp only [bounds, List.mem_cons, List.not_mem_nil, or_false] at hc
       rcases hc with rfl | rfl
-      · simp only [Con.upper, hn]
+      · simp only [Con.P_upper, hn]
         rwa [← Term.eval_congr (e₁.trans (e'.mono (Nat.le_succ n))) hHi]
-      · simp only [Con.lower, hn1]
+      · simp only [Con.P_lower, hn1]
         rwa [← Term.eval_congr e' hLo]
     · rcases hw with hw | ⟨rfl, rfl⟩
       · exact .inl hw

@@ -199,6 +199,7 @@ Names are in `namespace Fpy.DigitBound`.
 
 | Paper | Lean | File |
 | --- | --- | --- |
+| Terms `τ` and constraints `φ` | `Term`, `Atom`, `Con` | `Fpy/DigitBound/Defs.lean` |
 | Rules (Fig. 8, 12) | `DEval`, `DExec` | `Fpy/DigitBound/Defs.lean` |
 | D-Int; constraints from inferred formats | `DEval.int`, `DEval.fmt` | `Fpy/DigitBound/Defs.lean` |
 | Theorem 4.2 | `eval_sound`, `exec_sound`, `run_sound` | `Fpy/DigitBound/Sound.lean` |
