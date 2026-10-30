@@ -9,7 +9,7 @@ under the constraints `Ψg` generated before it; descriptions carry over as
 constraints are added (`Describes.grow`).
 Untaken branches and zero-iteration loops re-choose their variables
 (`Sat.extend`); loops iterate by `loop_sound`; D-Int and D-Fmt use Theorem 4.1.
-`DEval.wf` gives each derivation's fresh ranges; `run_precision` bounds a result's
+`DEval.wf` gives each derivation's fresh ranges; `eval_precision` bounds an expression's
 precision by `precBound`.
 -/
 
@@ -854,16 +854,22 @@ theorem precision_of_precBoundFin {Ψ : List Con} {ι : Asgn} {l m : Term} {τ :
   exact precision_of_bound hd <| le_of_width <| (le_iSup₂ (f := fun ι
     (_ : Sat ι Ψ ∧ l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤) => (l.width m).eval ι) ι ⟨hs, hfin⟩).trans hp
 
-/-- `precision_of_precBound` for a program's result. -/
-theorem run_precision (hA : A.Sound Φ) {f : Fn} {y : Var} {s : Stmt (fpy decode)} {d : DVal}
-    {l m : Term} {τ : Option Term} {a : AVal D} {Δ' : DEnv} {Ψ : List Con} {n₀ n₁ : ℕ}
-    (hΦ : Φ f = some (y, s))
-    (hs : DExec decode Φ A (.single y d) (.single y a) (some .real) (some .real) [] n₀ s Δ'
-      (some (.num l m τ)) Ψ n₁) (hd : d.Below n₀) {ι : Asgn} {v : Val} {x : ℝ} {p : ℕ}
-    (hv : Describes [] ι d v) (ha : Fpy.Describes a v) (hrun : Run Φ f v (.num (.finite x)))
-    (hp : precBound Ψ l m ≤ ((p : ℤ) : EInt)) :
-    ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p :=
-  let ⟨_, _, hsat, hd'⟩ := run_sound hA hΦ hs hd hv ha hrun
-  precision_of_precBound hsat hd' hp
+/-- `precision_of_precBound` for any expression, under Theorem 4.2's hypotheses:
+`prec♮(e)` is over every constraint, those before `e` (`Ψg`), from `e` (`Ψ`),
+and after it (`Ψr`). -/
+theorem eval_precision (hA : A.Sound Φ) {Δ : DEnv} {Γ : AEnv D} {κ : Option SCtx}
+    {χ : Option Val} {Ψg Ψ Ψr : List Con} {n₀ n₁ n₂ : ℕ} {e : Expr (fpy decode)} {l m : Term}
+    {τ : Option Term} (hd : DEval decode Φ A Δ Γ κ χ Ψg n₀ e (.num l m τ) Ψ n₁)
+    (hFr : Fresh n₁ n₂ Ψr) {σ : Store} {C : Val} {ι : Asgn} {x : ℝ} {p : ℕ}
+    (h : Eval Φ σ C e (.num (.finite x))) (hbg : Before n₀ Ψg) (hsg : Sat ι Ψg)
+    (hΔ : Δ.Below n₀) (hκ : CtxBelow n₀ κ) (hσ : Δ.Holds Ψg ι σ) (hΓ : Γ.Holds σ)
+    (hC : ∀ K ∈ κ, K.Admits ι C) (hχ : Admits χ C)
+    (hp : precBound (Ψg ++ Ψ ++ Ψr) l m ≤ ((p : ℤ) : EInt)) :
+    ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p := by
+  obtain ⟨ι₁, a₁, hs₁, hd₁⟩ := eval_sound hA hd h hbg hsg hΔ hκ hσ hΓ hC hχ
+  obtain ⟨hb₁, hsat₁⟩ := step hbg hsg (DEval.wf hd).1 a₁ hs₁
+  obtain ⟨ι₂, a₂, hs₂⟩ := Sat.extend hFr ι₁
+  exact precision_of_precBound ((Sat.congr hb₁ a₂ hsat₁).append hs₂)
+    (hd₁.grow hb₁ hFr a₂ ((DEval.wf hd).2 hΔ hκ)) hp
 
 end Fpy.DigitBound

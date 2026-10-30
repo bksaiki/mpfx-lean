@@ -60,10 +60,11 @@ The claim is each rewrite on its own. Not mechanized:
 - **The paper's concrete setting**: a decoding of `IEEE754`, `Fixed` and `Int`
   records into Mpfx contexts, the second pass refining formats by digit bounds,
   and the worked examples (`mac`, `fdpa`, `fused_sum`).
-- **Digit bounds at every rounding of a run.** Theorem 4.2 and the precision
-  bound are per expression, under their hypotheses. The second pass needs
-  every intermediate rounding bounded; D-If and D-While do not analyze their
-  conditions, so a rounding inside one has no bound.
+- **Digit bounds at every rounding of a run.** Theorem 4.2 and `prec♮(e)` are
+  per expression, under their hypotheses (`eval_precision`); no theorem shows
+  each evaluation of `e` in a run meets them. The second pass needs that; D-If
+  and D-While do not analyze their conditions, so a rounding inside one has no
+  bound.
 
 ## Provisional decisions
 
