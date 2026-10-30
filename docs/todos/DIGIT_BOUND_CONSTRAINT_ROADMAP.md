@@ -127,12 +127,11 @@ references are to `sections/04-inference.tex` as of this writing.
   digit bound `d`, generating constraints". Keep Figure 10 itself: its
   convention ("a compound endpoint stands for a fresh variable it bounds")
   already matches the Lean's `bounds`.
-- [ ] **New "Loops" paragraph** before "Soundness":
+- [x] **New "Loops" paragraph** before "Soundness":
   - state D-While-Fmt: fresh variables bounded by format inference's
     invariant, and the body analyzed once, with no back-edge check;
   - name the cost: a loop-carried value keeps only its format's bounds;
-  - replace the appendix's D-While (`A-appendix.tex`) with D-While-Fmt
-    (`DExec.whileDo`).
+  - the appendix's D-While (`A-appendix.tex`) is `DExec.whileDo`.
 - [ ] **Soundness paragraph.**
   - Add: "Theorem 4.2 holds for any derivation; it needs no fixpoint
     argument, because every constraint holds of every execution."

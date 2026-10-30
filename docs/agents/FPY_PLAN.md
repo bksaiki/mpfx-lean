@@ -62,9 +62,8 @@ The claim is each rewrite on its own. Not mechanized:
   and the worked examples (`mac`, `fdpa`, `fused_sum`).
 - **Digit bounds at every rounding of a run.** Theorem 4.2 and `prec♮(e)` are
   per expression, under their hypotheses (`eval_precision`); no theorem shows
-  each evaluation of `e` in a run meets them. The second pass needs that; D-If
-  and D-While do not analyze their conditions, so a rounding inside one has no
-  bound.
+  each evaluation of `e` in a run meets them. D-If and D-While do not analyze
+  their conditions, so a rounding inside one has no bound.
 
 ## Provisional decisions
 
