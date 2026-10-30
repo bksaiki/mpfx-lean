@@ -362,7 +362,7 @@ def knownCtx {D : FormatDomain} : AVal D → Option Val
 /-- `Δ` without the variables `X`. -/
 def DEnv.without (Δ : DEnv) (X : List Var) : DEnv := fun x => if x ∈ X then none else Δ x
 
-/-- D-While-Fmt's premise: every store in `Γᵢ` whose variables outside `X` are
+/-- D-While's premise: every store in `Γᵢ` whose variables outside `X` are
 described by `Δ` is described by `Δᵢ`, once the fresh variables `[n₀, n₁)`
 bounded by `Ψ` are re-chosen. -/
 def Covers {D : FormatDomain} (n₀ n₁ : ℕ) (Ψg Ψ : List Con) (X : List Var) (Γᵢ : AEnv D)
@@ -495,15 +495,9 @@ inductive DExec : DEnv → AEnv D → Option SCtx → Option Val → List Con �
       RetLe n₂ n₃ (Ψg ++ Ψ₁ ++ Ψ₂) Ψ' a₁ a → RetLe n₂ n₃ (Ψg ++ Ψ₁ ++ Ψ₂) Ψ' a₂ a →
       Fresh n₂ n₃ Ψ' → Δ'.Below n₃ → RetBelow n₃ a →
       DExec Δ Γ κ χ Ψg n₀ (.ite e s₁ s₂) Δ' a (Ψ₁ ++ Ψ₂ ++ Ψ') n₃
-  /-- D-While with an invariant `Δᵢ`, as A-While, and format inference's
-  invariant `Γᵢ`. -/
-  | whileDo {Δ Γ κ χ Ψg n₀ e s Δᵢ Ψᵢ n₁ Γᵢ Γ' b Δ' a Ψ n₂} : DEnv.Le n₀ n₁ Ψg Ψᵢ Δ Δᵢ →
-      Fresh n₀ n₁ Ψᵢ → Δᵢ.Below n₁ → Γ.Le Γᵢ → AExec A Φ (A.refine χ e true Γᵢ) χ s Γ' b →
-      Γ'.Le Γᵢ → DExec Δᵢ (A.refine χ e true Γᵢ) κ χ (Ψg ++ Ψᵢ) n₁ s Δ' a Ψ n₂ →
-      DEnv.Le n₀ n₁ Ψg Ψᵢ Δ' Δᵢ → DExec Δ Γ κ χ Ψg n₀ (.whileDo e s) Δᵢ a (Ψᵢ ++ Ψ) n₂
-  /-- D-While-Fmt: each iteration starts from `Δᵢ`, which `Γᵢ` covers (`Covers`);
-  no back edge. -/
-  | whileFmt {Δ Γ κ χ Ψg n₀ e s Δᵢ Ψᵢ n₁ Γᵢ Γ' b Δ' a Ψ n₂} :
+  /-- D-While: each iteration starts from `Δᵢ`, which format inference's
+  invariant `Γᵢ` covers (`Covers`); no back edge. -/
+  | whileDo {Δ Γ κ χ Ψg n₀ e s Δᵢ Ψᵢ n₁ Γᵢ Γ' b Δ' a Ψ n₂} :
       Covers n₀ n₁ Ψg Ψᵢ s.assigned Γᵢ Δ Δᵢ → Fresh n₀ n₁ Ψᵢ → Δᵢ.Below n₁ → Γ.Le Γᵢ →
       AExec A Φ (A.refine χ e true Γᵢ) χ s Γ' b → Γ'.Le Γᵢ →
       DExec Δᵢ (A.refine χ e true Γᵢ) κ χ (Ψg ++ Ψᵢ) n₁ s Δ' a Ψ n₂ →

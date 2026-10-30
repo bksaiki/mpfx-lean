@@ -208,9 +208,9 @@ Names are in `namespace Fpy.DigitBound`.
 | Precision bound (after Theorem 4.2) | `precision_of_bound`, `precision_of_precBound`, `precision_of_precBoundFin`, `run_precision` | `Fpy/DigitBound/Sound.lean` |
 | D-Sum, on values and over the analysis | `sumVal_inRange`, `eval_sum_inRange`, `eval_sum_sound` | `Fpy/DigitBound/Sum.lean` |
 | D-Index's fresh copy | `copy_num`, `copyCons`, `fresh_copyCons` | `Fpy/DigitBound/Copy.lean` |
-| Joins (D-List, D-If, D-While) | `le_num`, `DEnv.Le.refl`, `DEnv.Le.update`, `DEnv.Le.trans` | `Fpy/DigitBound/Join.lean` |
-| D-While-Fmt: loop state from format inference, no back edge | `DExec.whileFmt`, `Covers`, `loopFmt_sound` | `Fpy/DigitBound/Defs.lean`, `Sound.lean` |
-| D-While-Fmt's cover from formats | `Covers.without`, `Covers.fmt` | `Fpy/DigitBound/Join.lean` |
+| Joins (D-List, D-If) | `le_num`, `DEnv.Le.refl`, `DEnv.Le.update`, `DEnv.Le.trans` | `Fpy/DigitBound/Join.lean` |
+| D-While: loop state from format inference, no back edge | `DExec.whileDo`, `Covers`, `loop_sound` | `Fpy/DigitBound/Defs.lean`, `Sound.lean` |
+| D-While's cover from formats | `Covers.without`, `Covers.fmt` | `Fpy/DigitBound/Join.lean` |
 | Frame: a statement changes only what it assigns | `Stmt.assigned`, `Exec.frame` | `Fpy/Semantics.lean` |
 | Table 2, operators | `opOK_add`, `opOK_mul`, `opOK_exact`, `opOK_ext`, `opOK_exp2`, `opOK_logb`, `opOK_any` | `Fpy/DigitBound/Table.lean` |
 | Table 2, rounding | `rndOK_real`, `rndOK_fixedRTZ`, `rndOK_fixed`, `rndOK_precRTZ`, `rndOK_prec`, `rndOK_any` | `Fpy/DigitBound/Table.lean` |

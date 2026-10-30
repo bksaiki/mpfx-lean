@@ -3,11 +3,11 @@ import Fpy.DigitBound.Basic
 /-!
 # The draft's joins as order premises
 
-D-List, D-If, D-Seq and D-While take an order (`DVal.Le`, `DEnv.Le`) in place of
+D-List, D-If and D-Seq take an order (`DVal.Le`, `DEnv.Le`) in place of
 the draft's joins. The interval join `[l₁, m₁] ⊔ [l₂, m₂] = [min(l₁, l₂),
 max(m₁, m₂)]`, with fresh endpoints, is an instance (`le_num`); environment
 joins are built from reflexivity, one changed variable at a time
-(`DEnv.Le.update`), and composition (`DEnv.Le.trans`). D-While-Fmt's `Covers`
+(`DEnv.Le.update`), and composition (`DEnv.Le.trans`). D-While's `Covers`
 is built from the unassigned variables (`Covers.without`) and one number per
 assigned variable (`Covers.fmt`).
 -/

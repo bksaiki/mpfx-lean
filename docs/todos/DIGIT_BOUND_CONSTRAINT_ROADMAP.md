@@ -29,7 +29,7 @@ The Lean now backs this. The README's §4.3 table lists each name:
   `Con`.
 - **The query:** `precBound`, and `precBoundFin`, the implementation's query
   over finite digits.
-- **The implementation's loop rule:** D-While-Fmt (`DExec.whileFmt`, `Covers`),
+- **The implementation's loop rule:** D-While (`DExec.whileDo`, `Covers`),
   which has no back-edge premise.
 - **The integer encoding Z3 sees:** `Encode.lean`.
 
@@ -132,7 +132,7 @@ references are to `sections/04-inference.tex` as of this writing.
     invariant, and the body analyzed once, with no back-edge check;
   - name the cost: a loop-carried value keeps only its format's bounds;
   - replace the appendix's D-While (`A-appendix.tex`) with D-While-Fmt
-    (`DExec.whileFmt`).
+    (`DExec.whileDo`).
 - [ ] **Soundness paragraph.**
   - Add: "Theorem 4.2 holds for any derivation; it needs no fixpoint
     argument, because every constraint holds of every execution."

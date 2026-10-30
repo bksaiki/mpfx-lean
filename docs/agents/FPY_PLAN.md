@@ -81,7 +81,7 @@ The claim is each rewrite on its own. Not mechanized:
   satisfying them and agreeing below the summary's variables.
 - **Rules only, not the implementation's algorithm.** The theorems cover any
   derivation; widening, the set-size cap and Z3 only construct derivations.
-  The draft should say "the rules are sound". D-While-Fmt is the exception:
+  The draft should say "the rules are sound". D-While is the exception:
   it is the implementation's loop rule. Reopen if it wants an extracted
   checker.
 - **`min`/`max` propagate NaN** (IEEE 754-2019 `minimum`/`maximum`). Reopen if
