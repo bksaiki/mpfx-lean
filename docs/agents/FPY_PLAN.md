@@ -60,10 +60,10 @@ The claim is each rewrite on its own. Not mechanized:
 - **The paper's concrete setting**: a decoding of `IEEE754`, `Fixed` and `Int`
   records into Mpfx contexts, the second pass refining formats by digit bounds,
   and the worked examples (`mac`, `fdpa`, `fused_sum`).
-- **Digit bounds at every rounding of a run.** Theorem 4.2 and the precision
-  bound are per expression, under their hypotheses. The second pass needs
-  every intermediate rounding bounded; D-If and D-While do not analyze their
-  conditions, so a rounding inside one has no bound.
+- **Digit bounds at every rounding of a run.** Theorem 4.2 and `prec♮(e)` are
+  per expression, under their hypotheses (`eval_precision`); no theorem shows
+  each evaluation of `e` in a run meets them. D-If and D-While do not analyze
+  their conditions, so a rounding inside one has no bound.
 
 ## Provisional decisions
 
@@ -81,7 +81,7 @@ The claim is each rewrite on its own. Not mechanized:
   satisfying them and agreeing below the summary's variables.
 - **Rules only, not the implementation's algorithm.** The theorems cover any
   derivation; widening, the set-size cap and Z3 only construct derivations.
-  The draft should say "the rules are sound". D-While-Fmt is the exception:
+  The draft should say "the rules are sound". D-While is the exception:
   it is the implementation's loop rule. Reopen if it wants an extracted
   checker.
 - **`min`/`max` propagate NaN** (IEEE 754-2019 `minimum`/`maximum`). Reopen if

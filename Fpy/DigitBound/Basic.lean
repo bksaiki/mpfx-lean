@@ -127,12 +127,6 @@ theorem admits_congr {n : ℕ} {ι ι' : Asgn} (h : Agree n ι ι') {κ : Option
 theorem Sat.append {ι : Asgn} {Ψ Ψ' : List Con} (h : Sat ι Ψ) (h' : Sat ι Ψ') :
     Sat ι (Ψ ++ Ψ') := fun c hc => (List.mem_append.mp hc).elim (h c) (h' c)
 
-theorem Sat.left {ι : Asgn} {Ψ Ψ' : List Con} (h : Sat ι (Ψ ++ Ψ')) : Sat ι Ψ :=
-  fun c hc => h c (List.mem_append_left _ hc)
-
-theorem Sat.right {ι : Asgn} {Ψ Ψ' : List Con} (h : Sat ι (Ψ ++ Ψ')) : Sat ι Ψ' :=
-  fun c hc => h c (List.mem_append_right _ hc)
-
 theorem Fresh.nil (n : ℕ) : Fresh n n [] :=
   ⟨le_rfl, List.nodup_nil, fun _ h => absurd h List.not_mem_nil⟩
 
@@ -244,37 +238,6 @@ theorem DescribesFields.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ)
     .cons (Describes.grow hb hF h hd hb₁) (DescribesFields.grow hb hF h hfs hbs)
 
 end
-
-mutual
-
-theorem Describes.of_append {Ψ Ψ' : List Con} :
-    ∀ {ι : Asgn} {d : DVal} {v : Val}, Describes (Ψ ++ Ψ') ι d v → Describes Ψ ι d v
-  | _, _, _, .num hu => .num hu
-  | _, _, _, .list hall => .list (DescribesAll.of_append hall)
-  | _, _, _, .record hfs => .record (DescribesFields.of_append hfs)
-  | _, _, _, .bool => .bool
-  | _, _, _, .real => .real
-  | _, _, _, .ctxv => .ctxv
-  | _, _, _, .sctx hC => .sctx hC
-
-theorem DescribesAll.of_append {Ψ Ψ' : List Con} :
-    ∀ {ι : Asgn} {d : DVal} {a : ℕ} {vs : List Val}, DescribesAll (Ψ ++ Ψ') ι d a vs →
-      DescribesAll Ψ ι d a vs
-  | _, _, _, _, .nil => .nil
-  | _, _, _, _, .cons h hs hd tl =>
-    .cons h hs.left (Describes.of_append hd) (DescribesAll.of_append tl)
-
-theorem DescribesFields.of_append {Ψ Ψ' : List Con} :
-    ∀ {ι : Asgn} {afs : List (Label × DVal)} {fs : List (Label × Val)},
-      DescribesFields (Ψ ++ Ψ') ι afs fs → DescribesFields Ψ ι afs fs
-  | _, _, _, .nil => .nil
-  | _, _, _, .cons hd hfs => .cons (Describes.of_append hd) (DescribesFields.of_append hfs)
-
-end
-
-theorem DEnv.Holds.of_append {Ψ Ψ' : List Con} {Δ : DEnv} {ι : Asgn} {σ : Store}
-    (h : Δ.Holds (Ψ ++ Ψ') ι σ) : Δ.Holds Ψ ι σ := fun x d hx =>
-  (h x d hx).imp fun _ ⟨hv, hd⟩ => ⟨hv, hd.of_append⟩
 
 theorem DEnv.Holds.grow {n n' : ℕ} {Ψ Ψ' : List Con} (hb : Before n Ψ) (hF : Fresh n n' Ψ')
     {ι ι' : Asgn} (h : Agree n ι ι') {Δ : DEnv} {σ : Store} (hΔ : Δ.Below n)
