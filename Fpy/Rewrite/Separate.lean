@@ -5,8 +5,8 @@ import Mpfx.DoubleRounding.Special
 /-!
 # Separating arithmetic from rounding (§5.1)
 
-Fig. 12's rewrites of `x = op(e⃗)` first bind `e⃗` under `C` to fresh `t⃗`
-(`equiv_bind`), so each is stated on `x = op(t⃗)`. §5.1's are Elim, Insert and
+Fig. 12's rewrites of `x = op(es)` first bind `es` under `C` to fresh `ts`
+(`equiv_bind`), so each is stated on `x = op(ts)`. §5.1's are Elim, Insert and
 Split (`equiv_elim`, `equiv_insert`, `equiv_split`). `C'` is written by any
 expression that denotes it.
 
@@ -105,7 +105,7 @@ def Stmt.binds : List Var → List (Expr L) → Stmt L → Stmt L
   | t :: ts, e :: es, s => .seq (.assign t e) (Stmt.binds ts es s)
   | _, _, s => s
 
-/-- Binding `e⃗` to `t⃗` avoided by `e⃗` evaluates `e⃗` in the first store. -/
+/-- Binding `es` to `ts` avoided by `es` evaluates `es` in the first store. -/
 theorem exec_binds {C : Val} {s : Stmt L} {o : Outcome} :
     ∀ {σ : Store} {ts : List Var} {es : List (Expr L)}, ts.length = es.length →
       (∀ t ∈ ts, t ∈ X) → (∀ e ∈ es, Avoids X e) →
@@ -132,15 +132,10 @@ theorem exec_binds {C : Val} {s : Stmt L} {o : Outcome} :
         exact .seqNormal (.assign he)
           ((exec_binds (Nat.succ.inj hl) hX' ha').mpr ⟨_, hl'.agree (hagree _) ha', h⟩)
 
-theorem EvalList.length_eq {σ : Store} {C : Val} :
-    ∀ {es : List (Expr L)} {vs : List Val}, EvalList Φ σ C es vs → es.length = vs.length
-  | _, _, .nil => rfl
-  | _, _, .cons _ hs => congrArg _ hs.length_eq
-
 variable {A : Analysis L D}
 
-/-- Binding `e⃗` under `C` to fresh `t⃗`, as each rewrite of Fig. 12 does first:
-a rewrite of `x = op(t⃗)` under `t⃗ : fmt(e⃗)` is one of `x = op(e⃗)`. -/
+/-- Binding `es` under `C` to fresh `ts`, as each rewrite of Fig. 12 does first:
+a rewrite of `x = op(ts)` under `Γ[ts ↦ fmt(es)]` is one of `x = op(es)`. -/
 theorem equiv_bind (hA : A.Sound Φ) {Γ : AEnv D} {κ : Option Val} {x : Var} {op : L.ArithOp}
     {es : List (Expr L)} {ts : List Var} {as : List (AVal D)} {s' : Stmt L}
     (hts : ts.Nodup) (hl : ts.length = es.length) (hX : ∀ t ∈ ts, t ∈ X)
@@ -170,8 +165,8 @@ theorem equiv_bind (hA : A.Sound Φ) {Γ : AEnv D} {κ : Option Val} {x : Var} {
 
 /-! ## Rounding under another context -/
 
-/-- Rounding `op(y⃗)` under `C'` (denoted by `c`) instead of `C`: correct when
-both round each exact result the same way, for the values of `y⃗` in `Γ`. -/
+/-- Rounding `op(ys)` under `C'` (denoted by `c`) instead of `C`: correct when
+both round each exact result the same way, for the values of `ys` in `Γ`. -/
 theorem equiv_reround {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr L} {x : Var}
     {op : L.ArithOp} {ys : List Var} (hc : Denotes Φ c C') (hr : C.rnd L = some r)
     (hr' : C'.rnd L = some r')
@@ -194,8 +189,8 @@ theorem equiv_reround {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr 
     cases he with
     | arith hl hop _ => exact ⟨_, .assign (.arith (evalList_vars.mpr (evalList_vars.mp hl)) hop hr)⟩
 
-/-- **Elim**: `[C] x = op(t⃗) ⇝ with R in x = op(t⃗)` if `fmt(tᵢ) ⊆ Fᵢ` and
-`op♯(F⃗) ⊆ F_C`. -/
+/-- **Elim**: `[C] x = op(ts) ⇝ with R in x = op(ts)` if `fmt(tᵢ) ⊆ Fᵢ` and
+`op♯(Fs) ⊆ F_C`. -/
 theorem equiv_elim (hA : A.Sound Φ) {Γ : AEnv D} {C : Val} {r : Num → Num} {FC : D.Fmt}
     {x : Var} {op : L.ArithOp} {ts : List Var} {Fs : List D.Fmt}
     (hr : C.rnd L = some r) (hFC : A.ctxFmt C = some FC) (hF : FmtsIn Γ ts Fs)
@@ -205,8 +200,8 @@ theorem equiv_elim (hA : A.Sound Φ) {Γ : AEnv D} {C : Val} {r : Num → Num} {
   equiv_reround denotes_real hr rfl fun _ _ n hΓ hns hop =>
     (hA.ctxFmt hFC hr).2 n (hsub (hA.arith (hΓ.mem hF hns) hop))
 
-/-- **Insert**: `[R] x = op(t⃗) ⇝ with C' in x = op(t⃗)` if `fmt(tᵢ) ⊆ Fᵢ` and
-`op♯(F⃗) ⊆ F_{C'}`. -/
+/-- **Insert**: `[R] x = op(ts) ⇝ with C' in x = op(ts)` if `fmt(tᵢ) ⊆ Fᵢ` and
+`op♯(Fs) ⊆ F_{C'}`. -/
 theorem equiv_insert (hA : A.Sound Φ) {Γ : AEnv D} {C' : Val} {r' : Num → Num} {FC : D.Fmt}
     {c : Expr L} {x : Var} {op : L.ArithOp} {ts : List Var} {Fs : List D.Fmt}
     (hc : Denotes Φ c C') (hr' : C'.rnd L = some r') (hFC : A.ctxFmt C' = some FC)
@@ -218,8 +213,8 @@ theorem equiv_insert (hA : A.Sound Φ) {Γ : AEnv D} {C' : Val} {r' : Num → Nu
 
 /-! ## Splitting a rounding -/
 
-/-- **Split**: `[C] x = op(t⃗) ⇝ with C' in r = op(t⃗); x = round(r)` if
-`fmt(tᵢ) ⊆ Fᵢ` and `C(C'(v)) = C(v)` on `op(F⃗)`, the exact results of `op` on
+/-- **Split**: `[C] x = op(ts) ⇝ with C' in r = op(ts); x = round(r)` if
+`fmt(tᵢ) ⊆ Fᵢ` and `C(C'(v)) = C(v)` on `op(Fs)`, the exact results of `op` on
 inputs `uᵢ ∈ Fᵢ`. `rd` is any operator computing the identity. -/
 theorem equiv_split {Γ : AEnv D} {C C' : Val} {rC rC' : Num → Num} {c : Expr L} {x r : Var}
     {op rd : L.ArithOp} {ts : List Var} {Fs : List D.Fmt} (hc : Denotes Φ c C')

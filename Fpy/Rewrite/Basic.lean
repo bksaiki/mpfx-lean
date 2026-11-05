@@ -156,7 +156,7 @@ inductive Avoids (X : Set Var) : Expr L → Prop
   | exact {op es} : (∀ e ∈ es, Avoids X e) → Avoids X (.exact op es)
   | call {f e} : Avoids X e → Avoids X (.call f e)
 
-section Agree
+section Avoids
 
 variable {Φ : Program L} {X : Set Var} {C : Val}
 
@@ -192,7 +192,7 @@ theorem EvalFields.agree {σ σ' : Store} {fs : List (Label × Expr L)} {vs : Li
 
 end
 
-end Agree
+end Avoids
 
 /-! ## Inverting and building derivations -/
 

@@ -2,7 +2,7 @@ import Fpy.Rewrite.Separate
 import Mpfx.DoubleRounding.Add
 
 /-!
-# Elim on expressions; Split from Mpfx's double-rounding rules
+# Split from Mpfx's double-rounding rules, and on expressions
 -/
 
 namespace FpyTest
@@ -54,17 +54,20 @@ example {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}
       hS hb (fun ha hb' => rndAdd hp₁ hp₂ hpp hexp h₁u ha hb') us n
       (forall_mem_of_forall₂ hus hFs)
 
-/-- Elim on `op(e₁, e₂)`: bind the operands to fresh `t₁`, `t₂`, then drop the rounding. -/
-example {L : Signature} {Φ : Program L} {A : Analysis L D} (hA : A.Sound Φ) {C : Val}
-    {r : Num → Num} {FC G₁ G₂ : D.Fmt} {t₁ t₂ : Var} {op : L.ArithOp} {e₁ e₂ : Expr L}
-    {a₁ a₂ : AVal D} (hne : t₁ ≠ t₂) (he : ∀ e ∈ [e₁, e₂], Avoids {t₁, t₂} e)
-    (ha : AEvalList A Φ Γ (some C) [e₁, e₂] [a₁, a₂]) (hr : C.rnd L = some r)
-    (hFC : A.ctxFmt C = some FC) (h₁ : D.γ a₁.toFmt ⊆ D.γ G₁) (h₂ : D.γ a₂.toFmt ⊆ D.γ G₂)
-    (hsub : D.γ (A.arith op [G₁, G₂]) ⊆ D.γ FC) :
-    Equiv Φ {t₁, t₂} Γ (some C) (.assign x (.arith op [e₁, e₂]))
-      (Stmt.binds [t₁, t₂] [e₁, e₂] (.withCtx .real (.assign x (.arith op [.var t₁, .var t₂])))) :=
-  equiv_bind hA (by simp [hne]) rfl (by simp) he ha <| equiv_elim hA hr hFC
+/-- Split on `op(e₁, e₂)`: bind the operands to fresh `t₁`, `t₂`, then split. -/
+example {L : Signature} {Φ : Program L} {A : Analysis L D} (hA : A.Sound Φ) {C C' : Val}
+    {rC rC' : Num → Num} {c : Expr L} {G₁ G₂ : D.Fmt} {t₁ t₂ r : Var} {op rd : L.ArithOp}
+    {e₁ e₂ : Expr L} {a₁ a₂ : AVal D} (hne : t₁ ≠ t₂) (he : ∀ e ∈ [e₁, e₂], Avoids {t₁, t₂, r} e)
+    (ha : AEvalList A Φ Γ (some C) [e₁, e₂] [a₁, a₂]) (hc : Denotes Φ c C')
+    (hr : C.rnd L = some rC) (hr' : C'.rnd L = some rC') (hrd : ∀ u, L.arith rd [u] = some u)
+    (h₁ : D.γ a₁.toFmt ⊆ D.γ G₁) (h₂ : D.γ a₂.toFmt ⊆ D.γ G₂)
+    (h : ∀ us n, List.Forall₂ (fun u F => u ∈ D.γ F) us [G₁, G₂] → L.arith op us = some n →
+      rC (rC' n) = rC n) :
+    Equiv Φ {t₁, t₂, r} Γ (some C) (.assign x (.arith op [e₁, e₂]))
+      (Stmt.binds [t₁, t₂] [e₁, e₂] (.seq (.withCtx c (.assign r (.arith op [.var t₁, .var t₂])))
+        (.assign x (.arith rd [.var r])))) :=
+  equiv_bind hA (by simp [hne]) rfl (by simp) he ha <| (equiv_split hc hr hr' hrd
     (.cons ⟨a₁, by simp [updates, Function.update, hne], h₁⟩
-      (.cons ⟨a₂, by simp [updates], h₂⟩ .nil)) hsub
+      (.cons ⟨a₂, by simp [updates], h₂⟩ .nil)) h).mono (by simp)
 
 end FpyTest

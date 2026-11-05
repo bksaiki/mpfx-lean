@@ -19,8 +19,8 @@ provisional decisions with their reopen conditions.
 
 From the writing agent's Lean TODOs for `main.pdf`.
 
-- [x] Fig. 12 rewrites: operands bound to fresh `t⃗` (`equiv_bind`); any
-  `Fᵢ ⊇ fmt(eᵢ)` (`FmtsIn`); one Split on `op(F⃗)` (`equiv_split`;
+- [x] Fig. 12 rewrites: operands bound to fresh `ts` (`equiv_bind`); any
+  `Fᵢ ⊇ fmt(eᵢ)` (`FmtsIn`); one Split on `op(Fs)` (`equiv_split`;
   `split_add`, …); Special tests `±∞` apart and sets `x = 0`.
 - [x] Theorem 4.2 per expression: `eval_precision` (`run_precision` dropped).
 - [x] Loops: `DExec.whileDo` with `Covers` (`Covers.fmt`), body once;

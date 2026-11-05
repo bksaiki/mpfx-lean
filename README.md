@@ -225,7 +225,7 @@ not by the `equiv_*` statements.
 | --- | --- | --- |
 | Rewrite correctness | `Equiv` | `Fpy/Rewrite/Basic.lean` |
 | Rewriting preserves `Run` | `Rw.sim`, `run_iff_of_rw` | `Fpy/Rewrite/Basic.lean` |
-| Binding `e⃗` to fresh `t⃗` (Fig. 12) | `equiv_bind`, `Stmt.binds`, `Avoids` | `Fpy/Rewrite/Separate.lean` |
+| Binding `es` to fresh `ts` (Fig. 12) | `equiv_bind`, `Stmt.binds`, `Avoids` | `Fpy/Rewrite/Separate.lean` |
 | Elim | `equiv_elim` | `Fpy/Rewrite/Separate.lean` |
 | Insert | `equiv_insert` | `Fpy/Rewrite/Separate.lean` |
 | Split | `equiv_split`; condition from any total Mpfx rule via `RoundCtx.round_round`, or from Roux via `split_add`, `split_mul`, `split_div`, `split_sqrt` | `Fpy/Rewrite/Separate.lean` |

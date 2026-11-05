@@ -156,6 +156,11 @@ termination_by structural h _ => h
 
 end
 
+theorem EvalList.length_eq {σ : Store} {C : Val} :
+    ∀ {es : List (Expr L)} {vs : List Val}, EvalList Φ σ C es vs → es.length = vs.length
+  | _, _, .nil => rfl
+  | _, _, .cons _ hs => congrArg _ hs.length_eq
+
 /-! ## Frame -/
 
 /-- The variables a statement may assign. -/
