@@ -1,4 +1,4 @@
-import Fpy.Rewrite
+import Fpy.Rewrite.Basic
 import Fpy.FormatInference.Domain
 import Mpfx.DoubleRounding.Special
 
