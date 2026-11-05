@@ -47,8 +47,14 @@ variable {X : Set Var}
 
 theorem Store.Agree.refl (σ : Store) : σ.Agree X σ := fun _ _ => rfl
 
+theorem Store.Agree.symm {σ σ' : Store} (h : σ.Agree X σ') : σ'.Agree X σ :=
+  fun x hx => (h x hx).symm
+
 theorem Store.Agree.trans {σ₁ σ₂ σ₃ : Store} (h₁ : σ₁.Agree X σ₂) (h₂ : σ₂.Agree X σ₃) :
     σ₁.Agree X σ₃ := fun x hx => (h₁ x hx).trans (h₂ x hx)
+
+theorem Store.Agree.mono {Y : Set Var} {σ σ' : Store} (h : σ.Agree X σ') (hXY : X ⊆ Y) :
+    σ.Agree Y σ' := fun x hx => h x fun h' => hx (hXY h')
 
 theorem Store.Agree.update {σ σ' : Store} (h : σ.Agree X σ') (x : Var) (v : Val) :
     (σ.update x v).Agree X (σ'.update x v) := by
@@ -74,6 +80,11 @@ theorem Outcome.Agree.trans {o₁ o₂ o₃ : Outcome} (h₁ : o₁.Agree X o₂
     o₁.Agree X o₃ := by
   cases o₁ <;> cases o₂ <;> cases o₃ <;> simp only [Outcome.Agree] at *
   all_goals exact h₁.trans h₂
+
+theorem Outcome.Agree.mono {Y : Set Var} {o o' : Outcome} (h : o.Agree X o') (hXY : X ⊆ Y) :
+    o.Agree Y o' := by
+  cases o <;> cases o' <;> simp only [Outcome.Agree] at *
+  all_goals first | exact h.mono hXY | exact h
 
 theorem Outcome.Agree.normal_left {σ : Store} {o : Outcome} (h : (Outcome.normal σ).Agree X o) :
     ∃ σ', o = .normal σ' ∧ σ.Agree X σ' := by
@@ -121,6 +132,67 @@ theorem Equiv.of_fwd {Φ : Program L} {X : Set Var} {Γ : AEnv D} {κ : Option V
     obtain ⟨o, hs⟩ := hrun σ C o' hΓ hκ hs'
     obtain ⟨o₂, hs₂, hag⟩ := hfwd σ C o hΓ hκ hs
     exact ⟨o, hs, Exec.det _ hs₂ hs' ▸ hag⟩⟩
+
+theorem Equiv.mono {Φ : Program L} {X Y : Set Var} {Γ : AEnv D} {κ : Option Val}
+    {s s' : Stmt L} (h : Equiv Φ X Γ κ s s') (hXY : X ⊆ Y) : Equiv Φ Y Γ κ s s' :=
+  fun _ _ hΓ hκ =>
+    ⟨fun o hs => (h hΓ hκ).1 o hs |>.imp fun _ ⟨hs', hag⟩ => ⟨hs', hag.mono hXY⟩,
+     fun o' hs' => (h hΓ hκ).2 o' hs' |>.imp fun _ ⟨hs, hag⟩ => ⟨hs, hag.mono hXY⟩⟩
+
+/-! ## Fresh variables -/
+
+/-- `e` reads no variable of `X`. -/
+inductive Avoids (X : Set Var) : Expr L → Prop
+  | bool {b} : Avoids X (.bool b)
+  | num {n} : Avoids X (.num n)
+  | real : Avoids X .real
+  | var {x} : x ∉ X → Avoids X (.var x)
+  | list {es} : (∀ e ∈ es, Avoids X e) → Avoids X (.list es)
+  | index {e₁ e₂} : Avoids X e₁ → Avoids X e₂ → Avoids X (.index e₁ e₂)
+  | record {fs} : (∀ p ∈ fs, Avoids X p.2) → Avoids X (.record fs)
+  | proj {e l} : Avoids X e → Avoids X (.proj e l)
+  | ctx {e} : Avoids X e → Avoids X (.ctx e)
+  | arith {op es} : (∀ e ∈ es, Avoids X e) → Avoids X (.arith op es)
+  | exact {op es} : (∀ e ∈ es, Avoids X e) → Avoids X (.exact op es)
+  | call {f e} : Avoids X e → Avoids X (.call f e)
+
+section Agree
+
+variable {Φ : Program L} {X : Set Var} {C : Val}
+
+mutual
+
+/-- An expression avoiding `X` evaluates alike in stores that agree outside `X`. -/
+theorem Eval.agree {σ σ' : Store} {e : Expr L} {v : Val} :
+    Eval Φ σ C e v → σ.Agree X σ' → Avoids X e → Eval Φ σ' C e v
+  | .bool, _, _ => .bool
+  | .num, _, _ => .num
+  | .real, _, _ => .real
+  | .var hx, hσ, .var hX => .var ((hσ _ hX).symm.trans hx)
+  | .list hl, hσ, .list ha => .list (EvalList.agree hl hσ ha)
+  | .index h₁ h₂ hk, hσ, .index a₁ a₂ => .index (Eval.agree h₁ hσ a₁) (Eval.agree h₂ hσ a₂) hk
+  | .record hf, hσ, .record ha => .record (EvalFields.agree hf hσ ha)
+  | .proj h hl, hσ, .proj a => .proj (Eval.agree h hσ a) hl
+  | .ctx h hρ, hσ, .ctx a => .ctx (Eval.agree h hσ a) hρ
+  | .arith hl hop hr, hσ, .arith a => .arith (EvalList.agree hl hσ a) hop hr
+  | .exact hl hop, hσ, .exact a => .exact (EvalList.agree hl hσ a) hop
+  | .call hΦ he hs, hσ, .call a => .call hΦ (Eval.agree he hσ a) hs
+
+theorem EvalList.agree {σ σ' : Store} {es : List (Expr L)} {vs : List Val} :
+    EvalList Φ σ C es vs → σ.Agree X σ' → (∀ e ∈ es, Avoids X e) → EvalList Φ σ' C es vs
+  | .nil, _, _ => .nil
+  | .cons h hs, hσ, ha => .cons (Eval.agree h hσ (ha _ (List.mem_cons_self ..)))
+      (EvalList.agree hs hσ fun e he => ha e (List.mem_cons_of_mem _ he))
+
+theorem EvalFields.agree {σ σ' : Store} {fs : List (Label × Expr L)} {vs : List (Label × Val)} :
+    EvalFields Φ σ C fs vs → σ.Agree X σ' → (∀ p ∈ fs, Avoids X p.2) → EvalFields Φ σ' C fs vs
+  | .nil, _, _ => .nil
+  | .cons h hs, hσ, ha => .cons (Eval.agree h hσ (ha _ (List.mem_cons_self ..)))
+      (EvalFields.agree hs hσ fun p hp => ha p (List.mem_cons_of_mem _ hp))
+
+end
+
+end Agree
 
 /-! ## Inverting and building derivations -/
 
