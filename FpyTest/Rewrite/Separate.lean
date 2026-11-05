@@ -29,6 +29,14 @@ example {tb : TieBreak} {op : ArithOp} (h₁u : ¬ F₁.IsUndefined (.nearest tb
   equiv_split hc (fpy_rnd_ctx hd₁) (fpy_rnd_ctx hd₂) fpy_round hF fun _ _ _ _ =>
     RoundCtx.round_round (fun _ _ => rndRTO_RN hsub hp h₁u hov hS hO) _
 
+/-- Split with `C' = R`: the condition is `rfl`. -/
+example {op : ArithOp} {r : Num → Num} (hr : (Val.ctx fs₁).rnd (fpy decode) = some r)
+    {Fs : List D.Fmt} (hF : FmtsIn Γ ys Fs) :
+    Equiv Φ {t} Γ (some (.ctx fs₁)) (.assign x (.arith op (ys.map .var)))
+      (.seq (.withCtx .real (.assign t (.arith op (ys.map .var))))
+        (.assign x (.arith (show ArithOp from .round) [.var t]))) :=
+  equiv_split denotes_real hr rfl fpy_round hF fun _ _ _ _ => rfl
+
 /-- Split for `+`: addition to nearest in `F₂`, with `2p₁ + 1` digits, then
 rounding to nearest in `F₁` is addition to nearest in `F₁` (`rndAdd`). -/
 example {tb₁ tb₂ : TieBreak} {p₁ p₂ : ℕ}

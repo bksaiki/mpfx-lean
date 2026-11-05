@@ -29,15 +29,17 @@ From the writing agent's Lean TODOs for `main.pdf`.
   `RetLe` (`ret_join`).
 - [x] Overflow threshold: `equiv_overflow_threshold` assumes overflow exactly
   beyond `±θ`; monotonicity derives it (`overflows_iff_of_threshold`).
-- [ ] Split with `C' = R`: condition is `rfl`; add a test.
+- [x] Split with `C' = R`: condition is `rfl` (`FpyTest/Rewrite/Separate.lean`).
 - [x] `A(p, exp, b, S)`: `b` inclusive; precision and quantum are separate
   existentials, equivalent to one `m × 2^e` (no lemma). `ctxFmt` makes `F_C`
   the image of `rnd_C`.
-- [ ] Context join: `AVal.join` on known contexts is flat; confirm it is the
-  footnote's `κ` join.
+- [x] Context join: `κ : Option Val` (`none` is `?`); no rule joins `κ`
+  (A-With is lexical); context values join flatly (`AVal.join`, `?` is `.top`).
 - [ ] Send the final commit and every Table 7 name (after commit).
-- [ ] Supplementary material: no `sorry`/`admit`/extra axioms; archive omits
-  unrelated branches and docs.
+- [x] No `sorry`/`admit`/`axiom`; Table 7 theorems use only `propext`,
+  `Classical.choice`, `Quot.sound`.
+- [ ] Archive: omit `docs/agents/`, `docs/todos/`; anonymize `NOTICE` and the
+  README's citation of the double-rounding paper.
 
 ## Problems found in the draft
 
