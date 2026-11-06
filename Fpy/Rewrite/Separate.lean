@@ -1,19 +1,19 @@
-import Fpy.Rewrite
+import Fpy.Rewrite.Basic
 import Fpy.FormatInference.Domain
 import Mpfx.DoubleRounding.Special
 
 /-!
 # Separating arithmetic from rounding (§5.1)
 
-The rewrites of §5.1 on `x = op(y⃗)`: Elim, Insert, Split and SplitOp
-(`equiv_elim`, `equiv_insert`, `equiv_split`, `equiv_splitOp`), from two cores
-(`equiv_reround`, `equiv_split_of`). `C'` is written by any expression that
-denotes it.
+Fig. 12's rewrites of `x = op(es)` first bind `es` under `C` to fresh `ts`
+(`equiv_bind`), so each is stated on `x = op(ts)`. §5.1's are Elim, Insert and
+Split (`equiv_elim`, `equiv_insert`, `equiv_split`). `C'` is written by any
+expression that denotes it.
 
 For FPy's contexts, `RoundCtx.round_round` turns each total double-rounding
-rule (`rndRTO_RN`, …) into Split's condition, and `splitOp_add`, `splitOp_mul`,
-`splitOp_div` and `splitOp_sqrt` turn Roux's rules (`rndAdd`, `rndMul_*`,
-`rndDiv_*`, `rndSqrt_*`) into SplitOp's.
+rule (`rndRTO_RN`, …) into Split's condition, and `split_add`, `split_mul`,
+`split_div` and `split_sqrt` turn Roux's rules (`rndAdd`, `rndMul_*`,
+`rndDiv_*`, `rndSqrt_*`) into it when the inputs lie in `F_C`.
 -/
 
 namespace Fpy
@@ -50,35 +50,123 @@ theorem forall₂_of_evalList {σ : Store} {C : Val} {ys : List Var} {ns : List 
     List.Forall₂ (fun y n => σ y = some (.num n)) ys ns :=
   (List.forall₂_map_right_iff (R := fun y v => σ y = some v) (f := Val.num)).mp (evalList_vars.mp h)
 
-theorem AEnv.Holds.describes {Γ : AEnv D} {σ : Store} (hΓ : Γ.Holds σ) {ys : List Var}
-    {as : List (AVal D)} {ns : List Num} (has : List.Forall₂ (fun y a => Γ y = some a) ys as)
-    (hns : List.Forall₂ (fun y n => σ y = some (.num n)) ys ns) :
-    List.Forall₂ (fun a n => Describes a (.num n)) as ns := by
-  induction has generalizing ns with
-  | nil => cases hns; exact .nil
-  | cons ha _ ih =>
-    cases hns with
-    | cons hn hns =>
-      obtain ⟨v, hv, hd⟩ := hΓ _ _ ha
-      exact .cons ((Option.some.inj (hv.symm.trans hn)) ▸ hd) (ih hns)
+/-- `fmt(yᵢ) ⊆ Fᵢ`. -/
+def FmtsIn (Γ : AEnv D) (ys : List Var) (Fs : List D.Fmt) : Prop :=
+  List.Forall₂ (fun y F => ∃ a, Γ y = some a ∧ D.γ a.toFmt ⊆ D.γ F) ys Fs
 
-theorem forall₂_mem_toFmt {as : List (AVal D)} {ns : List Num}
-    (h : List.Forall₂ (fun a n => Describes a (.num n)) as ns) :
-    List.Forall₂ (fun n F => n ∈ D.γ F) ns (as.map AVal.toFmt) :=
-  List.forall₂_map_right_iff.mpr (h.imp fun _ _ h => h.mem_toFmt).flip
+/-- If `fmt(yᵢ) ⊆ Fᵢ`, the value of each `yᵢ` lies in `Fᵢ`. -/
+theorem AEnv.Holds.mem {Γ : AEnv D} {σ : Store} (hΓ : Γ.Holds σ) :
+    ∀ {ys : List Var} {Fs : List D.Fmt} {ns : List Num}, FmtsIn Γ ys Fs →
+      List.Forall₂ (fun y n => σ y = some (.num n)) ys ns →
+      List.Forall₂ (fun n F => n ∈ D.γ F) ns Fs
+  | _, _, _, .nil, .nil => .nil
+  | _, _, _, .cons ⟨_, ha, hF⟩ hs, .cons hn hns => by
+    obtain ⟨_, hv, hd⟩ := hΓ _ _ ha
+    obtain rfl := Option.some.inj (hv.symm.trans hn)
+    exact .cons (hF hd.mem_toFmt) (hΓ.mem hs hns)
 
-theorem mem_of_forall₂ {S : Set Num} : ∀ {as : List (AVal D)} {ns : List Num},
-    List.Forall₂ (fun a n => Describes a (.num n)) as ns → (∀ a ∈ as, D.γ a.toFmt ⊆ S) →
-      ∀ u ∈ ns, u ∈ S
-  | _, _, .nil, _, _, hu => absurd hu List.not_mem_nil
-  | _, _, .cons hd tl, hS, _, hu => (List.mem_cons.mp hu).elim
-      (fun h => h ▸ hS _ (List.mem_cons_self ..) hd.mem_toFmt)
-      (mem_of_forall₂ tl (fun a ha => hS a (List.mem_cons_of_mem _ ha)) _)
+/-! ## Binding the operands -/
+
+/-- `f[t₁ ↦ x₁, …, tₖ ↦ xₖ]`, for stores and format environments. -/
+def updates {α : Type} (f : Var → Option α) : List Var → List α → Var → Option α
+  | t :: ts, x :: xs => updates (Function.update f t (some x)) ts xs
+  | _, _ => f
+
+theorem updates_of_not_mem {α : Type} {y : Var} :
+    ∀ {f : Var → Option α} {ts : List Var} {xs : List α}, y ∉ ts → updates f ts xs y = f y
+  | _, [], _, _ | _, _ :: _, [], _ => rfl
+  | _, _ :: _, _ :: _, h => by
+    rw [updates, updates_of_not_mem (List.not_mem_of_not_mem_cons h),
+      Function.update_of_ne (List.ne_of_not_mem_cons h)]
+
+theorem forall₂_updates {α : Type} :
+    ∀ {f : Var → Option α} {ts : List Var} {xs : List α}, ts.Nodup → ts.length = xs.length →
+      List.Forall₂ (fun t x => updates f ts xs t = some x) ts xs
+  | _, [], [], _, _ => .nil
+  | _, _ :: _, _ :: _, h, hl => by
+    obtain ⟨ht, hts⟩ := List.nodup_cons.mp h
+    exact .cons (by rw [updates, updates_of_not_mem ht, Function.update_self])
+      (forall₂_updates hts (Nat.succ.inj hl))
+
+theorem Store.agree_updates : ∀ (σ : Store) {ts : List Var} (vs : List Val),
+    (∀ t ∈ ts, t ∈ X) → σ.Agree X (updates σ ts vs)
+  | _, [], _, _ | _, _ :: _, [], _ => Store.Agree.refl _
+  | σ, _ :: _, _ :: _, h => (σ.agree_update_of_mem (h _ (List.mem_cons_self ..)) _).trans
+      (Store.agree_updates _ _ fun t ht => h t (List.mem_cons_of_mem _ ht))
+
+theorem AEnv.Holds.updates {Γ : AEnv D} {σ : Store} (hΓ : Γ.Holds σ) :
+    ∀ {ts : List Var} {as : List (AVal D)} {vs : List Val}, List.Forall₂ Describes as vs →
+      AEnv.Holds (Fpy.updates Γ ts as) (Fpy.updates σ ts vs)
+  | [], _, _, _ | _ :: _, _, _, .nil => hΓ
+  | _ :: _, _, _, .cons hd hs => (hΓ.update _ hd).updates hs
+
+/-- `t₁ = e₁; …; tₖ = eₖ; s`. -/
+def Stmt.binds : List Var → List (Expr L) → Stmt L → Stmt L
+  | t :: ts, e :: es, s => .seq (.assign t e) (Stmt.binds ts es s)
+  | _, _, s => s
+
+/-- Binding `es` to `ts` avoided by `es` evaluates `es` in the first store. -/
+theorem exec_binds {C : Val} {s : Stmt L} {o : Outcome} :
+    ∀ {σ : Store} {ts : List Var} {es : List (Expr L)}, ts.length = es.length →
+      (∀ t ∈ ts, t ∈ X) → (∀ e ∈ es, Avoids X e) →
+      (Exec Φ σ C (Stmt.binds ts es s) o ↔
+        ∃ vs, EvalList Φ σ C es vs ∧ Exec Φ (updates σ ts vs) C s o)
+  | _, [], [], _, _, _ =>
+    ⟨fun h => ⟨[], .nil, h⟩, fun ⟨_, hl, h⟩ => by cases hl; exact h⟩
+  | σ, t :: ts, e :: es, hl, hX, ha => by
+    have hX' := fun t ht => hX t (List.mem_cons_of_mem _ ht)
+    have ha' := fun e he => ha e (List.mem_cons_of_mem _ he)
+    have hagree := fun v => σ.agree_update_of_mem (hX t (List.mem_cons_self ..)) v
+    constructor
+    · intro h
+      cases h with
+      | seqNormal h₁ h₂ =>
+        cases h₁ with
+        | assign he =>
+          obtain ⟨vs, hl', h⟩ := (exec_binds (Nat.succ.inj hl) hX' ha').mp h₂
+          exact ⟨_ :: vs, .cons he (hl'.agree (hagree _).symm ha'), h⟩
+      | seqRet h₁ => cases h₁
+    · rintro ⟨_, hl', h⟩
+      cases hl' with
+      | cons he hl' =>
+        exact .seqNormal (.assign he)
+          ((exec_binds (Nat.succ.inj hl) hX' ha').mpr ⟨_, hl'.agree (hagree _) ha', h⟩)
+
+variable {A : Analysis L D}
+
+/-- Binding `es` under `C` to fresh `ts`, as each rewrite of Fig. 12 does first:
+a rewrite of `x = op(ts)` under `Γ[ts ↦ fmt(es)]` is one of `x = op(es)`. -/
+theorem equiv_bind (hA : A.Sound Φ) {Γ : AEnv D} {κ : Option Val} {x : Var} {op : L.ArithOp}
+    {es : List (Expr L)} {ts : List Var} {as : List (AVal D)} {s' : Stmt L}
+    (hts : ts.Nodup) (hl : ts.length = es.length) (hX : ∀ t ∈ ts, t ∈ X)
+    (hes : ∀ e ∈ es, Avoids X e) (has : AEvalList A Φ Γ κ es as)
+    (h : Equiv Φ X (updates Γ ts as) κ (.assign x (.arith op (ts.map .var))) s') :
+    Equiv Φ X Γ κ (.assign x (.arith op es)) (Stmt.binds ts es s') := by
+  have hvs {σ C vs} (hl' : EvalList Φ σ C es vs) :
+      EvalList Φ (updates σ ts vs) C (ts.map .var) vs :=
+    evalList_vars.mpr (forall₂_updates hts (hl.trans hl'.length_eq))
+  refine Equiv.of_fwd (fun σ C o hΓ hκ hs => ?_) (fun σ C o' hΓ hκ hs => ?_)
+  · cases hs with
+    | assign he =>
+      cases he with
+      | arith hl' hop hr =>
+        obtain ⟨o', hs', hag⟩ := (h (hΓ.updates (evalList_sound hA hl' hΓ hκ has)) hκ).1 _
+          (.assign (.arith (hvs hl') hop hr))
+        exact ⟨o', (exec_binds hl hX hes).mpr ⟨_, hl', hs'⟩,
+          Outcome.Agree.trans (o₂ := .normal _) ((σ.agree_updates _ hX).update _ _) hag⟩
+  · obtain ⟨vs, hl', hs'⟩ := (exec_binds hl hX hes).mp hs
+    obtain ⟨_, ho, -⟩ := (h (hΓ.updates (evalList_sound hA hl' hΓ hκ has)) hκ).2 o' hs'
+    cases ho with
+    | assign he =>
+      cases he with
+      | arith hl'' hop hr =>
+        obtain rfl := EvalList.det _ (hvs hl') hl''
+        exact ⟨_, .assign (.arith hl' hop hr)⟩
 
 /-! ## Rounding under another context -/
 
-/-- Rounding `op(y⃗)` under `C'` (denoted by `c`) instead of `C`: correct when
-both round each exact result the same way, for the values of `y⃗` in `Γ`. -/
+/-- Rounding `op(ys)` under `C'` (denoted by `c`) instead of `C`: correct when
+both round each exact result the same way, for the values of `ys` in `Γ`. -/
 theorem equiv_reround {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr L} {x : Var}
     {op : L.ArithOp} {ys : List Var} (hc : Denotes Φ c C') (hr : C.rnd L = some r)
     (hr' : C'.rnd L = some r')
@@ -101,43 +189,42 @@ theorem equiv_reround {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr 
     cases he with
     | arith hl hop _ => exact ⟨_, .assign (.arith (evalList_vars.mpr (evalList_vars.mp hl)) hop hr)⟩
 
-variable {A : Analysis L D}
-
-/-- **Elim**: `[C] x = op(y⃗) ⇝ with R in x = op(y⃗)` if `op♯(fmt(y⃗)) ⊆ F_C`. -/
+/-- **Elim**: `[C] x = op(ts) ⇝ with R in x = op(ts)` if `fmt(tᵢ) ⊆ Fᵢ` and
+`op♯(Fs) ⊆ F_C`. -/
 theorem equiv_elim (hA : A.Sound Φ) {Γ : AEnv D} {C : Val} {r : Num → Num} {FC : D.Fmt}
-    {x : Var} {op : L.ArithOp} {ys : List Var} {as : List (AVal D)}
-    (hr : C.rnd L = some r) (hFC : A.ctxFmt C = some FC)
-    (has : List.Forall₂ (fun y a => Γ y = some a) ys as)
-    (hsub : D.γ (A.arith op (as.map AVal.toFmt)) ⊆ D.γ FC) :
-    Equiv Φ X Γ (some C) (.assign x (.arith op (ys.map .var)))
-      (.withCtx .real (.assign x (.arith op (ys.map .var)))) :=
+    {x : Var} {op : L.ArithOp} {ts : List Var} {Fs : List D.Fmt}
+    (hr : C.rnd L = some r) (hFC : A.ctxFmt C = some FC) (hF : FmtsIn Γ ts Fs)
+    (hsub : D.γ (A.arith op Fs) ⊆ D.γ FC) :
+    Equiv Φ X Γ (some C) (.assign x (.arith op (ts.map .var)))
+      (.withCtx .real (.assign x (.arith op (ts.map .var)))) :=
   equiv_reround denotes_real hr rfl fun _ _ n hΓ hns hop =>
-    (hA.ctxFmt hFC hr).2 n (hsub (hA.arith (forall₂_mem_toFmt (hΓ.describes has hns)) hop))
+    (hA.ctxFmt hFC hr).2 n (hsub (hA.arith (hΓ.mem hF hns) hop))
 
-/-- **Insert**: `[R] x = op(y⃗) ⇝ with C' in x = op(y⃗)` if `op♯(fmt(y⃗)) ⊆ F_{C'}`. -/
+/-- **Insert**: `[R] x = op(ts) ⇝ with C' in x = op(ts)` if `fmt(tᵢ) ⊆ Fᵢ` and
+`op♯(Fs) ⊆ F_{C'}`. -/
 theorem equiv_insert (hA : A.Sound Φ) {Γ : AEnv D} {C' : Val} {r' : Num → Num} {FC : D.Fmt}
-    {c : Expr L} {x : Var} {op : L.ArithOp} {ys : List Var} {as : List (AVal D)}
+    {c : Expr L} {x : Var} {op : L.ArithOp} {ts : List Var} {Fs : List D.Fmt}
     (hc : Denotes Φ c C') (hr' : C'.rnd L = some r') (hFC : A.ctxFmt C' = some FC)
-    (has : List.Forall₂ (fun y a => Γ y = some a) ys as)
-    (hsub : D.γ (A.arith op (as.map AVal.toFmt)) ⊆ D.γ FC) :
-    Equiv Φ X Γ (some .real) (.assign x (.arith op (ys.map .var)))
-      (.withCtx c (.assign x (.arith op (ys.map .var)))) :=
+    (hF : FmtsIn Γ ts Fs) (hsub : D.γ (A.arith op Fs) ⊆ D.γ FC) :
+    Equiv Φ X Γ (some .real) (.assign x (.arith op (ts.map .var)))
+      (.withCtx c (.assign x (.arith op (ts.map .var)))) :=
   equiv_reround hc rfl hr' fun _ _ n hΓ hns hop =>
-    ((hA.ctxFmt hFC hr').2 n (hsub (hA.arith (forall₂_mem_toFmt (hΓ.describes has hns)) hop))).symm
+    ((hA.ctxFmt hFC hr').2 n (hsub (hA.arith (hΓ.mem hF hns) hop))).symm
 
 /-! ## Splitting a rounding -/
 
-/-- Rounding `op(y⃗)` under `C'` (denoted by `c`) into a fresh `t`, then
-`round(t)` under `C`: correct when `C ∘ C'` agrees with `C` on each exact result,
-for the values of `y⃗` in `Γ`. `rd` is any operator computing the identity. -/
-theorem equiv_split_of {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr L} {x t : Var}
-    {op rd : L.ArithOp} {ys : List Var} (hc : Denotes Φ c C') (hr : C.rnd L = some r)
-    (hr' : C'.rnd L = some r') (hrd : ∀ u, L.arith rd [u] = some u)
-    (h : ∀ σ ns n, Γ.Holds σ → List.Forall₂ (fun y n => σ y = some (.num n)) ys ns →
-      L.arith op ns = some n → r (r' n) = r n) :
-    Equiv Φ {t} Γ (some C) (.assign x (.arith op (ys.map .var)))
-      (.seq (.withCtx c (.assign t (.arith op (ys.map .var))))
-        (.assign x (.arith rd [.var t]))) := by
+/-- **Split**: `[C] x = op(ts) ⇝ with C' in r = op(ts); x = round(r)` if
+`fmt(tᵢ) ⊆ Fᵢ` and `C(C'(v)) = C(v)` on `op(Fs)`, the exact results of `op` on
+inputs `uᵢ ∈ Fᵢ`. `rd` is any operator computing the identity. -/
+theorem equiv_split {Γ : AEnv D} {C C' : Val} {rC rC' : Num → Num} {c : Expr L} {x r : Var}
+    {op rd : L.ArithOp} {ts : List Var} {Fs : List D.Fmt} (hc : Denotes Φ c C')
+    (hr : C.rnd L = some rC) (hr' : C'.rnd L = some rC') (hrd : ∀ u, L.arith rd [u] = some u)
+    (hF : FmtsIn Γ ts Fs)
+    (h : ∀ us n, List.Forall₂ (fun u F => u ∈ D.γ F) us Fs → L.arith op us = some n →
+      rC (rC' n) = rC n) :
+    Equiv Φ {r} Γ (some C) (.assign x (.arith op (ts.map .var)))
+      (.seq (.withCtx c (.assign r (.arith op (ts.map .var))))
+        (.assign x (.arith rd [.var r]))) := by
   refine Equiv.of_fwd (fun σ C₀ o hΓ hκ hs => ?_) (fun σ C₀ _ _ hκ hs => ?_) <;>
     obtain rfl := hκ C rfl
   · cases hs with
@@ -147,40 +234,23 @@ theorem equiv_split_of {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr
         obtain rfl := Option.some.inj (hr₀.symm.trans hr)
         refine ⟨_, .seqNormal (.withCtx ((hc σ C').mpr rfl) (Val.isCtx_of_rnd hr')
           (.assign (.arith (evalList_vars.mpr (evalList_vars.mp hl)) hop hr')))
-          (.assign (.arith (ns := [r' n]) (.cons (.var (by simp [Store.update])) .nil) (hrd _) hr)),
-          ?_⟩
-        rw [h σ _ _ hΓ (forall₂_of_evalList hl) hop]
+          (.assign (.arith (ns := [rC' n]) (.cons (.var (by simp [Store.update])) .nil) (hrd _)
+            hr)), ?_⟩
+        rw [h _ n (hΓ.mem hF (forall₂_of_evalList hl)) hop]
         exact Store.Agree.update_fresh _ _ _
   · obtain ⟨_, h₁⟩ := hs.seq_left
     obtain ⟨_, _, he⟩ := h₁.withCtx_assign
     cases he with
     | arith hl hop _ => exact ⟨_, .assign (.arith (evalList_vars.mpr (evalList_vars.mp hl)) hop hr)⟩
 
-/-- **Split**: `[C] x = op(y⃗) ⇝ with C' in t = op(y⃗); x = round(t)` if
-`C(C'(v)) = C(v)` for every `v`. -/
-theorem equiv_split {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr L} {x t : Var}
-    {op rd : L.ArithOp} {ys : List Var} (hc : Denotes Φ c C') (hr : C.rnd L = some r)
-    (hr' : C'.rnd L = some r') (hrd : ∀ u, L.arith rd [u] = some u)
-    (h : ∀ n, r (r' n) = r n) :
-    Equiv Φ {t} Γ (some C) (.assign x (.arith op (ys.map .var)))
-      (.seq (.withCtx c (.assign t (.arith op (ys.map .var))))
-        (.assign x (.arith rd [.var t]))) :=
-  equiv_split_of hc hr hr' hrd fun _ _ n _ _ _ => h n
-
-/-- **SplitOp**: `[C] x = op(y⃗) ⇝ with C' in t = op(y⃗); x = round(t)` if each
-`fmt(yᵢ) ⊆ S` and `C(C'(v)) = C(v)` for every `v = op(u⃗)` with `uᵢ ∈ S`. The
-draft takes `S = F_C`. -/
-theorem equiv_splitOp {Γ : AEnv D} {C C' : Val} {r r' : Num → Num} {c : Expr L} {x t : Var}
-    {op rd : L.ArithOp} {ys : List Var} {as : List (AVal D)} {S : Set Num}
-    (hc : Denotes Φ c C') (hr : C.rnd L = some r) (hr' : C'.rnd L = some r')
-    (hrd : ∀ u, L.arith rd [u] = some u) (has : List.Forall₂ (fun y a => Γ y = some a) ys as)
-    (hS : ∀ a ∈ as, D.γ a.toFmt ⊆ S)
-    (h : ∀ us n, (∀ u ∈ us, u ∈ S) → L.arith op us = some n → r (r' n) = r n) :
-    Equiv Φ {t} Γ (some C) (.assign x (.arith op (ys.map .var)))
-      (.seq (.withCtx c (.assign t (.arith op (ys.map .var))))
-        (.assign x (.arith rd [.var t]))) :=
-  equiv_split_of hc hr hr' hrd fun _ ns n hΓ hns hop =>
-    h ns n (mem_of_forall₂ (hΓ.describes has hns) hS) hop
+/-- Inputs in `Fᵢ ⊆ S` lie in `S`. -/
+theorem forall_mem_of_forall₂ {S : Set Num} :
+    ∀ {us : List Num} {Fs : List D.Fmt}, List.Forall₂ (fun u F => u ∈ D.γ F) us Fs →
+      (∀ F ∈ Fs, D.γ F ⊆ S) → ∀ u ∈ us, u ∈ S
+  | _, _, .nil, _, _, hu => absurd hu List.not_mem_nil
+  | _, _, .cons hu hs, hS, _, hu' => (List.mem_cons.mp hu').elim
+      (fun h => h ▸ hS _ (List.mem_cons_self ..) hu)
+      (forall_mem_of_forall₂ hs (fun F hF => hS F (List.mem_cons_of_mem _ hF)) _)
 
 /-! ## FPy's contexts -/
 
@@ -239,13 +309,13 @@ theorem reals_finite {F : Format} {u : Num} {a : ℝ} (hu : u ∈ F.reals) (h : 
   | finite d => exact ⟨d, hw, WithSpecial.finite.inj h⟩
   | special => cases h
 
-section SplitOp
+section Split
 
 variable {c₁ c₂ : RoundCtx} (hS : c₂.S.Composes c₁.S c₁.O c₁.rm) (hb : c₂.F.b = ⊤)
 include hS hb
 
-/-- SplitOp's condition for `+` from Roux's rule (`rndAdd`), when `F₂` is unbounded. -/
-theorem splitOp_add
+/-- Split's condition for `+` from Roux's rule (`rndAdd`), when `F₂` is unbounded. -/
+theorem split_add
     (hrule : ∀ {a b : Mpfx.Dyadic}, a ∈ c₁.F → b ∈ c₁.F → ∀ {z w : Mpfx.Dyadic},
       RoundsFinite c₂.F.unbounded c₂.rm ((a + b : Mpfx.Dyadic) : ℝ) z →
       RoundsFinite c₁.F.unbounded c₁.rm (z : ℝ) w →
@@ -263,9 +333,9 @@ theorem splitOp_add
   rw [← Dyadic.coe_real_add] at hz ⊢
   exact hrule hd₁ hd₂ hz hw
 
-/-- SplitOp's condition for `×` from Roux's rules (`rndMul_*`), when `F₂` is
+/-- Split's condition for `×` from Roux's rules (`rndMul_*`), when `F₂` is
 unbounded. -/
-theorem splitOp_mul
+theorem split_mul
     (hrule : ∀ {a b : Mpfx.Dyadic}, a ∈ c₁.F → b ∈ c₁.F → ∀ {z w : Mpfx.Dyadic},
       RoundsFinite c₂.F.unbounded c₂.rm ((a * b : Mpfx.Dyadic) : ℝ) z →
       RoundsFinite c₁.F.unbounded c₁.rm (z : ℝ) w →
@@ -283,9 +353,9 @@ theorem splitOp_mul
   rw [← Dyadic.coe_real_mul] at hz ⊢
   exact hrule hd₁ hd₂ hz hw
 
-/-- SplitOp's condition for `÷` from Roux's rules (`rndDiv_*`), when `F₂` is
+/-- Split's condition for `÷` from Roux's rules (`rndDiv_*`), when `F₂` is
 unbounded. -/
-theorem splitOp_div
+theorem split_div
     (hrule : ∀ {a b : Mpfx.Dyadic}, a ∈ c₁.F → b ∈ c₁.F → (b : ℝ) ≠ 0 → ∀ {z w : Mpfx.Dyadic},
       RoundsFinite c₂.F.unbounded c₂.rm ((a : ℝ) / (b : ℝ)) z →
       RoundsFinite c₁.F.unbounded c₁.rm (z : ℝ) w →
@@ -304,9 +374,9 @@ theorem splitOp_div
   · obtain rfl := RoundsFinite.eq_zero_of_zero hz
     simpa using hw
 
-/-- SplitOp's condition for `√` from Roux's rules (`rndSqrt_*`), when `F₂` is
+/-- Split's condition for `√` from Roux's rules (`rndSqrt_*`), when `F₂` is
 unbounded. -/
-theorem splitOp_sqrt
+theorem split_sqrt
     (hrule : ∀ {a : Mpfx.Dyadic}, a ∈ c₁.F → 0 ≤ (a : ℝ) → ∀ {z w : Mpfx.Dyadic},
       RoundsFinite c₂.F.unbounded c₂.rm (Real.sqrt (a : ℝ)) z →
       RoundsFinite c₁.F.unbounded c₁.rm (z : ℝ) w →
@@ -322,6 +392,6 @@ theorem splitOp_sqrt
   obtain ⟨d, hd, rfl⟩ := reals_finite (hus (.finite a) (by simp)) rfl
   exact hrule hd ha hz hw
 
-end SplitOp
+end Split
 
 end Fpy

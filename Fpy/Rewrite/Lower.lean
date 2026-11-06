@@ -5,7 +5,8 @@ import Mpfx.Rounding.Parity
 /-!
 # Lowering a rounding (§5.2)
 
-The rewrites of §5.2 on `x = round(t)` under a context `C`:
+The rewrites of §5.2 on `x = round(t)` under a context `C`, after binding
+`t` (`equiv_bind`):
 
 * **Special** branches on NaN, the infinities and zero before rounding;
 * **Overflow** rounds into `C`'s format without its bound, then replaces a
@@ -248,15 +249,13 @@ theorem eval_lt {σ : Store} {C : Val} {e₁ e₂ : Expr (fpy decode)} {a b : �
     Eval Φ σ C (.exactOp .lt [e₁, e₂]) (.bool (decide (a < b))) :=
   .exact (.cons h₁ (.cons h₂ .nil)) rfl
 
-theorem num_of_unary {σ : Store} {C : Val} {t : Var} {v : Val} {op : ExactOp}
-    (hop : op = .isNaN ∨ op = .isInf) (h : Eval Φ σ C (.exactOp op [.var t]) v) :
-    ∃ u, σ t = some (.num u) := by
-  obtain ⟨w, hx, hev⟩ : ∃ w, σ t = some w ∧ ExactOp.eval op [w] = some v := by
+theorem num_of_isNaN {σ : Store} {C : Val} {t : Var} {v : Val}
+    (h : Eval Φ σ C (.exactOp .isNaN [.var t]) v) : ∃ u, σ t = some (.num u) := by
+  obtain ⟨w, hx, hev⟩ : ∃ w, σ t = some w ∧ ExactOp.eval .isNaN [w] = some v := by
     cases h with
     | exact hl hev => cases hl with
       | cons hv hl => cases hl; cases hv with | var hx => exact ⟨_, hx, hev⟩
-  rcases hop with rfl | rfl <;> rcases w with _ | u | _ | _ | _ | _ <;>
-    first | exact ⟨u, hx⟩ | cases hev
+  rcases w with _ | u | _ | _ | _ | _ <;> first | exact ⟨u, hx⟩ | cases hev
 
 theorem num_of_binary {σ : Store} {C : Val} {t : Var} {c : Num} {v : Val} {op : ExactOp}
     (hop : op = .lt ∨ op = .eq) (h : Eval Φ σ C (.exactOp op [.var t, .num c]) v) :
@@ -276,49 +275,9 @@ def nanBranch (r : Num → Num) (kn : Bool) (x t : Var) (s : Stmt (fpy decode)) 
     Stmt (fpy decode) :=
   bif kn then .ite (.exactOp .isNaN [.var t]) (.assign x (.num (r (.special .nan)))) s else s
 
-/-- Special's infinity branch, if kept:
-`if isinf(t) then (if t < 0 then x = C(−∞) else x = C(+∞)) else s`. -/
-def infBranch (r : Num → Num) (ki : Bool) (x t : Var) (s : Stmt (fpy decode)) :
-    Stmt (fpy decode) :=
-  bif ki then
-    .ite (.exactOp .isInf [.var t])
-      (.ite (.exactOp .lt [.var t, .num (.finite 0)])
-        (.assign x (.num (r (.special (.inf true)))))
-        (.assign x (.num (r (.special (.inf false)))))) s
-  else s
-
-/-- Special's zero branch, if kept: `if t = 0 then x = t else s`. -/
-def zeroBranch (kz : Bool) (x t : Var) (s : Stmt (fpy decode)) : Stmt (fpy decode) :=
-  bif kz then .ite (.exactOp .eq [.var t, .num (.finite 0)]) (.assign x (.var t)) s else s
-
-theorem exec_zeroBranch {σ : Store} {C : Val} {r : Num → Num} {x t : Var} {u : Num}
-    (hr : C.rnd (fpy decode) = some r) (h0 : r (.finite 0) = .finite 0)
-    (ht : σ t = some (.num u)) (kz : Bool) :
-    Exec Φ σ C (zeroBranch kz x t (.assign x (.arithOp .round [.var t])))
-      (.normal (σ.update x (.num (r u)))) := by
-  cases kz
-  · exact exec_round hr ht
-  · have he : Eval Φ σ C (.exactOp .eq [.var t, .num (.finite 0)])
-        (.bool (Num.eq u (.finite 0))) := .exact (.cons (.var ht) (.cons .num .nil)) rfl
-    cases hb : Num.eq u (.finite 0)
-    · exact .iteFalse (hb ▸ he) (exec_round hr ht)
-    · obtain rfl : u = .finite 0 := by rcases u with y | (_ | _) <;> simp_all [Num.eq]
-      rw [h0]
-      exact .iteTrue (hb ▸ he) (.assign (.var ht))
-
-theorem exec_infBranch {σ : Store} {C : Val} {r : Num → Num} {x t : Var} {u : Num}
-    {s : Stmt (fpy decode)} (ht : σ t = some (.num u))
-    (hs : Exec Φ σ C s (.normal (σ.update x (.num (r u))))) (ki : Bool) :
-    Exec Φ σ C (infBranch r ki x t s) (.normal (σ.update x (.num (r u)))) := by
-  cases ki
-  · exact hs
-  · rcases u with y | (neg | _)
-    · exact .iteFalse (.exact (.cons (.var ht) .nil) rfl) hs
-    · refine .iteTrue (.exact (.cons (.var ht) .nil) rfl) ?_
-      cases neg
-      · exact .iteFalse (.exact (.cons (.var ht) (.cons .num .nil)) rfl) (.assign .num)
-      · exact .iteTrue (.exact (.cons (.var ht) (.cons .num .nil)) rfl) (.assign .num)
-    · exact .iteFalse (.exact (.cons (.var ht) .nil) rfl) hs
+/-- Special's branch on `±∞` or `0`, if kept: `if t == c then x = d else s`. -/
+def eqBranch (k : Bool) (x t : Var) (c d : Num) (s : Stmt (fpy decode)) : Stmt (fpy decode) :=
+  bif k then .ite (.exactOp .eq [.var t, .num c]) (.assign x (.num d)) s else s
 
 theorem exec_nanBranch {σ : Store} {C : Val} {r : Num → Num} {x t : Var} {u : Num}
     {s : Stmt (fpy decode)} (ht : σ t = some (.num u))
@@ -331,32 +290,57 @@ theorem exec_nanBranch {σ : Store} {C : Val} {r : Num → Num} {x t : Var} {u :
     · exact .iteFalse (.exact (.cons (.var ht) .nil) rfl) hs
     · exact .iteTrue (.exact (.cons (.var ht) .nil) rfl) (.assign .num)
 
-/-- **Special**: `[C] x = round(t) ⇝ if isnan(t) then x = C(NaN) else if isinf(t) then
-(if t < 0 then x = C(−∞) else x = C(+∞)) else if t = 0 then x = t else x = round(t)`, for a
+theorem exec_eqBranch {σ : Store} {C : Val} {r : Num → Num} {x t : Var} {u c d : Num}
+    {s : Stmt (fpy decode)} (hd : r c = d) (ht : σ t = some (.num u))
+    (hs : Exec Φ σ C s (.normal (σ.update x (.num (r u))))) (k : Bool) :
+    Exec Φ σ C (eqBranch k x t c d s) (.normal (σ.update x (.num (r u)))) := by
+  cases k
+  · exact hs
+  · have he : Eval Φ σ C (.exactOp .eq [.var t, .num c]) (.bool (Num.eq u c)) :=
+      .exact (.cons (.var ht) (.cons .num .nil)) rfl
+    cases hb : Num.eq u c
+    · exact .iteFalse (hb ▸ he) hs
+    · obtain rfl : u = c := by
+        rcases u with _ | (_ | _) <;> rcases c with _ | (_ | _) <;> simp_all [Num.eq]
+      rw [hd]
+      exact .iteTrue (hb ▸ he) (.assign .num)
+
+theorem num_of_nanBranch {σ : Store} {C : Val} {r : Num → Num} {kn : Bool} {x t : Var}
+    {s : Stmt (fpy decode)} {o : Outcome} (h : Exec Φ σ C (nanBranch r kn x t s) o)
+    (hs : ∀ o, Exec Φ σ C s o → ∃ u, σ t = some (.num u)) : ∃ u, σ t = some (.num u) := by
+  cases kn
+  · exact hs o h
+  · obtain ⟨_, he⟩ := Exec.ite_guard h
+    exact num_of_isNaN he
+
+theorem num_of_eqBranch {σ : Store} {C : Val} {k : Bool} {x t : Var} {c d : Num}
+    {s : Stmt (fpy decode)} {o : Outcome} (h : Exec Φ σ C (eqBranch k x t c d s) o)
+    (hs : ∀ o, Exec Φ σ C s o → ∃ u, σ t = some (.num u)) : ∃ u, σ t = some (.num u) := by
+  cases k
+  · exact hs o h
+  · obtain ⟨_, he⟩ := Exec.ite_guard h
+    exact num_of_binary (.inr rfl) he
+
+/-- **Special**: `[C] x = round(t) ⇝ if isnan(t) then x = C(NaN) elif t == −∞ then
+x = C(−∞) elif t == +∞ then x = C(+∞) elif t == 0 then x = 0 else x = round(t)`, for a
 context whose rounding function `r` fixes `0` (every Mpfx context, `RoundCtx.round_zero`).
-Any branch may be omitted (`kn`, `ki`, `kz` false). -/
+Any branch may be omitted (`kn`, `kneg`, `kpos`, `kz` false). -/
 theorem equiv_special {C : Val} {r : Num → Num} {x t : Var}
-    (hr : C.rnd (fpy decode) = some r) (h0 : r (.finite 0) = .finite 0) (kn ki kz : Bool) :
+    (hr : C.rnd (fpy decode) = some r) (h0 : r (.finite 0) = .finite 0)
+    (kn kneg kpos kz : Bool) :
     Equiv Φ X Γ (some C) (.assign x (.arithOp .round [.var t]))
-      (nanBranch r kn x t (infBranch r ki x t
-        (zeroBranch kz x t (.assign x (.arithOp .round [.var t]))))) := by
-  refine Equiv.of_fwd (fun σ C₀ o _ hκ hs => ?_) (fun σ C₀ o' _ hκ hs => ?_)
-  · obtain rfl := hκ C rfl
-    obtain ⟨u, ht, rfl⟩ := exec_round_inv hr hs
-    exact ⟨_, exec_nanBranch ht (exec_infBranch ht (exec_zeroBranch hr h0 ht kz) ki) kn,
-      Store.Agree.refl _⟩
-  · obtain rfl := hκ C rfl
-    obtain ⟨u, ht⟩ : ∃ u, σ t = some (.num u) := by
-      cases kn
-      · cases ki
-        · cases kz
-          · exact (exec_round_inv hr hs).imp fun _ h => h.1
-          · obtain ⟨_, he⟩ := Exec.ite_guard hs
-            exact num_of_binary (.inr rfl) he
-        · obtain ⟨_, he⟩ := Exec.ite_guard hs
-          exact num_of_unary (.inr rfl) he
-      · obtain ⟨_, he⟩ := Exec.ite_guard hs
-        exact num_of_unary (.inl rfl) he
+      (nanBranch r kn x t
+        (eqBranch kneg x t (.special (.inf true)) (r (.special (.inf true)))
+        (eqBranch kpos x t (.special (.inf false)) (r (.special (.inf false)))
+        (eqBranch kz x t (.finite 0) (.finite 0) (.assign x (.arithOp .round [.var t])))))) := by
+  refine Equiv.of_fwd (fun σ C₀ o _ hκ hs => ?_) (fun σ C₀ o' _ hκ hs => ?_) <;>
+    obtain rfl := hκ C rfl
+  · obtain ⟨u, ht, rfl⟩ := exec_round_inv hr hs
+    exact ⟨_, exec_nanBranch ht (exec_eqBranch rfl ht (exec_eqBranch rfl ht
+      (exec_eqBranch h0 ht (exec_round hr ht) kz) kpos) kneg) kn, Store.Agree.refl _⟩
+  · obtain ⟨u, ht⟩ := num_of_nanBranch hs fun _ h => num_of_eqBranch h fun _ h =>
+      num_of_eqBranch h fun _ h => num_of_eqBranch h fun _ h =>
+        (exec_round_inv hr h).imp fun _ h => h.1
     exact ⟨_, exec_round hr ht⟩
 
 /-! ### Overflow -/

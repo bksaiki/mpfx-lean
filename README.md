@@ -223,12 +223,12 @@ not by the `equiv_*` statements.
 
 | Paper | Lean | File |
 | --- | --- | --- |
-| Rewrite correctness | `Equiv` | `Fpy/Rewrite.lean` |
-| Rewriting preserves `Run` | `Rw.sim`, `run_iff_of_rw` | `Fpy/Rewrite.lean` |
+| Rewrite correctness | `Equiv` | `Fpy/Rewrite/Basic.lean` |
+| Rewriting preserves `Run` | `Rw.sim`, `run_iff_of_rw` | `Fpy/Rewrite/Basic.lean` |
+| Binding `es` to fresh `ts` (Fig. 12) | `equiv_bind`, `Stmt.binds`, `Avoids` | `Fpy/Rewrite/Separate.lean` |
 | Elim | `equiv_elim` | `Fpy/Rewrite/Separate.lean` |
 | Insert | `equiv_insert` | `Fpy/Rewrite/Separate.lean` |
-| Split | `equiv_split`; condition from any total Mpfx rule via `RoundCtx.round_round` | `Fpy/Rewrite/Separate.lean` |
-| SplitOp | `equiv_splitOp`; conditions from Roux via `splitOp_add`, `splitOp_mul`, `splitOp_div`, `splitOp_sqrt` | `Fpy/Rewrite/Separate.lean` |
+| Split | `equiv_split`; condition from any total Mpfx rule via `RoundCtx.round_round`, or from Roux via `split_add`, `split_mul`, `split_div`, `split_sqrt` | `Fpy/Rewrite/Separate.lean` |
 | Special | `equiv_special` | `Fpy/Rewrite/Lower.lean` |
 | Overflow | `equiv_overflow`; threshold form `equiv_overflow_threshold`, with `overflows_iff_of_threshold` | `Fpy/Rewrite/Lower.lean` |
 | Overflow threshold for MX E4M3 (`464`) | `FpyTest.e4m3_overflows_iff` | `FpyTest/Rewrite/Lower.lean` |
@@ -300,10 +300,10 @@ standard axioms.
 | `Fpy/DigitBound/Defs.lean`, `Basic.lean`, `Digits.lean`, `Sound.lean`, `Table.lean`, `Encode.lean` | §4.3 rules, their lemmas, digit positions of each operator, Theorem 4.2, Table 2, the integer encoding. |
 | `Fpy/DigitBound/Join.lean`, `Copy.lean` | The draft's joins and D-Index's copy as instances of the rules' premises. |
 | `Fpy/Sum.lean`, `FormatInference/Sum.lean`, `DigitBound/Sum.lean` | `sum` as an FPy program; A-Sum and D-Sum proved against it. |
-| `Fpy/Rewrite.lean` | `Equiv`, `Rw`, congruence, the whole-program theorem. |
+| `Fpy/Rewrite/Basic.lean` | `Equiv`, `Rw`, congruence, the whole-program theorem. |
 | `Fpy/Rewrite/Separate.lean` | §5.1 rewrites and their FPy instances. |
 | `Fpy/Rewrite/Lower.lean` | §5.2 rewrites and their rounding identities. |
-| `FpyTest/` | `lake build FpyTest` examples: a toy signature, Table 1 checks, Split/SplitOp instances, the E4M3 threshold, Table 2 checks, a run of `sum`. |
+| `FpyTest/` | `lake build FpyTest` examples: a toy signature, Table 1 checks, Elim on expressions, Split instances, the E4M3 threshold, Table 2 checks, a run of `sum`. |
 
 Formalization design notes are in [`docs/DESIGN.md`](docs/DESIGN.md); status and
 remaining work in [`docs/agents/TODO.md`](docs/agents/TODO.md) (Mpfx) and

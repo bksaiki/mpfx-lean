@@ -1,4 +1,4 @@
-import Fpy.Rewrite
+import Fpy.Rewrite.Basic
 import FpyTest.FormatInference
 
 /-!

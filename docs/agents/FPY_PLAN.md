@@ -15,6 +15,32 @@ provisional decisions with their reopen conditions.
 - **Mechanize only what the draft states.** Where its rules do not reach,
   record the gap rather than adding rules.
 
+## Paper checklist (2026-11-05)
+
+From the writing agent's Lean TODOs for `main.pdf`.
+
+- [x] Fig. 12 rewrites: operands bound to fresh `ts` (`equiv_bind`); any
+  `Fᵢ ⊇ fmt(eᵢ)` (`FmtsIn`); one Split on `op(Fs)` (`equiv_split`;
+  `split_add`, …); Special tests `±∞` apart and sets `x = 0`.
+- [x] Theorem 4.2 per expression: `eval_precision` (`run_precision` dropped).
+- [x] Loops: `DExec.whileDo` with `Covers` (`Covers.fmt`), body once;
+  `loop_sound`.
+- [x] Calls: body re-analyzed per call (`DEval.call`); returns joined by
+  `RetLe` (`ret_join`).
+- [x] Overflow threshold: `equiv_overflow_threshold` assumes overflow exactly
+  beyond `±θ`; monotonicity derives it (`overflows_iff_of_threshold`).
+- [x] Split with `C' = R`: condition is `rfl` (`FpyTest/Rewrite/Separate.lean`).
+- [x] `A(p, exp, b, S)`: `b` inclusive; precision and quantum are separate
+  existentials, equivalent to one `m × 2^e` (no lemma). `ctxFmt` makes `F_C`
+  the image of `rnd_C`.
+- [x] Context join: `κ : Option Val` (`none` is `?`); no rule joins `κ`
+  (A-With is lexical); context values join flatly (`AVal.join`, `?` is `.top`).
+- [ ] Send the final commit and every Table 7 name (after commit).
+- [x] No `sorry`/`admit`/`axiom`; Table 7 theorems use only `propext`,
+  `Classical.choice`, `Quot.sound`.
+- [ ] Archive: omit `docs/agents/`, `docs/todos/`; anonymize `NOTICE` and the
+  README's citation of the double-rounding paper.
+
 ## Problems found in the draft
 
 Each fix is a change to the draft; the Lean states the fixed rule.
@@ -41,9 +67,8 @@ Found by the mechanization and adopted by the draft:
 - D-While takes an invariant; D-Index returns a fresh copy with its
   constraints; list elements agree with `ι` on the variables created before
   the summary's; D-Logb, D-Max, D-Min are under `R`.
-- §5.2: Overflow compares exactly and needs finite `t`; Special and Overflow
-  branch on the sign; FloatToFixed needs `p ≠ 1`; Rescale's `C₀` is `C`
-  scaled.
+- §5.2: Overflow compares exactly and needs finite `t`; FloatToFixed needs
+  `p ≠ 1`; Rescale's `C₀` is `C` scaled.
 
 ## Not claimed
 
@@ -52,10 +77,10 @@ The claim is each rewrite on its own. Not mechanized:
 - **Composition of rewrites**, e.g. Fig. 9's derivation. Two obstacles:
   - Rescale after FloatToFixed has a site whose context is known only at run
     time, and `Rw` needs it statically;
-  - finite `t` after Special would need `refine` to narrow on `isnan` and
-    `isinf`, which §4.2 does not list.
-- **SplitOp with a bounded intermediate format.** The instances
-  (`splitOp_add`, …) need `F₂.b = ⊤`; a bounded `F₂` would need
+  - finite `t` after Special would need `refine` to narrow on Special's
+    tests; §4.2 lists no `isnan`.
+- **Split by Roux's rules with a bounded intermediate format.** The instances
+  (`split_add`, …) need `F₂.b = ⊤`; a bounded `F₂` would need
   `OverflowAgrees` at one input, which Mpfx states only for all inputs.
 - **The paper's concrete setting**: a decoding of `IEEE754`, `Fixed` and `Int`
   records into Mpfx contexts, the second pass refining formats by digit bounds,
