@@ -22,7 +22,14 @@ From the writing agent's Lean TODOs for `main.pdf`.
 - [x] Fig. 12 rewrites: operands bound to fresh `ts` (`equiv_bind`); any
   `Fᵢ ⊇ fmt(eᵢ)` (`FmtsIn`); one Split on `op(Fs)` (`equiv_split`;
   `split_add`, …); Special tests `±∞` apart and sets `x = 0`.
-- [x] Theorem 4.2 per expression: `eval_precision` (`run_precision` dropped).
+- [x] Theorem 4.2 is the format from the three queries (`eval_format`); constraint
+  soundness is its lemma (`eval_solution`, `eval_sound`, `exec_sound`, `run_sound`).
+- [x] §4.3 format from the queries: all of `p`, `exp`, `b`, not just `p`
+  (`lsbBound`, `msbBound`, `format_of_bounds`). The Lean bound is the
+  implementation's `2^(m+1) − 2^max(l, m − p + 1)`, at most the draft's
+  `2^(m+1)`; the draft should adopt it. The queries range over solutions with
+  finite `msb` (`Queried`), as `query_at` does. Its `assume_at(e)` (guard
+  literals for the implementation's guarded constraints) is outside the paper.
 - [x] Loops: `DExec.whileDo` with `Covers` (`Covers.fmt`), body once;
   `loop_sound`.
 - [x] Calls: body re-analyzed per call (`DEval.call`); returns joined by
@@ -35,6 +42,8 @@ From the writing agent's Lean TODOs for `main.pdf`.
   the image of `rnd_C`.
 - [x] Context join: `κ : Option Val` (`none` is `?`); no rule joins `κ`
   (A-With is lexical); context values join flatly (`AVal.join`, `?` is `.top`).
+- [x] Soundness over both analyses: every finite value of an expression a run
+  visits lies in the queries' format (`run_format`; visits are `SReach`).
 - [ ] Send the final commit and every Table 7 name (after commit).
 - [x] No `sorry`/`admit`/`axiom`; Table 7 theorems use only `propext`,
   `Classical.choice`, `Quot.sound`.
@@ -85,10 +94,9 @@ The claim is each rewrite on its own. Not mechanized:
 - **The paper's concrete setting**: a decoding of `IEEE754`, `Fixed` and `Int`
   records into Mpfx contexts, the second pass refining formats by digit bounds,
   and the worked examples (`mac`, `fdpa`, `fused_sum`).
-- **Digit bounds at every rounding of a run.** Theorem 4.2 and `prec♮(e)` are
-  per expression, under their hypotheses (`eval_precision`); no theorem shows
-  each evaluation of `e` in a run meets them. D-If and D-While do not analyze
-  their conditions, so a rounding inside one has no bound.
+- **Digit bounds inside conditions.** D-If and D-While do not analyze their
+  conditions, so a rounding inside one is no visited site (`SReach`) and has
+  no bound.
 
 ## Provisional decisions
 

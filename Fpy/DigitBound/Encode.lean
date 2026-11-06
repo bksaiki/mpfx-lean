@@ -8,8 +8,7 @@ What a solver sees: integer terms (`ITerm`) and formulas (`IForm`) over a model
 `−∞`". A term over `ℤ ∪ {±∞}` encodes as formulas for "is `+∞`" and "is `−∞`"
 and an integer value (`Term.enc`); an atom as a guarded comparison
 (`Atom.enc`). The encoding is exact (`sat_iff`, `sat_decode`), so `precBound`
-and the implementation's `precBoundFin` are validity questions over integers
-(`precBound_le_iff`, `precBoundFin_le_iff`).
+is a validity question over integers (`precBound_le_iff`).
 -/
 
 namespace Fpy.DigitBound
@@ -186,16 +185,6 @@ theorem sat_iff (ι : Asgn) (Ψ : List Con) :
 theorem sat_exists (Ψ : List Con) : (∃ ι, Sat ι Ψ) ↔ ∃ M : IModel, ∀ φ ∈ encode Ψ, φ.holds M :=
   ⟨fun ⟨ι, h⟩ => ⟨_, (sat_iff ι Ψ).mp h⟩, fun ⟨M, h⟩ => ⟨_, (sat_decode M Ψ).mpr h⟩⟩
 
-/-- The query: `precBound Ψ l m ≤ p` exactly when every model of `Ψ`'s encoding
-satisfies the encoded `m − l + 1 ≤ p`. -/
-theorem precBound_le_iff (Ψ : List Con) (l m : Term) (p : ℤ) :
-    precBound Ψ l m ≤ p ↔ ∀ M : IModel, (∀ φ ∈ encode Ψ, φ.holds M) →
-      (Atom.enc ⟨l.width m, .const p⟩).holds M := by
-  simp only [precBound, iSup₂_le_iff, ← Atom.holds_decode]
-  refine ⟨fun h M hM => h _ ((sat_decode M Ψ).mpr hM), fun h ι hι => ?_⟩
-  have := h _ ((sat_iff ι Ψ).mp hι)
-  rwa [decode_ofAsgn] at this
-
 theorem Term.ne_bot_decode (M : IModel) (t : Term) :
     t.eval M.decode ≠ ⊥ ↔ t.enc.bot.holds M = false := by
   obtain ⟨x, h⟩ := t.eval_decode M
@@ -210,17 +199,16 @@ theorem Term.ne_top_decode (M : IModel) (t : Term) :
   generalize t.enc.top.holds M = T, t.enc.bot.holds M = B at *
   cases T <;> cases B <;> simp_all [decodeE]
 
-/-- The implementation's query: `precBoundFin Ψ l m ≤ p` exactly when every
-model of `Ψ`'s encoding where `l` is not `−∞` and `m` not `+∞` satisfies the
-encoded `m − l + 1 ≤ p`. -/
-theorem precBoundFin_le_iff (Ψ : List Con) (l m : Term) (p : ℤ) :
-    precBoundFin Ψ l m ≤ p ↔ ∀ M : IModel, (∀ φ ∈ encode Ψ, φ.holds M) →
-      l.enc.bot.holds M = false → m.enc.top.holds M = false →
+/-- The query: `precBound Ψ l m ≤ p` exactly when every model of `Ψ`'s encoding
+where `m` is finite satisfies the encoded `m − l + 1 ≤ p`. -/
+theorem precBound_le_iff (Ψ : List Con) (l m : Term) (p : ℤ) :
+    precBound Ψ l m ≤ p ↔ ∀ M : IModel, (∀ φ ∈ encode Ψ, φ.holds M) →
+      m.enc.bot.holds M = false → m.enc.top.holds M = false →
       (Atom.enc ⟨l.width m, .const p⟩).holds M := by
-  simp only [precBoundFin, iSup₂_le_iff, ← Atom.holds_decode, ← Term.ne_bot_decode,
+  simp only [precBound, Queried, iSup₂_le_iff, ← Atom.holds_decode, ← Term.ne_bot_decode,
     ← Term.ne_top_decode]
-  refine ⟨fun h M hM hl hm => h _ ⟨(sat_decode M Ψ).mpr hM, hl, hm⟩,
-    fun h ι ⟨hι, hl, hm⟩ => ?_⟩
+  refine ⟨fun h M hM hb ht => h _ ⟨(sat_decode M Ψ).mpr hM, hb, ht⟩,
+    fun h ι ⟨hι, hb, ht⟩ => ?_⟩
   have := h _ ((sat_iff ι Ψ).mp hι) (by rwa [decode_ofAsgn]) (by rwa [decode_ofAsgn])
   rwa [decode_ofAsgn] at this
 

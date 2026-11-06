@@ -9,8 +9,10 @@ under the constraints `Ψg` generated before it; descriptions carry over as
 constraints are added (`Describes.grow`).
 Untaken branches and zero-iteration loops re-choose their variables
 (`Sat.extend`); loops iterate by `loop_sound`; D-Int and D-Fmt use Theorem 4.1.
-`DEval.wf` gives each derivation's fresh ranges; `eval_precision` bounds an expression's
-precision by `precBound`.
+`DEval.wf` gives each derivation's fresh ranges; `eval_solution` gives each
+expression a solution of every constraint, and `format_of_bounds` turns the
+`precBound`, `lsbBound` and `msbBound` queries into a format; `eval_format` is
+Theorem 4.2.
 -/
 
 namespace Fpy.DigitBound
@@ -463,11 +465,11 @@ theorem loop_sound (hA : A.Sound Φ) {e : Expr (fpy decode)} {s : Stmt (fpy deco
   | _, _, _, _, _, .withCtx _ _ _, h, _, _, _, _, _ => by cases h
 termination_by structural _ _ _ _ _ h => h
 
-/-! ## Theorem 4.2 -/
+/-! ## Constraint soundness -/
 
 mutual
 
-/-- **Theorem 4.2** (soundness of digit-bound analysis), in prefix form. If
+/-- Constraint soundness (the lemma behind Theorem 4.2), in prefix form. If
 `Δ, κ ⊢♮ e : d` with fresh variables from `n₀`, `ι` satisfies the constraints
 `Ψg` so far and describes the store and `κ` the context, the store lies in `Γ`
 and the context in `χ`, and `⟨σ, C, e⟩ ⇓ v`, then an assignment agreeing with
@@ -755,7 +757,7 @@ termination_by structural _ _ _ _ _ _ _ _ _ _ _ hd => hd
 
 end
 
-/-- **Theorem 4.2** for a program (D-Program): an argument described by `d`,
+/-- Constraint soundness for a program (D-Program): an argument described by `d`,
 and by `a` for format inference, gives a result described by `d'`. -/
 theorem run_sound (hA : A.Sound Φ) {f : Fn} {y : Var} {s : Stmt (fpy decode)} {d d' : DVal}
     {a : AVal D} {Δ' : DEnv} {Ψ : List Con} {n₀ n₁ : ℕ} (hΦ : Φ f = some (y, s))
@@ -820,56 +822,168 @@ theorem le_of_width {a b : EInt} {p : ℤ} (h : a + negE b + ((1 : ℤ) : EInt) 
 /-- `m − l + 1`. -/
 def Term.width (l m : Term) : Term := .add (.add m (.neg l)) (.const (1 : ℤ))
 
-/-- The query `prec♮ Ψ l m`: the largest `m − l + 1` over assignments satisfying `Ψ`. -/
+/-- The solutions the queries range over: `Ψ` holds and `m` is finite, so the value
+is finite and nonzero (`msb` is `+∞` at `±∞` and NaN, `−∞` at `0`). -/
+def Queried (Ψ : List Con) (m : Term) (ι : Asgn) : Prop :=
+  Sat ι Ψ ∧ m.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤
+
+/-- The query `prec♮`: the largest `m − l + 1` over the queried solutions. -/
 noncomputable def precBound (Ψ : List Con) (l m : Term) : EInt :=
-  ⨆ (ι : Asgn) (_ : Sat ι Ψ), (l.width m).eval ι
+  ⨆ (ι : Asgn) (_ : Queried Ψ m ι), (l.width m).eval ι
+
+/-- The query for `exp`: the least `l` over the queried solutions. -/
+noncomputable def lsbBound (Ψ : List Con) (l m : Term) : EInt :=
+  ⨅ (ι : Asgn) (_ : Queried Ψ m ι), l.eval ι
+
+/-- The query for `mag`: the greatest `m` over the queried solutions. -/
+noncomputable def msbBound (Ψ : List Con) (m : Term) : EInt :=
+  ⨆ (ι : Asgn) (_ : Queried Ψ m ι), m.eval ι
+
+section Format
+
+variable {Ψ : List Con} {ι : Asgn} {l m : Term} {τ : Option Term} {x : ℝ}
+
+/-- A solution describing a finite nonzero value is queried. -/
+theorem queried (hs : Sat ι Ψ) (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
+    (h0 : x ≠ 0) : Queried Ψ m ι := by
+  obtain ⟨-, hm⟩ : lsbOf _ = l.eval ι ∧ msbOf _ = m.eval ι := by
+    cases hd with | num hu => exact hu.eq (by simp)
+  refine ⟨hs, ?_⟩
+  rw [← hm, msbOf_of_ne_zero h0]
+  exact ⟨WithBotTop.coe_ne_bot _, WithBotTop.coe_ne_top _⟩
 
 /-- `precision_of_bound` with the bound given by `precBound`. -/
-theorem precision_of_precBound {Ψ : List Con} {ι : Asgn} {l m : Term} {τ : Option Term} {x : ℝ}
-    {p : ℕ} (hs : Sat ι Ψ) (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
-    (hp : precBound Ψ l m ≤ ((p : ℤ) : EInt)) : ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p :=
-  precision_of_bound hd <| le_of_width <|
-    (le_iSup₂ (f := fun ι (_ : Sat ι Ψ) => (l.width m).eval ι) ι hs).trans hp
-
-/-- `precBound` over the assignments where `l` is not `−∞` and `m` not `+∞`, as
-the implementation queries. -/
-noncomputable def precBoundFin (Ψ : List Con) (l m : Term) : EInt :=
-  ⨆ (ι : Asgn) (_ : Sat ι Ψ ∧ l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤), (l.width m).eval ι
-
-/-- `precision_of_precBound` for a dyadic value, by `precBoundFin`: its digits
-are finite. -/
-theorem precision_of_precBoundFin {Ψ : List Con} {ι : Asgn} {l m : Term} {τ : Option Term}
-    {x : ℝ} {p : ℕ} (hs : Sat ι Ψ) (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
-    (hx : ∃ c e : ℤ, x = c * 2 ^ e) (hp : precBoundFin Ψ l m ≤ ((p : ℤ) : EInt)) :
-    ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p := by
+theorem precision_of_precBound {p : ℕ} (hs : Sat ι Ψ)
+    (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
+    (hp : precBound Ψ l m ≤ ((p : ℤ) : EInt)) : ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p := by
   by_cases h0 : x = 0
   · exact ⟨0, 0, by simp [h0], by simp⟩
-  obtain ⟨c, e, rfl⟩ := hx
+  exact precision_of_bound hd <| le_of_width <| (le_iSup₂
+    (f := fun ι (_ : Queried Ψ m ι) => (l.width m).eval ι) ι (queried hs hd h0)).trans hp
+
+/-- A value described under a solution lies on the grid `2^e` for `e ≤ lsbBound`. -/
+theorem quantum_of_lsbBound {e : ℤ} (hs : Sat ι Ψ)
+    (hd : Describes Ψ ι (.num l m τ) (.num (.finite x))) (he : (e : EInt) ≤ lsbBound Ψ l m) :
+    ∃ c : ℤ, x = c * 2 ^ e := by
+  by_cases h0 : x = 0
+  · exact ⟨0, by simp [h0]⟩
+  have hq := queried hs hd h0
+  cases hd with
+  | num hu =>
+    have h := he.trans (iInf₂_le (f := fun ι (_ : Queried Ψ m ι) => l.eval ι) ι hq)
+    rw [← (hu.eq (by simp)).1] at h
+    exact coe_le_lsbOf.mp h
+
+/-- A value described under a solution is below `2^(k+1)` for `msbBound ≤ k`. -/
+theorem abs_lt_of_msbBound {k : ℤ} (hs : Sat ι Ψ)
+    (hd : Describes Ψ ι (.num l m τ) (.num (.finite x))) (hk : msbBound Ψ m ≤ k) :
+    |x| < 2 ^ (k + 1) := by
+  by_cases h0 : x = 0
+  · rw [h0, abs_zero]; positivity
+  have hq := queried hs hd h0
+  cases hd with
+  | num hu =>
+    have h := (le_iSup₂ (f := fun ι (_ : Queried Ψ m ι) => m.eval ι) ι hq).trans hk
+    rw [← (hu.eq (by simp)).2] at h
+    exact msbOf_le_coe.mp h
+
+/-- A multiple of `2^lo` below `2^(k+1)` is at most the run of ones `2^(k+1) − 2^lo`. -/
+theorem abs_le_of_grid {c lo k : ℤ} (h : |(c : ℝ) * 2 ^ lo| < 2 ^ (k + 1)) (hlo : lo ≤ k) :
+    |(c : ℝ) * 2 ^ lo| ≤ 2 ^ (k + 1) - 2 ^ lo := by
+  obtain ⟨n, hn⟩ : ∃ n : ℕ, k + 1 = lo + n := ⟨(k + 1 - lo).toNat, by omega⟩
+  have hp : (0 : ℝ) < 2 ^ lo := zpow_pos two_pos lo
+  rw [abs_mul, abs_of_pos hp, hn, zpow_add₀ two_ne_zero, zpow_natCast] at h ⊢
+  have hc : |c| < 2 ^ n := by
+    have : |(c : ℝ)| < 2 ^ n := lt_of_mul_lt_mul_right (by linarith) hp.le
+    exact_mod_cast this
+  have hc' : (|c| : ℝ) + 1 ≤ 2 ^ n := by exact_mod_cast hc
+  nlinarith [mul_le_mul_of_nonneg_right hc' hp.le, Int.cast_abs (R := ℝ) (a := c)]
+
+/-- The bound `b`, tightened by the grid or the precision: a value described under a
+solution, with `msbBound ≤ k`, is at most `2^(k+1) − 2^lo` for `lo ≤ k` with
+`lo ≤ lsbBound` or `prec♮ ≤ k − lo + 1`. -/
+theorem bound_of_msbBound {k lo : ℤ} (hs : Sat ι Ψ)
+    (hd : Describes Ψ ι (.num l m τ) (.num (.finite x))) (hk : msbBound Ψ m ≤ k)
+    (hlo : lo ≤ k)
+    (h : (lo : EInt) ≤ lsbBound Ψ l m ∨ precBound Ψ l m ≤ ((k - lo + 1 : ℤ) : EInt)) :
+    |x| ≤ 2 ^ (k + 1) - 2 ^ lo := by
+  have hx := abs_lt_of_msbBound hs hd hk
+  have hlok : (2 : ℝ) ^ lo ≤ 2 ^ k := zpow_le_zpow_right₀ (by norm_num) hlo
+  have h2 : (2 : ℝ) ^ (k + 1) = 2 ^ k * 2 := zpow_add_one₀ two_ne_zero k
+  have hk0 : (0 : ℝ) < 2 ^ k := zpow_pos two_pos k
+  by_cases h0 : x = 0
+  · rw [h0, abs_zero]; linarith
+  have hq := queried hs hd h0
+  by_cases hg : (lo : EInt) ≤ lsbOf (.finite x)
+  · obtain ⟨c, rfl⟩ := coe_le_lsbOf.mp hg
+    exact abs_le_of_grid hx hlo
   obtain ⟨hl, hm⟩ : lsbOf _ = l.eval ι ∧ msbOf _ = m.eval ι := by
     cases hd with | num hu => exact hu.eq (by simp)
-  have hfin : l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤ := by
-    rw [← hl, ← hm, msbOf_of_ne_zero h0]
-    exact ⟨ne_bot_of_le_ne_bot (WithBotTop.coe_ne_bot e) (coe_le_lsbOf.mpr ⟨c, rfl⟩),
-      WithBotTop.coe_ne_top _⟩
-  exact precision_of_bound hd <| le_of_width <| (le_iSup₂ (f := fun ι
-    (_ : Sat ι Ψ ∧ l.eval ι ≠ ⊥ ∧ m.eval ι ≠ ⊤) => (l.width m).eval ι) ι ⟨hs, hfin⟩).trans hp
+  rcases h with h | h
+  · exact absurd (h.trans (hl ▸ iInf₂_le (f := fun ι (_ : Queried Ψ m ι) => l.eval ι) ι hq)) hg
+  have hw := le_of_width
+    ((le_iSup₂ (f := fun ι (_ : Queried Ψ m ι) => (l.width m).eval ι) ι hq).trans h)
+  rw [← hl, ← hm] at hw
+  have hmk : msbOf (.finite x) ≤ ((k - 1 : ℤ) : EInt) := by
+    refine hw.trans ?_
+    cases ha : lsbOf (.finite x) using WithBotTop.rec with
+    | bot => exact bot_le.trans' (le_of_eq (by simp))
+    | top => exact absurd ha (lsbOf_ne_top h0)
+    | coe a =>
+      rw [ha, WithBotTop.coe_le_coe, not_le] at hg
+      rw [coe_add_coe, WithBotTop.coe_le_coe]
+      omega
+  have := msbOf_le_coe.mp hmk
+  rw [sub_add_cancel] at this
+  linarith
 
-/-- `precision_of_precBound` for any expression, under Theorem 4.2's hypotheses:
-`prec♮(e)` is over every constraint, those before `e` (`Ψg`), from `e` (`Ψ`),
-and after it (`Ψr`). -/
-theorem eval_precision (hA : A.Sound Φ) {Δ : DEnv} {Γ : AEnv D} {κ : Option SCtx}
-    {χ : Option Val} {Ψg Ψ Ψr : List Con} {n₀ n₁ n₂ : ℕ} {e : Expr (fpy decode)} {l m : Term}
-    {τ : Option Term} (hd : DEval decode Φ A Δ Γ κ χ Ψg n₀ e (.num l m τ) Ψ n₁)
-    (hFr : Fresh n₁ n₂ Ψr) {σ : Store} {C : Val} {ι : Asgn} {x : ℝ} {p : ℕ}
-    (h : Eval Φ σ C e (.num (.finite x))) (hbg : Before n₀ Ψg) (hsg : Sat ι Ψg)
+/-- The format of §4.3's second pass: a finite value described under a solution lies in
+`A(p, e, 2^(k+1) − 2^max(e, k − p + 1))` for `prec♮ ≤ p`, `e ≤ lsbBound` and
+`msbBound ≤ k`. -/
+theorem format_of_bounds {p : ℕ} {e k : ℤ} (hs : Sat ι Ψ)
+    (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
+    (hp : precBound Ψ l m ≤ ((p : ℤ) : EInt)) (he : (e : EInt) ≤ lsbBound Ψ l m)
+    (hk : msbBound Ψ m ≤ k) (hek : e ≤ k) (hp1 : 1 ≤ p) :
+    (∃ c e' : ℤ, x = c * 2 ^ e' ∧ |c| < 2 ^ p) ∧ (∃ c : ℤ, x = c * 2 ^ e) ∧
+      |x| ≤ 2 ^ (k + 1) - 2 ^ max e (k - p + 1) := by
+  refine ⟨precision_of_precBound hs hd hp, quantum_of_lsbBound hs hd he,
+    bound_of_msbBound hs hd hk (max_le hek (by omega)) ?_⟩
+  rcases le_total (k - p + 1) e with h | h
+  · exact .inl (by rwa [max_eq_left h])
+  · exact .inr (by rwa [max_eq_right h, show k - (k - p + 1) + 1 = (p : ℤ) by omega])
+
+end Format
+
+/-- Constraint soundness for any expression: an evaluation of `e` gives a solution of
+every constraint, those before `e` (`Ψg`), from `e` (`Ψ`) and after it (`Ψr`). -/
+theorem eval_solution (hA : A.Sound Φ) {Δ : DEnv} {Γ : AEnv D} {κ : Option SCtx}
+    {χ : Option Val} {Ψg Ψ Ψr : List Con} {n₀ n₁ n₂ : ℕ} {e : Expr (fpy decode)} {d : DVal}
+    (hd : DEval decode Φ A Δ Γ κ χ Ψg n₀ e d Ψ n₁) (hFr : Fresh n₁ n₂ Ψr) {σ : Store}
+    {C : Val} {ι : Asgn} {v : Val} (h : Eval Φ σ C e v) (hbg : Before n₀ Ψg) (hsg : Sat ι Ψg)
     (hΔ : Δ.Below n₀) (hκ : CtxBelow n₀ κ) (hσ : Δ.Holds Ψg ι σ) (hΓ : Γ.Holds σ)
-    (hC : ∀ K ∈ κ, K.Admits ι C) (hχ : Admits χ C)
-    (hp : precBound (Ψg ++ Ψ ++ Ψr) l m ≤ ((p : ℤ) : EInt)) :
-    ∃ c e : ℤ, x = c * 2 ^ e ∧ |c| < 2 ^ p := by
+    (hC : ∀ K ∈ κ, K.Admits ι C) (hχ : Admits χ C) :
+    ∃ ι', Sat ι' (Ψg ++ Ψ ++ Ψr) ∧ Describes (Ψg ++ Ψ ++ Ψr) ι' d v := by
   obtain ⟨ι₁, a₁, hs₁, hd₁⟩ := eval_sound hA hd h hbg hsg hΔ hκ hσ hΓ hC hχ
   obtain ⟨hb₁, hsat₁⟩ := step hbg hsg (DEval.wf hd).1 a₁ hs₁
   obtain ⟨ι₂, a₂, hs₂⟩ := Sat.extend hFr ι₁
-  exact precision_of_precBound ((Sat.congr hb₁ a₂ hsat₁).append hs₂)
-    (hd₁.grow hb₁ hFr a₂ ((DEval.wf hd).2 hΔ hκ)) hp
+  exact ⟨ι₂, (Sat.congr hb₁ a₂ hsat₁).append hs₂, hd₁.grow hb₁ hFr a₂ ((DEval.wf hd).2 hΔ hκ)⟩
+
+/-- **Theorem 4.2** (soundness of digit-bound analysis): with `p`, `q` and `k` bounding
+the queries `max(msb − lsb + 1)`, `min(lsb)` and `max(msb)` over every constraint, a
+finite value of `e` lies in `A(p, q, 2^(k+1) − 2^max(q, k − p + 1))`. -/
+theorem eval_format (hA : A.Sound Φ) {Δ : DEnv} {Γ : AEnv D} {κ : Option SCtx}
+    {χ : Option Val} {Ψg Ψ Ψr : List Con} {n₀ n₁ n₂ : ℕ} {e : Expr (fpy decode)} {l m : Term}
+    {τ : Option Term} (hd : DEval decode Φ A Δ Γ κ χ Ψg n₀ e (.num l m τ) Ψ n₁)
+    (hFr : Fresh n₁ n₂ Ψr) {σ : Store} {C : Val} {ι : Asgn} {x : ℝ}
+    (h : Eval Φ σ C e (.num (.finite x))) (hbg : Before n₀ Ψg) (hsg : Sat ι Ψg)
+    (hΔ : Δ.Below n₀) (hκ : CtxBelow n₀ κ) (hσ : Δ.Holds Ψg ι σ) (hΓ : Γ.Holds σ)
+    (hC : ∀ K ∈ κ, K.Admits ι C) (hχ : Admits χ C) {p : ℕ} {q k : ℤ}
+    (hp : precBound (Ψg ++ Ψ ++ Ψr) l m ≤ ((p : ℤ) : EInt))
+    (hq : (q : EInt) ≤ lsbBound (Ψg ++ Ψ ++ Ψr) l m) (hk : msbBound (Ψg ++ Ψ ++ Ψr) m ≤ k)
+    (hqk : q ≤ k) (hp1 : 1 ≤ p) :
+    (∃ c e' : ℤ, x = c * 2 ^ e' ∧ |c| < 2 ^ p) ∧ (∃ c : ℤ, x = c * 2 ^ q) ∧
+      |x| ≤ 2 ^ (k + 1) - 2 ^ max q (k - p + 1) :=
+  let ⟨_, hs, hv⟩ := eval_solution hA hd hFr h hbg hsg hΔ hκ hσ hΓ hC hχ
+  format_of_bounds hs hv hp hq hk hqk hp1
 
 end Fpy.DigitBound
