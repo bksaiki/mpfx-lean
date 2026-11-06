@@ -464,11 +464,11 @@ theorem loop_sound (hA : A.Sound Φ) {e : Expr (fpy decode)} {s : Stmt (fpy deco
   | _, _, _, _, _, .withCtx _ _ _, h, _, _, _, _, _ => by cases h
 termination_by structural _ _ _ _ _ h => h
 
-/-! ## Theorem 4.2 -/
+/-! ## Constraint soundness -/
 
 mutual
 
-/-- **Theorem 4.2** (soundness of digit-bound analysis), in prefix form. If
+/-- Constraint soundness (the lemma behind Theorem 4.2), in prefix form. If
 `Δ, κ ⊢♮ e : d` with fresh variables from `n₀`, `ι` satisfies the constraints
 `Ψg` so far and describes the store and `κ` the context, the store lies in `Γ`
 and the context in `χ`, and `⟨σ, C, e⟩ ⇓ v`, then an assignment agreeing with
@@ -756,7 +756,7 @@ termination_by structural _ _ _ _ _ _ _ _ _ _ _ hd => hd
 
 end
 
-/-- **Theorem 4.2** for a program (D-Program): an argument described by `d`,
+/-- Constraint soundness for a program (D-Program): an argument described by `d`,
 and by `a` for format inference, gives a result described by `d'`. -/
 theorem run_sound (hA : A.Sound Φ) {f : Fn} {y : Var} {s : Stmt (fpy decode)} {d d' : DVal}
     {a : AVal D} {Δ' : DEnv} {Ψ : List Con} {n₀ n₁ : ℕ} (hΦ : Φ f = some (y, s))
@@ -952,9 +952,8 @@ theorem format_of_bounds {p : ℕ} {e k : ℤ} (hs : Sat ι Ψ)
 
 end Format
 
-/-- Theorem 4.2 for any expression: an evaluation of `e` gives a solution of every
-constraint, those before `e` (`Ψg`), from `e` (`Ψ`) and after it (`Ψr`). The bounds
-above then hold of its value. -/
+/-- Constraint soundness for any expression: an evaluation of `e` gives a solution of
+every constraint, those before `e` (`Ψg`), from `e` (`Ψ`) and after it (`Ψr`). -/
 theorem eval_solution (hA : A.Sound Φ) {Δ : DEnv} {Γ : AEnv D} {κ : Option SCtx}
     {χ : Option Val} {Ψg Ψ Ψr : List Con} {n₀ n₁ n₂ : ℕ} {e : Expr (fpy decode)} {d : DVal}
     (hd : DEval decode Φ A Δ Γ κ χ Ψg n₀ e d Ψ n₁) (hFr : Fresh n₁ n₂ Ψr) {σ : Store}
@@ -966,5 +965,23 @@ theorem eval_solution (hA : A.Sound Φ) {Δ : DEnv} {Γ : AEnv D} {κ : Option S
   obtain ⟨hb₁, hsat₁⟩ := step hbg hsg (DEval.wf hd).1 a₁ hs₁
   obtain ⟨ι₂, a₂, hs₂⟩ := Sat.extend hFr ι₁
   exact ⟨ι₂, (Sat.congr hb₁ a₂ hsat₁).append hs₂, hd₁.grow hb₁ hFr a₂ ((DEval.wf hd).2 hΔ hκ)⟩
+
+/-- **Theorem 4.2** (soundness of digit-bound analysis): with `p`, `q` and `k` bounding
+the queries `max(msb − lsb + 1)`, `min(lsb)` and `max(msb)` over every constraint, a
+finite value of `e` lies in `A(p, q, 2^(k+1) − 2^max(q, k − p + 1))`. -/
+theorem eval_format (hA : A.Sound Φ) {Δ : DEnv} {Γ : AEnv D} {κ : Option SCtx}
+    {χ : Option Val} {Ψg Ψ Ψr : List Con} {n₀ n₁ n₂ : ℕ} {e : Expr (fpy decode)} {l m : Term}
+    {τ : Option Term} (hd : DEval decode Φ A Δ Γ κ χ Ψg n₀ e (.num l m τ) Ψ n₁)
+    (hFr : Fresh n₁ n₂ Ψr) {σ : Store} {C : Val} {ι : Asgn} {x : ℝ}
+    (h : Eval Φ σ C e (.num (.finite x))) (hbg : Before n₀ Ψg) (hsg : Sat ι Ψg)
+    (hΔ : Δ.Below n₀) (hκ : CtxBelow n₀ κ) (hσ : Δ.Holds Ψg ι σ) (hΓ : Γ.Holds σ)
+    (hC : ∀ K ∈ κ, K.Admits ι C) (hχ : Admits χ C) {p : ℕ} {q k : ℤ}
+    (hp : precBound (Ψg ++ Ψ ++ Ψr) l m ≤ ((p : ℤ) : EInt))
+    (hq : (q : EInt) ≤ lsbBound (Ψg ++ Ψ ++ Ψr) l) (hk : msbBound (Ψg ++ Ψ ++ Ψr) m ≤ k)
+    (hqk : q ≤ k) (hp1 : 1 ≤ p) :
+    (∃ c e' : ℤ, x = c * 2 ^ e' ∧ |c| < 2 ^ p) ∧ (∃ c : ℤ, x = c * 2 ^ q) ∧
+      |x| ≤ 2 ^ (k + 1) - 2 ^ max q (k - p + 1) :=
+  let ⟨_, hs, hv⟩ := eval_solution hA hd hFr h hbg hsg hΔ hκ hσ hΓ hC hχ
+  format_of_bounds hs hv hp hq hk hqk hp1
 
 end Fpy.DigitBound

@@ -202,10 +202,11 @@ Names are in `namespace Fpy.DigitBound`.
 | Terms `τ` and constraints `φ` | `Term`, `Atom`, `Con` | `Fpy/DigitBound/Defs.lean` |
 | Rules (Fig. 8, 12) | `DEval`, `DExec` | `Fpy/DigitBound/Defs.lean` |
 | D-Int; constraints from inferred formats | `DEval.int`, `DEval.fmt` | `Fpy/DigitBound/Defs.lean` |
-| Theorem 4.2 | `eval_sound`, `exec_sound`, `run_sound` | `Fpy/DigitBound/Sound.lean` |
+| Constraint soundness (lemma for Theorem 4.2) | `eval_sound`, `exec_sound`, `run_sound` | `Fpy/DigitBound/Sound.lean` |
 | The query `prec♮`; the implementation's, on finite digits | `precBound`, `precBoundFin` | `Fpy/DigitBound/Sound.lean` |
 | Integer encoding of constraints and the query | `Term.enc`, `Atom.enc`, `encode`, `sat_iff`, `sat_decode`, `sat_exists`, `precBound_le_iff`, `precBoundFin_le_iff` | `Fpy/DigitBound/Encode.lean` |
-| Theorem 4.2 for any expression | `eval_solution` | `Fpy/DigitBound/Sound.lean` |
+| Constraint soundness over every constraint | `eval_solution` | `Fpy/DigitBound/Sound.lean` |
+| Theorem 4.2: the queries' format holds each value | `eval_format` | `Fpy/DigitBound/Sound.lean` |
 | Precision bound (§4.3) | `precision_of_bound`, `precision_of_precBound`, `precision_of_precBoundFin` | `Fpy/DigitBound/Sound.lean` |
 | Format from the queries (§4.3): `p`, `exp`, `b` | `lsbBound`, `msbBound`, `quantum_of_lsbBound`, `bound_of_msbBound`, `format_of_bounds` | `Fpy/DigitBound/Sound.lean` |
 | D-Sum, on values and over the analysis | `sumVal_inRange`, `eval_sum_inRange`, `eval_sum_sound` | `Fpy/DigitBound/Sum.lean` |
