@@ -205,7 +205,9 @@ Names are in `namespace Fpy.DigitBound`.
 | Theorem 4.2 | `eval_sound`, `exec_sound`, `run_sound` | `Fpy/DigitBound/Sound.lean` |
 | The query `prec♮`; the implementation's, on finite digits | `precBound`, `precBoundFin` | `Fpy/DigitBound/Sound.lean` |
 | Integer encoding of constraints and the query | `Term.enc`, `Atom.enc`, `encode`, `sat_iff`, `sat_decode`, `sat_exists`, `precBound_le_iff`, `precBoundFin_le_iff` | `Fpy/DigitBound/Encode.lean` |
-| Precision bound (after Theorem 4.2) | `precision_of_bound`, `precision_of_precBound`, `precision_of_precBoundFin`, `eval_precision` | `Fpy/DigitBound/Sound.lean` |
+| Theorem 4.2 for any expression | `eval_solution` | `Fpy/DigitBound/Sound.lean` |
+| Precision bound (§4.3) | `precision_of_bound`, `precision_of_precBound`, `precision_of_precBoundFin` | `Fpy/DigitBound/Sound.lean` |
+| Format from the queries (§4.3): `p`, `exp`, `b` | `lsbBound`, `msbBound`, `quantum_of_lsbBound`, `bound_of_msbBound`, `format_of_bounds` | `Fpy/DigitBound/Sound.lean` |
 | D-Sum, on values and over the analysis | `sumVal_inRange`, `eval_sum_inRange`, `eval_sum_sound` | `Fpy/DigitBound/Sum.lean` |
 | D-Index's fresh copy | `copy_num`, `copyCons`, `fresh_copyCons` | `Fpy/DigitBound/Copy.lean` |
 | Joins (D-List, D-If, D-Seq) | `le_num`, `DEnv.Le.refl`, `DEnv.Le.update`, `DEnv.Le.trans` | `Fpy/DigitBound/Join.lean` |

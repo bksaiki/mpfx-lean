@@ -22,7 +22,11 @@ From the writing agent's Lean TODOs for `main.pdf`.
 - [x] Fig. 12 rewrites: operands bound to fresh `ts` (`equiv_bind`); any
   `Fᵢ ⊇ fmt(eᵢ)` (`FmtsIn`); one Split on `op(Fs)` (`equiv_split`;
   `split_add`, …); Special tests `±∞` apart and sets `x = 0`.
-- [x] Theorem 4.2 per expression: `eval_precision` (`run_precision` dropped).
+- [x] Theorem 4.2 per expression: `eval_solution` (`run_precision` dropped).
+- [x] §4.3 format from the queries: all of `p`, `exp`, `b`, not just `p`
+  (`lsbBound`, `msbBound`, `format_of_bounds`). The Lean bound is the
+  implementation's `2^(m+1) − 2^max(l, m − p + 1)`, at most the draft's
+  `2^(m+1)`; the draft should adopt it.
 - [x] Loops: `DExec.whileDo` with `Covers` (`Covers.fmt`), body once;
   `loop_sound`.
 - [x] Calls: body re-analyzed per call (`DEval.call`); returns joined by
@@ -85,8 +89,8 @@ The claim is each rewrite on its own. Not mechanized:
 - **The paper's concrete setting**: a decoding of `IEEE754`, `Fixed` and `Int`
   records into Mpfx contexts, the second pass refining formats by digit bounds,
   and the worked examples (`mac`, `fdpa`, `fused_sum`).
-- **Digit bounds at every rounding of a run.** Theorem 4.2 and `prec♮(e)` are
-  per expression, under their hypotheses (`eval_precision`); no theorem shows
+- **Digit bounds at every rounding of a run.** Theorem 4.2 and the queries are
+  per expression, under their hypotheses (`eval_solution`); no theorem shows
   each evaluation of `e` in a run meets them. D-If and D-While do not analyze
   their conditions, so a rounding inside one has no bound.
 
