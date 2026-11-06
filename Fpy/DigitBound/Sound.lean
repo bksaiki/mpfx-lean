@@ -11,7 +11,8 @@ Untaken branches and zero-iteration loops re-choose their variables
 (`Sat.extend`); loops iterate by `loop_sound`; D-Int and D-Fmt use Theorem 4.1.
 `DEval.wf` gives each derivation's fresh ranges; `eval_solution` gives each
 expression a solution of every constraint, and `format_of_bounds` turns the
-`precBound`, `lsbBound` and `msbBound` queries into a format.
+`precBound`, `lsbBound` and `msbBound` queries into a format; `eval_format` is
+Theorem 4.2.
 -/
 
 namespace Fpy.DigitBound
@@ -898,7 +899,7 @@ theorem abs_le_of_grid {c lo k : ℤ} (h : |(c : ℝ) * 2 ^ lo| < 2 ^ (k + 1)) (
   have hc' : (|c| : ℝ) + 1 ≤ 2 ^ n := by exact_mod_cast hc
   nlinarith [mul_le_mul_of_nonneg_right hc' hp.le, Int.cast_abs (R := ℝ) (a := c)]
 
-/-- `b`'s query, tightened by the grid or the precision: a value described under a
+/-- The bound `b`, tightened by the grid or the precision: a value described under a
 solution, with `msbBound ≤ k`, is at most `2^(k+1) − 2^lo` for `lo ≤ k` with
 `lo ≤ lsbBound` or `prec♮ ≤ k − lo + 1`. -/
 theorem bound_of_msbBound {k lo : ℤ} (hs : Sat ι Ψ)
@@ -938,7 +939,7 @@ theorem bound_of_msbBound {k lo : ℤ} (hs : Sat ι Ψ)
 
 /-- The format of §4.3's second pass: a finite value described under a solution lies in
 `A(p, e, 2^(k+1) − 2^max(e, k − p + 1))` for `prec♮ ≤ p`, `e ≤ lsbBound` and
-`msbBound ≤ k`. This bound is at most the draft's `2^(k+1)`. -/
+`msbBound ≤ k`. -/
 theorem format_of_bounds {p : ℕ} {e k : ℤ} (hs : Sat ι Ψ)
     (hd : Describes Ψ ι (.num l m τ) (.num (.finite x)))
     (hp : precBound Ψ l m ≤ ((p : ℤ) : EInt)) (he : (e : EInt) ≤ lsbBound Ψ l m)
