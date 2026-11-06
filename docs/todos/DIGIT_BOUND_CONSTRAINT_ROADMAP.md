@@ -27,8 +27,8 @@ analysis layered on format inference, not an abstract interpretation.
 The Lean now backs this. The README's §4.3 table lists each name:
 - **Syntactic constraints:** `Term` (with `smul`), `Atom` (`t ≤ t'`) and
   `Con`.
-- **The query:** `precBound`, and `precBoundFin`, the implementation's query
-  over finite digits.
+- **The queries:** `precBound`, `lsbBound`, `msbBound`, over solutions where
+  `msb` is finite (`Queried`), as the implementation queries.
 - **The implementation's loop rule:** D-While (`DExec.whileDo`, `Covers`),
   which has no back-edge premise.
 - **The integer encoding Z3 sees:** `Encode.lean`.

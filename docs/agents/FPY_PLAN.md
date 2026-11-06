@@ -27,7 +27,8 @@ From the writing agent's Lean TODOs for `main.pdf`.
 - [x] §4.3 format from the queries: all of `p`, `exp`, `b`, not just `p`
   (`lsbBound`, `msbBound`, `format_of_bounds`). The Lean bound is the
   implementation's `2^(m+1) − 2^max(l, m − p + 1)`, at most the draft's
-  `2^(m+1)`; the draft should adopt it.
+  `2^(m+1)`; the draft should adopt it. The queries range over solutions with
+  finite `msb` (`Queried`), as `query_at` does; its `assume_at(e)` is open.
 - [x] Loops: `DExec.whileDo` with `Covers` (`Covers.fmt`), body once;
   `loop_sound`.
 - [x] Calls: body re-analyzed per call (`DEval.call`); returns joined by

@@ -203,12 +203,12 @@ Names are in `namespace Fpy.DigitBound`.
 | Rules (Fig. 8, 12) | `DEval`, `DExec` | `Fpy/DigitBound/Defs.lean` |
 | D-Int; constraints from inferred formats | `DEval.int`, `DEval.fmt` | `Fpy/DigitBound/Defs.lean` |
 | Constraint soundness (lemma for Theorem 4.2) | `eval_sound`, `exec_sound`, `run_sound` | `Fpy/DigitBound/Sound.lean` |
-| The query `prec♮`; the implementation's, on finite digits | `precBound`, `precBoundFin` | `Fpy/DigitBound/Sound.lean` |
-| Integer encoding of constraints and the query | `Term.enc`, `Atom.enc`, `encode`, `sat_iff`, `sat_decode`, `sat_exists`, `precBound_le_iff`, `precBoundFin_le_iff` | `Fpy/DigitBound/Encode.lean` |
+| The queries, over solutions where `msb` is finite | `Queried`, `precBound`, `lsbBound`, `msbBound` | `Fpy/DigitBound/Sound.lean` |
+| Integer encoding of constraints and the query | `Term.enc`, `Atom.enc`, `encode`, `sat_iff`, `sat_decode`, `sat_exists`, `precBound_le_iff` | `Fpy/DigitBound/Encode.lean` |
 | Constraint soundness over every constraint | `eval_solution` | `Fpy/DigitBound/Sound.lean` |
 | Theorem 4.2: the queries' format holds each value | `eval_format` | `Fpy/DigitBound/Sound.lean` |
-| Precision bound (§4.3) | `precision_of_bound`, `precision_of_precBound`, `precision_of_precBoundFin` | `Fpy/DigitBound/Sound.lean` |
-| Format from the queries (§4.3): `p`, `exp`, `b` | `lsbBound`, `msbBound`, `quantum_of_lsbBound`, `bound_of_msbBound`, `format_of_bounds` | `Fpy/DigitBound/Sound.lean` |
+| Precision bound (§4.3) | `precision_of_bound`, `precision_of_precBound` | `Fpy/DigitBound/Sound.lean` |
+| Format from the queries (§4.3): `p`, `exp`, `b` | `quantum_of_lsbBound`, `bound_of_msbBound`, `format_of_bounds` | `Fpy/DigitBound/Sound.lean` |
 | D-Sum, on values and over the analysis | `sumVal_inRange`, `eval_sum_inRange`, `eval_sum_sound` | `Fpy/DigitBound/Sum.lean` |
 | D-Index's fresh copy | `copy_num`, `copyCons`, `fresh_copyCons` | `Fpy/DigitBound/Copy.lean` |
 | Joins (D-List, D-If, D-Seq) | `le_num`, `DEnv.Le.refl`, `DEnv.Le.update`, `DEnv.Le.trans` | `Fpy/DigitBound/Join.lean` |
