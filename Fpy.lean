@@ -5,6 +5,7 @@ import Fpy.DigitBound.Digits
 import Fpy.DigitBound.Encode
 import Fpy.DigitBound.Join
 import Fpy.DigitBound.Sound
+import Fpy.DigitBound.Reach
 import Fpy.DigitBound.Sum
 import Fpy.DigitBound.Table
 import Fpy.FormatInference.Analysis

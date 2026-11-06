@@ -207,6 +207,7 @@ Names are in `namespace Fpy.DigitBound`.
 | Integer encoding of constraints and the query | `Term.enc`, `Atom.enc`, `encode`, `sat_iff`, `sat_decode`, `sat_exists`, `precBound_le_iff` | `Fpy/DigitBound/Encode.lean` |
 | Constraint soundness over every constraint | `eval_solution` | `Fpy/DigitBound/Sound.lean` |
 | Theorem 4.2: the queries' format holds each value | `eval_format` | `Fpy/DigitBound/Sound.lean` |
+| Soundness over both analyses: every expression a run visits | `EReach`, `SReach`, `SReach.sound`, `run_format` | `Fpy/DigitBound/Reach.lean` |
 | Precision bound (§4.3) | `precision_of_bound`, `precision_of_precBound` | `Fpy/DigitBound/Sound.lean` |
 | Format from the queries (§4.3): `p`, `exp`, `b` | `quantum_of_lsbBound`, `bound_of_msbBound`, `format_of_bounds` | `Fpy/DigitBound/Sound.lean` |
 | D-Sum, on values and over the analysis | `sumVal_inRange`, `eval_sum_inRange`, `eval_sum_sound` | `Fpy/DigitBound/Sum.lean` |
@@ -300,7 +301,7 @@ standard axioms.
 | `Fpy/Ops.lean` | FPy's operators on `Num`, `RoundCtx`, the signature `fpy`. |
 | `Fpy/FormatInference/Defs.lean`, `Sound.lean` | Format inference over any domain; Theorem 4.1. |
 | `Fpy/FormatInference/Domain.lean`, `Ops.lean`, `Refine.lean`, `Analysis.lean` | The Fig. 4 domain, Table 1, condition refinement; Theorem 4.1 for FPy. |
-| `Fpy/DigitBound/Defs.lean`, `Basic.lean`, `Digits.lean`, `Sound.lean`, `Table.lean`, `Encode.lean` | §4.3 rules, their lemmas, digit positions of each operator, Theorem 4.2, Table 2, the integer encoding. |
+| `Fpy/DigitBound/Defs.lean`, `Basic.lean`, `Digits.lean`, `Sound.lean`, `Reach.lean`, `Table.lean`, `Encode.lean` | §4.3 rules, their lemmas, digit positions of each operator, Theorem 4.2, soundness over a run, Table 2, the integer encoding. |
 | `Fpy/DigitBound/Join.lean`, `Copy.lean` | The draft's joins and D-Index's copy as instances of the rules' premises. |
 | `Fpy/Sum.lean`, `FormatInference/Sum.lean`, `DigitBound/Sum.lean` | `sum` as an FPy program; A-Sum and D-Sum proved against it. |
 | `Fpy/Rewrite/Basic.lean` | `Equiv`, `Rw`, congruence, the whole-program theorem. |
