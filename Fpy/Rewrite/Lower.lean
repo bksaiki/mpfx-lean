@@ -9,14 +9,13 @@ The rewrites of §5.2 on `x = round(t)` under a context `C`, after binding
 `t` (`equiv_bind`):
 
 * **Special** branches on NaN, the infinities and zero before rounding;
-* **Overflow** rounds into `C`'s format without its bound, then replaces a
-  result beyond the bound by `C`'s overflow value, or tests `t` against a
-  threshold;
+* **Overflow** tests `t` against the thresholds where `C` overflows, and
+  otherwise rounds into `C`'s format without its bound;
 * **FloatToFixed** rounds at the fixed position `max(logb(t) − p + 1, exp)`;
 * **Rescale** rounds `2⁻ᵏt` to an integer and scales back.
 
-Each is an `Equiv` (`equiv_special`, `equiv_overflow`,
-`equiv_overflow_threshold`, `equiv_floatToFixed`, `equiv_rescale`).
+Each is an `Equiv` (`equiv_special`, `equiv_overflow`, `equiv_floatToFixed`,
+`equiv_rescale`).
 
 FloatToFixed and Rescale rest on two rounding identities,
 `rndUnbounded_eq_fixed` and `rndUnbounded_scale`: the integer step depends on
@@ -166,6 +165,13 @@ theorem round_unbounded {c c' : RoundCtx} (hF : c'.F = c.F.unbounded) (hrm : c'.
   rw [FiniteFormat.unbounded_b, if_pos (boundOK_top _)]
   rfl
 
+/-- Without overflow, rounding under `c` is rounding without its bound. -/
+theorem round_of_not_overflows {c c' : RoundCtx} (hF : c'.F = c.F.unbounded) (hrm : c'.rm = c.rm)
+    {y : ℝ} (h : ¬ Overflows c.F c.rm y) : c'.round (.finite y) = c.round (.finite y) := by
+  rw [round_unbounded hF hrm, round_finite, if_pos]
+  by_contra hb
+  exact h ⟨_, rndUnbounded_satisfies c.F c.rm y c.defined, hb⟩
+
 /-- FloatToFixed on contexts: `c'` rounds into the fixed-point format at `y`'s
 canonical exponent in `c`'s format, with `c`'s mode. -/
 theorem round_fixed {c c' : RoundCtx} (hp1 : c.F.p ≠ ((1 : ℕ) : Prec)) (hb : c.F.b = ⊤)
@@ -244,10 +250,25 @@ theorem exec_round_inv {σ : Store} {C : Val} {r : Num → Num} {x t : Var} {o :
       exact ⟨u, eval_var_inv hu⟩
   exact ⟨u, ht, Exec.det _ h (exec_round hr ht)⟩
 
-theorem eval_lt {σ : Store} {C : Val} {e₁ e₂ : Expr (fpy decode)} {a b : ℝ}
-    (h₁ : Eval Φ σ C e₁ (.num (.finite a))) (h₂ : Eval Φ σ C e₂ (.num (.finite b))) :
-    Eval Φ σ C (.exactOp .lt [e₁, e₂]) (.bool (decide (a < b))) :=
-  .exact (.cons h₁ (.cons h₂ .nil)) rfl
+/-- Overflow's test: `<` if `s`, else `≤`. -/
+def cmpOp (s : Bool) : ExactOp := bif s then .lt else .le
+
+/-- `u < v` if `s`, else `u ≤ v`. -/
+noncomputable def numCmp (s : Bool) (u v : Num) : Bool := bif s then Num.lt u v else Num.le u v
+
+theorem eval_numCmp {σ : Store} {C : Val} (s : Bool) {e₁ e₂ : Expr (fpy decode)} {u v : Num}
+    (h₁ : Eval Φ σ C e₁ (.num u)) (h₂ : Eval Φ σ C e₂ (.num v)) :
+    Eval Φ σ C (.exactOp (cmpOp s) [e₁, e₂]) (.bool (numCmp s u v)) := by
+  cases s <;> exact .exact (.cons h₁ (.cons h₂ .nil)) rfl
+
+theorem le_of_numCmp {s : Bool} {a b : ℝ} (h : numCmp s (.finite a) (.finite b) = true) :
+    a ≤ b := by
+  cases s
+  · simp only [numCmp, cond_false, Num.le, Num.lt, Num.eq, Bool.or_eq_true,
+      decide_eq_true_eq] at h
+    exact le_iff_lt_or_eq.mpr h
+  · simp only [numCmp, cond_true, Num.lt, decide_eq_true_eq] at h
+    exact h.le
 
 theorem num_of_isNaN {σ : Store} {C : Val} {t : Var} {v : Val}
     (h : Eval Φ σ C (.exactOp .isNaN [.var t]) v) : ∃ u, σ t = some (.num u) := by
@@ -257,16 +278,23 @@ theorem num_of_isNaN {σ : Store} {C : Val} {t : Var} {v : Val}
       | cons hv hl => cases hl; cases hv with | var hx => exact ⟨_, hx, hev⟩
   rcases w with _ | u | _ | _ | _ | _ <;> first | exact ⟨u, hx⟩ | cases hev
 
-theorem num_of_binary {σ : Store} {C : Val} {t : Var} {c : Num} {v : Val} {op : ExactOp}
-    (hop : op = .lt ∨ op = .eq) (h : Eval Φ σ C (.exactOp op [.var t, .num c]) v) :
-    ∃ u, σ t = some (.num u) := by
-  obtain ⟨w, hx, hev⟩ : ∃ w, σ t = some w ∧ ExactOp.eval op [w, .num c] = some v := by
+theorem num_of_eq {σ : Store} {C : Val} {t : Var} {c : Num} {v : Val}
+    (h : Eval Φ σ C (.exactOp .eq [.var t, .num c]) v) : ∃ u, σ t = some (.num u) := by
+  obtain ⟨w, hx, hev⟩ : ∃ w, σ t = some w ∧ ExactOp.eval .eq [w, .num c] = some v := by
     cases h with
     | exact hl hev => cases hl with
       | cons hv hl => cases hl with
         | cons hc hl => cases hl; cases hc; cases hv with | var hx => exact ⟨_, hx, hev⟩
-  rcases hop with rfl | rfl <;> rcases w with _ | u | _ | _ | _ | _ <;>
-    first | exact ⟨u, hx⟩ | cases hev
+  rcases w with _ | u | _ | _ | _ | _ <;> first | exact ⟨u, hx⟩ | cases hev
+
+theorem num_of_cmp {σ : Store} {C : Val} {s : Bool} {t : Var} {c : Num} {v : Val}
+    (h : Eval Φ σ C (.exactOp (cmpOp s) [.num c, .var t]) v) : ∃ u, σ t = some (.num u) := by
+  obtain ⟨w, hx, hev⟩ : ∃ w, σ t = some w ∧ ExactOp.eval (cmpOp s) [.num c, w] = some v := by
+    cases h with
+    | exact hl hev => cases hl with
+      | cons hc hl => cases hl with
+        | cons hv hl => cases hl; cases hc; cases hv with | var hx => exact ⟨_, hx, hev⟩
+  cases s <;> rcases w with _ | u | _ | _ | _ | _ <;> first | exact ⟨u, hx⟩ | cases hev
 
 /-! ### Special -/
 
@@ -319,7 +347,7 @@ theorem num_of_eqBranch {σ : Store} {C : Val} {k : Bool} {x t : Var} {c d : Num
   cases k
   · exact hs o h
   · obtain ⟨_, he⟩ := Exec.ite_guard h
-    exact num_of_binary (.inr rfl) he
+    exact num_of_eq he
 
 /-- **Special**: `[C] x = round(t) ⇝ if isnan(t) then x = C(NaN) elif t == −∞ then
 x = C(−∞) elif t == +∞ then x = C(+∞) elif t == 0 then x = 0 else x = round(t)`, for a
@@ -345,88 +373,45 @@ theorem equiv_special {C : Val} {r : Num → Num} {x t : Var}
 
 /-! ### Overflow -/
 
-/-- **Overflow**: `[C] x = round(t) ⇝ with C' in r = round(t); if r < −b then x = ovf(−)
-else if b < r then x = ovf(+) else x = r`, where `C` rounds into `F` with bound `b` and `C'`
-rounds into `F` without it, for finite `t`. -/
-theorem equiv_overflow {C C' : Val} {c c' : RoundCtx} {ce : Expr (fpy decode)} {x t r : Var}
-    {b : NonNegDyadic} (hC : C.rnd (fpy decode) = some c.round) (hce : Denotes Φ ce C')
+/-- **Overflow**: `[C] x = round(t) ⇝ if t ⋈⁺ τ⁺ then x = ovf(+) elif t ⋈⁻ τ⁻ then
+x = ovf(−) else with C' in x = round(t)`, where `C` overflows exactly where a test holds
+(`hτ`, so `τ±` depend only on `C`'s format and mode), `C'` rounds into `C`'s format without
+its bound, and `t` is finite. Each `⋈` is `<` or `≤` (`sp`, `sn`). -/
+theorem equiv_overflow {C C' : Val} {c c' : RoundCtx} {ce : Expr (fpy decode)} {x t : Var}
+    {sp sn : Bool} {τp τn : ℝ} (hC : C.rnd (fpy decode) = some c.round) (hce : Denotes Φ ce C')
     (hC' : C'.rnd (fpy decode) = some c'.round) (hF : c'.F = c.F.unbounded) (hrm : c'.rm = c.rm)
-    (hb : c.F.b = b) (hfin : ∀ σ, Γ.Holds σ → ∀ u, σ t = some (.num u) → ∃ y, u = .finite y) :
-    Equiv Φ {r} Γ (some C) (.assign x (.arithOp .round [.var t]))
-      (.seq (.withCtx ce (.assign r (.arithOp .round [.var t])))
-        (.ite (.exactOp .lt [.var r, .num (.finite (-(b.1 : ℝ)))])
-          (.assign x (.num (c.O.map true).toReal))
-          (.ite (.exactOp .lt [.num (.finite (b.1 : ℝ)), .var r])
-            (.assign x (.num (c.O.map false).toReal)) (.assign x (.var r))))) := by
-  refine Equiv.of_fwd (fun σ C₀ o hΓ hκ hs => ?_) (fun σ C₀ o' _ hκ hs => ?_)
-  · obtain rfl := hκ C rfl
-    obtain ⟨u, ht, rfl⟩ := exec_round_inv hC hs
-    obtain ⟨y, rfl⟩ := hfin σ hΓ u ht
-    set yU := rndUnbounded c.F c.rm y c.defined
-    have h₁ : Exec Φ σ C (.withCtx ce (.assign r (.arithOp .round [.var t])))
-        (.normal (σ.update r (.num (.finite (yU : ℝ))))) := by
-      have h := Exec.withCtx (C := C) ((hce σ C').mpr rfl) (Val.isCtx_of_rnd hC')
-        (exec_round (x := r) hC' ht)
-      rwa [RoundCtx.round_unbounded hF hrm] at h
-    have hr₁ : (σ.update r (.num (.finite (yU : ℝ)))) r = some (.num (.finite (yU : ℝ))) := by
-      simp [Store.update]
-    have hB : (0 : ℝ) ≤ (b.1 : ℝ) := by
-      rw [Mpfx.Dyadic.coe_real_eq_ratCast]; exact_mod_cast b.2
-    have hbd : Format.boundOK c.F.b yU ↔ |(yU : ℝ)| ≤ (b.1 : ℝ) := by
-      rw [hb]
-      change |(yU : ℚ)| ≤ ((b.1 : Mpfx.Dyadic) : ℚ) ↔ _
-      rw [Mpfx.Dyadic.coe_real_eq_ratCast, Mpfx.Dyadic.coe_real_eq_ratCast, ← Rat.cast_abs,
-        Rat.cast_le]
-    rw [RoundCtx.round_finite]
-    by_cases hin : Format.boundOK c.F.b yU
-    · rw [if_pos hin]
-      obtain ⟨hlo, hhi⟩ := abs_le.mp (hbd.mp hin)
-      exact ⟨_, .seqNormal h₁ (.ite_dec (eval_lt (.var hr₁) .num) (fun h => by linarith)
-        fun _ => .ite_dec (eval_lt .num (.var hr₁)) (fun h => by linarith)
-          fun _ => .assign (.var hr₁)), Store.Agree.update_fresh _ _ _⟩
-    · rw [if_neg hin]
-      have hout := (not_congr hbd).mp hin
-      rw [abs_le, not_and_or, not_le, not_le] at hout
-      by_cases hneg : (yU : ℝ) < -(b.1 : ℝ)
-      · rw [decide_eq_true (by rw [← Mpfx.Dyadic.coe_real_lt_zero_iff]; linarith)]
-        exact ⟨_, .seqNormal h₁ (.ite_dec (eval_lt (.var hr₁) .num) (fun _ => .assign .num)
-          fun h => absurd hneg h), Store.Agree.update_fresh _ _ _⟩
-      · have hpos : (b.1 : ℝ) < yU := hout.resolve_left hneg
-        rw [decide_eq_false (by rw [← Mpfx.Dyadic.coe_real_lt_zero_iff]; linarith)]
-        exact ⟨_, .seqNormal h₁ (.ite_dec (eval_lt (.var hr₁) .num) (fun h => absurd h hneg)
-          fun _ => .ite_dec (eval_lt .num (.var hr₁)) (fun _ => .assign .num)
-            fun h => absurd hpos h), Store.Agree.update_fresh _ _ _⟩
-  · obtain rfl := hκ C rfl
-    obtain ⟨_, h₁⟩ := hs.seq_left
-    obtain ⟨_, _, he⟩ := h₁.withCtx_assign
-    obtain ⟨u, hu⟩ := he.num_of_arith (List.mem_singleton_self _)
-    exact ⟨_, exec_round hC (eval_var_inv hu)⟩
-
-/-- **Overflow** by a threshold: `[C] x = round(t) ⇝ if t < −θ then x = ovf(−) else if
-θ < t then x = ovf(+) else x = round(t)`, when `C` overflows exactly beyond `±θ`, for finite
-`t`. -/
-theorem equiv_overflow_threshold {C : Val} {c : RoundCtx} {x t : Var} {θ : ℝ}
-    (hC : C.rnd (fpy decode) = some c.round) (hθ0 : 0 ≤ θ)
-    (hθ : ∀ y, Overflows c.F c.rm y ↔ y < -θ ∨ θ < y)
+    (hτp : 0 ≤ τp) (hτn : τn < 0)
+    (hτ : ∀ y, Overflows c.F c.rm y ↔
+      numCmp sp (.finite τp) (.finite y) = true ∨ numCmp sn (.finite y) (.finite τn) = true)
     (hfin : ∀ σ, Γ.Holds σ → ∀ u, σ t = some (.num u) → ∃ y, u = .finite y) :
     Equiv Φ X Γ (some C) (.assign x (.arithOp .round [.var t]))
-      (.ite (.exactOp .lt [.var t, .num (.finite (-θ))]) (.assign x (.num (c.O.map true).toReal))
-        (.ite (.exactOp .lt [.num (.finite θ), .var t]) (.assign x (.num (c.O.map false).toReal))
-          (.assign x (.arithOp .round [.var t])))) := by
-  refine Equiv.of_fwd (fun σ C₀ o hΓ hκ hs => ?_) (fun σ C₀ o' _ hκ hs => ?_)
-  · obtain rfl := hκ C rfl
-    obtain ⟨u, ht, rfl⟩ := exec_round_inv hC hs
+      (.ite (.exactOp (cmpOp sp) [.num (.finite τp), .var t])
+        (.assign x (.num (c.O.map false).toReal))
+        (.ite (.exactOp (cmpOp sn) [.var t, .num (.finite τn)])
+          (.assign x (.num (c.O.map true).toReal))
+          (.withCtx ce (.assign x (.arithOp .round [.var t]))))) := by
+  refine Equiv.of_fwd (fun σ C₀ o hΓ hκ hs => ?_) (fun σ C₀ o' _ hκ hs => ?_) <;>
+    obtain rfl := hκ C rfl
+  · obtain ⟨u, ht, rfl⟩ := exec_round_inv hC hs
     obtain ⟨y, rfl⟩ := hfin σ hΓ u ht
     refine ⟨.normal (σ.update x (.num (c.round (.finite y)))), ?_, Store.Agree.refl _⟩
-    refine .ite_dec (eval_lt (.var ht) .num) (fun hneg => ?_) fun hneg =>
-      .ite_dec (eval_lt .num (.var ht)) (fun hpos => ?_) fun _ => exec_round hC ht
-    · rw [c.round_of_overflows ((hθ y).mpr (.inl hneg)), decide_eq_true (by linarith)]
+    have hp := eval_numCmp (Φ := Φ) (C := C) sp (.num (n := .finite τp)) (.var ht)
+    have hn := eval_numCmp (Φ := Φ) (C := C) sn (.var ht) (.num (n := .finite τn))
+    cases hgp : numCmp sp (.finite τp) (.finite y)
+    · cases hgn : numCmp sn (.finite y) (.finite τn)
+      · refine .iteFalse (hgp ▸ hp) (.iteFalse (hgn ▸ hn) ?_)
+        rw [← RoundCtx.round_of_not_overflows hF hrm (by simp [hτ, hgp, hgn])]
+        exact .withCtx ((hce σ C').mpr rfl) (Val.isCtx_of_rnd hC') (exec_round hC' ht)
+      · refine .iteFalse (hgp ▸ hp) (.iteTrue (hgn ▸ hn) ?_)
+        rw [c.round_of_overflows ((hτ y).mpr (.inr hgn)),
+          decide_eq_true ((le_of_numCmp hgn).trans_lt hτn)]
+        exact .assign .num
+    · refine .iteTrue (hgp ▸ hp) ?_
+      rw [c.round_of_overflows ((hτ y).mpr (.inl hgp)),
+        decide_eq_false (not_lt.mpr (hτp.trans (le_of_numCmp hgp)))]
       exact .assign .num
-    · rw [c.round_of_overflows ((hθ y).mpr (.inr hpos)), decide_eq_false (by linarith)]
-      exact .assign .num
-  · obtain rfl := hκ C rfl
-    obtain ⟨_, he⟩ := hs.ite_guard
-    obtain ⟨u, ht⟩ := num_of_binary (.inl rfl) he
+  · obtain ⟨_, he⟩ := hs.ite_guard
+    obtain ⟨u, ht⟩ := num_of_cmp he
     exact ⟨_, exec_round hC ht⟩
 
 /-- A quantum exponent as a number, with `⊥` as `−∞`. -/
