@@ -261,23 +261,14 @@ theorem eval_numCmp {σ : Store} {C : Val} (s : Bool) {e₁ e₂ : Expr (fpy dec
     Eval Φ σ C (.exactOp (cmpOp s) [e₁, e₂]) (.bool (numCmp s u v)) := by
   cases s <;> exact .exact (.cons h₁ (.cons h₂ .nil)) rfl
 
-theorem nonneg_of_numCmp {s : Bool} {a y : ℝ} (h : numCmp s (.finite a) (.finite y) = true)
-    (ha : 0 ≤ a) : 0 ≤ y := by
+theorem le_of_numCmp {s : Bool} {a b : ℝ} (h : numCmp s (.finite a) (.finite b) = true) :
+    a ≤ b := by
   cases s
   · simp only [numCmp, cond_false, Num.le, Num.lt, Num.eq, Bool.or_eq_true,
       decide_eq_true_eq] at h
-    rcases h with h | h <;> linarith
+    exact le_iff_lt_or_eq.mpr h
   · simp only [numCmp, cond_true, Num.lt, decide_eq_true_eq] at h
-    linarith
-
-theorem neg_of_numCmp {s : Bool} {y b : ℝ} (h : numCmp s (.finite y) (.finite b) = true)
-    (hb : b < 0) : y < 0 := by
-  cases s
-  · simp only [numCmp, cond_false, Num.le, Num.lt, Num.eq, Bool.or_eq_true,
-      decide_eq_true_eq] at h
-    rcases h with h | h <;> linarith
-  · simp only [numCmp, cond_true, Num.lt, decide_eq_true_eq] at h
-    linarith
+    exact h.le
 
 theorem num_of_isNaN {σ : Store} {C : Val} {t : Var} {v : Val}
     (h : Eval Φ σ C (.exactOp .isNaN [.var t]) v) : ∃ u, σ t = some (.num u) := by
@@ -413,11 +404,11 @@ theorem equiv_overflow {C C' : Val} {c c' : RoundCtx} {ce : Expr (fpy decode)} {
         exact .withCtx ((hce σ C').mpr rfl) (Val.isCtx_of_rnd hC') (exec_round hC' ht)
       · refine .iteFalse (hgp ▸ hp) (.iteTrue (hgn ▸ hn) ?_)
         rw [c.round_of_overflows ((hτ y).mpr (.inr hgn)),
-          decide_eq_true (neg_of_numCmp hgn hτn)]
+          decide_eq_true ((le_of_numCmp hgn).trans_lt hτn)]
         exact .assign .num
     · refine .iteTrue (hgp ▸ hp) ?_
       rw [c.round_of_overflows ((hτ y).mpr (.inl hgp)),
-        decide_eq_false (not_lt.mpr (nonneg_of_numCmp hgp hτp))]
+        decide_eq_false (not_lt.mpr (hτp.trans (le_of_numCmp hgp)))]
       exact .assign .num
   · obtain ⟨_, he⟩ := hs.ite_guard
     obtain ⟨u, ht⟩ := num_of_cmp he
