@@ -234,7 +234,7 @@ not by the `equiv_*` statements.
 | Insert | `equiv_insert` | `Fpy/Rewrite/Separate.lean` |
 | Split | `equiv_split`; condition from any total Mpfx rule via `RoundCtx.round_round`, or from Roux via `split_add`, `split_mul`, `split_div`, `split_sqrt` | `Fpy/Rewrite/Separate.lean` |
 | Special | `equiv_special` | `Fpy/Rewrite/Lower.lean` |
-| Overflow | `equiv_overflow`; threshold form `equiv_overflow_threshold`, with `overflows_iff_of_threshold` | `Fpy/Rewrite/Lower.lean` |
+| Overflow, with a threshold per sign | `equiv_overflow`; thresholds by monotonicity, `overflows_iff_of_threshold` | `Fpy/Rewrite/Lower.lean` |
 | Overflow threshold for MX E4M3 (`464`) | `FpyTest.e4m3_overflows_iff` | `FpyTest/Rewrite/Lower.lean` |
 | FloatToFixed | `equiv_floatToFixed`, from `rndUnbounded_eq_fixed` | `Fpy/Rewrite/Lower.lean` |
 | Rescale | `equiv_rescale`, from `rndUnbounded_scale` | `Fpy/Rewrite/Lower.lean` |

@@ -34,8 +34,8 @@ From the writing agent's Lean TODOs for `main.pdf`.
   `loop_sound`.
 - [x] Calls: body re-analyzed per call (`DEval.call`); returns joined by
   `RetLe` (`ret_join`).
-- [x] Overflow threshold: `equiv_overflow_threshold` assumes overflow exactly
-  beyond `±θ`; monotonicity derives it (`overflows_iff_of_threshold`).
+- [x] Overflow threshold: `equiv_overflow` assumes overflow exactly where its
+  tests hold; monotonicity derives that (`overflows_iff_of_threshold`).
 - [x] Split with `C' = R`: condition is `rfl` (`FpyTest/Rewrite/Separate.lean`).
 - [x] `A(p, exp, b, S)`: `b` inclusive; precision and quantum are separate
   existentials, equivalent to one `m × 2^e` (no lemma). `ctxFmt` makes `F_C`
@@ -59,6 +59,7 @@ Each fix is a change to the draft; the Lean states the fixed rule.
 | §4.3 `γ`, special values | `γ_ι(⟨[l, m], τ⟩)` by `inf digits(v)` and `sup digits(v)` | These are defined only for finite `v`, yet D-Const gives `±∞` and NaN an interval, and a store may hold them mid-program. Theorem 4.2's "`v` finite" restricts only the final value, so the induction has no description for an infinite or NaN intermediate. | NaN lies in every interval and `±∞` has digits `[+∞, +∞]` (`lsbOf`, `msbOf`, `NumIn`). |
 | Table 2, lone endpoints | upper `m` in `Fixed(τ, RTZ)` and `IEEE754(es, nb, RTZ)`; lower `l` in "? and all others" | Under the exact `γ`, a lone endpoint says the result's digit equals the input's. Rounding toward zero can reach `0`, whose `sup digits` is `−∞` (`0.75` under `Fixed(0, RTZ)`), and rounding can carry, raising the least digit (`3` to one digit under RNE is `4`). | A fresh variable bounded by the endpoint: `μ ≤ m`, `λ ≥ l` (`rndOK_*`, `bounds`). |
 | Fig. 8/12 `D-Sum` | `sum(e) : ⟨[l, m + ⌈log₂ L⌉], _⟩` for `e : [⟨[l, m], τ⟩]` | `l` and `m` are the list summary's variables, which each element re-chooses; as with D-Index before its fix, the result fixes them to one assignment. Its lone `l` also fails when the sum carries (`1 + 1 = 2`) or cancels to `0`. | Restate with common bounds: if `Ψ` implies `lo ≤ l` and `m ≤ hi`, for terms `lo`, `hi` over variables created before `d`'s, then `sum(e) : ⟨[λ, μ], _⟩` with fresh `λ ≥ lo`, `μ ≤ hi + ⌈log₂ L⌉` (`fused_sum`: `lo = val(emax) − k`, `hi = val(emax) + 1`). A fresh copy of `d`, as in D-Index, does not suffice: one assignment cannot bound elements whose digits differ. The Lean proves it over the analysis as a theorem beside the core rules (`eval_sum_sound`). |
+| Fig. 11 Overflow | `if t > τ … elif t < −τ … else with C′ in x = round(t)`, `τ` from `F_C` | A single strict `±τ` exists only if each boundary rounds in bound. FP16 under RNE overflows at `\|t\| ≥ 65520` (the tie rounds to the even `65536`, as `65504` ends in an odd digit), so at `t = 65520` the rule rounds under `C′` to `65536` instead of `ovf⁺`; the same holds for FP32 and FP64, and under ties-away. Directed modes are asymmetric: E4M3 toward `+∞` overflows at `t > 448` or `t ≤ −480`. | Per-sign thresholds `τ⁺ ≥ 0 > τ⁻` and tests `⋈ ∈ {<, ≤}`, with condition "`C` overflows exactly where a test holds"; `τ±` and `⋈` depend only on `F_C` and the mode (`equiv_overflow`). |
 
 ### Fixed in the draft
 
@@ -76,7 +77,7 @@ Found by the mechanization and adopted by the draft:
 - D-While takes an invariant; D-Index returns a fresh copy with its
   constraints; list elements agree with `ι` on the variables created before
   the summary's; D-Logb, D-Max, D-Min are under `R`.
-- §5.2: Overflow compares exactly and needs finite `t`; FloatToFixed needs
+- §5.2: Overflow needs finite `t`; FloatToFixed needs
   `p ≠ 1`; Rescale's `C₀` is `C` scaled.
 
 ## Not claimed

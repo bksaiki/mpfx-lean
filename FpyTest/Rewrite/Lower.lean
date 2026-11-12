@@ -106,16 +106,20 @@ theorem e4m3_overflows_iff (y : ℝ) : Overflows e4m3 (.nearest .toEven) y ↔ y
       exact lt_of_lt_of_le (by norm_num) ((rne_ge (by linarith)).trans (le_abs_self _))
     · exact lt_of_lt_of_le (by norm_num) ((rne_ge hy).trans (le_abs_self _))
 
-/-- Overflow's threshold form for an E4M3 context under RNE. -/
+/-- Overflow for an E4M3 context under RNE: `τ± = ±464`, both strict. -/
 example {decode : List (Label × Val) → Option RoundCtx} {Φ : Program (fpy decode)}
-    {D : FormatDomain} {Γ : AEnv D} {C : Val} {c : RoundCtx} {x t : Var}
-    (hC : C.rnd (fpy decode) = some c.round) (hF : c.F = e4m3) (hrm : c.rm = .nearest .toEven)
+    {D : FormatDomain} {Γ : AEnv D} {C C' : Val} {c c' : RoundCtx} {ce : Expr (fpy decode)}
+    {x t : Var} (hC : C.rnd (fpy decode) = some c.round) (hce : Denotes Φ ce C')
+    (hC' : C'.rnd (fpy decode) = some c'.round) (hF' : c'.F = c.F.unbounded)
+    (hrm' : c'.rm = c.rm) (hF : c.F = e4m3) (hrm : c.rm = .nearest .toEven)
     (hfin : ∀ σ, Γ.Holds σ → ∀ u, σ t = some (.num u) → ∃ y, u = .finite y) :
     Equiv Φ ∅ Γ (some C) (.assign x (.arithOp .round [.var t]))
-      (.ite (.exactOp .lt [.var t, .num (.finite (-464))]) (.assign x (.num (c.O.map true).toReal))
-        (.ite (.exactOp .lt [.num (.finite 464), .var t])
-          (.assign x (.num (c.O.map false).toReal)) (.assign x (.arithOp .round [.var t])))) :=
-  equiv_overflow_threshold hC (by norm_num) (fun y => by rw [hF, hrm]; exact e4m3_overflows_iff y)
-    hfin
+      (.ite (.exactOp (cmpOp true) [.num (.finite 464), .var t])
+        (.assign x (.num (c.O.map false).toReal))
+        (.ite (.exactOp (cmpOp true) [.var t, .num (.finite (-464))])
+          (.assign x (.num (c.O.map true).toReal))
+          (.withCtx ce (.assign x (.arithOp .round [.var t]))))) :=
+  equiv_overflow hC hce hC' hF' hrm' (by norm_num) (by norm_num)
+    (fun y => by rw [hF, hrm, e4m3_overflows_iff]; simp [numCmp, Num.lt, or_comm]) hfin
 
 end FpyTest
