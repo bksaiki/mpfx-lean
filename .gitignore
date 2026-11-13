@@ -10,3 +10,6 @@
 # Editor & OS temporary files
 .DS_Store
 .lake/
+
+# Submission archive
+myna-lean.tar.gz

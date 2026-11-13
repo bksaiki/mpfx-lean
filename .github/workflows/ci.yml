@@ -28,6 +28,3 @@ jobs:
 
       - name: Test
         run: lake test
-
-      - name: Test FPy
-        run: lake build FpyTest

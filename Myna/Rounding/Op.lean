@@ -1,0 +1,147 @@
+import Myna.Rounding.Op.Defs
+import Myna.Rounding.Op.Directed
+import Myna.Rounding.Op.ToOdd
+import Myna.Rounding.Op.Nearest
+
+/-!
+# The rounding function, assembled
+
+The mode dispatcher `rndUnbounded_satisfies`, its uniqueness counterpart, the
+overflow dichotomy `overflows_iff_not_roundsInBound`, the bridge
+`rnd_iff_rounds` tying `rnd` to the relational spec `Rounds`, and how special
+inputs and overflow come out of `rnd` (`rnd_special`, `rnd_of_overflows`),
+and where `rnd` lands (`rnd_mem_values`, `rnd_of_mem_values`).
+-/
+
+namespace Myna
+
+attribute [local instance] Classical.propDecidable
+
+/-- `rndUnbounded` satisfies the unbounded rounding spec. -/
+theorem rndUnbounded_satisfies (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
+    (h : ¬ F.IsUndefined rm) :
+    RoundsFinite F.unbounded rm x (rndUnbounded F rm x h) := by
+  cases rm with
+  | toNegative => exact rndUnbounded_satisfies_toNegative F x h
+  | toPositive => exact rndUnbounded_satisfies_toPositive F x h
+  | toZero => exact rndUnbounded_satisfies_toZero F x h
+  | awayZero => exact rndUnbounded_satisfies_awayZero F x h
+  | toOdd => exact rndUnbounded_satisfies_toOdd F x h
+  | nearest tb => exact rndUnbounded_satisfies_nearest F tb x h
+
+
+/-- Any `y` satisfying the spec equals `rndUnbounded F rm x h`. -/
+theorem rndUnbounded_unique (F : FiniteFormat) (rm : RoundingMode) (x : ℝ)
+    (h : ¬ F.IsUndefined rm) {y : Dyadic}
+    (hy : RoundsFinite F.unbounded rm x y) :
+    y = rndUnbounded F rm x h :=
+  RoundsFinite.unique h hy (rndUnbounded_satisfies F rm x h)
+
+/-- For a defined mode, a real either overflows or rounds within the bound. -/
+theorem overflows_iff_not_roundsInBound {F : FiniteFormat} {rm : RoundingMode} {x : ℝ}
+    (h : ¬ F.IsUndefined rm) : Overflows F rm x ↔ ¬ ∃ y, RoundsInBound F rm x y := by
+  constructor
+  · rintro ⟨y, hy, hnb⟩ ⟨y', hy', hb⟩
+    exact hnb (RoundsFinite.unique h hy' hy ▸ hb)
+  · intro hn
+    refine ⟨rndUnbounded F rm x h, rndUnbounded_satisfies F rm x h, fun hb => hn ?_⟩
+    exact ⟨_, rndUnbounded_satisfies F rm x h, hb⟩
+
+/-! ### Bridge lemma -/
+
+theorem rnd_iff_rounds (F : FiniteFormat) (S : SpecialMap F.toFormat)
+    (O : OverflowMap F.toFormat) (rm : RoundingMode) (v : WithSpecial ℝ) (r : RoundResult) :
+    rnd F S O rm v = r ↔ Rounds F S O rm v r := by
+  cases v with
+  | special s => exact eq_comm
+  | finite x =>
+    cases r with
+    | undefined =>
+      change rnd F S O rm (.finite x) = .undefined ↔ F.IsUndefined rm
+      constructor
+      · intro h_eq
+        by_contra h_undef
+        simp only [rnd, dif_neg h_undef] at h_eq
+        split_ifs at h_eq
+      · intro h_undef
+        simp only [rnd, dif_pos h_undef]
+    | value w =>
+      change rnd F S O rm (.finite x) = .value w ↔ ¬ F.IsUndefined rm ∧ ∃ y,
+        RoundsFinite F.unbounded rm x y ∧
+          ((Format.boundOK F.b y ∧ w = .finite y) ∨
+           (¬ Format.boundOK F.b y ∧ w = O.map (decide ((y : ℚ) < 0))))
+      constructor
+      · intro h_eq
+        have h_undef : ¬ F.IsUndefined rm := by
+          intro h
+          simp only [rnd, dif_pos h] at h_eq
+          exact RoundResult.noConfusion h_eq
+        refine ⟨h_undef, rndUnbounded F rm x h_undef,
+          rndUnbounded_satisfies F rm x h_undef, ?_⟩
+        simp only [rnd, dif_neg h_undef] at h_eq
+        split_ifs at h_eq with hb
+        · exact Or.inl ⟨hb, (RoundResult.value.inj h_eq).symm⟩
+        · exact Or.inr ⟨hb, (RoundResult.value.inj h_eq).symm⟩
+      · rintro ⟨h_undef, y, hRF, h⟩
+        obtain rfl := rndUnbounded_unique F rm x h_undef hRF
+        simp only [rnd, dif_neg h_undef]
+        rcases h with ⟨hb, rfl⟩ | ⟨hb, rfl⟩
+        · rw [if_pos hb]
+        · rw [if_neg hb]
+
+/-- `rnd` on a real, read off any witness of the unbounded rounding. -/
+theorem rnd_finite_of_roundsFinite {F : FiniteFormat} {S : SpecialMap F.toFormat}
+    {O : OverflowMap F.toFormat} {rm : RoundingMode} {x : ℝ} {y : Dyadic}
+    (h : ¬ F.IsUndefined rm) (hy : RoundsFinite F.unbounded rm x y) :
+    rnd F S O rm (.finite x) =
+      if Format.boundOK F.b y then .value (.finite y)
+      else .value (O.map (decide ((y : ℚ) < 0))) := by
+  rw [rndUnbounded_unique F rm x h hy]
+  simp only [rnd, dif_neg h]
+
+/-! ### Special inputs and overflow through `rnd` -/
+
+@[simp] theorem rnd_special (F : FiniteFormat) (S : SpecialMap F.toFormat)
+    (O : OverflowMap F.toFormat) (rm : RoundingMode) (s : Special) :
+    rnd F S O rm (.special s) = .value (S.map s) := rfl
+
+/-- An overflow selects the map's entry at the sign of `x`. -/
+theorem rnd_of_overflows {F : FiniteFormat} {S : SpecialMap F.toFormat}
+    {O : OverflowMap F.toFormat} {rm : RoundingMode} {x : ℝ}
+    (h : ¬ F.IsUndefined rm) (hov : Overflows F rm x) :
+    rnd F S O rm (.finite x) = .value (O.map (decide (x < 0))) := by
+  obtain ⟨y, hy, hnb⟩ := hov
+  rw [rnd_finite_of_roundsFinite h hy, if_neg hnb,
+    hy.isFaithfulRound.decide_lt_zero (ne_zero_of_not_boundOK hnb)]
+
+/-! ### Where `rnd` lands -/
+
+/-- Every value `rnd` returns is a value of `F`. -/
+theorem rnd_mem_values {F : FiniteFormat} {S : SpecialMap F.toFormat}
+    {O : OverflowMap F.toFormat} {rm : RoundingMode} {v : WithSpecial ℝ}
+    {w : WithSpecial Dyadic} (h : rnd F S O rm v = .value w) : w ∈ F.values := by
+  cases v with
+  | special s =>
+    rw [rnd_special, RoundResult.value.injEq] at h
+    exact h ▸ S.mem s
+  | finite x =>
+    simp only [rnd] at h
+    split_ifs at h with hu hb
+    · rw [← RoundResult.value.inj h]
+      exact mem_of_mem_unbounded_of_boundOK (rndUnbounded_satisfies F rm x hu).1 hb
+    · rw [← RoundResult.value.inj h]
+      exact O.mem _
+
+/-- `rnd` fixes every value of `F` when `S` fixes the specials of `F`. -/
+theorem rnd_of_mem_values {F : FiniteFormat} {S : SpecialMap F.toFormat}
+    {O : OverflowMap F.toFormat} {rm : RoundingMode}
+    (hS : ∀ s ∈ F.specials, S.map s = .special s) (hrm : ¬ F.IsUndefined rm)
+    {w : WithSpecial Dyadic} (hw : w ∈ F.values) : rnd F S O rm w.toReal = .value w := by
+  cases w with
+  | special s => rw [WithSpecial.toReal_special, rnd_special, hS s hw]
+  | finite d =>
+    rw [WithSpecial.toReal_finite,
+      rnd_finite_of_roundsFinite hrm (RoundsFinite.self rm (mem_unbounded_of_mem hw)),
+      if_pos hw.2.2]
+
+end Myna

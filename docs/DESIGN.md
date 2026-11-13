@@ -1,6 +1,6 @@
 # Formalization design
 
-Notes on the structural choices behind `mpfx-lean`. None of this is needed to
+Notes on the structural choices behind `myna-lean`. None of this is needed to
 *check* the results (see the README for those) — it explains how the
 development is put together.
 
@@ -19,7 +19,7 @@ structure Format where
 `specials` has no default: every format states it (see "Special values and
 overflow" below).
 
-The three field types are abbreviations, defined in `Mpfx/Dyadic.lean`:
+The three field types are abbreviations, defined in `Myna/Dyadic.lean`:
 
 | abbrev  | unfolds to             | eliminator        |
 | ------- | ---------------------- | ----------------- |
@@ -126,7 +126,7 @@ of the rounding mode:
 Each entry must be one of `F.values`. A map follows the mode only when built
 to: `OverflowMap.ieee F rm` is IEEE 754 §7.4, so RTP sends `+overflow` to
 `+Inf` but `−overflow` to `−maxFinite`. The other standard maps (all in
-`Mpfx/Rounding/Special.lean`) are `SpecialMap.exact`/`saturate`/`toNaN` and
+`Myna/Rounding/Special.lean`) are `SpecialMap.exact`/`saturate`/`toNaN` and
 `OverflowMap.saturate`/`toNaN`. Maps are arbitrary; conditions on them (e.g.
 `OverflowAgrees` for double rounding) are named predicates used as
 hypotheses, so OCP E4M3 or P3109 saturation fit without special cases.
@@ -148,8 +148,8 @@ Signed zero is out of scope: `Dyadic` has one zero, and no map touches it.
 
 ## RoundingMode coverage
 
-`RoundingMode` covers the four IEEE 754 directed/nearest modes plus the
-paper's round-to-odd:
+`RoundingMode` covers the four IEEE 754 directed/nearest modes plus
+round-to-odd:
 
 - directed: `toNegative` (RTN), `toPositive` (RTP), `toZero` (RTZ),
   `awayZero` (RAZ);

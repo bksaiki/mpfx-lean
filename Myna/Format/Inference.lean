@@ -1,0 +1,526 @@
+import Myna.Format.Defs
+import Mathlib.Algebra.Group.Pointwise.Set.Basic
+import Mathlib.Data.Nat.Log
+
+/-!
+# Format inference for unrounded operations
+
+**Format inference** is a static analysis bounding the possible values of each
+subexpression by the smallest `Format` containing them.  For unrounded
+operations:
+
+* `neg` and `abs` preserve the format.
+* `mul`: `𝒜(p₁, exp₁, b₁) ⊗ 𝒜(p₂, exp₂, b₂) ⊆
+          𝒜(p₁ + p₂, exp₁ + exp₂, b₁ × b₂)`.
+* `add`: `𝒜(p₁, exp₁, b₁) ⊕ 𝒜(p₂, exp₂, b₂) ⊆
+          𝒜(⌈log₂((b₁+b₂)/2^min(exp₁,exp₂) + 1)⌉, min(exp₁, exp₂), b₁ + b₂)`.
+
+Special values follow IEEE 754 (`WithSpecial.mul`, `add`, `abs`, `neg`). The
+inferred specials (`mulSpecials`, `addSpecials`, `absSpecials`, and negation
+for `opNeg`) are exactly those the operation produces
+(`special_mem_opMul_iff`, …), and `mul_subset`, `add_subset`, `neg_subset`,
+`abs_subset` contain every result over `Format.values`. The `…_finite` forms
+are the numeric containments over `Format.toSet`. With negation-closed
+specials, `opNeg F = F` (`opNeg_of_negClosed`), but `|F|` can gain `+∞`.
+
+For the `⊕`-precision we use a *slightly tighter* formula than the one above:
+`opAddPrec` returns `⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉` (floor inside),
+matching the actual integer bound on `|c|`.
+-/
+
+namespace Myna
+
+namespace Format
+
+open scoped Pointwise
+
+/-- Coerce a `Format` to its underlying set of representable Dyadics.  Used to
+express `⊆` between formats at the `Set Dyadic` level. -/
+def toSet (F : Format) : Set Dyadic := {x | x ∈ F}
+
+@[simp] theorem mem_toSet {F : Format} {x : Dyadic} :
+    x ∈ F.toSet ↔ x ∈ F := Iff.rfl
+
+end Format
+
+/-! ## IEEE 754 arithmetic on values
+
+Exact (unrounded) `*`, `+`, `-` and `abs` on `WithSpecial Dyadic`, with the
+IEEE 754 special-value rules: NaN propagates, `∞ × 0` and `∞ + (−∞)` are NaN,
+an infinite product takes the XOR of the operand signs, and an infinite sum
+keeps the infinity's sign. There is no signed zero, so `0` carries no sign. -/
+
+namespace WithSpecial
+
+/-- IEEE 754 multiplication of exact values. -/
+def mul : WithSpecial Dyadic → WithSpecial Dyadic → WithSpecial Dyadic
+  | .finite x, .finite y => .finite (x * y)
+  | .special .nan, _ | _, .special .nan => .special .nan
+  | .special (.inf a), .special (.inf b) => .special (.inf (xor a b))
+  | .special (.inf a), .finite y | .finite y, .special (.inf a) =>
+      if y = 0 then .special .nan else .special (.inf (xor a (decide ((y : ℚ) < 0))))
+
+/-- IEEE 754 addition of exact values. -/
+def add : WithSpecial Dyadic → WithSpecial Dyadic → WithSpecial Dyadic
+  | .finite x, .finite y => .finite (x + y)
+  | .special .nan, _ | _, .special .nan => .special .nan
+  | .special (.inf a), .special (.inf b) => if a = b then .special (.inf a) else .special .nan
+  | .special (.inf a), .finite _ | .finite _, .special (.inf a) => .special (.inf a)
+
+/-- IEEE 754 absolute value: infinities become `+∞`, NaN stays NaN. -/
+def abs : WithSpecial Dyadic → WithSpecial Dyadic
+  | .finite x => .finite (Dyadic.abs x)
+  | .special (.inf _) => .special (.inf false)
+  | .special .nan => .special .nan
+
+instance : Mul (WithSpecial Dyadic) := ⟨mul⟩
+instance : Add (WithSpecial Dyadic) := ⟨add⟩
+instance {α : Type} [Neg α] : Neg (WithSpecial α) := ⟨WithSpecial.neg⟩
+
+@[simp] theorem finite_mul_finite (x y : Dyadic) :
+    finite x * finite y = finite (x * y) := rfl
+
+@[simp] theorem nan_mul (v : WithSpecial Dyadic) :
+    (special .nan : WithSpecial Dyadic) * v = special .nan := by
+  rcases v with _ | (_ | _) <;> rfl
+
+@[simp] theorem mul_nan (u : WithSpecial Dyadic) : u * special .nan = special .nan := by
+  rcases u with _ | (_ | _) <;> rfl
+
+@[simp] theorem inf_mul_inf (a b : Bool) :
+    (special (.inf a) : WithSpecial Dyadic) * special (.inf b) = special (.inf (xor a b)) :=
+  rfl
+
+@[simp] theorem inf_mul_finite (a : Bool) (y : Dyadic) :
+    (special (.inf a) : WithSpecial Dyadic) * finite y =
+      if y = 0 then special .nan else special (.inf (xor a (decide ((y : ℚ) < 0)))) := rfl
+
+@[simp] theorem finite_mul_inf (x : Dyadic) (b : Bool) :
+    finite x * special (.inf b) =
+      if x = 0 then special .nan else special (.inf (xor b (decide ((x : ℚ) < 0)))) := rfl
+
+@[simp] theorem finite_add_finite (x y : Dyadic) :
+    finite x + finite y = finite (x + y) := rfl
+
+@[simp] theorem nan_add (v : WithSpecial Dyadic) :
+    (special .nan : WithSpecial Dyadic) + v = special .nan := by
+  rcases v with _ | (_ | _) <;> rfl
+
+@[simp] theorem add_nan (u : WithSpecial Dyadic) : u + special .nan = special .nan := by
+  rcases u with _ | (_ | _) <;> rfl
+
+@[simp] theorem inf_add_inf (a b : Bool) :
+    (special (.inf a) : WithSpecial Dyadic) + special (.inf b) =
+      if a = b then special (.inf a) else special .nan := rfl
+
+@[simp] theorem inf_add_finite (a : Bool) (y : Dyadic) :
+    (special (.inf a) : WithSpecial Dyadic) + finite y = special (.inf a) := rfl
+
+@[simp] theorem finite_add_inf (x : Dyadic) (b : Bool) :
+    finite x + special (.inf b) = special (.inf b) := rfl
+
+@[simp] theorem neg_def {α : Type} [Neg α] (v : WithSpecial α) : -v = v.neg := rfl
+
+/-- A product is finite exactly when both factors are. -/
+theorem mul_eq_finite {u v : WithSpecial Dyadic} {z : Dyadic} :
+    u * v = finite z ↔ ∃ x y, u = finite x ∧ v = finite y ∧ z = x * y := by
+  constructor
+  · intro h
+    rcases u with x | (a | _) <;> rcases v with y | (b | _)
+    · exact ⟨x, y, rfl, rfl, (finite.inj h).symm⟩
+    all_goals
+      simp only [inf_mul_finite, finite_mul_inf, inf_mul_inf,
+        nan_mul, mul_nan] at h
+      (try split_ifs at h) <;> cases h
+  · rintro ⟨x, y, rfl, rfl, rfl⟩; rfl
+
+/-- A sum is finite exactly when both summands are. -/
+theorem add_eq_finite {u v : WithSpecial Dyadic} {z : Dyadic} :
+    u + v = finite z ↔ ∃ x y, u = finite x ∧ v = finite y ∧ z = x + y := by
+  constructor
+  · intro h
+    rcases u with x | (a | _) <;> rcases v with y | (b | _)
+    · exact ⟨x, y, rfl, rfl, (finite.inj h).symm⟩
+    all_goals
+      simp only [inf_add_finite, finite_add_inf, inf_add_inf,
+        nan_add, add_nan] at h
+      (try split_ifs at h) <;> cases h
+  · rintro ⟨x, y, rfl, rfl, rfl⟩; rfl
+
+end WithSpecial
+
+namespace Format
+
+open scoped Pointwise
+
+/-! ## Inferred special values -/
+
+/-- The specials of `F₁ * F₂`: NaN from a NaN operand or from `∞ × 0` (every
+format holds `0`), and `±∞` from an infinity times an infinity or a nonzero
+value, with the XOR of the signs. -/
+def mulSpecials (F₁ F₂ : Format) : Set Special
+  | .nan => .nan ∈ F₁.specials ∨ .nan ∈ F₂.specials ∨
+      (∃ a, .inf a ∈ F₁.specials) ∨ (∃ b, .inf b ∈ F₂.specials)
+  | .inf s => ∃ a b, xor a b = s ∧
+      (.inf a ∈ F₁.specials ∧ (.inf b ∈ F₂.specials ∨ F₂.Nontrivial) ∨
+        F₁.Nontrivial ∧ .inf b ∈ F₂.specials)
+
+/-- The specials of `F₁ + F₂`: NaN from a NaN operand or from `∞ + (−∞)`, and
+`±∞` from an infinity of that sign (plus `0`, or the same infinity). -/
+def addSpecials (F₁ F₂ : Format) : Set Special
+  | .nan => .nan ∈ F₁.specials ∨ .nan ∈ F₂.specials ∨
+      ∃ a, .inf a ∈ F₁.specials ∧ .inf (!a) ∈ F₂.specials
+  | .inf s => .inf s ∈ F₁.specials ∨ .inf s ∈ F₂.specials
+
+/-- The specials of `|F|`: NaN from NaN, and `+∞` from either infinity. -/
+def absSpecials (F : Format) : Set Special
+  | .nan => .nan ∈ F.specials
+  | .inf s => s = false ∧ ∃ a, .inf a ∈ F.specials
+
+/-! ## Static inference operators (`⊗`/`⊕`) -/
+
+/-- `⊗`: multiplicative format inference.  Returns
+`𝒜(p₁ + p₂, exp₁ + exp₂, b₁ × b₂)`.  The bound is constructed by `match`:
+when both operand bounds are finite the result is their product (non-negative
+by `mul_nonneg`); otherwise `⊤`. Specials by `mulSpecials`. -/
+def opMul (F₁ F₂ : Format) : Format where
+  p := F₁.p + F₂.p
+  exp := F₁.exp + F₂.exp
+  b := match F₁.b, F₂.b with
+    | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic) =>
+        ((⟨b₁.1 * b₂.1, by
+            have := mul_nonneg b₁.2 b₂.2
+            push_cast at this ⊢
+            exact this⟩ : NonNegDyadic) : Bound)
+    | _, _ => ⊤
+  specials := mulSpecials F₁ F₂
+
+/-- `⌈log₂(⌊B / 2^m⌋ + 1)⌉`: the precision a value with quantum `2^m` and
+magnitude at most `B` needs. -/
+noncomputable def bitsFor (B : ℝ) (m : ℤ) : ℕ := Nat.clog 2 (Int.toNat ⌊B / (2 : ℝ) ^ m⌋ + 1)
+
+/-- Tight precision bound for `⊕`:
+`p = ⌈log₂(⌊(b₁+b₂)/2^min(exp₁,exp₂)⌋ + 1)⌉`, or `⊤` when either operand bound
+or exponent is infinite.  The floor ratio is computed over `ℝ`. -/
+noncomputable def opAddPrec (F₁ F₂ : Format) : Prec :=
+  match (F₁.b : Bound), (F₂.b : Bound),
+        (min F₁.exp F₂.exp : QExp) with
+  | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic), (m : ℤ) =>
+      (bitsFor ((b₁.1 + b₂.1 : Dyadic) : ℝ) m : Prec)
+  | _, _, _ => ⊤
+
+/-- `⊕`: additive format inference.  Returns the inferred `Format`
+`𝒜(opAddPrec, min(exp₁, exp₂), b₁ + b₂)`.  The bound is constructed by `match`
+on both operand bounds (their sum, non-negative by `add_nonneg`), else `⊤`.
+Specials by `addSpecials`. -/
+noncomputable def opAdd (F₁ F₂ : Format) : Format where
+  p := opAddPrec F₁ F₂
+  exp := min F₁.exp F₂.exp
+  b := match F₁.b, F₂.b with
+    | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic) =>
+        ((⟨b₁.1 + b₂.1, by
+            have := add_nonneg b₁.2 b₂.2
+            push_cast at this ⊢
+            exact this⟩ : NonNegDyadic) : Bound)
+    | _, _ => ⊤
+  specials := addSpecials F₁ F₂
+
+/-- Negation: the numeric values are unchanged, the specials negated. -/
+def opNeg (F : Format) : Format := { F with specials := {s | s.neg ∈ F.specials} }
+
+/-- Absolute value: the numeric values are kept (`|F| ⊆ F`), the specials by
+`absSpecials`. -/
+def opAbs (F : Format) : Format := { F with specials := absSpecials F }
+
+/-! ## Public `⊆`-level API -/
+
+/-- Finite form of `mul_subset`: `{x · y | x ∈ F₁, y ∈ F₂} ⊆ opMul F₁ F₂`. -/
+theorem mul_subset_finite (F₁ F₂ : Format) :
+    F₁.toSet * F₂.toSet ⊆ (opMul F₁ F₂).toSet := by
+  rintro z ⟨x, hx, y, hy, rfl⟩
+  have h_prec := Dyadic.precisionAtMost_mul (mem_toSet.mp hx).1 (mem_toSet.mp hy).1
+  have h_quant := Dyadic.quantumAtLeast_mul (mem_toSet.mp hx).2.1 (mem_toSet.mp hy).2.1
+  refine ⟨h_prec, h_quant, ?_⟩
+  change boundOK
+      (match F₁.b, F₂.b with
+        | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic) => _
+        | _, _ => ⊤) (x * y)
+  obtain ⟨_, _, hbx⟩ := mem_toSet.mp hx
+  obtain ⟨_, _, hby⟩ := mem_toSet.mp hy
+  cases hF1_b : F₁.b using Bound.recTopCoe with
+  | top => trivial
+  | coe b₁ =>
+    cases hF2_b : F₂.b using Bound.recTopCoe with
+    | top => trivial
+    | coe b₂ =>
+      rw [hF1_b] at hbx
+      rw [hF2_b] at hby
+      change |(x : ℚ)| ≤ ((b₁.1 : Dyadic) : ℚ) at hbx
+      change |(y : ℚ)| ≤ ((b₂.1 : Dyadic) : ℚ) at hby
+      change |((x * y : Dyadic) : ℚ)| ≤ ((b₁.1 * b₂.1 : Dyadic) : ℚ)
+      push_cast
+      rw [abs_mul]
+      have hb1_nn : 0 ≤ ((b₁.1 : Dyadic) : ℚ) := b₁.2
+      exact mul_le_mul hbx hby (abs_nonneg _) hb1_nn
+
+/-- A value with quantum `2^m` and magnitude at most `B` has a significand of
+magnitude at most `⌊B / 2^m⌋`, so it needs at most `bitsFor B m` digits. -/
+theorem precisionAtMost_bitsFor {x : Dyadic} {m : ℤ} {B : ℝ}
+    (hq : Dyadic.quantumAtLeast (m : QExp) x) (hb : |(x : ℝ)| ≤ B) :
+    Dyadic.precisionAtMost (bitsFor B m : Prec) x := by
+  obtain ⟨c, hc⟩ := (Dyadic.quantumAtLeast_coe_real m x).mp hq
+  have h2m_pos : (0 : ℝ) < (2 : ℝ) ^ m := zpow_pos (by norm_num) _
+  have h_c_le_ratio : |(c : ℝ)| ≤ B / (2 : ℝ) ^ m := by
+    rw [le_div_iff₀ h2m_pos, ← abs_mul_two_zpow, ← hc]
+    exact hb
+  have h_floor_nn : 0 ≤ ⌊B / (2 : ℝ) ^ m⌋ :=
+    Int.floor_nonneg.mpr ((abs_nonneg _).trans h_c_le_ratio)
+  set N : ℕ := Int.toNat ⌊B / (2 : ℝ) ^ m⌋ with hN_def
+  have h_abs_c_le : |c| ≤ (N : ℤ) := by
+    rw [hN_def, Int.toNat_of_nonneg h_floor_nn]
+    exact Int.le_floor.mpr (by rw [Int.cast_abs]; exact h_c_le_ratio)
+  refine (Dyadic.precisionAtMost_coe_real _ x).mpr ⟨c, m, hc, ?_⟩
+  have h_natAbs_le : c.natAbs ≤ N := by
+    have : (c.natAbs : ℤ) ≤ (N : ℤ) := by rw [Int.natCast_natAbs]; exact h_abs_c_le
+    exact_mod_cast this
+  have h_clog : N + 1 ≤ 2 ^ Nat.clog 2 (N + 1) := Nat.le_pow_clog (by norm_num : 1 < 2) _
+  rw [Int.abs_eq_natAbs]
+  exact_mod_cast Nat.lt_of_lt_of_le (by omega : c.natAbs < N + 1) h_clog
+
+/-- Precision bound for the tight `opAdd`: if both bounds and exponents are
+finite, `x + y` has quantum `2^(min e₁ e₂)` and magnitude at most `b₁ + b₂`. -/
+private theorem add_prec_finite {F₁ F₂ : Format} {x y : Dyadic}
+    {b1 b2 : NonNegDyadic} {e1 e2 : ℤ}
+    (hF1_b : F₁.b = (b1 : Bound)) (hF2_b : F₂.b = (b2 : Bound))
+    (hF1_exp : F₁.exp = (e1 : QExp)) (hF2_exp : F₂.exp = (e2 : QExp))
+    (hx : x ∈ F₁) (hy : y ∈ F₂) :
+    Dyadic.precisionAtMost
+      (bitsFor ((b1.1 + b2.1 : Dyadic) : ℝ) (min e1 e2) : Prec)
+      (x + y) := by
+  obtain ⟨_, hqx, hbx⟩ := hx
+  obtain ⟨_, hqy, hby⟩ := hy
+  rw [hF1_exp] at hqx
+  rw [hF2_exp] at hqy
+  rw [hF1_b] at hbx
+  rw [hF2_b] at hby
+  change |(x : ℚ)| ≤ ((b1.1 : Dyadic) : ℚ) at hbx
+  change |(y : ℚ)| ≤ ((b2.1 : Dyadic) : ℚ) at hby
+  have hq := Dyadic.quantumAtLeast_add
+    (Dyadic.quantumAtLeast_anti (WithBot.coe_le_coe.mpr (min_le_left e1 e2)) hqx)
+    (Dyadic.quantumAtLeast_anti (WithBot.coe_le_coe.mpr (min_le_right e1 e2)) hqy)
+  refine precisionAtMost_bitsFor hq ?_
+  have hbxR : |(x : ℝ)| ≤ ((b1.1 : Dyadic) : ℝ) := by exact_mod_cast hbx
+  have hbyR : |(y : ℝ)| ≤ ((b2.1 : Dyadic) : ℝ) := by exact_mod_cast hby
+  rw [Dyadic.coe_real_add, Dyadic.coe_real_add]
+  exact (abs_add_le _ _).trans (add_le_add hbxR hbyR)
+
+/-- Finite form of `add_subset`: `{x + y | x ∈ F₁, y ∈ F₂} ⊆ opAdd F₁ F₂`. -/
+theorem add_subset_finite (F₁ F₂ : Format) :
+    F₁.toSet + F₂.toSet ⊆ (opAdd F₁ F₂).toSet := by
+  rintro z ⟨x, hx, y, hy, rfl⟩
+  have h_quant := Dyadic.quantumAtLeast_add
+    (Dyadic.quantumAtLeast_anti (min_le_left _ _) (mem_toSet.mp hx).2.1)
+    (Dyadic.quantumAtLeast_anti (min_le_right _ _) (mem_toSet.mp hy).2.1)
+  obtain ⟨_, _, hbx⟩ := mem_toSet.mp hx
+  obtain ⟨_, _, hby⟩ := mem_toSet.mp hy
+  refine ⟨?_, h_quant, ?_⟩
+  · change Dyadic.precisionAtMost (opAddPrec F₁ F₂) (x + y)
+    unfold opAddPrec
+    cases hF1_b : F₁.b using Bound.recTopCoe with
+    | top => trivial
+    | coe b1 =>
+      cases hF2_b : F₂.b using Bound.recTopCoe with
+      | top => trivial
+      | coe b2 =>
+        cases hF1_exp : F₁.exp using QExp.recBotCoe with
+        | bot =>
+          -- min ≤ ⊥ ⇒ min = ⊥ ⇒ ⊤ branch
+          simp only [bot_inf_eq]; trivial
+        | coe e1 =>
+          cases hF2_exp : F₂.exp using QExp.recBotCoe with
+          | bot =>
+            simp only [inf_bot_eq]; trivial
+          | coe e2 =>
+            have h_min_eq : min (e1 : QExp) (e2 : QExp)
+                = ((min e1 e2 : ℤ) : QExp) := (WithBot.coe_min e1 e2).symm
+            rw [h_min_eq]
+            have := add_prec_finite hF1_b hF2_b hF1_exp hF2_exp
+              (mem_toSet.mp hx) (mem_toSet.mp hy)
+            convert this using 3
+  · change boundOK
+        (match F₁.b, F₂.b with
+          | (b₁ : NonNegDyadic), (b₂ : NonNegDyadic) => _
+          | _, _ => ⊤) (x + y)
+    cases hF1_b : F₁.b using Bound.recTopCoe with
+    | top => trivial
+    | coe b1 =>
+      cases hF2_b : F₂.b using Bound.recTopCoe with
+      | top => trivial
+      | coe b2 =>
+        rw [hF1_b] at hbx
+        rw [hF2_b] at hby
+        change |(x : ℚ)| ≤ ((b1.1 : Dyadic) : ℚ) at hbx
+        change |(y : ℚ)| ≤ ((b2.1 : Dyadic) : ℚ) at hby
+        change |((x + y : Dyadic) : ℚ)| ≤ ((b1.1 + b2.1 : Dyadic) : ℚ)
+        push_cast
+        calc |(x : ℚ) + (y : ℚ)|
+            ≤ |(x : ℚ)| + |(y : ℚ)| := abs_add_le _ _
+          _ ≤ ((b1.1 : Dyadic) : ℚ) + ((b2.1 : Dyadic) : ℚ) := add_le_add hbx hby
+
+/-- Finite form of `neg_subset`: `-F ⊆ F`. -/
+theorem neg_subset_finite (F : Format) : -F.toSet ⊆ F.toSet := by
+  intro z hz
+  have h_neg_z : -z ∈ F := mem_toSet.mp hz
+  have h := neg_mem h_neg_z
+  rw [neg_neg] at h
+  exact mem_toSet.mpr h
+
+/-- Finite form of `abs_subset`: `|F| ⊆ F`. -/
+theorem abs_subset_finite (F : Format) :
+    (Dyadic.abs '' F.toSet) ⊆ F.toSet := by
+  rintro z ⟨x, hx, rfl⟩
+  exact mem_toSet.mpr (abs_mem (mem_toSet.mp hx))
+
+/-! ## Containment over values
+
+The inferred specials are exactly those the operation produces, and the
+inferred format contains every result, numeric or special. -/
+
+/-- The specials of `opMul` are exactly the special products. -/
+theorem special_mem_opMul_iff {F₁ F₂ : Format} {s : Special} :
+    s ∈ (opMul F₁ F₂).specials ↔
+      ∃ u ∈ F₁.values, ∃ v ∈ F₂.values, u * v = .special s := by
+  constructor
+  · intro h
+    cases s with
+    | nan =>
+      rcases h with h | h | ⟨a, h⟩ | ⟨b, h⟩
+      · exact ⟨.special .nan, h, .finite 0, F₂.zero_mem, WithSpecial.nan_mul _⟩
+      · exact ⟨.finite 0, F₁.zero_mem, .special .nan, h, WithSpecial.mul_nan _⟩
+      · exact ⟨.special (.inf a), h, .finite 0, F₂.zero_mem, by simp⟩
+      · exact ⟨.finite 0, F₁.zero_mem, .special (.inf b), h, by simp⟩
+    | inf s =>
+      obtain ⟨a, b, rfl, ⟨ha, hb | hb⟩ | ⟨ha, hb⟩⟩ := h
+      · exact ⟨.special (.inf a), ha, .special (.inf b), hb, rfl⟩
+      · obtain ⟨y, hy, hy0, hsy⟩ := hb.exists_sign b
+        exact ⟨.special (.inf a), ha, .finite y, hy, by simp [hy0, hsy]⟩
+      · obtain ⟨x, hx, hx0, hsx⟩ := ha.exists_sign a
+        exact ⟨.finite x, hx, .special (.inf b), hb, by simp [hx0, hsx, Bool.xor_comm]⟩
+  · rintro ⟨u, hu, v, hv, h⟩
+    rcases u with x | (a | _) <;> rcases v with y | (b | _) <;>
+      simp only [WithSpecial.finite_mul_finite, WithSpecial.finite_mul_inf,
+        WithSpecial.inf_mul_finite, WithSpecial.inf_mul_inf, WithSpecial.nan_mul,
+        WithSpecial.mul_nan] at h <;>
+      (try split_ifs at h with hx) <;> cases h
+    · exact Or.inr (Or.inr (Or.inr ⟨b, hv⟩))
+    · exact ⟨decide ((x : ℚ) < 0), b, Bool.xor_comm _ _, Or.inr ⟨⟨x, hu, hx⟩, hv⟩⟩
+    · exact Or.inr (Or.inl hv)
+    · exact Or.inr (Or.inr (Or.inl ⟨a, hu⟩))
+    · exact ⟨a, _, rfl, Or.inl ⟨hu, Or.inr ⟨y, hv, hx⟩⟩⟩
+    · exact ⟨a, b, rfl, Or.inl ⟨hu, Or.inl hv⟩⟩
+    · exact Or.inr (Or.inl hv)
+    all_goals exact Or.inl hu
+
+/-- **Mul ⊆ inferred** (`⊗`): the inferred format contains every IEEE product,
+numeric or special. -/
+theorem mul_subset (F₁ F₂ : Format) :
+    F₁.values * F₂.values ⊆ (opMul F₁ F₂).values := by
+  rintro w ⟨u, hu, v, hv, rfl⟩
+  change u * v ∈ _
+  cases h : u * v with
+  | finite z =>
+    obtain ⟨x, y, rfl, rfl, rfl⟩ := WithSpecial.mul_eq_finite.mp h
+    exact mul_subset_finite F₁ F₂ ⟨x, hu, y, hv, rfl⟩
+  | special s => exact special_mem_opMul_iff.mpr ⟨u, hu, v, hv, h⟩
+
+/-- The specials of `opAdd` are exactly the special sums. -/
+theorem special_mem_opAdd_iff {F₁ F₂ : Format} {s : Special} :
+    s ∈ (opAdd F₁ F₂).specials ↔
+      ∃ u ∈ F₁.values, ∃ v ∈ F₂.values, u + v = .special s := by
+  constructor
+  · intro h
+    cases s with
+    | nan =>
+      rcases h with h | h | ⟨a, ha, hb⟩
+      · exact ⟨.special .nan, h, .finite 0, F₂.zero_mem, WithSpecial.nan_add _⟩
+      · exact ⟨.finite 0, F₁.zero_mem, .special .nan, h, WithSpecial.add_nan _⟩
+      · exact ⟨.special (.inf a), ha, .special (.inf !a), hb, by simp⟩
+    | inf s =>
+      rcases h with h | h
+      · exact ⟨.special (.inf s), h, .finite 0, F₂.zero_mem, rfl⟩
+      · exact ⟨.finite 0, F₁.zero_mem, .special (.inf s), h, rfl⟩
+  · rintro ⟨u, hu, v, hv, h⟩
+    rcases u with x | (a | _) <;> rcases v with y | (b | _) <;>
+      simp only [WithSpecial.finite_add_finite, WithSpecial.finite_add_inf,
+        WithSpecial.inf_add_finite, WithSpecial.inf_add_inf, WithSpecial.nan_add,
+        WithSpecial.add_nan] at h <;>
+      (try split_ifs at h with hab) <;> cases h
+    · exact Or.inr hv
+    · exact Or.inr (Or.inl hv)
+    · exact Or.inl hu
+    · exact Or.inl hu
+    · refine Or.inr (Or.inr ⟨a, hu, ?_⟩)
+      rwa [show b = !a by cases a <;> cases b <;> simp_all] at hv
+    · exact Or.inr (Or.inl hv)
+    all_goals exact Or.inl hu
+
+/-- **Add ⊆ inferred** (`⊕`): the inferred format contains every IEEE sum, numeric
+or special. -/
+theorem add_subset (F₁ F₂ : Format) :
+    F₁.values + F₂.values ⊆ (opAdd F₁ F₂).values := by
+  rintro w ⟨u, hu, v, hv, rfl⟩
+  change u + v ∈ _
+  cases h : u + v with
+  | finite z =>
+    obtain ⟨x, y, rfl, rfl, rfl⟩ := WithSpecial.add_eq_finite.mp h
+    exact add_subset_finite F₁ F₂ ⟨x, hu, y, hv, rfl⟩
+  | special s => exact special_mem_opAdd_iff.mpr ⟨u, hu, v, hv, h⟩
+
+/-- **Neg ⊆ inferred**: the inferred format contains every negated value. -/
+theorem neg_subset (F : Format) : -F.values ⊆ (opNeg F).values := by
+  rintro (d | s) h
+  · exact (mem_neg_iff F d).mp h
+  · exact h
+
+/-- With negation-closed specials, negation preserves the format
+(`format(neg(e)) = format(e)`). -/
+theorem opNeg_of_negClosed {F : Format} (hF : F.NegClosed) : opNeg F = F := by
+  obtain ⟨p, e, b, S⟩ := F
+  simp only [opNeg, mk.injEq, true_and]
+  ext s
+  exact ⟨fun h => by simpa using hF _ h, fun h => hF s h⟩
+
+/-- The specials of `opAbs` are exactly the absolute values of specials. -/
+theorem special_mem_opAbs_iff {F : Format} {s : Special} :
+    s ∈ (opAbs F).specials ↔ ∃ u ∈ F.values, WithSpecial.abs u = .special s := by
+  constructor
+  · intro h
+    cases s with
+    | nan => exact ⟨.special .nan, h, rfl⟩
+    | inf s =>
+      obtain ⟨rfl, a, ha⟩ := h
+      exact ⟨.special (.inf a), ha, rfl⟩
+  · rintro ⟨u, hu, h⟩
+    rcases u with x | (a | _)
+    · exact absurd h (by simp [WithSpecial.abs])
+    · simp only [WithSpecial.abs, WithSpecial.special.injEq] at h
+      subst h; exact ⟨rfl, a, hu⟩
+    · simp only [WithSpecial.abs, WithSpecial.special.injEq] at h
+      subst h; exact hu
+
+/-- **Abs ⊆ inferred**: the inferred format contains every IEEE absolute
+value, numeric or special. -/
+theorem abs_subset (F : Format) :
+    WithSpecial.abs '' F.values ⊆ (opAbs F).values := by
+  rintro w ⟨u, hu, rfl⟩
+  cases h : WithSpecial.abs u with
+  | finite z =>
+    rcases u with x | (_ | _) <;> simp only [WithSpecial.abs, WithSpecial.finite.injEq,
+      reduceCtorEq] at h
+    subst h
+    exact abs_mem (F := F) hu
+  | special s => exact special_mem_opAbs_iff.mpr ⟨u, hu, h⟩
+
+end Format
+
+end Myna
